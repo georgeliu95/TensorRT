@@ -1,0 +1,76 @@
+#############################################################################
+#
+# Notes:
+# 
+# This makefile exports the following lists:
+#
+#   sampleUffMNIST_cpp_sources
+#   sampleUffMNIST_objects
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# sampleUffMNIST_*_sources to sampleUffMNIST_objects, and for linking
+# sampleUffMNIST_targets.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# sampleUffMNIST_cpp_sources.
+#
+# SAMPLES_OBJECTS is populated to contain everything from
+# sampleUffMNIST_objects.
+#
+# This makefile adds to SAMPLES_TARGETS a list of executables (exe,
+# dll, etc.)  that it creates. It defines recipes for building these
+# targets.
+#
+#############################################################################
+
+ifeq ($(NV_BUILD_TYPE),release)
+  sampleUffMNIST_basename = sample_uff_mnist
+else
+  sampleUffMNIST_basename = sample_uff_mnist_debug
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  sampleUffMNIST_makefile = $(NV_SOURCE)/samples/sampleUffMNIST/makefile-sampleUffMNIST.nvmk
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  sampleUffMNIST_cpp_sources += $(NV_SOURCE)/samples/common/logger.cpp
+  sampleUffMNIST_cpp_sources += $(NV_SOURCE)/samples/common/windows/getopt.c
+  sampleUffMNIST_cpp_sources += $(NV_SOURCE)/samples/sampleUffMNIST/sampleUffMNIST.cpp
+
+  SOURCES += $(sampleUffMNIST_cpp_sources)
+  sampleUffMNIST_objects += $(call BUILD_OBJECT_LIST,$(sampleUffMNIST_cpp_sources))
+  SAMPLES_OBJECTS += $(sampleUffMNIST_objects)
+
+  $(sampleUffMNIST_objects): $(sampleUffMNIST_makefile)
+
+  ############################################################
+  # C++ compiler flags
+
+  ############################################################
+  # Targets
+
+  sampleUffMNIST_target += $(OUTPUTDIR)/$(sampleUffMNIST_basename)$(EXESUFFIX)
+  SAMPLES_TARGETS += $(sampleUffMNIST_target)
+
+  $(sampleUffMNIST_target): $(sampleUffMNIST_makefile)
+
+  ############################################################
+  # Linker flags and Recipe
+
+  $(sampleUffMNIST_target): $(SAMPLES_PREREQUISITES)
+  $(sampleUffMNIST_target): $(sampleUffMNIST_objects)
+
+  $(sampleUffMNIST_target): LINKER_FLAGS += $(SAMPLES_LFLAGS)
+  $(sampleUffMNIST_target): LINKER_FLAGS += $(SAMPLES_LIBRARIES)
+  $(sampleUffMNIST_target): LINKER_FLAGS += $(sampleUffMNIST_objects)
+  $(sampleUffMNIST_target): LINKER_FLAGS += -out:$@
+
+  $(sampleUffMNIST_target): LINKER_PARAMETERS_FILE = linkParameters-$(sampleUffMNIST_basename).txt
+
+  $(eval $(call SAMPLES_MAKE_LINK_RECIPE,$(sampleUffMNIST_target)))
+
+endif # NVCFG_INITIALIZED

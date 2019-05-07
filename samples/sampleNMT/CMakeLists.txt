@@ -1,0 +1,24 @@
+add_sample(
+    SRCS
+    sampleNMT.cpp
+    trtUtil.cpp
+    PRIVATE
+    model/beamSearchPolicy.cpp
+    model/componentWeights.cpp
+    model/context.cpp
+    model/debugUtil.cpp
+    model/lstmDecoder.cpp
+    model/lstmEncoder.cpp
+    model/multiplicativeAlignment.cpp
+    model/slpAttention.cpp
+    model/slpEmbedder.cpp
+    model/slpProjection.cpp
+    model/softmaxLikelihood.cpp
+    data/benchmarkWriter.cpp
+    data/bleuScoreWriter.cpp
+    data/dataWriter.cpp
+    data/limitedSamplesDataReader.cpp
+    data/textReader.cpp
+    data/textWriter.cpp
+    data/vocabulary.cpp)
+

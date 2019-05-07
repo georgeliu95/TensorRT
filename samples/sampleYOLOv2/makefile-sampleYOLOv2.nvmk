@@ -1,0 +1,76 @@
+#############################################################################
+#
+# Notes:
+# 
+# This makefile exports the following lists:
+#
+#   sampleYOLOv2_cpp_sources
+#   sampleYOLOv2_objects
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# sampleYOLOv2_*_sources to sampleYOLOv2_objects, and for linking
+# sampleYOLOv2_targets.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# sampleYOLOv2_cpp_sources.
+#
+# SAMPLES_OBJECTS is populated to contain everything from
+# sampleYOLOv2_objects.
+#
+# This makefile adds to SAMPLES_TARGETS a list of executables (exe,
+# dll, etc.)  that it creates. It defines recipes for building these
+# targets.
+#
+#############################################################################
+
+ifeq ($(NV_BUILD_TYPE),release)
+  sampleYOLOv2_basename = sample_yolov2
+else
+  sampleYOLOv2_basename = sample_yolov2_debug
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  sampleYOLOv2_makefile = $(NV_SOURCE)/samples/sampleYOLOv2/makefile-sampleYOLOv2.nvmk
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  sampleYOLOv2_cpp_sources += $(NV_SOURCE)/samples/common/logger.cpp
+  sampleYOLOv2_cpp_sources += $(NV_SOURCE)/samples/sampleYOLOv2/sampleYOLOv2.cpp
+  sampleYOLOv2_cpp_sources += $(NV_SOURCE)/samples/common/windows/getopt.c
+
+  SOURCES += $(sampleYOLOv2_cpp_sources)
+  sampleYOLOv2_objects += $(call BUILD_OBJECT_LIST,$(sampleYOLOv2_cpp_sources))
+  SAMPLES_OBJECTS += $(sampleYOLOv2_objects)
+
+  $(sampleYOLOv2_objects): $(sampleYOLOv2_makefile)
+
+  ############################################################
+  # C++ compiler flags
+
+  ############################################################
+  # Targets
+
+  sampleYOLOv2_target += $(OUTPUTDIR)/$(sampleYOLOv2_basename)$(EXESUFFIX)
+  SAMPLES_TARGETS += $(sampleYOLOv2_target)
+
+  $(sampleYOLOv2_target): $(sampleYOLOv2_makefile)
+
+  ############################################################
+  # Linker flags and Recipe
+
+  $(sampleYOLOv2_target): $(SAMPLES_PREREQUISITES)
+  $(sampleYOLOv2_target): $(sampleYOLOv2_objects)
+
+  $(sampleYOLOv2_target): LINKER_FLAGS += $(SAMPLES_LFLAGS)
+  $(sampleYOLOv2_target): LINKER_FLAGS += $(SAMPLES_LIBRARIES)
+  $(sampleYOLOv2_target): LINKER_FLAGS += $(sampleYOLOv2_objects)
+  $(sampleYOLOv2_target): LINKER_FLAGS += -out:$@
+
+  $(sampleYOLOv2_target): LINKER_PARAMETERS_FILE = linkParameters-$(sampleYOLOv2_basename).txt
+
+  $(eval $(call SAMPLES_MAKE_LINK_RECIPE,$(sampleYOLOv2_target)))
+
+endif # NVCFG_INITIALIZED

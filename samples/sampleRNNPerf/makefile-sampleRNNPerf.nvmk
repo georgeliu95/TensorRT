@@ -1,0 +1,76 @@
+#############################################################################
+#
+# Notes:
+# 
+# This makefile exports the following lists:
+#
+#   sampleRNNPerf_cpp_sources
+#   sampleRNNPerf_objects
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# sampleRNNPerf_*_sources to sampleRNNPerf_objects, and for linking
+# sampleRNNPerf_targets.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# sampleRNNPerf_cpp_sources.
+#
+# SAMPLES_OBJECTS is populated to contain everything from
+# sampleRNNPerf_objects.
+#
+# This makefile adds to SAMPLES_TARGETS a list of executables (exe,
+# dll, etc.)  that it creates. It defines recipes for building these
+# targets.
+#
+#############################################################################
+
+ifeq ($(NV_BUILD_TYPE),release)
+  sampleRNNPerf_basename = sample_rnn_perf
+else
+  sampleRNNPerf_basename = sample_rnn_perf_debug
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  sampleRNNPerf_makefile = $(NV_SOURCE)/samples/sampleRNNPerf/makefile-sampleRNNPerf.nvmk
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  sampleRNNPerf_cpp_sources += $(NV_SOURCE)/samples/common/logger.cpp
+  sampleRNNPerf_cpp_sources += $(NV_SOURCE)/samples/common/windows/getopt.c
+  sampleRNNPerf_cpp_sources += $(NV_SOURCE)/samples/sampleRNNPerf/sampleRNNPerf.cpp
+
+  SOURCES += $(sampleRNNPerf_cpp_sources)
+  sampleRNNPerf_objects += $(call BUILD_OBJECT_LIST,$(sampleRNNPerf_cpp_sources))
+  SAMPLES_OBJECTS += $(sampleRNNPerf_objects)
+
+  $(sampleRNNPerf_objects): $(sampleRNNPerf_makefile)
+
+  ############################################################
+  # C++ compiler flags
+
+  ############################################################
+  # Targets
+
+  sampleRNNPerf_target += $(OUTPUTDIR)/$(sampleRNNPerf_basename)$(EXESUFFIX)
+  SAMPLES_TARGETS += $(sampleRNNPerf_target)
+
+  $(sampleRNNPerf_target): $(sampleRNNPerf_makefile)
+
+  ############################################################
+  # Linker flags and Recipe
+
+  $(sampleRNNPerf_target): $(SAMPLES_PREREQUISITES)
+  $(sampleRNNPerf_target): $(sampleRNNPerf_objects)
+
+  $(sampleRNNPerf_target): LINKER_FLAGS += $(SAMPLES_LFLAGS)
+  $(sampleRNNPerf_target): LINKER_FLAGS += $(SAMPLES_LIBRARIES)
+  $(sampleRNNPerf_target): LINKER_FLAGS += $(sampleRNNPerf_objects)
+  $(sampleRNNPerf_target): LINKER_FLAGS += -out:$@
+
+  $(sampleRNNPerf_target): LINKER_PARAMETERS_FILE = linkParameters-$(sampleRNNPerf_basename).txt
+
+  $(eval $(call SAMPLES_MAKE_LINK_RECIPE,$(sampleRNNPerf_target)))
+
+endif # NVCFG_INITIALIZED

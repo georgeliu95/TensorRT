@@ -1,0 +1,76 @@
+#############################################################################
+#
+# Notes:
+# 
+# This makefile exports the following lists:
+#
+#   sampleUffPluginV2Ext_cpp_sources
+#   sampleUffPluginV2Ext_objects
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# sampleUffPluginV2Ext_*_sources to sampleUffPlugin_objects, and for linking
+# sampleUffPluginV2Ext_targets.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# sampleUffPluginV2Ext_cpp_sources.
+#
+# SAMPLES_OBJECTS is populated to contain everything from
+# sampleUffPluginV2Ext_objects.
+#
+# This makefile adds to SAMPLES_TARGETS a list of executables (exe,
+# dll, etc.)  that it creates. It defines recipes for building these
+# targets.
+#
+#############################################################################
+
+ifeq ($(NV_BUILD_TYPE),release)
+  sampleUffPluginV2Ext_basename = sample_uff_plugin_v2_ext
+else
+  sampleUffPluginV2Ext_basename = sample_uff_plugin_v2_ext_debug
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  sampleUffPluginV2Ext_makefile = $(NV_SOURCE)/samples/sampleUffPluginV2Ext/makefile-sampleUffPluginV2Ext.nvmk
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  sampleUffPluginV2Ext_cpp_sources += $(NV_SOURCE)/samples/common/logger.cpp
+  sampleUffPluginV2Ext_cpp_sources += $(NV_SOURCE)/samples/common/windows/getopt.c
+  sampleUffPluginV2Ext_cpp_sources += $(NV_SOURCE)/samples/sampleUffPluginV2Ext/sampleUffPluginV2Ext.cpp
+
+  SOURCES += $(sampleUffPluginV2Ext_cpp_sources)
+  sampleUffPluginV2Ext_objects += $(call BUILD_OBJECT_LIST,$(sampleUffPluginV2Ext_cpp_sources))
+  SAMPLES_OBJECTS += $(sampleUffPluginV2Ext_objects)
+
+  $(sampleUffPluginV2Ext_objects): $(sampleUffPluginV2Ext_makefile)
+
+  ############################################################
+  # C++ compiler flags
+
+  ############################################################
+  # Targets
+
+  sampleUffPluginV2Ext_target += $(OUTPUTDIR)/$(sampleUffPluginV2Ext_basename)$(EXESUFFIX)
+  SAMPLES_TARGETS += $(sampleUffPluginV2Ext_target)
+
+  $(sampleUffPluginV2Ext_target): $(sampleUffPluginV2Ext_makefile)
+
+  ############################################################
+  # Linker flags and Recipe
+
+  $(sampleUffPluginV2Ext_target): $(SAMPLES_PREREQUISITES)
+  $(sampleUffPluginV2Ext_target): $(sampleUffPluginV2Ext_objects)
+
+  $(sampleUffPluginV2Ext_target): LINKER_FLAGS += $(SAMPLES_LFLAGS)
+  $(sampleUffPluginV2Ext_target): LINKER_FLAGS += $(SAMPLES_LIBRARIES)
+  $(sampleUffPluginV2Ext_target): LINKER_FLAGS += $(sampleUffPluginV2Ext_objects)
+  $(sampleUffPluginV2Ext_target): LINKER_FLAGS += -out:$@
+
+  $(sampleUffPluginV2Ext_target): LINKER_PARAMETERS_FILE = linkParameters-$(sampleUffPluginV2Ext_basename).txt
+
+  $(eval $(call SAMPLES_MAKE_LINK_RECIPE,$(sampleUffPluginV2Ext_target)))
+
+endif # NVCFG_INITIALIZED

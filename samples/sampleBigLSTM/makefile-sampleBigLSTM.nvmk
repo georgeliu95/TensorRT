@@ -1,0 +1,83 @@
+#############################################################################
+#
+# Notes:
+#
+# This makefile exports the following lists:
+#
+#   sampleBigLSTM_cpp_sources
+#   sampleBigLSTM_objects
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# sampleBigLSTM_*_sources to sampleBigLSTM_objects, and for linking
+# sampleBigLSTM_targets.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# sampleBigLSTM_cpp_sources.
+#
+# SAMPLES_OBJECTS is populated to contain everything from
+# sampleBigLSTM_objects.
+#
+# This makefile adds to SAMPLES_TARGETS a list of executables (exe,
+# dll, etc.)  that it creates. It defines recipes for building these
+# targets.
+#
+#############################################################################
+
+ifeq ($(NV_BUILD_TYPE),release)
+  sampleBigLSTM_basename = sample_big_lstm
+else
+  sampleBigLSTM_basename = sample_big_lstm_debug
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  sampleBigLSTM_makefile = $(NV_SOURCE)/samples/sampleBigLSTM/makefile-sampleBigLSTM.nvmk
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  sampleBigLSTM_cpp_sources += $(NV_SOURCE)/samples/common/logger.cpp
+  sampleBigLSTM_cpp_sources += $(NV_SOURCE)/samples/common/windows/getopt.c
+  sampleBigLSTM_cpp_sources += $(NV_SOURCE)/samples/sampleBigLSTM/bind_data.cpp
+  sampleBigLSTM_cpp_sources += $(NV_SOURCE)/samples/sampleBigLSTM/data_utils.cpp
+  sampleBigLSTM_cpp_sources += $(NV_SOURCE)/samples/sampleBigLSTM/params.cpp
+  sampleBigLSTM_cpp_sources += $(NV_SOURCE)/samples/sampleBigLSTM/sampleBigLSTM.cpp
+  sampleBigLSTM_cpp_sources += $(NV_SOURCE)/samples/sampleBigLSTM/weight_utils.cpp
+
+  SOURCES += $(sampleBigLSTM_cpp_sources)
+  sampleBigLSTM_objects += $(call BUILD_OBJECT_LIST,$(sampleBigLSTM_cpp_sources))
+  SAMPLES_OBJECTS += $(sampleBigLSTM_objects)
+
+  $(sampleBigLSTM_objects): $(sampleBigLSTM_makefile)
+
+  ############################################################
+  # C++ compiler flags
+
+  $(call BUILD_OBJECT_LIST,data_utils.cpp weight_utils.cpp sampleBigLSTM.cpp): NV_DEFINES += _SCL_SECURE_NO_WARNINGS
+
+  ############################################################
+  # Targets
+
+  sampleBigLSTM_target += $(OUTPUTDIR)/$(sampleBigLSTM_basename)$(EXESUFFIX)
+  SAMPLES_TARGETS += $(sampleBigLSTM_target)
+
+  $(sampleBigLSTM_target): $(sampleBigLSTM_makefile)
+
+  ############################################################
+  # Linker flags and Recipe
+
+  $(sampleBigLSTM_target): $(SAMPLES_PREREQUISITES)
+  $(sampleBigLSTM_target): $(sampleBigLSTM_objects)
+
+  $(sampleBigLSTM_target): LINKER_FLAGS += $(SAMPLES_LFLAGS)
+  $(sampleBigLSTM_target): LINKER_FLAGS += $(SAMPLES_LIBRARIES)
+  $(sampleBigLSTM_target): LINKER_FLAGS += $(sampleBigLSTM_objects)
+  $(sampleBigLSTM_target): LINKER_FLAGS += -out:$@
+
+  $(sampleBigLSTM_target): LINKER_PARAMETERS_FILE = linkParameters-$(sampleBigLSTM_basename).txt
+
+  $(eval $(call SAMPLES_MAKE_LINK_RECIPE,$(sampleBigLSTM_target)))
+
+endif # NVCFG_INITIALIZED
+

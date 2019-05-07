@@ -1,0 +1,76 @@
+#############################################################################
+#
+# Notes:
+# 
+# This makefile exports the following lists:
+#
+#   sampleMNIST_cpp_sources
+#   sampleMNIST_objects
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# sampleMNIST_*_sources to sampleMNIST_objects, and for linking
+# sampleMNIST_targets.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# sampleMNIST_cpp_sources.
+#
+# SAMPLES_OBJECTS is populated to contain everything from
+# sampleMNIST_objects.
+#
+# This makefile adds to SAMPLES_TARGETS a list of executables (exe,
+# dll, etc.)  that it creates. It defines recipes for building these
+# targets.
+#
+#############################################################################
+
+ifeq ($(NV_BUILD_TYPE),release)
+  sampleMNIST_basename = sample_mnist
+else
+  sampleMNIST_basename = sample_mnist_debug
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  sampleMNIST_makefile = $(NV_SOURCE)/samples/sampleMNIST/makefile-sampleMNIST.nvmk
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  sampleMNIST_cpp_sources += $(NV_SOURCE)/samples/common/logger.cpp
+  sampleMNIST_cpp_sources += $(NV_SOURCE)/samples/sampleMNIST/sampleMNIST.cpp
+  sampleMNIST_cpp_sources += $(NV_SOURCE)/samples/common/windows/getopt.c
+
+  SOURCES += $(sampleMNIST_cpp_sources)
+  sampleMNIST_objects += $(call BUILD_OBJECT_LIST,$(sampleMNIST_cpp_sources))
+  SAMPLES_OBJECTS += $(sampleMNIST_objects)
+
+  $(sampleMNIST_objects): $(sampleMNIST_makefile)
+
+  ############################################################
+  # C++ compiler flags
+
+  ############################################################
+  # Targets
+
+  sampleMNIST_target += $(OUTPUTDIR)/$(sampleMNIST_basename)$(EXESUFFIX)
+  SAMPLES_TARGETS += $(sampleMNIST_target)
+
+  $(sampleMNIST_target): $(sampleMNIST_makefile)
+
+  ############################################################
+  # Linker flags and Recipe
+
+  $(sampleMNIST_target): $(SAMPLES_PREREQUISITES)
+  $(sampleMNIST_target): $(sampleMNIST_objects)
+
+  $(sampleMNIST_target): LINKER_FLAGS += $(SAMPLES_LFLAGS)
+  $(sampleMNIST_target): LINKER_FLAGS += $(SAMPLES_LIBRARIES)
+  $(sampleMNIST_target): LINKER_FLAGS += $(sampleMNIST_objects)
+  $(sampleMNIST_target): LINKER_FLAGS += -out:$@
+
+  $(sampleMNIST_target): LINKER_PARAMETERS_FILE = linkParameters-$(sampleMNIST_basename).txt
+
+  $(eval $(call SAMPLES_MAKE_LINK_RECIPE,$(sampleMNIST_target)))
+
+endif # NVCFG_INITIALIZED

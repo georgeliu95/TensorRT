@@ -1,0 +1,76 @@
+#############################################################################
+#
+# Notes:
+# 
+# This makefile exports the following lists:
+#
+#   sampleRNNv2_cpp_sources
+#   sampleRNNv2_objects
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# sampleRNNv2_*_sources to sampleRNNv2_objects, and for linking
+# sampleRNNv2_targets.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# sampleRNNv2_cpp_sources.
+#
+# SAMPLES_OBJECTS is populated to contain everything from
+# sampleRNNv2_objects.
+#
+# This makefile adds to SAMPLES_TARGETS a list of executables (exe,
+# dll, etc.)  that it creates. It defines recipes for building these
+# targets.
+#
+#############################################################################
+
+ifeq ($(NV_BUILD_TYPE),release)
+  sampleRNNv2_basename = sample_rnnv2
+else
+  sampleRNNv2_basename = sample_rnnv2_debug
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  sampleRNNv2_makefile = $(NV_SOURCE)/samples/sampleRNNv2/makefile-sampleRNNv2.nvmk
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  sampleRNNv2_cpp_sources += $(NV_SOURCE)/samples/common/logger.cpp
+  sampleRNNv2_cpp_sources += $(NV_SOURCE)/samples/common/windows/getopt.c
+  sampleRNNv2_cpp_sources += $(NV_SOURCE)/samples/sampleRNNv2/sampleRNNv2.cpp
+
+  SOURCES += $(sampleRNNv2_cpp_sources)
+  sampleRNNv2_objects += $(call BUILD_OBJECT_LIST,$(sampleRNNv2_cpp_sources))
+  SAMPLES_OBJECTS += $(sampleRNNv2_objects)
+
+  $(sampleRNNv2_objects): $(sampleRNNv2_makefile)
+
+  ############################################################
+  # C++ compiler flags
+
+  ############################################################
+  # Targets
+
+  sampleRNNv2_target += $(OUTPUTDIR)/$(sampleRNNv2_basename)$(EXESUFFIX)
+  SAMPLES_TARGETS += $(sampleRNNv2_target)
+
+  $(sampleRNNv2_target): $(sampleRNNv2_makefile)
+
+  ############################################################
+  # Linker flags and Recipe
+
+  $(sampleRNNv2_target): $(SAMPLES_PREREQUISITES)
+  $(sampleRNNv2_target): $(sampleRNNv2_objects)
+
+  $(sampleRNNv2_target): LINKER_FLAGS += $(SAMPLES_LFLAGS)
+  $(sampleRNNv2_target): LINKER_FLAGS += $(SAMPLES_LIBRARIES)
+  $(sampleRNNv2_target): LINKER_FLAGS += $(sampleRNNv2_objects)
+  $(sampleRNNv2_target): LINKER_FLAGS += -out:$@
+
+  $(sampleRNNv2_target): LINKER_PARAMETERS_FILE = linkParameters-$(sampleRNNv2_basename).txt
+
+  $(eval $(call SAMPLES_MAKE_LINK_RECIPE,$(sampleRNNv2_target)))
+
+endif # NVCFG_INITIALIZED

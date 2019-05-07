@@ -1,0 +1,323 @@
+#############################################################################
+# makefile-plugin.nvmk
+#
+# Notes:
+# 
+# This makefile exports the following lists:
+#
+#   PLUGIN_CPP_SOURCES
+#   PLUGIN_CU_SOURCES
+#   PLUGIN_OBJECTS
+#   PLUGIN_TARGETS
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# PLUGIN_*_SOURCES to PLUGIN_OBJECTS, and for linking PLUGIN_TARGETS.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# PLUGIN_CPP_SOURCES.
+#
+# The nvmake-standard OBJECTS is populated to contain everything from
+# PLUGIN_OBJECTS.
+#
+# This makefile exports a list of targets in PLUGIN_TARGETS. It
+# defines recipes for building the targets. The expectation is that
+# the makefile which includes this one adds PLUGIN_TARGETS to the
+# list of makefile goals.
+#
+#############################################################################
+
+ifeq ($(findstring $(NV_BUILD_TYPE),"debug release"),)
+  $(error Only release and debug builds are supported)
+endif
+
+ifeq ($(findstring $(NV_TARGET_ARCH),"amd64"),)
+  $(error Only x64 (a.k.a amd64) target architecture is supported)
+endif
+
+# Only WDDM versions of Windows OS are supported
+ifneq ($(NV_IS_WDDM),1)
+  $(error Unsupported NV_TARGET_OS $(NV_TARGET_OS). Linux support is planned but not implemented yet.)
+endif
+
+PLUGIN_BASENAME = nvinfer_plugin
+
+ifeq ($(NV_TARGET_OS_FAMILY),Windows)
+  PLUGIN_TARGETS += $(OUTPUTDIR)/$(PLUGIN_BASENAME).dll
+
+  PLUGIN_IMPORT_LIBRARY = $(OUTPUTDIR)/$(PLUGIN_BASENAME).lib
+  PLUGIN_TARGETS += $(PLUGIN_IMPORT_LIBRARY)
+
+  # This is used by DVS, and it can be convenient for scripting.
+  ifeq ($(NV_DO_INSTALL),1)
+    PLUGIN_TARGETS += $(NV_INSTALL_DIR)/$(PLUGIN_BASENAME).dll
+    PLUGIN_TARGETS += $(NV_INSTALL_DIR)/$(PLUGIN_BASENAME).lib
+    ifeq ($(NV_GEN_PDB),1)
+      PLUGIN_TARGETS += $(NV_SYMBOL_DIR)/$(PLUGIN_BASENAME).pdb
+    endif
+  endif
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  PLUGIN_CPP_SOURCES_SHORT += clipPlugin.cpp
+  PLUGIN_CPP_SOURCES_SHORT += flattenConcat.cpp
+  PLUGIN_CPP_SOURCES_SHORT += gridAnchorPlugin.cpp
+  PLUGIN_CPP_SOURCES_SHORT += InferPlugin.cpp
+  PLUGIN_CPP_SOURCES_SHORT += nmsPlugin.cpp
+  PLUGIN_CPP_SOURCES_SHORT += normalizePlugin.cpp
+  PLUGIN_CPP_SOURCES_SHORT += nvPluginsLegacy.cpp
+  PLUGIN_CPP_SOURCES_SHORT += lReluPlugin.cpp
+  PLUGIN_CPP_SOURCES_SHORT += priorBoxPlugin.cpp
+  PLUGIN_CPP_SOURCES_SHORT += regionPlugin.cpp
+  PLUGIN_CPP_SOURCES_SHORT += reorgPlugin.cpp
+  PLUGIN_CPP_SOURCES_SHORT += vocEvaluate.cpp
+  PLUGIN_CPP_SOURCES_SHORT += batchedNMSPlugin.cpp
+  PLUGIN_CPP_SOURCES_SHORT += nmsHelper.cpp
+  PLUGIN_CPP_SOURCES_SHORT += reducedMathPlugin.cpp
+  PLUGIN_CPP_SOURCES_SHORT += checkMacrosPlugin.cpp
+  PLUGIN_CPP_SOURCES += $(addprefix $(NV_SOURCE)/plugin/,$(PLUGIN_CPP_SOURCES_SHORT))
+
+  SOURCES += $(PLUGIN_CPP_SOURCES)
+  PLUGIN_CPP_OBJECTS += $(call BUILD_OBJECT_LIST,$(PLUGIN_CPP_SOURCES))
+  PLUGIN_OBJECTS += $(PLUGIN_CPP_OBJECTS)
+
+  PLUGIN_CU_SOURCES_SHORT += allClassNMS.cu
+  PLUGIN_CU_SOURCES_SHORT += bboxDeltas2Proposals.cu
+  PLUGIN_CU_SOURCES_SHORT += clip.cu
+  PLUGIN_CU_SOURCES_SHORT += common.cu
+  PLUGIN_CU_SOURCES_SHORT += decodeBBoxes.cu
+  PLUGIN_CU_SOURCES_SHORT += detectionForward.cu
+  PLUGIN_CU_SOURCES_SHORT += extractFgScores.cu
+  PLUGIN_CU_SOURCES_SHORT += gatherNMSOutputs.cu
+  PLUGIN_CU_SOURCES_SHORT += gatherTopDetections.cu
+  PLUGIN_CU_SOURCES_SHORT += generateAnchors.cu
+  PLUGIN_CU_SOURCES_SHORT += nmsLayer.cu
+  PLUGIN_CU_SOURCES_SHORT += normalizeLayer.cu
+  PLUGIN_CU_SOURCES_SHORT += NvPluginFasterRCNN.cu
+  PLUGIN_CU_SOURCES_SHORT += NvPluginSSD.cu
+  PLUGIN_CU_SOURCES_SHORT += permuteData.cu
+  PLUGIN_CU_SOURCES_SHORT += permuteLayer.cu
+  PLUGIN_CU_SOURCES_SHORT += lReLU.cu
+  PLUGIN_CU_SOURCES_SHORT += priorBoxLayer.cu
+  PLUGIN_CU_SOURCES_SHORT += proposalsForward.cu
+  PLUGIN_CU_SOURCES_SHORT += regionForward.cu
+  PLUGIN_CU_SOURCES_SHORT += reorgForward.cu
+  PLUGIN_CU_SOURCES_SHORT += roiPooling.cu
+  PLUGIN_CU_SOURCES_SHORT += rproiInferenceFused.cu
+  PLUGIN_CU_SOURCES_SHORT += sortScoresPerClass.cu
+  PLUGIN_CU_SOURCES_SHORT += sortScoresPerImage.cu
+  PLUGIN_CU_SOURCES_SHORT += batchedNMSInference.cu
+  PLUGIN_CU_SOURCES += $(addprefix $(NV_SOURCE)/plugin/,$(PLUGIN_CU_SOURCES_SHORT))
+
+  PLUGIN_CU_OBJECTS += $(call BUILD_OBJECT_LIST, $(PLUGIN_CU_SOURCES))
+  PLUGIN_OBJECTS += $(PLUGIN_CU_OBJECTS)
+  OBJECTS += $(PLUGIN_CU_OBJECTS)
+
+  # Automatically rebuild objects after changing this makefile
+  $(PLUGIN_OBJECTS): $(NV_SOURCE)/plugin/makefile-plugin.nvmk
+
+  ############################################################
+  # Set misc stuff
+
+  # Windows alternative to the unix-specific defines.inc
+  include $(NV_SOURCE)/nvmake/makefile-defines.nvmk
+
+  ############################################################
+  # C++ compiler flags
+
+  PLUGIN_INCLUDES += $(cuda_toolkit)/include
+  PLUGIN_INCLUDES += $(cudnn)/include
+  PLUGIN_INCLUDES += $(NV_SOURCE)/plugin
+  PLUGIN_INCLUDES += $(NV_SOURCE)/include
+
+  PLUGIN_DEFINES += PROTOBUF_TARGET_x86_64
+  PLUGIN_DEFINES += TRT_CUDA_ENABLE_HMMA
+  PLUGIN_DEFINES += ENABLE_DLA_EMULATION=0
+  PLUGIN_DEFINES += ENABLE_DLA=0
+  PLUGIN_DEFINES += ENABLE_EGL_EMULATION=0
+  PLUGIN_DEFINES += ENABLE_NVM_EMULATION=0
+  PLUGIN_DEFINES += ENABLE_CASK
+  PLUGIN_DEFINES += TENSORRT_BUILD_LIB
+
+  ifeq ($(NV_TARGET_OS_FAMILY),Windows)
+
+    # conversion from A to B, possible loss of data
+    PLUGIN_CFLAGS += -wd4267
+
+    # 'argument': conversion from 'int64_t' to 'int', possible loss of data
+    PLUGIN_CFLAGS += -wd4244
+
+  else
+    PLUGIN_CFLAGS += -Wno-unused-function
+  endif
+
+  NV_REQUIRED_DIRS += $(PLUGIN_INCLUDES)
+  $(PLUGIN_OBJECTS): NV_INCLUDES += $(PLUGIN_INCLUDES)
+  $(PLUGIN_OBJECTS): NV_DEFINES += $(PLUGIN_DEFINES)
+  $(PLUGIN_OBJECTS): CFLAGS += $(PLUGIN_CFLAGS)
+
+  ############################################################
+  # NVCC compiler flags
+
+  $(foreach src,$(PLUGIN_CU_SOURCES), \
+    $(foreach obj, $(call BUILD_OBJECT_LIST, $(src)), \
+      $(eval $(call NV_OBJECT_FROM_SOURCE_RULE_CU, $(src), $(obj)))))
+
+  PLUGIN_NVCC_FLAGS += -use_fast_math
+  PLUGIN_NVCC_FLAGS += -Xfatbin
+  PLUGIN_NVCC_FLAGS += -compress-all
+
+  PLUGIN_NVCC_FLAGS += -DTRT_CUDA_ENABLE_HMMA
+
+  ifeq ($(NV_TARGET_OS_FAMILY),Unix)
+    # These options are not supported when running on windows using msvc
+    PLUGIN_NVCC_FLAGS += -std=c++11
+    PLUGIN_NVCC_FLAGS += -D_GLIBCXX_USE_CXX11_ABI=0
+    PLUGIN_NVCC_FLAGS += --compiler-options=-fPIC
+  endif
+
+  PLUGIN_NVCC_FLAGS += -I$(MSVC_COMPILER_DIR)/include
+  PLUGIN_NVCC_FLAGS += -I$(MSVC_COMPILER_DIR)/../ucrt/include
+  ifeq ($(NV_TARGET_OS_FAMILY),Windows)
+    PLUGIN_NVCC_FLAGS += -I$(strip $(subst bin/nvcc.exe,,$(NVCC)))/include
+  endif
+  PLUGIN_NVCC_FLAGS += -I$(NV_SOURCE)/include
+  PLUGIN_NVCC_FLAGS += -I$(NV_EXTERNALS)/cub/1.8.0
+
+  #ifeq ($(GENCODES),)
+    # Generate SASS code for each SM architecture listed in $(SMS)
+    $(foreach sm,$(SMS),$(eval PLUGIN_GENCODES += -gencode arch=compute_$(sm),code=sm_$(sm)))
+
+    # Generate PTX code from the highest SM architecture in $(SMS) to guarantee forward-compatibility
+    HIGHEST_SM := $(lastword $(sort $(SMS)))
+    ifneq ($(HIGHEST_SM),)
+      PLUGIN_GENCODES += -gencode arch=compute_$(HIGHEST_SM),code=compute_$(HIGHEST_SM)
+    endif
+
+    PLUGIN_NVCC_FLAGS += $(PLUGIN_GENCODES)
+  #endif
+
+  # Need to filter out some CFLAGS that NVCC automatically adds to
+  # cl.exe command line, but adds slightly differently than the
+  # corresponding flag that is already present in CFLAGS. This
+  # behavior from NVCC is annoying.
+  #
+  # Note that the use of $(filter-out) means this workaround has to be
+  # done after all additions to CFLAGS are complete. Otherwise a thing
+  # added to CFLAGS after this point will not get into
+  # CFLAGS_for_NVCC.
+  #
+  # Problem
+  #   cl : Command line warning D9025 : overriding '/Fo_out/wddm2_amd64_debug/' with '/Fo_out/wddm2_amd64_debug/volta_hcudnn_big.obj'
+  # Workaround
+  #   The former is from CFLAGS, the latter is auto-added by
+  #   NVCC. Filter out the former.
+
+  PLUGIN_NVCC_BAD_FLAGS += -Fo$(OUTPUTDIR)/
+  PLUGIN_CFLAGS_for_NVCC = $(filter-out $(PLUGIN_NVCC_BAD_FLAGS),$(CFLAGS) $(PLUGIN_CFLAGS))
+  PLUGIN_NVCC_FLAGS += $(addprefix --compiler-options=,$(PLUGIN_CFLAGS_for_NVCC))
+
+  $(PLUGIN_CU_OBJECTS): NVCC_FLAGS += $(PLUGIN_NVCC_FLAGS)
+
+  $(call BUILD_OBJECT_LIST, clip.cu): NVCC_FLAGS += -I$(NV_SOURCE)/plugin
+  $(call BUILD_OBJECT_LIST, clip.cu priorBoxLayer.cu): NVCC_FLAGS += -I$(NV_SOURCE)/rtExt/cuda
+  $(call BUILD_OBJECT_LIST, NvPluginFasterRCNN.cu NvPluginSSD.cu): NVCC_FLAGS += -I$(NV_SOURCE)/common
+  $(call BUILD_OBJECT_LIST, NvPluginSSD.cu clip.cu): NVCC_FLAGS += -I$(cudnn)/include
+
+  # dit\externals\cub\1.8.0\cub\device\dispatch/dispatch_radix_sort.cuh(617): warning C4296: '>': expression is always false
+  $(call BUILD_OBJECT_LIST, nmsLayer.cu): NVCC_FLAGS += --compiler-options=-wd4296
+
+  #############################################################################
+  # Dependency on nvinfer
+
+  ifdef NVINFER_IMPORT_LIBRARY
+    # This makefile has been included by a makefile that builds
+    # nvinfer import library.
+    PLUGIN_PATH_TO_NVINFER_IMPORT_LIBRARY = $(NVINFER_IMPORT_LIBRARY)
+  else
+    # This makefile has been included by a makefile that does not also
+    # build nvinfer's import library.
+    #
+    # As a HACK, cross fingers and try to find an nvinfer import
+    # library in a nearby directory.
+    $(warning debug message - plugin is guessing location of the nvinfer import library (NVINFER_IMPORT_LIBRARY is not defined))
+    PLUGIN_PATH_TO_NVINFER_IMPORT_LIBRARY = $(NV_SOURCE)/nvmake/$(OUTPUTDIR)/nvinfer.lib
+  endif
+  $(info debug message - plugin is using nvinfer import library: $(PLUGIN_PATH_TO_NVINFER_IMPORT_LIBRARY))
+
+  PLUGIN_PREREQUISITES += $(PLUGIN_PATH_TO_NVINFER_IMPORT_LIBRARY)
+
+  ############################################################
+  # Resource compiler
+
+  ############################################################
+  # Linker flags
+
+  ifeq ($(NV_TARGET_ARCH),x86)
+    plugin_compiler_lib = lib
+  else ifeq ($(NV_TARGET_ARCH),amd64)
+    plugin_compiler_lib = lib/amd64
+  else
+      $(error Unsupported NV_TARGET_ARCH $(NV_TARGET_ARCH))
+  endif
+
+  plugin_library_dirs += $(NV_WDKSDK_LIB)/um/$(NV_WDKSDK_LIB_CPU)
+  plugin_library_dirs += $(MSVC_COMPILER_DIR)/$(plugin_compiler_lib)
+  plugin_library_dirs += $(cuda_toolkit)/lib/x64
+  plugin_library_dirs += $(cuda_toolkit)/lib/x64
+  NV_REQUIRED_DIRS += $(plugin_library_dirs)
+
+  plugin_libraries += cudart.lib
+  plugin_libraries += cublas.lib
+  plugin_libraries += $(PLUGIN_PATH_TO_NVINFER_IMPORT_LIBRARY)
+
+  # Start with flags that come from nvmake standard library
+  PLUGIN_LFLAGS += $(LFLAGS)
+
+  PLUGIN_LFLAGS += -WX
+  PLUGIN_LFLAGS += -subsystem:console
+
+  PLUGIN_LFLAGS += -INCREMENTAL:NO
+
+  ifeq ($(NV_BUILD_TYPE),release)
+    # Fix ability to debug usermode stack frames from the kernel debugger
+    PLUGIN_LFLAGS += -opt:ref
+    PLUGIN_LFLAGS += -opt:icf
+  endif
+
+  PLUGIN_LFLAGS += $(addprefix -libpath:,$(plugin_library_dirs))
+
+  # Turn on this flag when debugging linker error such as duplicate symbol definitions.
+  # NVINFER_LFLAGS += -verbose:lib
+
+  ############################################################
+  # Recipes
+
+  ifeq ($(NV_TARGET_OS_FAMILY),Windows)
+    PLUGIN_LINK_PARAMETERS_FILE = linkParameters-$(PLUGIN_BASENAME).txt
+
+    PLUGIN_PREREQUISITES += $(PLUGIN_OBJECTS)
+
+    plugin_linker_flags += -DLL
+    plugin_linker_flags += $(strip $(PLUGIN_LFLAGS))
+    plugin_linker_flags += $(plugin_libraries)
+    plugin_linker_flags += $(PLUGIN_OBJECTS)
+    plugin_linker_flags += -out:$@
+
+    $(OUTPUTDIR)/$(PLUGIN_BASENAME).dll: $(PLUGIN_PREREQUISITES)
+	@$(ECHO) Begin linking $@
+	-$(RM) $(@:.dll=.pdb)
+	$(file >$(OUTPUTDIR)/$(PLUGIN_LINK_PARAMETERS_FILE), $(plugin_linker_flags))
+	$(call call_linker_print_params_on_verbose,$(OUTPUTDIR_ABSOLUTE)/$(PLUGIN_LINK_PARAMETERS_FILE))
+	$(LINK) @$(OUTPUTDIR)/$(PLUGIN_LINK_PARAMETERS_FILE)
+	@$(ECHO) Done linking $@
+
+    $(eval $(call NV_TARGET_ALSO_UPDATES_RULE,$(OUTPUTDIR)/$(PLUGIN_BASENAME).dll,$(OUTPUTDIR)/$(PLUGIN_BASENAME).lib))
+    $(eval $(call NV_TARGET_ALSO_UPDATES_RULE,$(OUTPUTDIR)/$(PLUGIN_BASENAME).dll,$(OUTPUTDIR)/$(PLUGIN_BASENAME).pdb))
+  endif
+
+endif # NVCFG_INITIALIZED

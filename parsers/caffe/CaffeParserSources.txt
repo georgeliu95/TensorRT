@@ -1,0 +1,4 @@
+set(CAFFE_PARSER_SOURCES 
+    caffe/caffeParser.cpp
+    caffe/ditcaffe.pb.cc
+)

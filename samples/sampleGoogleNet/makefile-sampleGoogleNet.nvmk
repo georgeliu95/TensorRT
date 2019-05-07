@@ -1,0 +1,76 @@
+#############################################################################
+#
+# Notes:
+# 
+# This makefile exports the following lists:
+#
+#   sampleGoogleNet_cpp_sources
+#   sampleGoogleNet_objects
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# sampleGoogleNet_*_sources to sampleGoogleNet_objects, and for linking
+# sampleGoogleNet_targets.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# sampleGoogleNet_cpp_sources.
+#
+# SAMPLES_OBJECTS is populated to contain everything from
+# sampleGoogleNet_objects.
+#
+# This makefile adds to SAMPLES_TARGETS a list of executables (exe,
+# dll, etc.)  that it creates. It defines recipes for building these
+# targets.
+#
+#############################################################################
+
+ifeq ($(NV_BUILD_TYPE),release)
+  sampleGoogleNet_basename = sample_googlenet
+else
+  sampleGoogleNet_basename = sample_googlenet_debug
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  sampleGoogleNet_makefile = $(NV_SOURCE)/samples/sampleGoogleNet/makefile-sampleGoogleNet.nvmk
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  sampleGoogleNet_cpp_sources += $(NV_SOURCE)/samples/common/logger.cpp
+  sampleGoogleNet_cpp_sources += $(NV_SOURCE)/samples/sampleGoogleNet/sampleGoogleNet.cpp
+  sampleGoogleNet_cpp_sources += $(NV_SOURCE)/samples/common/windows/getopt.c
+
+  SOURCES += $(sampleGoogleNet_cpp_sources)
+  sampleGoogleNet_objects += $(call BUILD_OBJECT_LIST,$(sampleGoogleNet_cpp_sources))
+  SAMPLES_OBJECTS += $(sampleGoogleNet_objects)
+
+  $(sampleGoogleNet_objects): $(sampleGoogleNet_makefile)
+
+  ############################################################
+  # C++ compiler flags
+
+  ############################################################
+  # Targets
+
+  sampleGoogleNet_target += $(OUTPUTDIR)/$(sampleGoogleNet_basename)$(EXESUFFIX)
+  SAMPLES_TARGETS += $(sampleGoogleNet_target)
+
+  $(sampleGoogleNet_target): $(sampleGoogleNet_makefile)
+
+  ############################################################
+  # Linker flags and Recipe
+
+  $(sampleGoogleNet_target): $(SAMPLES_PREREQUISITES)
+  $(sampleGoogleNet_target): $(sampleGoogleNet_objects)
+
+  $(sampleGoogleNet_target): LINKER_FLAGS += $(SAMPLES_LFLAGS)
+  $(sampleGoogleNet_target): LINKER_FLAGS += $(SAMPLES_LIBRARIES)
+  $(sampleGoogleNet_target): LINKER_FLAGS += $(sampleGoogleNet_objects)
+  $(sampleGoogleNet_target): LINKER_FLAGS += -out:$@
+
+  $(sampleGoogleNet_target): LINKER_PARAMETERS_FILE = linkParameters-$(sampleGoogleNet_basename).txt
+
+  $(eval $(call SAMPLES_MAKE_LINK_RECIPE,$(sampleGoogleNet_target)))
+
+endif # NVCFG_INITIALIZED

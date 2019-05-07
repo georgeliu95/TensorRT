@@ -1,0 +1,76 @@
+#############################################################################
+#
+# Notes:
+# 
+# This makefile exports the following lists:
+#
+#   sampleUff_cpp_sources
+#   sampleUff_objects
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# sampleUff_*_sources to sampleUff_objects, and for linking
+# sampleUff_targets.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# sampleUff_cpp_sources.
+#
+# SAMPLES_OBJECTS is populated to contain everything from
+# sampleUff_objects.
+#
+# This makefile adds to SAMPLES_TARGETS a list of executables (exe,
+# dll, etc.)  that it creates. It defines recipes for building these
+# targets.
+#
+#############################################################################
+
+ifeq ($(NV_BUILD_TYPE),release)
+  sampleUff_basename = sample_uff
+else
+  sampleUff_basename = sample_uff_debug
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  sampleUff_makefile = $(NV_SOURCE)/samples/sampleUff/makefile-sampleUff.nvmk
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  sampleUff_cpp_sources += $(NV_SOURCE)/samples/common/logger.cpp
+  sampleUff_cpp_sources += $(NV_SOURCE)/samples/common/windows/getopt.c
+  sampleUff_cpp_sources += $(NV_SOURCE)/samples/sampleUff/sampleUff.cpp
+
+  SOURCES += $(sampleUff_cpp_sources)
+  sampleUff_objects += $(call BUILD_OBJECT_LIST,$(sampleUff_cpp_sources))
+  SAMPLES_OBJECTS += $(sampleUff_objects)
+
+  $(sampleUff_objects): $(sampleUff_makefile)
+
+  ############################################################
+  # C++ compiler flags
+
+  ############################################################
+  # Targets
+
+  sampleUff_target += $(OUTPUTDIR)/$(sampleUff_basename)$(EXESUFFIX)
+  SAMPLES_TARGETS += $(sampleUff_target)
+
+  $(sampleUff_target): $(sampleUff_makefile)
+
+  ############################################################
+  # Linker flags and Recipe
+
+  $(sampleUff_target): $(SAMPLES_PREREQUISITES)
+  $(sampleUff_target): $(sampleUff_objects)
+
+  $(sampleUff_target): LINKER_FLAGS += $(SAMPLES_LFLAGS)
+  $(sampleUff_target): LINKER_FLAGS += $(SAMPLES_LIBRARIES)
+  $(sampleUff_target): LINKER_FLAGS += $(sampleUff_objects)
+  $(sampleUff_target): LINKER_FLAGS += -out:$@
+
+  $(sampleUff_target): LINKER_PARAMETERS_FILE = linkParameters-$(sampleUff_basename).txt
+
+  $(eval $(call SAMPLES_MAKE_LINK_RECIPE,$(sampleUff_target)))
+
+endif # NVCFG_INITIALIZED

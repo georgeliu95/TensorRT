@@ -1,0 +1,76 @@
+#############################################################################
+#
+# Notes:
+# 
+# This makefile exports the following lists:
+#
+#   sampleONNX_cpp_sources
+#   sampleONNX_objects
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# sampleONNX_*_sources to sampleONNX_objects, and for linking
+# sampleONNX_targets.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# sampleONNX_cpp_sources.
+#
+# SAMPLES_OBJECTS is populated to contain everything from
+# sampleONNX_objects.
+#
+# This makefile adds to SAMPLES_TARGETS a list of executables (exe,
+# dll, etc.)  that it creates. It defines recipes for building these
+# targets.
+#
+#############################################################################
+
+ifeq ($(NV_BUILD_TYPE),release)
+  sampleONNX_basename = sample_onnx
+else
+  sampleONNX_basename = sample_onnx_debug
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  sampleONNX_makefile = $(NV_SOURCE)/samples/sampleONNX/makefile-sampleONNX.nvmk
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  sampleONNX_cpp_sources += $(NV_SOURCE)/samples/common/logger.cpp
+  sampleONNX_cpp_sources += $(NV_SOURCE)/samples/sampleONNX/sampleONNX.cpp
+  sampleONNX_cpp_sources += $(NV_SOURCE)/samples/common/windows/getopt.c
+
+  SOURCES += $(sampleONNX_cpp_sources)
+  sampleONNX_objects += $(call BUILD_OBJECT_LIST,$(sampleONNX_cpp_sources))
+  SAMPLES_OBJECTS += $(sampleONNX_objects)
+
+  $(sampleONNX_objects): $(sampleONNX_makefile)
+
+  ############################################################
+  # C++ compiler flags
+
+  ############################################################
+  # Targets
+
+  sampleONNX_target += $(OUTPUTDIR)/$(sampleONNX_basename)$(EXESUFFIX)
+  SAMPLES_TARGETS += $(sampleONNX_target)
+
+  $(sampleONNX_target): $(sampleONNX_makefile)
+
+  ############################################################
+  # Linker flags and Recipe
+
+  $(sampleONNX_target): $(SAMPLES_PREREQUISITES)
+  $(sampleONNX_target): $(sampleONNX_objects)
+
+  $(sampleONNX_target): LINKER_FLAGS += $(SAMPLES_LFLAGS)
+  $(sampleONNX_target): LINKER_FLAGS += $(SAMPLES_LIBRARIES)
+  $(sampleONNX_target): LINKER_FLAGS += $(sampleONNX_objects)
+  $(sampleONNX_target): LINKER_FLAGS += -out:$@
+
+  $(sampleONNX_target): LINKER_PARAMETERS_FILE = linkParameters-$(sampleONNX_basename).txt
+
+  $(eval $(call SAMPLES_MAKE_LINK_RECIPE,$(sampleONNX_target)))
+
+endif # NVCFG_INITIALIZED

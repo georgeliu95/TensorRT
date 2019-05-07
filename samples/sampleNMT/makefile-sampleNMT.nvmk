@@ -1,0 +1,106 @@
+#############################################################################
+#
+# Notes:
+# 
+# This makefile exports the following lists:
+#
+#   sampleNMT_cpp_sources
+#   sampleNMT_objects
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# sampleNMT_*_sources to sampleNMT_objects, and for linking
+# sampleNMT_targets.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# sampleNMT_cpp_sources.
+#
+# SAMPLES_OBJECTS is populated to contain everything from
+# sampleNMT_objects.
+#
+# This makefile adds to SAMPLES_TARGETS a list of executables (exe,
+# dll, etc.)  that it creates. It defines recipes for building these
+# targets.
+#
+#############################################################################
+
+ifeq ($(NV_BUILD_TYPE),release)
+  sampleNMT_basename = sample_nmt
+else
+  sampleNMT_basename = sample_nmt_debug
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  sampleNMT_makefile = $(NV_SOURCE)/samples/sampleNMT/makefile-sampleNMT.nvmk
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/common/logger.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/common/windows/getopt.c
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/data/benchmarkWriter.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/data/bleuScoreWriter.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/data/dataWriter.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/data/limitedSamplesDataReader.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/data/textReader.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/data/textWriter.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/data/vocabulary.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/model/beamSearchPolicy.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/model/componentWeights.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/model/contextNMT.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/model/debugUtil.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/model/lstmDecoder.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/model/lstmEncoder.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/model/multiplicativeAlignment.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/model/slpAttention.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/model/slpEmbedder.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/model/slpProjection.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/model/softmaxLikelihood.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/sampleNMT.cpp
+  sampleNMT_cpp_sources += $(NV_SOURCE)/samples/sampleNMT/trtUtil.cpp
+
+  SOURCES += $(sampleNMT_cpp_sources)
+  sampleNMT_objects += $(call BUILD_OBJECT_LIST,$(sampleNMT_cpp_sources))
+  SAMPLES_OBJECTS += $(sampleNMT_objects)
+
+  $(sampleNMT_objects): $(sampleNMT_makefile)
+
+  ############################################################
+  # C++ compiler flags
+
+  $(sampleNMT_objects): NV_INCLUDES += $(NV_SOURCE)/samples/sampleNMT
+
+  # samples\sampleNMT\data\bleuScoreWriter.cpp(34): warning C4566: character represented by universal-character-name '\u2581' cannot be represented in the current code page (1252)
+  $(call BUILD_OBJECT_LIST,bleuScoreWriter.cpp): CFLAGS += -wd4566
+
+  # samples\sampleNMT\model\componentWeights.cpp(16): warning C4146: unary minus operator applied to unsigned type, result still unsigned
+  $(call BUILD_OBJECT_LIST,componentWeights.cpp): CFLAGS += -wd4146
+
+  # S:\sw\tools\win32\msvc141u5\VC\include\xutility(2544): warning C4996: 'std::copy_n::_Unchecked_iterators::_Deprecate': Call to 'std::copy_n' with parameters that may be unsafe - this call relies on the caller to check that the passed values are correct. To disable this warning, use -D_SCL_SECURE_NO_WARNINGS. See documentation on how to use Visual C++ 'Checked Iterators'
+  $(call BUILD_OBJECT_LIST,sampleNMT.cpp beamSearchPolicy.cpp): NV_DEFINES += _SCL_SECURE_NO_WARNINGS
+
+  ############################################################
+  # Targets
+
+  sampleNMT_target += $(OUTPUTDIR)/$(sampleNMT_basename)$(EXESUFFIX)
+  SAMPLES_TARGETS += $(sampleNMT_target)
+
+  $(sampleNMT_target): $(sampleNMT_makefile)
+
+  ############################################################
+  # Linker flags and Recipe
+
+  $(sampleNMT_target): $(SAMPLES_PREREQUISITES)
+  $(sampleNMT_target): $(sampleNMT_objects)
+
+  $(sampleNMT_target): LINKER_FLAGS += $(SAMPLES_LFLAGS)
+  $(sampleNMT_target): LINKER_FLAGS += $(SAMPLES_LIBRARIES)
+  $(sampleNMT_target): LINKER_FLAGS += $(sampleNMT_objects)
+  $(sampleNMT_target): LINKER_FLAGS += -out:$@
+
+  $(sampleNMT_target): LINKER_PARAMETERS_FILE = linkParameters-$(sampleNMT_basename).txt
+
+  $(eval $(call SAMPLES_MAKE_LINK_RECIPE,$(sampleNMT_target)))
+
+endif # NVCFG_INITIALIZED

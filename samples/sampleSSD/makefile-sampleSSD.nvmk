@@ -1,0 +1,76 @@
+#############################################################################
+#
+# Notes:
+# 
+# This makefile exports the following lists:
+#
+#   sampleSSD_cpp_sources
+#   sampleSSD_objects
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# sampleSSD_*_sources to sampleSSD_objects, and for linking
+# sampleSSD_targets.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# sampleSSD_cpp_sources.
+#
+# SAMPLES_OBJECTS is populated to contain everything from
+# sampleSSD_objects.
+#
+# This makefile adds to SAMPLES_TARGETS a list of executables (exe,
+# dll, etc.)  that it creates. It defines recipes for building these
+# targets.
+#
+#############################################################################
+
+ifeq ($(NV_BUILD_TYPE),release)
+  sampleSSD_basename = sample_ssd
+else
+  sampleSSD_basename = sample_ssd_debug
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  sampleSSD_makefile = $(NV_SOURCE)/samples/sampleSSD/makefile-sampleSSD.nvmk
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  sampleSSD_cpp_sources += $(NV_SOURCE)/samples/common/logger.cpp
+  sampleSSD_cpp_sources += $(NV_SOURCE)/samples/sampleSSD/sampleSSD.cpp
+  sampleSSD_cpp_sources += $(NV_SOURCE)/samples/common/windows/getopt.c
+
+  SOURCES += $(sampleSSD_cpp_sources)
+  sampleSSD_objects += $(call BUILD_OBJECT_LIST,$(sampleSSD_cpp_sources))
+  SAMPLES_OBJECTS += $(sampleSSD_objects)
+
+  $(sampleSSD_objects): $(sampleSSD_makefile)
+
+  ############################################################
+  # C++ compiler flags
+
+  ############################################################
+  # Targets
+
+  sampleSSD_target += $(OUTPUTDIR)/$(sampleSSD_basename)$(EXESUFFIX)
+  SAMPLES_TARGETS += $(sampleSSD_target)
+
+  $(sampleSSD_target): $(sampleSSD_makefile)
+
+  ############################################################
+  # Linker flags and Recipe
+
+  $(sampleSSD_target): $(SAMPLES_PREREQUISITES)
+  $(sampleSSD_target): $(sampleSSD_objects)
+
+  $(sampleSSD_target): LINKER_FLAGS += $(SAMPLES_LFLAGS)
+  $(sampleSSD_target): LINKER_FLAGS += $(SAMPLES_LIBRARIES)
+  $(sampleSSD_target): LINKER_FLAGS += $(sampleSSD_objects)
+  $(sampleSSD_target): LINKER_FLAGS += -out:$@
+
+  $(sampleSSD_target): LINKER_PARAMETERS_FILE = linkParameters-$(sampleSSD_basename).txt
+
+  $(eval $(call SAMPLES_MAKE_LINK_RECIPE,$(sampleSSD_target)))
+
+endif # NVCFG_INITIALIZED

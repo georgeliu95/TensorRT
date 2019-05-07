@@ -1,0 +1,76 @@
+#############################################################################
+#
+# Notes:
+# 
+# This makefile exports the following lists:
+#
+#   sampleOnnxMNIST_cpp_sources
+#   sampleOnnxMNIST_objects
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# sampleOnnxMNIST_*_sources to sampleOnnxMNIST_objects, and for linking
+# sampleOnnxMNIST_targets.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# sampleOnnxMNIST_cpp_sources.
+#
+# SAMPLES_OBJECTS is populated to contain everything from
+# sampleOnnxMNIST_objects.
+#
+# This makefile adds to SAMPLES_TARGETS a list of executables (exe,
+# dll, etc.)  that it creates. It defines recipes for building these
+# targets.
+#
+#############################################################################
+
+ifeq ($(NV_BUILD_TYPE),release)
+  sampleOnnxMNIST_basename = sample_onnx_mnist
+else
+  sampleOnnxMNIST_basename = sample_onnx_mnist_debug
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  sampleOnnxMNIST_makefile = $(NV_SOURCE)/samples/sampleOnnxMNIST/makefile-sampleOnnxMNIST.nvmk
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  sampleOnnxMNIST_cpp_sources += $(NV_SOURCE)/samples/common/logger.cpp
+  sampleOnnxMNIST_cpp_sources += $(NV_SOURCE)/samples/common/windows/getopt.c
+  sampleOnnxMNIST_cpp_sources += $(NV_SOURCE)/samples/sampleOnnxMNIST/sampleOnnxMNIST.cpp
+
+  SOURCES += $(sampleOnnxMNIST_cpp_sources)
+  sampleOnnxMNIST_objects += $(call BUILD_OBJECT_LIST,$(sampleOnnxMNIST_cpp_sources))
+  SAMPLES_OBJECTS += $(sampleOnnxMNIST_objects)
+
+  $(sampleOnnxMNIST_objects): $(sampleOnnxMNIST_makefile)
+
+  ############################################################
+  # C++ compiler flags
+
+  ############################################################
+  # Targets
+
+  sampleOnnxMNIST_target += $(OUTPUTDIR)/$(sampleOnnxMNIST_basename)$(EXESUFFIX)
+  SAMPLES_TARGETS += $(sampleOnnxMNIST_target)
+
+  $(sampleOnnxMNIST_target): $(sampleOnnxMNIST_makefile)
+
+  ############################################################
+  # Linker flags and Recipe
+
+  $(sampleOnnxMNIST_target): $(SAMPLES_PREREQUISITES)
+  $(sampleOnnxMNIST_target): $(sampleOnnxMNIST_objects)
+
+  $(sampleOnnxMNIST_target): LINKER_FLAGS += $(SAMPLES_LFLAGS)
+  $(sampleOnnxMNIST_target): LINKER_FLAGS += $(SAMPLES_LIBRARIES)
+  $(sampleOnnxMNIST_target): LINKER_FLAGS += $(sampleOnnxMNIST_objects)
+  $(sampleOnnxMNIST_target): LINKER_FLAGS += -out:$@
+
+  $(sampleOnnxMNIST_target): LINKER_PARAMETERS_FILE = linkParameters-$(sampleOnnxMNIST_basename).txt
+
+  $(eval $(call SAMPLES_MAKE_LINK_RECIPE,$(sampleOnnxMNIST_target)))
+
+endif # NVCFG_INITIALIZED

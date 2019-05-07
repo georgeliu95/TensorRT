@@ -1,0 +1,79 @@
+#############################################################################
+#
+# Notes:
+# 
+# This makefile exports the following lists:
+#
+#   sampleCharRNN_cpp_sources
+#   sampleCharRNN_objects
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# sampleCharRNN_*_sources to sampleCharRNN_objects, and for linking
+# sampleCharRNN_targets.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# sampleCharRNN_cpp_sources.
+#
+# SAMPLES_OBJECTS is populated to contain everything from
+# sampleCharRNN_objects.
+#
+# This makefile adds to SAMPLES_TARGETS a list of executables (exe,
+# dll, etc.)  that it creates. It defines recipes for building these
+# targets.
+#
+#############################################################################
+
+ifeq ($(NV_BUILD_TYPE),release)
+  sampleCharRNN_basename = sample_char_rnn
+else
+  sampleCharRNN_basename = sample_char_rnn_debug
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  sampleCharRNN_makefile = $(NV_SOURCE)/samples/sampleCharRNN/makefile-sampleCharRNN.nvmk
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  sampleCharRNN_cpp_sources += $(NV_SOURCE)/samples/common/logger.cpp
+  sampleCharRNN_cpp_sources += $(NV_SOURCE)/samples/common/windows/getopt.c
+  sampleCharRNN_cpp_sources += $(NV_SOURCE)/samples/sampleCharRNN/sampleCharRNN.cpp
+
+  SOURCES += $(sampleCharRNN_cpp_sources)
+  sampleCharRNN_objects += $(call BUILD_OBJECT_LIST,$(sampleCharRNN_cpp_sources))
+  SAMPLES_OBJECTS += $(sampleCharRNN_objects)
+
+  $(sampleCharRNN_objects): $(sampleCharRNN_makefile)
+
+  ############################################################
+  # C++ compiler flags
+
+  # S:\sw\tools\win32\msvc141u5\VC\include\xutility(2430): warning C4996: 'std::copy::_Unchecked_iterators::_Deprecate': Call to 'std::copy' with parameters that may be unsafe - this call relies on the caller to check that the passed values are correct. To disable this warning, use -D_SCL_SECURE_NO_WARNINGS. See documentation on how to use Visual C++ 'Checked Iterators'
+  $(sampleCharRNN_objects): NV_DEFINES += _SCL_SECURE_NO_WARNINGS
+
+  ############################################################
+  # Targets
+
+  sampleCharRNN_target += $(OUTPUTDIR)/$(sampleCharRNN_basename)$(EXESUFFIX)
+  SAMPLES_TARGETS += $(sampleCharRNN_target)
+
+  $(sampleCharRNN_target): $(sampleCharRNN_makefile)
+
+  ############################################################
+  # Linker flags and Recipe
+
+  $(sampleCharRNN_target): $(SAMPLES_PREREQUISITES)
+  $(sampleCharRNN_target): $(sampleCharRNN_objects)
+
+  $(sampleCharRNN_target): LINKER_FLAGS += $(SAMPLES_LFLAGS)
+  $(sampleCharRNN_target): LINKER_FLAGS += $(SAMPLES_LIBRARIES)
+  $(sampleCharRNN_target): LINKER_FLAGS += $(sampleCharRNN_objects)
+  $(sampleCharRNN_target): LINKER_FLAGS += -out:$@
+
+  $(sampleCharRNN_target): LINKER_PARAMETERS_FILE = linkParameters-$(sampleCharRNN_basename).txt
+
+  $(eval $(call SAMPLES_MAKE_LINK_RECIPE,$(sampleCharRNN_target)))
+
+endif # NVCFG_INITIALIZED

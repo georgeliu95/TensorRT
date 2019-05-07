@@ -1,0 +1,18 @@
+#############################################################################
+# parsers/caffe/makefile-caffe-parser.nvmk
+
+CAFFE_PARSER_CPP_SOURCES += $(NV_SOURCE)/parsers/caffe/caffeParser.cpp
+CAFFE_PARSER_CPP_SOURCES += $(NV_SOURCE)/parsers/caffe/ditcaffe.pb.cc
+
+PARSERS_CPP_SOURCES += $(CAFFE_PARSER_CPP_SOURCES)
+
+CAFFE_PARSER_CPP_OBJECTS += $(call BUILD_OBJECT_LIST,$(CAFFE_PARSER_CPP_SOURCES))
+PARSERS_CPP_OBJECTS += $(CAFFE_PARSER_CPP_OBJECTS)
+
+#############################################################################
+# C++ compiler flags
+
+# Automatically rebuild after changing this makefile
+$(CAFFE_PARSER_CPP_OBJECTS): $(NV_SOURCE)/parsers/caffe/makefile-caffe-parser.nvmk
+
+$(CAFFE_PARSER_CPP_OBJECTS): NV_INCLUDES += $(NV_SOURCE)/common
