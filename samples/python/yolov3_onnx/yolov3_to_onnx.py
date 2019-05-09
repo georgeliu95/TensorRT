@@ -231,22 +231,22 @@ class ConvParams(object):
         param_name = self.node_name + '_' + param_category + '_' + suffix
         return param_name
 
-class UpsampleParams(object):
-    #Helper class to store the scale parameter for an Upsample node. 
+class ResizeParams(object):
+    #Helper class to store the scale parameter for an Resize node.
 
     def __init__(self, node_name, value):
-        """Constructor based on the base node name (e.g. 86_Upsample),
+        """Constructor based on the base node name (e.g. 86_Resize),
         and the value of the scale input tensor.
 
         Keyword arguments:
-        node_name -- base name of this YOLO Upsample layer
-        value -- the value of the scale input to the Upsample layer as a numpy array
+        node_name -- base name of this YOLO Resize layer
+        value -- the value of the scale input to the Resize layer as numpy array
         """
         self.node_name = node_name
         self.value = value
 
     def generate_param_name(self):
-        """Generates the scale parameter name for the Upsample node."""
+        """Generates the scale parameter name for the Resize node."""
         param_name = self.node_name + '_' + "scale"
         return param_name
 
@@ -264,18 +264,18 @@ class WeightLoader(object):
         """
         self.weights_file = self._open_weights_file(weights_file_path)
 
-    def load_upsample_scales(self, upsample_params):
-        """Returns the initializers with the value of the scale input 
-        tensor given by upsample_params.
+    def load_resize_scales(self, resize_params):
+        """Returns the initializers with the value of the scale input
+        tensor given by resize_params.
 
         Keyword argument:
-        upsample_params -- a UpsampleParams object
+        resize_params -- a ResizeParams object
         """
         initializer = list()
         inputs = list()
-        name = upsample_params.generate_param_name()
-        shape = upsample_params.value.shape
-        data = upsample_params.value
+        name = resize_params.generate_param_name()
+        shape = resize_params.value.shape
+        data = resize_params.value
         scale_init = helper.make_tensor(
             name, TensorProto.FLOAT, shape, data)
         scale_input = helper.make_tensor_value_info(
@@ -439,7 +439,7 @@ class GraphBuilderONNX(object):
                 initializer.extend(initializer_layer)
                 inputs.extend(inputs_layer)
             elif layer_type == "upsample":
-                initializer_layer, inputs_layer = weight_loader.load_upsample_scales(
+                initializer_layer, inputs_layer = weight_loader.load_resize_scales(
                     params)
                 initializer.extend(initializer_layer)
                 inputs.extend(inputs_layer)
@@ -480,7 +480,7 @@ class GraphBuilderONNX(object):
             node_creators['convolutional'] = self._make_conv_node
             node_creators['shortcut'] = self._make_shortcut_node
             node_creators['route'] = self._make_route_node
-            node_creators['upsample'] = self._make_upsample_node
+            node_creators['upsample'] = self._make_resize_node
 
             if layer_type in node_creators.keys():
                 major_node_output_name, major_node_output_channels = \
@@ -683,36 +683,35 @@ class GraphBuilderONNX(object):
             self._nodes.append(route_node)
         return layer_name, channels
 
-    def _make_upsample_node(self, layer_name, layer_dict):
-        """Create an ONNX Upsample node with the properties from
+    def _make_resize_node(self, layer_name, layer_dict):
+        """Create an ONNX Resize node with the properties from
         the DarkNet-based graph.
 
         Keyword arguments:
         layer_name -- the layer's name (also the corresponding key in layer_configs)
         layer_dict -- a layer parameter dictionary (one element of layer_configs)
         """
-        upsample_factor = float(layer_dict['stride'])
-        # Create the scales array with node parameters
-        scales=np.array([1.0, 1.0, upsample_factor, upsample_factor]).astype(np.float32)
+        resize_scale_factors = float(layer_dict['stride'])
+        # Create the scale factor array with node parameters
+        scales=np.array([1.0, 1.0, resize_scale_factors, resize_scale_factors]).astype(np.float32)
         previous_node_specs = self._get_previous_node_specs()
         inputs = [previous_node_specs.name]
 
         channels = previous_node_specs.channels
         assert channels > 0
-        upsample_params = UpsampleParams(layer_name, scales)
-        scales_name = upsample_params.generate_param_name()
-        # For ONNX opset >= 9, the Upsample node takes the scales array as an input.
+        resize_params = ResizeParams(layer_name, scales)
+        scales_name = resize_params.generate_param_name()
         inputs.append(scales_name)
 
-        upsample_node = helper.make_node(
-            'Upsample',
+        resize_node = helper.make_node(
+            'Resize',
             mode='nearest',
             inputs=inputs,
             outputs=[layer_name],
             name=layer_name,
         )
-        self._nodes.append(upsample_node)
-        self.param_dict[layer_name] = upsample_params
+        self._nodes.append(resize_node)
+        self.param_dict[layer_name] = resize_params
         return layer_name, channels
 
 
