@@ -126,6 +126,11 @@ bool ClipPlugin::supportsFormat(DataType type, PluginFormat format) const
         return false;
     }
 
+    if (format != PluginFormat::kNCHW)
+    {
+        return false;
+    }
+
     API_CHECK_ENUM_RANGE_RETVAL(DataType, type, false);
     API_CHECK_ENUM_RANGE_RETVAL(PluginFormat, format, false);
     return true;
