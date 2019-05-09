@@ -60,58 +60,18 @@ endif
 
 ifdef NVCFG_INITIALIZED
 
+PLUGIN_SOURCE_DIR = $(NV_SOURCE)/plugin/
+
   ############################################################
   # Build lists of SOURCES and OBJECTS
 
-  PLUGIN_CPP_SOURCES_SHORT += clipPlugin.cpp
-  PLUGIN_CPP_SOURCES_SHORT += flattenConcat.cpp
-  PLUGIN_CPP_SOURCES_SHORT += gridAnchorPlugin.cpp
-  PLUGIN_CPP_SOURCES_SHORT += InferPlugin.cpp
-  PLUGIN_CPP_SOURCES_SHORT += nmsPlugin.cpp
-  PLUGIN_CPP_SOURCES_SHORT += normalizePlugin.cpp
-  PLUGIN_CPP_SOURCES_SHORT += nvPluginsLegacy.cpp
-  PLUGIN_CPP_SOURCES_SHORT += lReluPlugin.cpp
-  PLUGIN_CPP_SOURCES_SHORT += priorBoxPlugin.cpp
-  PLUGIN_CPP_SOURCES_SHORT += regionPlugin.cpp
-  PLUGIN_CPP_SOURCES_SHORT += reorgPlugin.cpp
-  PLUGIN_CPP_SOURCES_SHORT += vocEvaluate.cpp
-  PLUGIN_CPP_SOURCES_SHORT += batchedNMSPlugin.cpp
-  PLUGIN_CPP_SOURCES_SHORT += nmsHelper.cpp
-  PLUGIN_CPP_SOURCES_SHORT += reducedMathPlugin.cpp
-  PLUGIN_CPP_SOURCES_SHORT += checkMacrosPlugin.cpp
-  PLUGIN_CPP_SOURCES += $(addprefix $(NV_SOURCE)/plugin/,$(PLUGIN_CPP_SOURCES_SHORT))
+  PLUGIN_CPP_SOURCES += $(wildcard $(PLUGIN_SOURCE_DIR)*.cpp)
 
   SOURCES += $(PLUGIN_CPP_SOURCES)
   PLUGIN_CPP_OBJECTS += $(call BUILD_OBJECT_LIST,$(PLUGIN_CPP_SOURCES))
   PLUGIN_OBJECTS += $(PLUGIN_CPP_OBJECTS)
 
-  PLUGIN_CU_SOURCES_SHORT += allClassNMS.cu
-  PLUGIN_CU_SOURCES_SHORT += bboxDeltas2Proposals.cu
-  PLUGIN_CU_SOURCES_SHORT += clip.cu
-  PLUGIN_CU_SOURCES_SHORT += common.cu
-  PLUGIN_CU_SOURCES_SHORT += decodeBBoxes.cu
-  PLUGIN_CU_SOURCES_SHORT += detectionForward.cu
-  PLUGIN_CU_SOURCES_SHORT += extractFgScores.cu
-  PLUGIN_CU_SOURCES_SHORT += gatherNMSOutputs.cu
-  PLUGIN_CU_SOURCES_SHORT += gatherTopDetections.cu
-  PLUGIN_CU_SOURCES_SHORT += generateAnchors.cu
-  PLUGIN_CU_SOURCES_SHORT += nmsLayer.cu
-  PLUGIN_CU_SOURCES_SHORT += normalizeLayer.cu
-  PLUGIN_CU_SOURCES_SHORT += NvPluginFasterRCNN.cu
-  PLUGIN_CU_SOURCES_SHORT += NvPluginSSD.cu
-  PLUGIN_CU_SOURCES_SHORT += permuteData.cu
-  PLUGIN_CU_SOURCES_SHORT += permuteLayer.cu
-  PLUGIN_CU_SOURCES_SHORT += lReLU.cu
-  PLUGIN_CU_SOURCES_SHORT += priorBoxLayer.cu
-  PLUGIN_CU_SOURCES_SHORT += proposalsForward.cu
-  PLUGIN_CU_SOURCES_SHORT += regionForward.cu
-  PLUGIN_CU_SOURCES_SHORT += reorgForward.cu
-  PLUGIN_CU_SOURCES_SHORT += roiPooling.cu
-  PLUGIN_CU_SOURCES_SHORT += rproiInferenceFused.cu
-  PLUGIN_CU_SOURCES_SHORT += sortScoresPerClass.cu
-  PLUGIN_CU_SOURCES_SHORT += sortScoresPerImage.cu
-  PLUGIN_CU_SOURCES_SHORT += batchedNMSInference.cu
-  PLUGIN_CU_SOURCES += $(addprefix $(NV_SOURCE)/plugin/,$(PLUGIN_CU_SOURCES_SHORT))
+  PLUGIN_CU_SOURCES += $(wildcard $(PLUGIN_SOURCE_DIR)*.cu)
 
   PLUGIN_CU_OBJECTS += $(call BUILD_OBJECT_LIST, $(PLUGIN_CU_SOURCES))
   PLUGIN_OBJECTS += $(PLUGIN_CU_OBJECTS)
