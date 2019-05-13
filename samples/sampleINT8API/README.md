@@ -11,12 +11,12 @@
 	* [TensorRT API layers and ops](#tensorrt-api-layers-and-ops)
 - [Prerequisites](#prerequisites)
 - [Running the sample](#running-the-sample)
-	* [Sample `--help` options](#sample-help-options)
-- [Models other than ResNet-50 with custom configuration](#models-other-than-resnet-50-wit-custom-configuration)
+	* [Sample `--help` options](#sample---help-options)
+- [Models other than ResNet-50 with custom configuration](#models-other-than-resnet-50-with-custom-configuration)
 - [Additional resources](#additional-resources)
 - [License](#license)
 - [Changelog](#changelog)
-- [Known issues](#know-issues)
+- [Known issues](#known-issues)
 
 
 ## Description
@@ -25,7 +25,7 @@ This sample, sampleINT8API, performs INT8 inference without using the INT8 calib
 
 Specifically, this sample demonstrates how to:
 -   Use `nvinfer1::ITensor::setDynamicRange` to set per tensor dynamic range
--   Use `nvinfer1::ILayer::setPrecison` to set computation precision of a layer
+-   Use `nvinfer1::ILayer::setPrecision` to set computation precision of a layer
 -   Use `nvinfer1::ILayer::setOutputType` to set output tensor data type of a layer
 -   Perform INT8 inference without using INT8 calibration
 
@@ -214,7 +214,7 @@ The image to be inferred.
 
 	This output shows that the sample ran successfully; `PASSED`.
 
-### Sample `--help` options
+### Sample --help options
 
 To see the full list of available options and their descriptions, use the `-h` or `--help` command line option. For example:
 ```

@@ -1,59 +1,130 @@
-# About This Sample
-This sample demonstrates how to use plugins written in C++ with the TensorRT
-Python bindings and UFF Parser. More specifically, this sample implements
-a clip layer (as a CUDA kernel), wraps the implementation in a TensorRT plugin
-(with a corresponding plugin creator) and then generates shared library module
-containing its code. The user then dynamically links this library in Python,
-which causes plugin to be registered in TensorRT's PluginRegistry and
-makes it available for UFF parser.
+# Adding A Custom Layer To Your TensorFlow Network In TensorRT In Python
 
-# Installing Prerequisites
-1. Install cmake >= 3.8 (https://cmake.org/cmake/help/latest/command/install.html)
-2. Install CUDA (https://developer.nvidia.com/cuda-toolkit)
-3. Make sure you have the python dependencies installed.
-    - For python2, run `python2 -m pip install -r requirements.txt` from the top-level of this sample.
-    - For python3, run `python3 -m pip install -r requirements.txt` from the top-level of this sample.
-4. Make sure that you have tensorrt, graphsurgeon and uff installed
+**Table Of Contents**
+- [Description](#description)
+- [How does this sample work?](#how-does-this-sample-work)
+- [Prerequisites](#prerequisites)
+- [Running the sample](#running-the-samples)
+- [Additional resources](#additional-resources)
+- [License](#license)
+- [Changelog](#changelog)
+- [Known issues](#known-issues)
 
-# Sample Structure
-- **plugin/** contains files for the Clip layer plugin
-    - **clipKernel.cu** CUDA kernel that clips input
-    - **clipKernel.h** header exposing CUDA kernel to C++ code
-    - **customClipPlugin.cpp** implementation of clip TensorRT plugin, which
-    uses CUDA kernel internally
-    - **customClipPlugin.h** ClipPlugin headers
-- **lenet5.py** trains an MNIST network that uses ReLU6 activation
-(not natively supported in TensorRT)
-- **mnist_uff_relu6_plugin.py** transforms trained model into UFF (delegating
-ReLU6 activation to ClipPlugin instance) and runs inference in TensorRT
-- **requirements.txt** specifies all the Python packages required to run the
-Python sample
+## Description
 
-# Building the Plugin
-To build the plugin and its corresponding python bindings, run:
-1. `mkdir build && pushd build`
-2. `cmake ..`
+This sample, uff_custom_plugin, demonstrates how to use plugins written in C++ with the TensorRT Python bindings and UFF Parser. This sample uses the [MNIST dataset](http://yann.lecun.com/exdb/mnist/).
 
-    Note that if any of the dependencies are not installed in their default
-    locations, you can manually specify them to cmake.
+## How does this sample work?
 
-    For example:
-    `cmake .. -DTRT_LIB=/home/dev/tensorrt -DTRT_INCLUDE=/home/dev/tensorrt/include -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc`
+This sample implements a clip layer (as a CUDA kernel), wraps the implementation in a TensorRT plugin (with a corresponding plugin creator) and then generates a shared library module containing its code. The user then dynamically loads this library in Python, which causes the plugin to be registered in TensorRT's PluginRegistry and makes it available to the UFF parser.
 
-    `cmake ..` will display a complete list of configurable variables:
-    if a variable is set to `VARIABLE_NAME-NOTFOUND`, then you probably
-    need to specify it manually (or set the variable it is derived from
-    correctly).
+This sample includes:
+`plugin/`
+This directory contains files for the Clip layer plugin.
 
-3. `make -j8`
-4. `popd`
+`clipKernel.cu`
+A CUDA kernel that clips input.
 
-# Running the Sample
+`clipKernel.h`
+The header exposing the CUDA kernel to C++ code.
 
-Run MNIST training
-- For python2 run `python2 lenet5.py`.
-- For python3 run `python3 lenet5.py`.
+`customClipPlugin.cpp`
+A custom TensorRT plugin implementation, which uses the CUDA kernel internally.
 
-Execute the sample.
-- For python2 run `python2 sample.py`.
-- For python3 run `python3 sample.py`.
+`customClipPlugin.h`
+The ClipPlugin headers.
+
+`lenet5.py`
+This script trains an MNIST network that uses ReLU6 activation using the clip plugin.
+
+`mnist_uff_relu6_plugin.py`
+This script transforms the trained model into UFF (delegating ReLU6 activations to ClipPlugin instances) and runs inference in TensorRT.
+
+`requirements.txt`
+This file specifies all the Python packages required to run this Python sample.
+
+## Prerequisites
+
+For specific software versions, see the [TensorRT Installation Guide](https://docs.nvidia.com/deeplearning/sdk/tensorrt-archived/index.html).
+
+1. [Install CMake](https://cmake.org/download/).
+
+2. Install the dependencies for Python.
+	-   For Python 2 users, from the root directory, run:
+	`python2 -m pip install -r requirements.txt`
+
+	-   For Python 3 users, from the root directory, run:
+	`python3 -m pip install -r requirements.txt`
+
+On PowerPC systems, you will need to manually install TensorFlow using IBM's [PowerAI](https://www.ibm.com/support/knowledgecenter/SS5SF7_1.6.0/navigation/pai_install.htm).
+
+On Jetson boards, you will need to manually install TensorFlow by following the documentation for [Xavier]((https://docs.nvidia.com/deeplearning/dgx/install-tf-xavier/index.html) or [TX2](https://docs.nvidia.com/deeplearning/dgx/install-tf-jetsontx2/index.html).
+
+3. Install the UFF toolkit and graph surgeon; depending on your TensorRT installation method, to install the toolkit and graph surgeon, choose the method you used to install TensorRT for instructions (see [TensorRT Installation Guide: Installing TensorRT](https://docs.nvidia.com/deeplearning/sdk/tensorrt-install-guide/index.html#installing)).
+
+## Running the sample
+
+1.  Build the plugin and its corresponding Python bindings.
+	```
+	mkdir build && pushd build
+	cmake ..
+	```
+
+	**Note:** If any of the dependencies are not installed in their default locations, you can manually specify them. For example:
+	```
+	cmake .. \
+		-DPYBIND11_DIR=/usr/local/pybind11/ \
+		-DCUDA_ROOT=/usr/local/cuda-9.2/ \
+		-DPYTHON3_INC_DIR=/usr/include/python3.6/ \
+		-DNVINFER_LIB=/path/to/libnvinfer.so \
+		-DTRT_INC_DIR=/path/to/tensorrt/include/
+	```
+
+	`cmake ..` displays a complete list of configurable variables. If a variable is set to `VARIABLE_NAME-NOTFOUND`, then you’ll need to specify it manually or set the variable it is derived from correctly.
+
+2.  Build the plugin.   
+	```
+	make -j
+	popd
+	```
+
+3.  Run the sample to train the model:
+    `python3 lenet5.py`
+
+4.  Run inference using TensorRT with the custom clip plugin implementation:
+    `python3 sample.py`
+
+5.  Verify that the sample ran successfully. If the sample runs successfully you should see a match between the test case and the prediction.
+	 ```
+	=== Testing ===
+	Loading Test Case: 3
+	Prediction: 3
+	```
+
+# Additional resources
+
+The following resources provide a deeper understanding about getting started with TensorRT using Python:
+
+**Model**
+- [LeNet model](http://yann.lecun.com/exdb/lenet/)
+
+**Dataset**
+- [MNIST dataset](http://yann.lecun.com/exdb/mnist/)
+
+**Documentation**
+- [Introduction To NVIDIA’s TensorRT Samples](https://docs.nvidia.com/deeplearning/sdk/tensorrt-sample-support-guide/index.html#samples)
+- [Working With TensorRT Using The Python API](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#python_topics)
+- [NVIDIA’s TensorRT Documentation Library](https://docs.nvidia.com/deeplearning/sdk/tensorrt-archived/index.html)
+
+# License
+
+For terms and conditions for use, reproduction, and distribution, see the [TensorRT Software License Agreement](https://docs.nvidia.com/deeplearning/sdk/tensorrt-sla/index.html) documentation.
+
+# Changelog
+
+March 2019
+This `README.md` file was recreated, updated and reviewed.
+
+# Known issues
+
+There are no known issues in this sample.

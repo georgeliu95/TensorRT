@@ -11,7 +11,7 @@
     * [TensorRT plugin layers in SSD](#tensorrt-plugin-layers-in-ssd)
 - [Prerequisites](#prerequisites)
 - [Running the sample](#running-the-sample)
-    * [Sample `--help` options](#sample-help-options)
+    * [Sample `--help` options](#sample---help-options)
 - [Additional resources](#additonal-resources)
 - [License](#license)
 - [Changelog](#changelog)
@@ -72,7 +72,7 @@ To initialize and register these TensorRT plugins to the plugin registry, the `i
 The sampleSSD sample builds a network based on a Caffe model and network description. For details on importing a Caffe model, see [Importing A Caffe Model Using The C++ Parser API](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#import_caffe_c). The SSD network has few non-natively supported layers which are implemented as plugins in TensorRT. The Caffe parser can create plugins for these layers internally using the plugin registry.
 
 This sample can run in FP16 and INT8 modes based on the user input. For more details, see [INT8 Calibration Using C++](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#optimizing_int8_c) and [Enabling FP16 Inference Using C++](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#enable_fp16_c). The sample selects the entropy calibrator as a default choice. The `CalibrationMode` parameter in the sample code needs to be set to `0` to switch to the Legacy calibrator.
-
+ 
 For details on how to build the TensorRT engine, see [Building An Engine In C++](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#build_engine_c). After the engine is built, the next steps are to serialize the engine and run the inference with the deserialized engine. For more information about these steps, see [Serializing A Model In C++](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#serial_model_c).
 
 ### Verifying the output
@@ -85,14 +85,14 @@ In sampleSSD, there is a single input:
 And 2 outputs:
 -  `detectionOut` is the detection array, containing the image ID, label, confidence, 4 coordinates
 -  `keepCount` is the number of valid detections
-
+ 
 The outputs of the SSD network are directly human interpretable. The results are organized as tuples of 7. In each tuple, the 7 elements are:
 -   image ID
 -   object label
 -   confidence score
 -   (x,y) coordinates of the lower left corner of the bounding box
 -   (x,y) coordinates of the upper right corner of the bounding box
-
+  
 This information can be drawn in the output PPM image using the `writePPMFileWithBBox` function. The `kVISUAL_THRESHOLD` parameter can be used to control the visualization of objects in the image. It is currently set to 0.6, therefore, the output will display all objects with confidence score of 60% and above.
 
 ### TensorRT API layers and ops
@@ -100,7 +100,7 @@ This information can be drawn in the output PPM image using the `writePPMFileWit
 In this sample, the following layers are used.  For more information about these layers, see the [TensorRT Developer Guide: Layers](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#layers) documentation.
 
 [Activation layer](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#activation-layer)
-The Activation layer implements element-wise activation functions. Specifically, this sample uses the Activation layer with the type `kRELU`.
+The Activation layer implements element-wise activation functions. Specifically, this sample uses the Activation layer with the type `kRELU`. 
 
 [Concatenation layer](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#concatenation-layer)
 The Concatenation layer links together multiple tensors of the same non-channel sizes along the channel dimension.
@@ -230,7 +230,7 @@ Due to the size of the SSD Caffe model, it is not included in the product bundle
 
 2.  Extract the contents.
     `tar xvf models_VGGNet_VOC0712_SSD_300x300.tar.gz`
-
+    
     1. Generate MD5 hash and compare against the reference below:
         `md5sum models_VGGNet_VOC0712_SSD_300x300.tar.gz`
 
@@ -285,7 +285,7 @@ Due to the size of the SSD Caffe model, it is not included in the product bundle
     make
     ```
     Where `<TensorRT root directory>` is where you installed TensorRT.
-
+    
 2. Run the sample to perform inference on the digit:
     ```
     ./sample_ssd [-h] [--fp16] [--int8]
@@ -305,7 +305,7 @@ Due to the size of the SSD Caffe model, it is not included in the product bundle
     ```
 
     This output shows that the sample ran successfully; `PASSED`.
-
+ 
 
 ### Sample --help options
 

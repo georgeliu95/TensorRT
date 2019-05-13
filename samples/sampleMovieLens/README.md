@@ -3,18 +3,18 @@
 
 **Table Of Contents**
 - [Description](#description)
-- [How does this sample work?](#heading-1)
-    * [Importing a network to TensorRT](#sub-heading-1)
-    * [Running inference](#sub-heading-2)
-    * [Verifying the output](#sub-heading-3)
-    * [TensorRT API layers and ops](#sub-heading-4)
-- [Training an NCF network](#heading-2)
-- [Running the sample](#heading-3)
-    * [Sample `--help` options](#sub-heading-5)
-- [Additional resources](#heading-4)
-- [License](#heading-5)
-- [Changelog](#heading-6)
-- [Known issues](#heading-7)
+- [How does this sample work?](#how-does-this-sample-work)
+    * [Importing a network to TensorRT](#importing-a-network-to-tensorrt)
+    * [Running inference](#running-inference)
+    * [Verifying the output](#verifying-the-output)
+    * [TensorRT API layers and ops](#tensorrt-api-layers-and-ops)
+- [Training an NCF network](#training-an-ncf-network)
+- [Running the sample](#running-the-sample)
+    * [Sample `--help` options](#sample---help-options)
+- [Additional resources](#additional-resources)
+- [License](#license)
+- [Changelog](#changelog)
+- [Known issues](#known-issues)
 
 ## Description
 
@@ -29,9 +29,9 @@ The network is trained in TensorFlow on the [MovieLens dataset](https://grouplen
 Each query to the network consists of a `userID` and list of `MovieIDs`. The network predicts the highest-rated movie for each user. As trained parameters, the network has embeddings for users and movies, and weights for a sequence of MLPs.
 
 Specifically, this sample:
--   [Imports a network into TensorRT](#sub-heading-1)
--   [Runs the inference](#sub-heading-2)
--   [Verifies its output](#sub-heading-3)
+-   [Imports a network to TensorRT](#importing-a-network-to-tensorrt)
+-   [Runs inference](#running-inference)
+-   [Verifies the output](#verifying-the-output)
 
 ### Importing a network to TensorRT
 
@@ -104,7 +104,7 @@ This sample comes with a pre-trained model. However, if you want to train your o
 
 ## Running the sample
 
-1. Compile this sample by running `make` in the `<TensorRT root directory>/samples/sampleMovieLens` directory. The binary named `sampleMovieLens` will be created in the `<TensorRT root directory>/bin` directory.
+1. Compile this sample by running `make` in the `<TensorRT root directory>/samples/sampleMovieLens` directory. The binary named `sample_movielens` will be created in the `<TensorRT root directory>/bin` directory.
     ```
     cd <TensorRT root directory>/samples/sampleMovieLens
     make
@@ -137,13 +137,12 @@ This sample comes with a pre-trained model. However, if you want to train your o
     &&&& PASSED TensorRT.sample_movielens # ./sample_movielens -b 5
     ```
 
-WARNING: Using `0`s for reg_layers will cause undefined behavior when training the network.
 
 
     This output shows that the sample ran successfully; `PASSED`.
 
 
-### Sample `--help` options
+### Sample --help options
 
 To see the full list of available options and their descriptions, use the `-h` or `--help` command line option. For example:
 ```
@@ -161,17 +160,17 @@ Usage:
 
 The following resources provide a deeper understanding about sampleMovieLens:
 
-**MovieLens:**
+**MovieLens**
 - [MovieLens dataset](https://grouplens.org/datasets/movielens/)
 - [Neural Collaborative Filtering Paper](https://www.comp.nus.edu.sg/~xiangnan/papers/ncf.pdf)
 
-**Models:**
+**Models**
 - [Neural Collaborative Filtering GitHub Repo](https://github.com/hexiangnan/neural_collaborative_filtering)
 
-**Blogs:**
+**Blogs**
 - [Accelerating Recommendation System Inference Performance with TensorRT](https://devblogs.nvidia.com/accelerating-recommendation-system-inference-performance-with-tensorrt/)
 
-**Videos:**
+**Videos**
 - [SampleMovieLens YouTube Tutorial](https://www.youtube.com/watch?v=r4KG3dehF48)
 
 **Documentation**
@@ -193,4 +192,4 @@ This `README.md` file was recreated, updated and reviewed.
 
 # Known issues
 
-There are no known issues in this sample.
+- Since the UFF converter is not currently supported on Windows, the model cannot be converted to UFF on Windows systems. It is still possible to use the UFF file shipped with the sample.

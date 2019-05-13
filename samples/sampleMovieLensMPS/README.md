@@ -3,18 +3,18 @@
 
 **Table Of Contents**
 - [Description](#description)
-- [How does this sample work?](#heading-1)
-	* [Importing a network to TensorRT](#sub-heading-1)
-	* [Running inference](#sub-heading-2)
-	* [Verifying the output](#sub-heading-3)
-	* [TensorRT API layers and ops](#sub-heading-4)
-- [Training an NCF network](#heading-2)
-- [Running the sample](#heading-3)
-	* [Sample `--help` options](#sub-heading-5)
-- [Additional resources](#heading-4)
-- [License](#heading-5)
-- [Changelog](#heading-6)
-- [Known issues](#heading-7)
+- [How does this sample work?](#how-does-this-sample-work)
+	* [Importing a network to TensorRT](#importing-a-network-to-tensorrt)
+	* [Running inference](#running-inference)
+	* [Verifying the output](#verifying-the-output)
+	* [TensorRT API layers and ops](#tensorrt-api-layers-and-ops)
+- [Training an NCF network](#training-an-ncf-network)
+- [Running the sample](#running-the-sample)
+	* [Sample `--help` options](#sample---help-options)
+- [Additional resources](#additional-resources)
+- [License](#license)
+- [Changelog](#changelog)
+- [Known issues](#known-issues)
 
 ## Description
 
@@ -33,9 +33,9 @@ The network is trained in TensorFlow on the [MovieLens dataset](https://grouplen
 Each query to the network consists of a `userID` and list of `MovieIDs`. The network predicts the highest-rated movie for each user. As trained parameters, the network has embeddings for users and movies, and weights for a sequence of MLPs.
 
 Specifically, this sample:
--   [Imports a network into TensorRT](#sub-heading-1)    
--   [Runs the inference](#sub-heading-2)    
--   [Verifies its output](#sub-heading-3)
+-   [Imports a network into TensorRT](#importing-a-network-to-tensorrt)    
+-   [Runs the inference](#running-inference)    
+-   [Verifies its output](#verifying-the-output)
 
 ### Importing a network to TensorRT
 
@@ -48,6 +48,22 @@ The sample fills the input buffer with `userIDs` and their corresponding lists o
 ### Verifying the output
 
 Finally, the sample compares the outputs predicted by TensorRT with the expected outputs which are given by `movielens_ratings.txt`. For each user, the `MovieID` with the highest probability should match the expected highest-rated `MovieID`. In the verbose mode, the sample also prints out the probability, which should be close to the expected probability.
+
+### TensorRT API layers and ops
+
+In this sample, the following layers are used.  For more information about these layers, see the [TensorRT Developer Guide: Layers](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#layers) documentation.
+
+[Activation layer](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#activation-layer)
+The Activation layer implements element-wise activation functions.
+
+[MatrixMultiply layer](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#matrixmultiply-layer)
+The MatrixMultiply layer implements matrix multiplication for a collection of matrices.
+
+[Scale layer](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#scale-layer)
+The Scale layer implements a per-tensor, per-channel, or per-element affine transformation and/or exponentiation by constant values.
+
+[Shuffle layer](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#shuffle-layer)
+The Shuffle layer implements a reshape and transpose operator for tensors.
 
 ### TensorRT API layers and ops
 
@@ -71,15 +87,17 @@ The TopK layer finds the top `K` maximum (or minimum) elements along a dimension
 ## Training an NCF network
 
 This sample comes with a pre-trained model. However, if you want to train your own model, you would need to also convert the model weights to UFF format before you can run the sample. For step-by-step instructions, refer to the `README.md` file in the `sampleMovieLens` directory.
-	
+```
+
 ## Running the sample
 
-1. Compile this sample by running `make` in the `<TensorRT root directory>/samples/sampleMovieLensMPS` directory. The binary named `sampleMovieLensMPS` will be created in the `<TensorRT root directory>/bin` directory.
+1. Compile this sample by running `make` in the `<TensorRT root directory>/samples/sampleMovieLensMPS` directory. The binary named `sample_movielens_mps` will be created in the `<TensorRT root directory>/bin` directory.
 	```
 	cd <TensorRT root directory>/samples/sampleMovieLensMPS
 	make
 	```
 	Where `<TensorRT root directory>` is where you installed TensorRT.
+
 	
 2. Set-up an MPS server.
 	```
@@ -106,7 +124,6 @@ This sample comes with a pre-trained model. However, if you want to train your o
 	./sample_movielens_mps -b <bSize> -p <nbProc> (bSize=Batch size i.e. num of users, nbProc=Number of processes)
 	./sample_movielens_mps --verbose (prints inputs, groundtruth values, expected vs predicted probabilities)
 	```
- 
 5. Verify that the sample ran successfully. If the sample runs successfully you should see output similar to the following:
 	```
 	&&&& RUNNING TensorRT.sample_movielens_mps # build/cuda-		10.0/7.3/x86_64/sample_movielens_mps -b 2 -p 2
@@ -128,13 +145,12 @@ This sample comes with a pre-trained model. However, if you want to train your o
 	[I] Total MPS Run Duration: 1737.51 milliseconds.
 	&&&& PASSED TensorRT.sample_movielens_mps # build/cuda-	10.0/7.3/x86_64/sample_movielens_mps -b 2 -p 2
 	```
-	
 	This output shows that the sample ran successfully; `PASSED`. The output also shows that the 	predicted items for each user matches the expected items and the duration of the execution. Finally, the sample prints out the PIDs of the processes, showing that the inference is launched on multiple processes.
-	
+
 6. To restore the system to its original state, shutdown MPS, if needed.
 	`echo quit | nvidia-cuda-mps-control`
-	
-### Sample `--help` options
+
+### Sample --help options
 
 To see the full list of available options and their descriptions, use the `-h` or `--help` command line option. For example:
 ```
@@ -153,12 +169,12 @@ Usage:
 
 The following resources provide a deeper understanding about sampleMovieLensMPS:
 
-**MovieLensMPS:**
+**MovieLensMPS**
 - [MovieLens dataset](https://grouplens.org/datasets/movielens/)
 - [Neural Collaborative Filtering Paper](https://www.comp.nus.edu.sg/~xiangnan/papers/ncf.pdf)
 - [Multi-Process Service Introduction](https://docs.nvidia.com/deploy/mps/index.html)
 
-**Models:**
+**Models**
 - [Neural Collaborative Filtering GitHub Repo](https://github.com/hexiangnan/neural_collaborative_filtering)
 
 **Documentation**
@@ -180,4 +196,4 @@ This `README.md` file was recreated, updated and reviewed.
 
 # Known issues
 
-There are no known issues in this sample.
+- Since the UFF converter is not currently supported on Windows, the model cannot be converted to UFF on Windows systems. It is still possible to use the UFF file shipped with the sample.

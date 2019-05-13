@@ -17,6 +17,8 @@
 	* [Generating batch files for Caffe users](#generating-batch-files-for-caffe-users)
 	* [Generating batch files for non-Caffe users](#generating-batch-files-for-non-caffe-users)
 - [Running the sample](#running-the-sample)
+	* [Sample `--help` options](#sample---help-options)
+- [Additional resources](#additional-resources)
 	* [Sample `--help` options](#sample-help-options)
 - [Additional resources](#additiona-resources)
 - [License](#license)
@@ -355,7 +357,7 @@ The following example depicts the sequence of commands to run `./sample_int8 mni
 
 	This output shows that the sample ran successfully; `PASSED`.
 
-### Sample `--help` options
+### Sample --help options
 
 To see the full list of available options and their descriptions, use the `-h` or `--help` command line option. For example:
 ```
