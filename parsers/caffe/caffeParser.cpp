@@ -2027,14 +2027,29 @@ const IBlobNameToTensor* CaffeParser::parse(INetworkDefinition& network,
 
     for (int i = 0; i < mDeploy->input_size(); i++)
     {
-        DimsCHW dims;
-        if (mDeploy->input_shape_size())
+        Dims dims;
+        if (network.hasImplicitBatchDimension())
         {
-            dims = DimsCHW{(int) mDeploy->input_shape().Get(i).dim().Get(1), (int) mDeploy->input_shape().Get(i).dim().Get(2), (int) mDeploy->input_shape().Get(i).dim().Get(3)};
+            if (mDeploy->input_shape_size())
+            {
+                dims = DimsCHW{(int) mDeploy->input_shape().Get(i).dim().Get(1), (int) mDeploy->input_shape().Get(i).dim().Get(2), (int) mDeploy->input_shape().Get(i).dim().Get(3)};
+            }
+            else
+            { // deprecated, but still used in a lot of networks
+                dims = DimsCHW{(int) mDeploy->input_dim().Get(i * 4 + 1), (int) mDeploy->input_dim().Get(i * 4 + 2), (int) mDeploy->input_dim().Get(i * 4 + 3)};
+            }
         }
         else
-        { // deprecated, but still used in a lot of networks
-            dims = DimsCHW{(int) mDeploy->input_dim().Get(i * 4 + 1), (int) mDeploy->input_dim().Get(i * 4 + 2), (int) mDeploy->input_dim().Get(i * 4 + 3)};
+        {
+            std::cout << "Warning, setting batch size to 1. Update the dimension after parsing due to using explicit batch size." << std::endl;
+            if (mDeploy->input_shape_size())
+            {
+                dims = DimsNCHW{1, (int) mDeploy->input_shape().Get(i).dim().Get(1), (int) mDeploy->input_shape().Get(i).dim().Get(2), (int) mDeploy->input_shape().Get(i).dim().Get(3)};
+            }
+            else
+            { // deprecated, but still used in a lot of networks
+                dims = DimsNCHW{1, (int) mDeploy->input_dim().Get(i * 4 + 1), (int) mDeploy->input_dim().Get(i * 4 + 2), (int) mDeploy->input_dim().Get(i * 4 + 3)};
+            }
         }
         ITensor* tensor = network.addInput(mDeploy->input().Get(i).c_str(), DataType::kFLOAT, dims);
         (*mBlobNameToTensor)[mDeploy->input().Get(i)] = tensor;
