@@ -43,7 +43,7 @@ void throwCublasError(const char* file, const char* function, int line, int stat
 {
     if (msg == nullptr)
     {
-        cublasStatus_t s_ = (cublasStatus_t) status;
+        auto s_ = static_cast<cublasStatus_t>(status);
         switch (s_)
         {
         case CUBLAS_STATUS_SUCCESS:
