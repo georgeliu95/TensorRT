@@ -757,7 +757,7 @@ REGISTER_TENSORRT_PLUGIN(UffPoolPluginV2Creator);
 // This function prints the help information for running this sample
 void printHelpInfo()
 {
-    std::cout << "Usage: ./sample_uff_plugin [-h or --help] [-d or --datadir=<path to data directory>] "
+    std::cout << "Usage: ./sample_uff_plugin_v2_ext [-h or --help] [-d or --datadir=<path to data directory>] "
                  "[--useDLACore=<int>]\n";
     std::cout << "--help          Display help information\n";
     std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used "

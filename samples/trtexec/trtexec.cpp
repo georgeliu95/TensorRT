@@ -561,7 +561,7 @@ static void printUsage()
         "  --inputDataTypes=datatype(s) \n\t\t Specify the data types of input tensors, use comma to differenciate "
         "multiple inputs (fp32, fp16 or int8, default = fp32).\n");
     printf(
-        "  --ouputDataTypes=datatype(s) \n\t\t Specify the data types of ouput tensors, use comma to differenciate "
+        "  --outputDataTypes=datatype(s) \n\t\t Specify the data types of output tensors, use comma to differenciate "
         "multiple outputs (fp32, fp16 or int8, default = fp32).\n");
     printf(
         "  --inputTensorFormats=format(s) \n\t\t Specify tensor formats of input tensors, use comma to differenciate "
@@ -825,7 +825,7 @@ bool parseArgs(int argc, char* argv[])
             continue;
         }
 
-        if (parseDataTypes(argv[j], "ouputDataTypes", gParams.outputTensorDataTypes))
+        if (parseDataTypes(argv[j], "outputDataTypes", gParams.outputTensorDataTypes))
         {
             continue;
         }
