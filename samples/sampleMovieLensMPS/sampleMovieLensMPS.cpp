@@ -656,8 +656,10 @@ int mainMovieLensMPS(Args& args, OutputArgs& pargs)
     {
         // Parent process should build an engine and write it to the shared buffer.
         Dims inputIndices;
-        inputIndices.nbDims = 1;
+        inputIndices.nbDims = 3;
         inputIndices.d[0] = args.numMoviesPerUser;
+        inputIndices.d[1] = 1;
+        inputIndices.d[2] = 1;
 
         parser->registerInput(USER_BLOB_NAME, inputIndices, UffInputOrder::kNCHW);
         parser->registerInput(ITEM_BLOB_NAME, inputIndices, UffInputOrder::kNCHW);

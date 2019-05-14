@@ -247,8 +247,10 @@ void SampleMovieLens::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& buil
 {
 
     nvinfer1::Dims inputIndices;
-    inputIndices.nbDims = 1;
+    inputIndices.nbDims = 3;
     inputIndices.d[0] = mParams.numMoviesPerUser;
+    inputIndices.d[1] = 1;
+    inputIndices.d[2] = 1;
 
     // There should be two input and three output tensors
     assert(mParams.inputTensorNames.size() == 2);
