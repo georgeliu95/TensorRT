@@ -10,13 +10,6 @@ namespace nvinfer1
 namespace plugin
 {
 
-struct RPROIParams
-{
-    int poolingH, poolingW, featureStride, preNmsTop,
-        nmsMaxOut, anchorsRatioCount, anchorsScaleCount;
-    float iouThreshold, minBoxSize, spatialScale;
-};
-
 class RPROIPlugin : public BasePlugin
 {
 public:
