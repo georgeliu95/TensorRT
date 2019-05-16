@@ -280,14 +280,14 @@ struct Batch
 void printHelpInfo()
 {
     std::cout << "Usage:\n"
-              << "\t ./sample_movielens_mps [-h] [-b NUM_USERS] [-p NUM_PROCESSES] [--useDLACore=<int>] [--verbose]\n"
-              << "\t-h             Display help information. All single dash options enable perf mode.\n"
-              << "\t-b             Number of Users i.e. Batch Size (default numUsers=32).\n"
-              << "\t-p             Number of child processes to launch (default nbProcesses=1. Using MPS with this option is strongly recommended).\n"
-              << "\t--useDLACore=N Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, where n is the number of DLA engines on the platform.\n"
-              << "\t--verbose      Enable verbose prints.\n"
-              << "\t--int8         Run in Int8 mode.\n"
-              << "\t--fp16         Run in FP16 mode.\n"
+              << " ./sample_movielens_mps [-h or --help] [-b NUM_USERS] [-p NUM_PROCESSES] [--useDLACore=<int>] [--verbose]\n"
+              << "-h             Display help information. All single dash options enable perf mode.\n"
+              << "-b             Number of Users i.e. Batch Size (default numUsers=32).\n"
+              << "-p             Number of child processes to launch (default nbProcesses=1. Using MPS with this option is strongly recommended).\n"
+              << "--useDLACore=N Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, where n is the number of DLA engines on the platform.\n"
+              << "--verbose      Enable verbose prints.\n"
+              << "--int8         Run in Int8 mode.\n"
+              << "--fp16         Run in FP16 mode.\n"
               << std::endl;
 }
 
@@ -298,7 +298,7 @@ bool parseArgs(Args& args, int argc, char* argv[])
     {
         std::string argStr(argv[i]);
 
-        if (argStr == "-h")
+        if (argStr == "-h" || argStr == "--help")
         {
             args.help = true;
             return true;
