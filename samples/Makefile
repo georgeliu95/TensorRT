@@ -8,34 +8,40 @@ else
 AT=@
 endif
 CUDA_TRIPLE=x86_64-linux
-DLSW_TRIPLE=x86_64-linux
+CUBLAS_TRIPLE=x86_64-linux-gnu
+DLSW_TRIPLE=x86_64-linux-gnu
 ifeq ($(TARGET), aarch64)
 CUDA_TRIPLE=aarch64-linux
+CUBLAS_TRIPLE=aarch64-linux-gnu
 DLSW_TRIPLE=aarch64-linux-gnu
 endif
 ifeq ($(TARGET), qnx)
 CUDA_TRIPLE=aarch64-qnx
+CUBLAS_TRIPLE=aarch64-qnx-gnu
 DLSW_TRIPLE=aarch64-unknown-nto-qnx
 endif
-ifeq ($(TARGET), android32)
-DLSW_TRIPLE=arm-linux-androideabi
-CUDA_TRIPLE=$(DLSW_TRIPLE)
+ifeq ($(TARGET), ppc64le)
+CUDA_TRIPLE=ppc64le-linux
+CUBLAS_TRIPLE=ppc64le-linux
+DLSW_TRIPLE=ppc64le-linux
 endif
 ifeq ($(TARGET), android64)
 DLSW_TRIPLE=aarch64-linux-androideabi
 CUDA_TRIPLE=$(DLSW_TRIPLE)
+CUBLAS_TRIPLE=$(DLSW_TRIPLE)
 endif
 export TARGET
 export VERBOSE
 export LIBDIR
-export DLSW_TRIPLE
 export CUDA_TRIPLE
-samples=sampleCharRNN sampleFasterRCNN sampleGoogleNet sampleINT8 sampleINT8API sampleMLP sampleMNIST sampleMNISTAPI sampleMovieLens sampleNMT sampleOnnxMNIST samplePlugin sampleSSD sampleUffMNIST sampleUffSSD trtexec
+export CUBLAS_TRIPLE
+export DLSW_TRIPLE
+samples=sampleCharRNN sampleFasterRCNN sampleGoogleNet sampleINT8 sampleINT8API sampleMLP sampleMNIST sampleMNISTAPI sampleMovieLens sampleOnnxMNIST samplePlugin sampleSSD sampleUffMNIST sampleUffSSD trtexec
 
 # sampleMovieLensMPS should only be compiled for Linux targets.
 # sample uses Linux specific shared memory and IPC libraries.
 ifeq ($(TARGET),x86_64)
-	samples += sampleMovieLensMPS
+samples += sampleMovieLensMPS
 endif
 
 .PHONY: all clean help
