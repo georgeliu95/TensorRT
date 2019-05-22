@@ -87,12 +87,15 @@ On Jetson boards, you will need to manually install TensorFlow by following the 
 
 To see the full list of available options and their descriptions, use the `-h` or `--help` command line option. For example:
 ```
-usage: sample.py [-h]
+usage: sample.py [-h] [-d DATADIR]
 
-Description for this sample
+Runs an MNIST network using a UFF model file
 
 optional arguments:
-  -h, --help            show this help message and exit
+ -h, --help            show this help message and exit
+ -d DATADIR, --datadir DATADIR
+                       Location of the TensorRT sample data directory.
+                       (default: /usr/src/tensorrt/data)
 ```
 
 # Additional resources

@@ -56,9 +56,9 @@ The postprocessor step performs the final steps to generate the network output. 
 For details on how a plugin is implemented, see the implementation of `FlattenConcat` plugin and `FlattenConcatPluginCreator` in the `sampleUffSSD.cpp` file in the `tensorrt/samples/sampleUffSSD` directory.
 
 Specifically, this sample:
-- [Processes the input graph](#sub-heading-1)
-- [Uses plugins](#sub-heading-2)
-- [Verifies the output](#sub-heading-3)
+- [Processing the input graph](#processing-the-input-graph)
+- [uff_ssd plugins](#uff_ssd-plugins)
+- [Verifying the output](#verifying-the-output)
 
 ### Processing the input graph
 

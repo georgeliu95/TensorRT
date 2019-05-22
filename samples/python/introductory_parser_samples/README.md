@@ -63,12 +63,15 @@ This sample demonstrates how to build an engine from a UFF model file (converted
 
 To see the full list of available options and their descriptions, use the `-h` or `--help` command line option. For example:
 ```
-usage: sample.py [-h]
+usage: caffe_resnet50.py|uff_resnet50.py|onnx_resnet50.py [-h] [-d DATADIR]
 
-Description for this sample
+Runs a ResNet50 network with a TensorRT inference engine.
 
 optional arguments:
-  -h, --help            show this help message and exit
+ -h, --help            show this help message and exit
+ -d DATADIR, --datadir DATADIR
+                       Location of the TensorRT sample data directory.
+                       (default: /usr/src/tensorrt/data)
 ```
 
 # Additional resources
