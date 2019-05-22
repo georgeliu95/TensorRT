@@ -209,19 +209,37 @@ public:
     // Create a plugin using provided weights.
 	virtual nvinfer1::IPlugin* createPlugin(const char* layerName, const nvinfer1::Weights* weights, int nbWeights) override
 	{
-		assert(isPluginExt(layerName) && nbWeights == 2);
-		assert(mPlugin == nullptr);
-        // This plugin will need to be manually destroyed after parsing the network, by calling destroyPlugin.
-		mPlugin = new FCPlugin{weights, nbWeights};
-		return mPlugin;
+        try
+        {
+		    assert(isPluginExt(layerName) && nbWeights == 2);
+		    assert(mPlugin == nullptr);
+            // This plugin will need to be manually destroyed after parsing the network, by calling destroyPlugin.
+		    mPlugin = new FCPlugin{weights, nbWeights};
+		    return mPlugin;
+        }
+        catch (std::exception& e)
+        {
+            gLogError << e.what() << std::endl;
+        }
+
+        return nullptr;
 	}
 
     // Create a plugin from serialized data.
 	virtual nvinfer1::IPlugin* createPlugin(const char* layerName, const void* serialData, size_t serialLength) override
 	{
-		assert(isPlugin(layerName));
-        // This will be automatically destroyed when the engine is destroyed.
-		return new FCPlugin{serialData, serialLength};
+		try
+		{
+			assert(isPlugin(layerName));
+        	// This will be automatically destroyed when the engine is destroyed.
+			return new FCPlugin{serialData, serialLength};
+		}
+		catch (std::exception& e)
+		{
+			gLogError << e.what() << std::endl;
+		}
+
+		return nullptr;
 	}
 
     // User application destroys plugin when it is safe to do so.

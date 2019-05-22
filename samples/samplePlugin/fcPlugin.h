@@ -296,21 +296,39 @@ public:
 
     virtual IPlugin* createPlugin(const char* layerName, const nvinfer1::Weights* weights, int nbWeights) override
     {
-        // there's no way to pass parameters through from the model definition, so we have to define it here explicitly
-        static const int NB_OUTPUT_CHANNELS = 10;
-        assert(isPlugin(layerName) && nbWeights == 2);
-        assert(mPlugin.get() == nullptr);
-        mPlugin = std::unique_ptr<FCPlugin>(new FCPlugin(weights, nbWeights, NB_OUTPUT_CHANNELS));
-        return mPlugin.get();
+        try
+        {
+            // there's no way to pass parameters through from the model definition, so we have to define it here explicitly
+            static const int NB_OUTPUT_CHANNELS = 10;
+            assert(isPlugin(layerName) && nbWeights == 2);
+            assert(mPlugin.get() == nullptr);
+            mPlugin = std::unique_ptr<FCPlugin>(new FCPlugin(weights, nbWeights, NB_OUTPUT_CHANNELS));
+            return mPlugin.get();
+        }
+        catch (std::exception& e)
+        {
+            gLogError << e.what() << std::endl;
+        }
+
+        return nullptr;
     }
 
     // deserialization plugin implementation
     nvinfer1::IPlugin* createPlugin(const char* layerName, const void* serialData, size_t serialLength) override
     {
-        assert(isPlugin(layerName));
-        //This plugin object is destroyed when engine is destroyed by calling
-        //IPluginExt::destroy()
-        return new FCPlugin(serialData, serialLength);
+        try
+        {
+            assert(isPlugin(layerName));
+            //This plugin object is destroyed when engine is destroyed by calling
+            //IPluginExt::destroy()
+            return new FCPlugin(serialData, serialLength);
+        }
+        catch (std::exception& e)
+        {
+            gLogError << e.what() << std::endl;
+        }
+
+        return nullptr;
     }
 
     // User application destroys plugin when it is safe to do so.

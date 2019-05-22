@@ -531,20 +531,38 @@ public:
     virtual nvinfer1::IPlugin* createPlugin(const char* layerName, const nvinfer1::Weights* weights,
                                             int nbWeights, const nvuffparser::FieldCollection fc) override
     {
-        assert(isPlugin(layerName));
-        assert(mPlugin.get() == nullptr);
-        mPlugin = std::unique_ptr<UffPoolPlugin>(new UffPoolPlugin(fc));
-        return mPlugin.get();
+        try
+        {
+            assert(isPlugin(layerName));
+            assert(mPlugin.get() == nullptr);
+            mPlugin = std::unique_ptr<UffPoolPlugin>(new UffPoolPlugin(fc));
+            return mPlugin.get();
+        }
+        catch (std::exception& e)
+        {
+            gLogError << e.what() << std::endl;
+        }
+
+        return nullptr;
     }
 
     /* deserialization plugin implementation */
     IPlugin* createPlugin(const char* layerName, const void* serialData, size_t serialLength) override
     {
-        assert(isPlugin(layerName));
-        //This plugin object is destroyed when engine is destroyed by calling
-        //IPluginExt::destroy()
-        mPlugin = std::unique_ptr<UffPoolPlugin>(new UffPoolPlugin(serialData, serialLength));
-        return mPlugin.get();
+        try
+        {
+            assert(isPlugin(layerName));
+            //This plugin object is destroyed when engine is destroyed by calling
+            //IPluginExt::destroy()
+            mPlugin = std::unique_ptr<UffPoolPlugin>(new UffPoolPlugin(serialData, serialLength));
+            return mPlugin.get();
+        }
+        catch (std::exception& e)
+        {
+            gLogError << e.what() << std::endl;
+        }
+
+        return nullptr;
     }
 
     bool isPlugin(const char* name) override
