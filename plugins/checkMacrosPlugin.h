@@ -122,24 +122,24 @@ public:
     }
 
 #define API_CHECK_WEIGHTS(Name)        \
-    API_CHECK(Name.values != nullptr); \
-    API_CHECK(Name.count > 0);         \
-    API_CHECK(int(Name.type) >= 0 && int(Name.type) < EnumMax<DataType>());
+    API_CHECK((Name).values != nullptr); \
+    API_CHECK((Name).count > 0);         \
+    API_CHECK(int((Name).type) >= 0 && int((Name).type) < EnumMax<DataType>());
 
 #define API_CHECK_WEIGHTS0(Name)                                                     \
-    API_CHECK(Name.count >= 0);                                                      \
-    API_CHECK(Name.count > 0 ? (Name.values != nullptr) : (Name.values == nullptr)); \
-    API_CHECK(int(Name.type) >= 0 && int(Name.type) < EnumMax<DataType>());
+    API_CHECK((Name).count >= 0);                                                      \
+    API_CHECK((Name).count > 0 ? ((Name).values != nullptr) : ((Name).values == nullptr)); \
+    API_CHECK(int((Name).type) >= 0 && int((Name).type) < EnumMax<DataType>());
 
 #define API_CHECK_WEIGHTS_RETVAL(Name, retval)        \
-    API_CHECK_RETVAL(Name.values != nullptr, retval); \
-    API_CHECK_RETVAL(Name.count > 0, retval);         \
-    API_CHECK_RETVAL(int(Name.type) >= 0 && int(Name.type) < EnumMax<DataType>(), retval);
+    API_CHECK_RETVAL((Name).values != nullptr, retval); \
+    API_CHECK_RETVAL((Name).count > 0, retval);         \
+    API_CHECK_RETVAL(int((Name).type) >= 0 && int((Name).type) < EnumMax<DataType>(), retval);
 
 #define API_CHECK_WEIGHTS0_RETVAL(Name, retval)                                                     \
-    API_CHECK_RETVAL(Name.count >= 0, retval);                                                      \
-    API_CHECK_RETVAL(Name.count > 0 ? (Name.values != nullptr) : (Name.values == nullptr), retval); \
-    API_CHECK_RETVAL(int(Name.type) >= 0 && int(Name.type) < EnumMax<DataType>(), retval);
+    API_CHECK_RETVAL((Name).count >= 0, retval);                                                      \
+    API_CHECK_RETVAL((Name).count > 0 ? ((Name).values != nullptr) : ((Name).values == nullptr), retval); \
+    API_CHECK_RETVAL(int((Name).type) >= 0 && int((Name).type) < EnumMax<DataType>(), retval);
 
 #define API_CHECK_NULL(param) API_CHECK((param) != nullptr)
 #define API_CHECK_NULL_RETVAL(param, retval) API_CHECK_RETVAL((param) != nullptr, retval)
