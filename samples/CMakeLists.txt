@@ -81,6 +81,7 @@ set(SAMPLES_LIST
     sampleMovieLensMPS
     sampleOnnxMNIST
     samplePlugin
+    sampleReformatFreeIO
     sampleSSD
     sampleUffMNIST
     sampleUffSSD

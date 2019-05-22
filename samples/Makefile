@@ -36,7 +36,7 @@ export LIBDIR
 export CUDA_TRIPLE
 export CUBLAS_TRIPLE
 export DLSW_TRIPLE
-samples=sampleCharRNN sampleFasterRCNN sampleGoogleNet sampleINT8 sampleINT8API sampleMLP sampleMNIST sampleMNISTAPI sampleMovieLens sampleOnnxMNIST samplePlugin sampleSSD sampleUffMNIST sampleUffSSD trtexec
+samples=sampleCharRNN sampleFasterRCNN sampleGoogleNet sampleINT8 sampleINT8API sampleMLP sampleMNIST sampleMNISTAPI sampleMovieLens sampleOnnxMNIST samplePlugin sampleReformatFreeIO sampleSSD sampleUffMNIST sampleUffSSD trtexec
 
 # sampleMovieLensMPS should only be compiled for Linux targets.
 # sample uses Linux specific shared memory and IPC libraries.
