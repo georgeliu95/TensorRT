@@ -219,11 +219,13 @@ private:
     std::vector<char> mCalibrationCache;
 };
 
-void configureBuilder(IBuilder* builder, INetworkConfig* config, RndInt8Calibrator& calibrator)
+void configureBuilder(
+    IBuilder* builder, INetworkDefinition* network, INetworkConfig* config, RndInt8Calibrator& calibrator)
 {
     builder->setMaxBatchSize(gParams.batchSize);
 
     config->setMaxWorkspaceSize(static_cast<size_t>(gParams.workspaceSize) << 20);
+
     if (gParams.fp16)
     {
         config->setFlag(BuilderFlag::kFP16);
@@ -233,6 +235,14 @@ void configureBuilder(IBuilder* builder, INetworkConfig* config, RndInt8Calibrat
     {
         config->setFlag(BuilderFlag::kINT8);
         config->setInt8Calibrator(&calibrator);
+    }
+
+    if (std::count(gParams.inputTensorDataTypes.begin(), gParams.inputTensorDataTypes.end(), DataType::kINT8) ||
+        std::count(gParams.outputTensorDataTypes.begin(), gParams.outputTensorDataTypes.end(), DataType::kINT8))
+    {
+        // Explicitly set int8 scales if I/O tensors use int8 because auto calibrator does not support this case.
+        samplesCommon::setAllTensorScales(network);
+        config->setInt8Calibrator(nullptr);
     }
 
     if (gParams.safeMode)
@@ -306,7 +316,7 @@ ICudaEngine* caffeToTRTModel()
 
     // Build the engine
     RndInt8Calibrator calibrator(1, gParams.calibrationCache);
-    configureBuilder(builder, config, calibrator);
+    configureBuilder(builder, network, config, calibrator);
 
     samplesCommon::enableDLA(builder, config, gParams.useDLACore, gParams.allowGPUFallback);
 
@@ -369,7 +379,7 @@ ICudaEngine* uffToTRTModel()
 
     // Build the engine
     RndInt8Calibrator calibrator(1, gParams.calibrationCache);
-    configureBuilder(builder, config, calibrator);
+    configureBuilder(builder, network, config, calibrator);
 
     samplesCommon::enableDLA(builder, config, gParams.useDLACore);
 
@@ -411,7 +421,7 @@ ICudaEngine* onnxToTRTModel()
 
     // Build the engine
     RndInt8Calibrator calibrator(1, gParams.calibrationCache);
-    configureBuilder(builder, config, calibrator);
+    configureBuilder(builder, network, config, calibrator);
 
     samplesCommon::enableDLA(builder, config, gParams.useDLACore);
 
