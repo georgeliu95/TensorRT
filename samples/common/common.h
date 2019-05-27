@@ -479,29 +479,28 @@ inline void setDummyInt8Scales(const INetworkConfig* c, INetworkDefinition* n)
     }
 }
 
-inline void enableDLA(IBuilder* builder, INetworkConfig* config, int useDLACore, bool allowGPUFallback = true)
+inline void enableDLA(IBuilder* b, INetworkConfig* c, int useDLACore, bool allowGPUFallback = true)
 {
     if (useDLACore >= 0)
     {
-        if (builder->getNbDLACores() == 0)
+        if (b->getNbDLACores() == 0)
         {
             std::cerr << "Trying to use DLA core " << useDLACore << " on a platform that doesn't have any DLA cores" << std::endl;
             assert("Error: use DLA core on a platfrom that doesn't have any DLA cores" && false);
         }
         if (allowGPUFallback)
         {
-            config->setFlag(BuilderFlag::kGPU_FALLBACK);
+            c->setFlag(BuilderFlag::kGPU_FALLBACK);
         }
-        if (!builder->getInt8Mode() && !config->getFlag(BuilderFlag::kINT8))
+        if (!b->getInt8Mode())
         {
             // User has not requested INT8 Mode.
             // By default run in FP16 mode. FP32 mode is not permitted.
-            builder->setFp16Mode(true);
-            config->setFlag(BuilderFlag::kFP16);
+            b->setFp16Mode(true);
         }
-        config->setDefaultDeviceType(DeviceType::kDLA);
-        config->setDLACore(useDLACore);
-        config->setFlag(BuilderFlag::kSTRICT_TYPES);
+        c->setDefaultDeviceType(DeviceType::kDLA);
+        c->setDLACore(useDLACore);
+        c->setFlag(BuilderFlag::kSTRICT_TYPES);
     }
 }
 

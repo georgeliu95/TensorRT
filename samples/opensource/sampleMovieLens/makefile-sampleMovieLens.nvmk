@@ -1,0 +1,91 @@
+#
+# Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#############################################################################
+#
+# Notes:
+# 
+# This makefile exports the following lists:
+#
+#   sampleMovieLens_cpp_sources
+#   sampleMovieLens_objects
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# sampleMovieLens_*_sources to sampleMovieLens_objects, and for linking
+# sampleMovieLens_targets.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# sampleMovieLens_cpp_sources.
+#
+# SAMPLES_OBJECTS is populated to contain everything from
+# sampleMovieLens_objects.
+#
+# This makefile adds to SAMPLES_TARGETS a list of executables (exe,
+# dll, etc.)  that it creates. It defines recipes for building these
+# targets.
+#
+#############################################################################
+
+ifeq ($(NV_BUILD_TYPE),release)
+  sampleMovieLens_basename = sample_movielens
+else
+  sampleMovieLens_basename = sample_movielens_debug
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  sampleMovieLens_makefile = $(NV_SOURCE)/samples/sampleMovieLens/makefile-sampleMovieLens.nvmk
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  sampleMovieLens_cpp_sources += $(NV_SOURCE)/samples/common/logger.cpp
+  sampleMovieLens_cpp_sources += $(NV_SOURCE)/samples/common/windows/getopt.c
+  sampleMovieLens_cpp_sources += $(NV_SOURCE)/samples/sampleMovieLens/sampleMovieLens.cpp
+
+  SOURCES += $(sampleMovieLens_cpp_sources)
+  sampleMovieLens_objects += $(call BUILD_OBJECT_LIST,$(sampleMovieLens_cpp_sources))
+  SAMPLES_OBJECTS += $(sampleMovieLens_objects)
+
+  $(sampleMovieLens_objects): $(sampleMovieLens_makefile)
+
+  ############################################################
+  # C++ compiler flags
+
+  ############################################################
+  # Targets
+
+  sampleMovieLens_target += $(OUTPUTDIR)/$(sampleMovieLens_basename)$(EXESUFFIX)
+  SAMPLES_TARGETS += $(sampleMovieLens_target)
+
+  $(sampleMovieLens_target): $(sampleMovieLens_makefile)
+
+  ############################################################
+  # Linker flags and Recipe
+
+  $(sampleMovieLens_target): $(SAMPLES_PREREQUISITES)
+  $(sampleMovieLens_target): $(sampleMovieLens_objects)
+
+  $(sampleMovieLens_target): LINKER_FLAGS += $(SAMPLES_LFLAGS)
+  $(sampleMovieLens_target): LINKER_FLAGS += $(SAMPLES_LIBRARIES)
+  $(sampleMovieLens_target): LINKER_FLAGS += $(sampleMovieLens_objects)
+  $(sampleMovieLens_target): LINKER_FLAGS += -out:$@
+
+  $(sampleMovieLens_target): LINKER_PARAMETERS_FILE = linkParameters-$(sampleMovieLens_basename).txt
+
+  $(eval $(call SAMPLES_MAKE_LINK_RECIPE,$(sampleMovieLens_target)))
+
+endif # NVCFG_INITIALIZED

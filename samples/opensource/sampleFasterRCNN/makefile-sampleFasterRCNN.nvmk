@@ -1,0 +1,91 @@
+#
+# Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#############################################################################
+#
+# Notes:
+# 
+# This makefile exports the following lists:
+#
+#   sampleFasterRCNN_cpp_sources
+#   sampleFasterRCNN_objects
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# sampleFasterRCNN_*_sources to sampleFasterRCNN_objects, and for linking
+# sampleFasterRCNN_targets.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# sampleFasterRCNN_cpp_sources.
+#
+# SAMPLES_OBJECTS is populated to contain everything from
+# sampleFasterRCNN_objects.
+#
+# This makefile adds to SAMPLES_TARGETS a list of executables (exe,
+# dll, etc.)  that it creates. It defines recipes for building these
+# targets.
+#
+#############################################################################
+
+ifeq ($(NV_BUILD_TYPE),release)
+  sampleFasterRCNN_basename = sample_fasterRCNN
+else
+  sampleFasterRCNN_basename = sample_fasterRCNN_debug
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  sampleFasterRCNN_makefile = $(NV_SOURCE)/samples/sampleFasterRCNN/makefile-sampleFasterRCNN.nvmk
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  sampleFasterRCNN_cpp_sources += $(NV_SOURCE)/samples/common/logger.cpp
+  sampleFasterRCNN_cpp_sources += $(NV_SOURCE)/samples/common/windows/getopt.c
+  sampleFasterRCNN_cpp_sources += $(NV_SOURCE)/samples/sampleFasterRCNN/sampleFasterRCNN.cpp
+
+  SOURCES += $(sampleFasterRCNN_cpp_sources)
+  sampleFasterRCNN_objects += $(call BUILD_OBJECT_LIST,$(sampleFasterRCNN_cpp_sources))
+  SAMPLES_OBJECTS += $(sampleFasterRCNN_objects)
+
+  $(sampleFasterRCNN_objects): $(sampleFasterRCNN_makefile)
+
+  ############################################################
+  # C++ compiler flags
+
+  ############################################################
+  # Targets
+
+  sampleFasterRCNN_target += $(OUTPUTDIR)/$(sampleFasterRCNN_basename)$(EXESUFFIX)
+  SAMPLES_TARGETS += $(sampleFasterRCNN_target)
+
+  $(sampleFasterRCNN_target): $(sampleFasterRCNN_makefile)
+
+  ############################################################
+  # Linker flags and Recipe
+
+  $(sampleFasterRCNN_target): $(SAMPLES_PREREQUISITES)
+  $(sampleFasterRCNN_target): $(sampleFasterRCNN_objects)
+
+  $(sampleFasterRCNN_target): LINKER_FLAGS += $(SAMPLES_LFLAGS)
+  $(sampleFasterRCNN_target): LINKER_FLAGS += $(SAMPLES_LIBRARIES)
+  $(sampleFasterRCNN_target): LINKER_FLAGS += $(sampleFasterRCNN_objects)
+  $(sampleFasterRCNN_target): LINKER_FLAGS += -out:$@
+
+  $(sampleFasterRCNN_target): LINKER_PARAMETERS_FILE = linkParameters-$(sampleFasterRCNN_basename).txt
+
+  $(eval $(call SAMPLES_MAKE_LINK_RECIPE,$(sampleFasterRCNN_target)))
+
+endif # NVCFG_INITIALIZED

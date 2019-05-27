@@ -1,4 +1,0 @@
-Pillow
-pycuda
-numpy
-tensorflow

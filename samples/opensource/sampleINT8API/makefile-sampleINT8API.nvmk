@@ -1,0 +1,91 @@
+#
+# Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+#############################################################################
+#
+# Notes:
+#
+# This makefile exports the following lists:
+#
+#   sampleINT8API_cpp_sources
+#   sampleINT8API_objects
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# sampleINT8API_*_sources to sampleINT8API_objects, and for linking
+# sampleINT8API_targets.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# sampleINT8API_cpp_sources.
+#
+# SAMPLES_OBJECTS is populated to contain everything from
+# sampleINT8API_objects.
+#
+# This makefile adds to SAMPLES_TARGETS a list of executables (exe,
+# dll, etc.)  that it creates. It defines recipes for building these
+# targets.
+#
+#############################################################################
+
+ifeq ($(NV_BUILD_TYPE),release)
+  sampleINT8API_basename = sample_int8_api
+else
+  sampleINT8API_basename = sample_int8_api_debug
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  sampleINT8API_makefile = $(NV_SOURCE)/samples/sampleINT8API/makefile-sampleINT8API.nvmk
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  sampleINT8API_cpp_sources += $(NV_SOURCE)/samples/common/logger.cpp
+  sampleINT8API_cpp_sources += $(NV_SOURCE)/samples/common/windows/getopt.c
+  sampleINT8API_cpp_sources += $(NV_SOURCE)/samples/sampleINT8API/sampleINT8API.cpp
+
+  SOURCES += $(sampleINT8API_cpp_sources)
+  sampleINT8API_objects += $(call BUILD_OBJECT_LIST,$(sampleINT8API_cpp_sources))
+  SAMPLES_OBJECTS += $(sampleINT8API_objects)
+
+  $(sampleINT8API_objects): $(sampleINT8API_makefile)
+
+  ############################################################
+  # C++ compiler flags
+
+  ############################################################
+  # Targets
+
+  sampleINT8API_target += $(OUTPUTDIR)/$(sampleINT8API_basename)$(EXESUFFIX)
+  SAMPLES_TARGETS += $(sampleINT8API_target)
+
+  $(sampleINT8API_target): $(sampleINT8API_makefile)
+
+  ############################################################
+  # Linker flags and Recipe
+
+  $(sampleINT8API_target): $(SAMPLES_PREREQUISITES)
+  $(sampleINT8API_target): $(sampleINT8API_objects)
+
+  $(sampleINT8API_target): LINKER_FLAGS += $(SAMPLES_LFLAGS)
+  $(sampleINT8API_target): LINKER_FLAGS += $(SAMPLES_LIBRARIES)
+  $(sampleINT8API_target): LINKER_FLAGS += $(sampleINT8API_objects)
+  $(sampleINT8API_target): LINKER_FLAGS += -out:$@
+
+  $(sampleINT8API_target): LINKER_PARAMETERS_FILE = linkParameters-$(sampleINT8API_basename).txt
+
+  $(eval $(call SAMPLES_MAKE_LINK_RECIPE,$(sampleINT8API_target)))
+
+endif # NVCFG_INITIALIZED
