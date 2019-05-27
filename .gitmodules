@@ -1,0 +1,9 @@
+[submodule "parsers/onnx"]
+	path = parsers/onnx
+	url = https://github.com/onnx/onnx-tensorrt.git
+[submodule "third_party/protobuf"]
+	path = third_party/protobuf
+	url = https://github.com/protocolbuffers/protobuf.git
+[submodule "third_party/cub"]
+	path = third_party/cub
+	url = https://github.com/NVlabs/cub.git
