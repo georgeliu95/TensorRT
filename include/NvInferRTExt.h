@@ -718,30 +718,30 @@ public:
     //!
     //! \return The engine, or nullptr if it could not be deserialized.
     //!
-    virtual nvinfer1::ICudaEngine* deserializeCudaEngine(const void* blob, std::size_t size, IPluginFactory* pluginFactory) TRTNOEXCEPT = 0;
+    virtual nvinfer1::ICudaEngine* deserializeCudaEngine(const void* blob, std::size_t size, IPluginFactory* pluginFactory) noexcept = 0;
 
     //!
     //! \brief Set the DLA core that the deserialized engine must execute on.
     //! \param dlaCore The DLA core to execute the engine on (0 to N-1, where N is the maximum number of DLA's present on the device). Default value is 0.
     //! \see getDLACore()
     //!
-    virtual void setDLACore(int dlaCore) = 0;
+    virtual void setDLACore(int dlaCore) noexcept = 0;
 
     //!
     //! \brief Get the DLA core that the engine executes on.
     //! \return If setDLACore is called, returns DLA core from 0 to N-1, else returns 0.
     //!
-    virtual int getDLACore() const = 0;
+    virtual int getDLACore() const noexcept = 0;
 
     //!
     //! \brief Returns number of DLA hardware cores accessible.
     //!
-    virtual int getNbDLACores() const = 0;
+    virtual int getNbDLACores() const noexcept = 0;
 
     //!
     //! \brief Destroy this object.
     //!
-    virtual void destroy() = 0;
+    virtual void destroy() noexcept = 0;
 
 protected:
     virtual ~IRuntime() {}
@@ -755,7 +755,7 @@ public:
     //!
     //! If nullptr is passed, the default allocator will be used.
     //!
-    virtual void setGpuAllocator(IGpuAllocator* allocator) TRTNOEXCEPT = 0;
+    virtual void setGpuAllocator(IGpuAllocator* allocator) noexcept = 0;
 
     //!
     //! \brief Set the ErrorRecorder for this interface
@@ -769,7 +769,7 @@ public:
     //
     //! \see getErrorRecorder
     //!
-    virtual void setErrorRecorder(IErrorRecorder* recorder) TRTNOEXCEPT = 0;
+    virtual void setErrorRecorder(IErrorRecorder* recorder) noexcept = 0;
 
     //!
     //! \brief get the ErrorRecorder assigned to this interface.
@@ -781,7 +781,7 @@ public:
     //!
     //! \see setErrorRecorder
     //!
-    virtual IErrorRecorder* getErrorRecorder() const TRTNOEXCEPT = 0;
+    virtual IErrorRecorder* getErrorRecorder() const noexcept = 0;
 };
 
 //!
@@ -1117,7 +1117,7 @@ public:
     //!
     //! \see getBindingIndex();
     //!
-    virtual int getNbBindings() const = 0;
+    virtual int getNbBindings() const noexcept = 0;
 
     //!
     //! \brief Retrieve the binding index for a named tensor.
@@ -1199,6 +1199,7 @@ public:
     //! The workspace size will be no greater than the value provided to the builder when the engine was built, and will typically be smaller.
     //! Workspace will be allocated for each execution context.
     //!
+    TRT_DEPRECATED
     virtual std::size_t getWorkspaceSize() const noexcept = 0;
 
     //!
@@ -1433,7 +1434,7 @@ public:
     //
     //! \see getErrorRecorder
     //!
-    virtual void setErrorRecorder(IErrorRecorder* recorder) TRTNOEXCEPT = 0;
+    virtual void setErrorRecorder(IErrorRecorder* recorder) noexcept = 0;
 
     //!
     //! \brief get the ErrorRecorder assigned to this interface.
@@ -1445,7 +1446,7 @@ public:
     //!
     //! \see setErrorRecorder
     //!
-    virtual IErrorRecorder* getErrorRecorder() const TRTNOEXCEPT = 0;
+    virtual IErrorRecorder* getErrorRecorder() const noexcept = 0;
 };
 
 //!
@@ -1471,7 +1472,7 @@ public:
     //!
     //! \see ICudaEngine::getBindingIndex() ICudaEngine::getMaxBatchSize()
     //!
-    virtual bool execute(int batchSize, void** bindings) = 0;
+    virtual bool execute(int batchSize, void** bindings) noexcept = 0;
 
     //!
     //! \brief Asynchronously execute inference on a batch.
@@ -1486,7 +1487,7 @@ public:
     //!
     //! \see ICudaEngine::getBindingIndex() ICudaEngine::getMaxBatchSize()
     //!
-    virtual bool enqueue(int batchSize, void** bindings, cudaStream_t stream, cudaEvent_t* inputConsumed) = 0;
+    virtual bool enqueue(int batchSize, void** bindings, cudaStream_t stream, cudaEvent_t* inputConsumed) noexcept = 0;
 
     //!
     //! \brief Set the debug sync flag.
@@ -1495,43 +1496,43 @@ public:
     //!
     //! \see getDebugSync()
     //!
-    virtual void setDebugSync(bool sync) = 0;
+    virtual void setDebugSync(bool sync) noexcept = 0;
 
     //!
     //! \brief Get the debug sync flag.
     //!
     //! \see setDebugSync()
     //!
-    virtual bool getDebugSync() const = 0;
+    virtual bool getDebugSync() const noexcept = 0;
 
     //!
     //! \brief Set the profiler.
     //!
     //! \see IProfiler getProfiler()
     //!
-    virtual void setProfiler(IProfiler*) = 0;
+    virtual void setProfiler(IProfiler*) noexcept = 0;
 
     //!
     //! \brief Get the profiler.
     //!
     //! \see IProfiler setProfiler()
     //!
-    virtual IProfiler* getProfiler() const = 0;
+    virtual IProfiler* getProfiler() const noexcept = 0;
 
     //!
     //! \brief Get the associated engine.
     //!
     //! \see ICudaEngine
     //!
-    virtual const ICudaEngine& getEngine() const = 0;
+    virtual const ICudaEngine& getEngine() const noexcept = 0;
 
     //!
     //! \brief Destroy this object.
     //!
-    virtual void destroy() = 0;
+    virtual void destroy() noexcept = 0;
 
 protected:
-    virtual ~IExecutionContext() {}
+    virtual ~IExecutionContext() noexcept {}
 
 public:
     //!
@@ -1541,14 +1542,14 @@ public:
     //!
     //! \see getName()
     //!
-    virtual void setName(const char* name) = 0;
+    virtual void setName(const char* name) noexcept = 0;
 
     //!
     //! \brief Return the name of the execution context.
     //!
     //! \see setName()
     //!
-    virtual const char* getName() const = 0;
+    virtual const char* getName() const noexcept = 0;
 
     //!
     //! \brief set the device memory for use by this execution context.
@@ -1561,7 +1562,7 @@ public:
     //!
     //! \see ICudaEngine::getDeviceMemorySize() ICudaEngine::createExecutionContextWithoutDeviceMemory()
     //!
-    virtual void setDeviceMemory(void* memory) = 0;
+    virtual void setDeviceMemory(void* memory) noexcept = 0;
 
     //!
     //! \brief Return the strides of the buffer for the given binding.
@@ -1571,7 +1572,7 @@ public:
     //!
     //! \param bindingIndex The binding index.
     //!
-    virtual Dims getStrides(int bindingIndex) const = 0;
+    virtual Dims getStrides(int bindingIndex) const noexcept = 0;
 
 public:
     //!
@@ -1589,12 +1590,12 @@ public:
     //! \return true if the call succeeded, else false (e.g. input out of range)
     //!
     //! \see ICudaEngine::getNbOptimizationProfiles()
-    virtual bool setOptimizationProfile(int profileIndex) = 0;
+    virtual bool setOptimizationProfile(int profileIndex) noexcept = 0;
 
     //!
     //! \brief Get the index of the currently selected optimization profile
     //!
-    virtual int getOptimizationProfile() const = 0;
+    virtual int getOptimizationProfile() const noexcept = 0;
 
     //!
     //! \brief Set the dynamic dimensions of a binding
@@ -1613,7 +1614,7 @@ public:
     //!
     //! \return false if an error occurs (e.g. index out of range), else true
     //!
-    virtual bool setBindingDimensions(int bindingIndex, Dims dimensions) = 0;
+    virtual bool setBindingDimensions(int bindingIndex, Dims dimensions) noexcept = 0;
 
     //!
     //! \brief Get the dynamic dimensions of a binding
@@ -1630,7 +1631,7 @@ public:
     //!
     //! \return Currently selected binding dimensions
     //!
-    virtual Dims getBindingDimensions(int bindingIndex) const = 0;
+    virtual Dims getBindingDimensions(int bindingIndex) const noexcept = 0;
 
     //!
     //! \brief Set values of input tensor required by shape calculations.
@@ -1645,7 +1646,7 @@ public:
     //! If ICudaEngine::isShapeBinding(bindingIndex) and ICudaEngine::bindingIsInput(bindingIndex)
     //! are both true, this method must be called before enqueue() or execute() may be called.
     //!
-    virtual bool setInputShapeBinding(int bindingIndex, const int32_t* data) = 0;
+    virtual bool setInputShapeBinding(int bindingIndex, const int32_t* data) noexcept = 0;
 
     //!
     //! \brief Get values of an input tensor required for shape calculations or an output tensor produced by shape calculations.
@@ -1662,7 +1663,7 @@ public:
     //!
     //! \see isShapeBinding(bindingIndex)
     //!
-    virtual bool getShapeBinding(int bindingIndex, int32_t* data) const = 0;
+    virtual bool getShapeBinding(int bindingIndex, int32_t* data) const noexcept = 0;
 
     //!
     //! \brief Whether all dynamic dimensions of input tensors have been specified
@@ -1674,7 +1675,7 @@ public:
     //!
     //! \see setBindingDimensions(bindingIndex,dimensions)
     //!
-    virtual bool allInputDimensionsSpecified() const = 0;
+    virtual bool allInputDimensionsSpecified() const noexcept = 0;
 
     //!
     //! \brief Whether all input shape bindings have been specified
@@ -1685,7 +1686,7 @@ public:
     //!
     //! \see isShapeBinding(bindingIndex)
     //!
-    virtual bool allInputShapesSpecified() const = 0;
+    virtual bool allInputShapesSpecified() const noexcept = 0;
 
     //!
     //! \brief Set the ErrorRecorder for this interface
@@ -1699,7 +1700,7 @@ public:
     //
     //! \see getErrorRecorder
     //!
-    virtual void setErrorRecorder(IErrorRecorder* recorder) TRTNOEXCEPT = 0;
+    virtual void setErrorRecorder(IErrorRecorder* recorder) noexcept = 0;
 
     //!
     //! \brief get the ErrorRecorder assigned to this interface.
@@ -1711,7 +1712,7 @@ public:
     //!
     //! \see setErrorRecorder
     //!
-    virtual IErrorRecorder* getErrorRecorder() const TRTNOEXCEPT = 0;
+    virtual IErrorRecorder* getErrorRecorder() const noexcept = 0;
 };
 
 }

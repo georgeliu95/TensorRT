@@ -968,12 +968,12 @@ public:
     //!
     //! \return The engine, or nullptr if it could not be deserialized.
     //!
-    virtual ICudaEngine* deserializeCudaEngine(const void* blob, std::size_t size) TRTNOEXCEPT = 0;
+    virtual ICudaEngine* deserializeCudaEngine(const void* blob, std::size_t size) noexcept = 0;
 
     //!
     //! \brief Destroy this object.
     //!
-    virtual void destroy() TRTNOEXCEPT = 0;
+    virtual void destroy() noexcept = 0;
 
     //!
     //! \brief Set the GPU allocator.
@@ -983,7 +983,7 @@ public:
     //!
     //! If nullptr is passed, the default allocator will be used.
     //!
-    virtual void setGpuAllocator(IGpuAllocator* allocator) TRTNOEXCEPT = 0;
+    virtual void setGpuAllocator(IGpuAllocator* allocator) noexcept = 0;
 
     //!
     //! \brief Set the ErrorRecorder for this interface
@@ -997,7 +997,7 @@ public:
     //
     //! \see getErrorRecorder
     //!
-    virtual void setErrorRecorder(IErrorRecorder* recorder) TRTNOEXCEPT = 0;
+    virtual void setErrorRecorder(IErrorRecorder* recorder) noexcept = 0;
 
     //!
     //! \brief get the ErrorRecorder assigned to this interface.
@@ -1009,7 +1009,7 @@ public:
     //!
     //! \see setErrorRecorder
     //!
-    virtual IErrorRecorder* getErrorRecorder() const TRTNOEXCEPT = 0;
+    virtual IErrorRecorder* getErrorRecorder() const noexcept = 0;
 
 protected:
     virtual ~IRuntime() TRTNOEXCEPT {}
@@ -1124,14 +1124,6 @@ public:
     //! \return The number of layers in the network.
     //!
     virtual int getNbLayers() const noexcept = 0;
-
-    //!
-    //! \brief Get the amount of workspace the engine uses.
-    //!
-    //! The workspace size will be no greater than the value provided to the builder when the engine was built, and will typically be smaller.
-    //! Workspace will be allocated for each execution context.
-    //!
-    virtual std::size_t getWorkspaceSize() const noexcept = 0;
 
     //!
     //! \brief Create an execution context.
@@ -1251,7 +1243,7 @@ public:
     //
     //! \see getErrorRecorder
     //!
-    virtual void setErrorRecorder(IErrorRecorder* recorder) TRTNOEXCEPT = 0;
+    virtual void setErrorRecorder(IErrorRecorder* recorder) noexcept = 0;
 
     //!
     //! \brief get the ErrorRecorder assigned to this interface.
@@ -1263,7 +1255,7 @@ public:
     //!
     //! \see setErrorRecorder
     //!
-    virtual IErrorRecorder* getErrorRecorder() const TRTNOEXCEPT = 0;
+    virtual IErrorRecorder* getErrorRecorder() const noexcept = 0;
 
 protected:
     virtual ~ICudaEngine() noexcept {}
@@ -1373,7 +1365,7 @@ public:
     //
     //! \see getErrorRecorder
     //!
-    virtual void setErrorRecorder(IErrorRecorder* recorder) TRTNOEXCEPT = 0;
+    virtual void setErrorRecorder(IErrorRecorder* recorder) noexcept = 0;
 
     //!
     //! \brief get the ErrorRecorder assigned to this interface.
@@ -1385,7 +1377,7 @@ public:
     //!
     //! \see setErrorRecorder
     //!
-    virtual IErrorRecorder* getErrorRecorder() const TRTNOEXCEPT = 0;
+    virtual IErrorRecorder* getErrorRecorder() const noexcept = 0;
 
 protected:
     virtual ~IExecutionContext() noexcept {}
