@@ -151,9 +151,10 @@ else()
         ${CUDA_INCLUDE_DIRS}
     )
     find_library(CUDNN_LIB cudnn HINTS
-        ${CUDA_TOOLKIT_ROOT_DIR})
+        ${CUDA_TOOLKIT_ROOT_DIR}/lib64)
     find_library(CUBLAS_LIB cublas HINTS
-        ${CUDA_TOOLKIT_ROOT_DIR})
+        ${CUDA_TOOLKIT_ROOT_DIR}/lib64)
+
     if(BUILD_PARSERS)
         configure_protobuf(${PROTOBUF_VERSION})
     endif()
