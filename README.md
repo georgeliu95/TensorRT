@@ -9,29 +9,31 @@ To build TensorRT Open Source Software (OSS), you will need the latest version o
 
 ## Building
 
-To build you must obtain the latest TensorRT 6.0.0 binary release from [NVidia developer zone](https://developer.nvidia.com/tensorrt). The required TensorRT libraries are `libnvinfer` and `libnvinfer_plugin`. 
+To build you must obtain the latest TensorRT 6.0.0 binary release from [NVidia developer zone](https://developer.nvidia.com/tensorrt).
 
 ### Quick Start Script
 
 Download TensorRT-OSS and dependencies.
 ```
 git clone https://github.com/nvidia/TensorRT
-git submodule add https://github.com/onnx/onnx-tensorrt.git parsers/onnx
-git submodule add https://github.com/protocolbuffers/protobuf.git third_party/protobuf
-git submodule add https://github.com/NVlabs/cub.git third_party/cub
+cd TensorRT
+git submodule update --init --recursive
 ```
 
+Download TensorRT binary release.
+
+Build TensorRT-OSS
 ```
 mkdir build
 cd build 
 cmake -DTRT_LIB_DIR=[PATH TO DIRECTORY CONTAINING TRT LIBS] ..
-make
+make -j$(nproc)
 ```
 
 ### Configurable Settings
 #### Required
 
-- `TRT_LIB_DIR`: Path to the TensorRT installation directory containing `libnvinfer` and `libnvinfer_plugin` libraries.
+- `TRT_LIB_DIR`: Path to the TensorRT installation directory containing libraries.
 
 #### Optional 
 
