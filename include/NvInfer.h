@@ -650,7 +650,28 @@ public:
     //!
     //! \brief Whether the tensor is a shape tensor.
     //!
-    virtual bool isShape() const TRTNOEXCEPT = 0;
+    //! If a tensor is a shape tensor and becomes an engine input or output,
+    //! then ICudaEngine::isShapeBinding will be true for that tensor.
+    //!
+    //! It is possible for a tensor to be both a shape tensor and an execution tensor.
+    //!
+    virtual bool isShapeTensor() const TRTNOEXCEPT = 0;
+
+    //!
+    //! \brief Whether the tensor is an execution tensor.
+    //!
+    //! If a tensor is an execution tensor and becomes an engine input or output,
+    //! then ICudaEngine::isExecutionBinding will be true for that tensor.
+    //!
+    //! Tensors are usually execution tensors.  The exceptions are tensors used
+    //! solely for shape calculations or whose contents not needed to compute the outputs.
+    //!
+    //! A tensor with isShapeTensor() == false and isExecutionTensor() == false
+    //! can still show up as an input to the engine if its dimensions are required.
+    //! In that case, only its dimensions need to be set at runtime and a nullptr
+    //! can be passed instead of a pointer to its contents.
+    //!
+    virtual bool isExecutionTensor() const TRTNOEXCEPT = 0;
 };
 
 //!
@@ -4210,6 +4231,8 @@ public:
 
     //!
     //! \brief Get the number of outputs in the network.
+    //!
+    //! The outputs include those marked by markOutput or markOutputForShapes.
     //!
     //! \return The number of outputs in the network.
     //!

@@ -1041,15 +1041,15 @@ public:
     //!
     //! \param inputName The input tensor name
     //! \param select Whether to set the minimum, optimum, or maximum input values.
-    //! \param nbValues The length of the value array, which must equal the number of shape tensor elements (>= 1)
     //! \param values An array of length nbValues containing the minimum, optimum, or maximum shape tensor elements.
+    //! \param nbValues The length of the value array, which must equal the number of shape tensor elements (>= 1)
     //!
     //! \return false if an inconsistency was detected (e.g. nbValues does not match a previous call for the same
     //!         tensor), else true. As for setDimensions(), a full validation can only be performed at engine build
     //!         time.
     //!
     virtual bool setShapeValues(
-        const char* inputName, OptProfileSelector select, int nbValues, const int32_t* values) noexcept = 0;
+        const char* inputName, OptProfileSelector select, const int32_t* values, int nbValues) noexcept = 0;
 
     //!
     //! \brief Get the number of values for an input shape tensor.
@@ -1161,6 +1161,7 @@ public:
     //!
     //! \param bindingIndex The binding index.
     //! \return The dimensions of the binding if the index is in range, otherwise (0,0,0).
+    //!         Has -1 for any dimension with a dynamic value.
     //!
     //! \see getBindingIndex()
     //!
@@ -1618,6 +1619,8 @@ public:
 
     //!
     //! \brief Get the dynamic dimensions of a binding
+    //!
+    //! If the engine was built with an implicit batch dimension, same as ICudaEngine::getBindingDimensions.
     //!
     //! If setBindingDimensions() has been called on this binding (or if there are no
     //! dynamic dimensions), all dimensions will be positive. Otherwise, it is necessary to
