@@ -279,26 +279,19 @@ constexpr inline int EnumMax<TensorFormat>()
 
 //! \struct PluginConfig
 //!
-//! \brief Fields for plugin configuration per tensor.
+//! \brief Fields that a plugin might see for an input or output.
 //!
-//! If the plugin interface remains unchanged, but fields are added/changed for a new requirement,
-//! PluginConfig::version should be updated.
-//! The INT8 scale dimension and the maximum batch size are explicit in the dims.
-//!
-//! History:
-//! [v0]: Add Dims, DataType, TensorFormat, broadcast flag and INT8 scales to extend multiple formats for
-//!       IPluginV2IOExt interface.
+//! Scales are only valid when data type is DataType::kINT8 and the dimension of the tensor is greater
+//! than or equal to 3.
 //!
 //! \see IPluginV2IOExt::supportsFormat
 //! \see IPluginV2IOExt::configurePlugin
 //!
 struct PluginConfig
 {
-    static const int version{0};
     Dims dims;
     DataType type;
     TensorFormat format;
-    bool isBroadcast;
     const float* hostScale;
     const float* deviceScale;
 };
@@ -620,80 +613,47 @@ public:
     //! \brief Configure the layer.
     //!
     //! This function is called by the builder prior to initialize(). It provides an opportunity for the layer to make
-    //! algorithm choices on the basis of I/O PluginConfig and the maximum batch size. The output PluginConfig should
-    //! match the corresponding attributes from getOutputTensorFormat(), and getOutputDataType().
+    //! algorithm choices on the basis of I/O PluginConfig and the maximum batch size.
     //!
     //! \param in The input tensors attributes that are used for configuration.
     //! \param nbInput Number of input tensors.
     //! \param out The output tensors attributes that are used for configuration.
     //! \param nbOutput Number of output tensors.
     //!
-    //! \see getOutputTensorFormat()
-    //! \see getOutputDataType()
-    //!
-    virtual void configurePlugin(const PluginConfig* in, int nbInput, const PluginConfig* out, int nbOutput) = 0;
+    virtual void configurePlugin(const PluginConfig* in, int nbInput, const PluginConfig* out, int nbOutput) TRTNOEXCEPT = 0;
 
     //!
-    //! \brief Check format support.
+    //! \brief Return true if plugin supports the format and datatype for the input/output indexed by pos.
     //!
-    //! This function is called by the implementations of INetworkDefinition, IBuilder, and safe::ICudaEngine/ICudaEngine.
-    //! In particular, it is called when creating an engine and when deserializing an engine. If the pointer is nullptr
-    //! or the I/O number is zero, it implies an arbitrary format within the scope of getSupportedFormats(),
-    //! getOutputTensorFormat() and getOutputDataType().
+    //! For this method inputs are numbered 0..(nbInputs-1) and outputs are numbered nbInputs..(nbInputs+nbOutputs-1).
+    //! Using this numbering, pos is an index into InOut, where 0 <= pos < nbInputs+nbOutputs-1.
     //!
-    //! \param in Input tensors attributes that are used by plugin.
-    //! \param nbInput Number of input tensors.
-    //! \param out Output tensors attributs that are used by plugin.
-    //! \param nbOutput Number of output tensors.
+    //! TensorRT invokes this method to ask if the input/output indexed by pos supports the format/datatype specified
+    //! by inOut[pos].format and inOut[pos].type. The override should return true if that format/datatype at inOut[pos]
+    //! are supported by the plugin. If support is conditional on other input/output formats/datatypes, the plugin can
+    //! make its result conditional on the formats/datatypes in inOut[0..pos-1], which will be set to values
+    //! that the plugin supports. The override should not inspect inOut[pos+1..nbInputs+nbOutputs-1],
+    //! which will have invalid values.  In other words, the decision for pos must be based on inOut[0..pos] only.
     //!
-    //! \return true if the plugin supports the I/O attributes listed.
+    //! Some examples:
     //!
-    //! \see getSupportedFormats()
-    //! \see getOutputTensorFormat()
-    //! \see getOutputDataType()
+    //! * A definition for a plugin that supports only FP16 NCHW:
     //!
-    virtual bool supportsFormat(const PluginConfig* in, int nbInput, const PluginConfig* out, int nbOutput) const = 0;
-
+    //!         return inOut.format[pos] == TensorFormat::kLINEAR && inOut.type[pos] == DataType::kHALF;
     //!
-    //! \brief Get the TensorFormat of the plugin output at the requested index.
+    //! * A definition for a plugin that supports only FP16 NCHW for its two inputs,
+    //!   and FP32 NCHW for its single output:
     //!
-    //! \param index The binding index requested.
-    //! \param in Input tensors attributes where only DataType and TensorFormat are required while other attributes are
-    //! omitted and reserved for the potential use in the future.
-    //! \param nbInput Number of input tensors.
+    //!         return inOut.format[pos] == TensorFormat::kLINEAR && (inOut.type[pos] == pos < 2 ?  DataType::kHALF : DataType::kFLOAT);
     //!
-    //! The returned data type must have a format within the scope of getSupportedFormats(). The constraint is that one
-    //! set of input tensor attributes should map to the unique output TensorFormat.
+    //! * A definition for a "polymorphic" plugin with two inputs and one output that supports
+    //!   any format or type, but the inputs and output must have the same format and type:
     //!
-    //! \see getSupportedFormats()
-    //! \see supportsFormat()
+    //!         return pos == 0 || (inOut.format[pos] == inOut.format[0] && inOut.type[pos] == inOut.type[0]);
     //!
-    virtual TensorFormat getOutputTensorFormat(int index, const PluginConfig* in, int nbInput) const = 0;
-
+    //! Warning: TensorRT will stop asking for formats once it finds kFORMAT_COMBINATION_LIMIT on combinations.
     //!
-    //! \brief Return the DataType of the plugin output at the requested index.
-    //!
-    //! \param index The binding index requested.
-    //! \param in Input tensors attributes where only DataType is required while other attributes are omitted and
-    //! reserved for the potential use in the future.
-    //! \param nbInput Number of input tensors.
-    //!
-    //! The returned data type should be supported by the plugin. The constraint is that one set of input DataType
-    //! should map to the unique output DataType.
-    //!
-    //! \see supportsFormat()
-    //!
-    virtual DataType getOutputDataType(int index, const PluginConfig* in, int nbInput) const = 0;
-
-    //!
-    //! \brief Return the list of supported formats via the TensorFormats bitmask.
-    //!
-    //! \param type The data type
-    //!
-    virtual TensorFormats getSupportedFormats(DataType type) _TENSORRT_FINAL
-    {
-        return mTensorFormatsMap[static_cast<int>(type)];
-    }
+    virtual bool supportsFormatCombination(int pos, const PluginConfig* inOut, int nbInputs, int nbOutputs) const TRTNOEXCEPT = 0;
 
 protected:
     //!
@@ -738,27 +698,6 @@ protected:
     {
         return false;
     }
-
-    //!
-    //! \brief Deprecated interface inheriting from base class. Derived classes should not implement this. In a C++11
-    //! API it would be override final.
-    //!
-    TRT_DEPRECATED
-    DataType getOutputDataType(int, const DataType*, int) const _TENSORRT_OVERRIDE _TENSORRT_FINAL
-    {
-        return DataType::kFLOAT;
-    }
-
-private:
-    //! Mapping a DataType to the TensorFormats bitmask.
-    typedef TensorFormat T;
-    typedef TensorFormats U;
-    const U mTensorFormatsMap[EnumMax<DataType>()] = {
-        1U << U(T::kLINEAR), //!< kFLOAT = 0
-        1U << U(T::kLINEAR) | 1U << U(T::kCHW2) | 1U << U(T::kHWC8) | 1U << U(T::kCHW16),  //!< kHALF = 1
-        1U << U(T::kLINEAR) | 1U << U(T::kCHW4) | 1U << U(T::kCHW32),  //!< kINT8 = 2
-        1U << U(T::kLINEAR)  //!< kINT32 = 3
-    };
 };
 
 //!
