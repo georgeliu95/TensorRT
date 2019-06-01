@@ -5119,6 +5119,8 @@ public:
     //! \brief Add an optimization profile.
     //!
     //! This function must be called at least once if the network has dynamic or shape input tensors.
+    //! This function may be called at most once when building a refittable engine, as more than
+    //! a single optimization profile are not supported for refittable engines.
     //!
     //! \param profile The new optimization profile, which must satisfy profile->isValid() == true
     //! \return The index of the optimization profile (starting from 0) if the input is valid, or -1 if the input is
