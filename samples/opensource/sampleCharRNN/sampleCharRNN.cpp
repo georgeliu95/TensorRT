@@ -233,7 +233,7 @@ bool SampleCharRNN::build()
     mWeightMap = SampleCharRNN::loadWeights(mParams.weightFileName);
 
     builder->setMaxBatchSize(mParams.batchSize);
-    config->setMaxWorkspaceSize(32_MB);
+    config->setMaxWorkspaceSize(32_MiB);
     config->setFlag(BuilderFlag::kGPU_FALLBACK);
     samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
 

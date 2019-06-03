@@ -184,7 +184,7 @@ bool SampleUffSSD::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder
     }
 
     builder->setMaxBatchSize(mParams.batchSize);
-    config->setMaxWorkspaceSize(2_GB);
+    config->setMaxWorkspaceSize(2_GiB);
     if (mParams.fp16)
     {
         config->setFlag(BuilderFlag::kFP16);

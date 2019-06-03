@@ -220,7 +220,7 @@ bool SampleMLP::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder, S
 
     // Build engine
     builder->setMaxBatchSize(mParams.batchSize);
-    config->setMaxWorkspaceSize(16_MB);
+    config->setMaxWorkspaceSize(16_MiB);
     builder->setFp16Mode(mParams.fp16);
     builder->setInt8Mode(mParams.int8);
     if (mParams.fp16)

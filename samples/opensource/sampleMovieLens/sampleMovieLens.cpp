@@ -185,7 +185,7 @@ bool SampleMovieLens::build()
     }
 
     builder->setMaxBatchSize(mParams.batchSize);
-    config->setMaxWorkspaceSize(1_GB);
+    config->setMaxWorkspaceSize(1_GiB);
     config->setFlag(BuilderFlag::kGPU_FALLBACK);
     config->setFlag(BuilderFlag::kSTRICT_TYPES);
     if (mParams.fp16)

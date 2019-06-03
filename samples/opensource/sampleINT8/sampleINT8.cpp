@@ -219,7 +219,7 @@ bool SampleINT8::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder, 
 
     config->setAvgTimingIterations(1);
     config->setMinTimingIterations(1);
-    config->setMaxWorkspaceSize(1_GB);
+    config->setMaxWorkspaceSize(1_GiB);
     config->setFlag(BuilderFlag::kDEBUG);
     if (dataType == DataType::kHALF)
     {

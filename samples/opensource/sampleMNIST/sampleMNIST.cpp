@@ -133,7 +133,7 @@ bool SampleMNIST::build()
 
     constructNetwork(parser, network);
     builder->setMaxBatchSize(mParams.batchSize);
-    config->setMaxWorkspaceSize(16_MB);
+    config->setMaxWorkspaceSize(16_MiB);
     config->setFlag(BuilderFlag::kGPU_FALLBACK);
     config->setFlag(BuilderFlag::kSTRICT_TYPES);
     if (mParams.fp16)

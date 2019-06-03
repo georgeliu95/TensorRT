@@ -116,7 +116,7 @@ bool SampleGoogleNet::build()
 
     constructNetwork(parser, network);
     builder->setMaxBatchSize(mParams.batchSize);
-    config->setMaxWorkspaceSize(16_MB);
+    config->setMaxWorkspaceSize(16_MiB);
     samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
 
     mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());

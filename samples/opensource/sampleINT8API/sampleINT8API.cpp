@@ -492,7 +492,7 @@ bool SampleINT8API::build()
 
     // Configure buider
     config->setFlag(BuilderFlag::kGPU_FALLBACK);
-    config->setMaxWorkspaceSize(1_GB);
+    config->setMaxWorkspaceSize(1_GiB);
 
     // Enable INT8 model. Required to set custom per tensor dynamic range or INT8 Calibration
     config->setFlag(BuilderFlag::kINT8);

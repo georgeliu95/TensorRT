@@ -90,18 +90,18 @@ using namespace plugin;
         }                                                      \
     } while (0)
 
-constexpr long double operator"" _GB(long double val)
+constexpr long double operator"" _GiB(long double val)
 {
     return val * (1 << 30);
 }
-constexpr long double operator"" _MB(long double val) { return val * (1 << 20); }
-constexpr long double operator"" _KB(long double val) { return val * (1 << 10); }
+constexpr long double operator"" _MiB(long double val) { return val * (1 << 20); }
+constexpr long double operator"" _KiB(long double val) { return val * (1 << 10); }
 
-// These is necessary if we want to be able to write 1_GB instead of 1.0_GB.
-// Since the return type is signed, -1_GB will work as expected.
-constexpr long long int operator"" _GB(long long unsigned int val) { return val * (1 << 30); }
-constexpr long long int operator"" _MB(long long unsigned int val) { return val * (1 << 20); }
-constexpr long long int operator"" _KB(long long unsigned int val) { return val * (1 << 10); }
+// These is necessary if we want to be able to write 1_GiB instead of 1.0_GiB.
+// Since the return type is signed, -1_GiB will work as expected.
+constexpr long long int operator"" _GiB(long long unsigned int val) { return val * (1 << 30); }
+constexpr long long int operator"" _MiB(long long unsigned int val) { return val * (1 << 20); }
+constexpr long long int operator"" _KiB(long long unsigned int val) { return val * (1 << 10); }
 
 struct SimpleProfiler : public nvinfer1::IProfiler
 {

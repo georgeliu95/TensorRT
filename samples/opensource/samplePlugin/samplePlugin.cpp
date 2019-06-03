@@ -146,7 +146,7 @@ bool SamplePlugin::build()
     constructNetwork(builder, parser, network);
 
     builder->setMaxBatchSize(mParams.batchSize);
-    config->setMaxWorkspaceSize(1_MB);
+    config->setMaxWorkspaceSize(1_MiB);
     if (mParams.fp16)
     {
         config->setFlag(BuilderFlag::kFP16);
