@@ -5139,7 +5139,7 @@ public:
     //!
     //! \brief Enable pointwise fusion.
     //!
-    //! \param mode True to enable pointwise fusion else disable.
+    //! \param mode True to enable pointwise fusion else disable. Default value is true.
     //!
     //! \see getEnablePointWiseFusion()
     //!
