@@ -1716,8 +1716,38 @@ public:
     //! \see setErrorRecorder
     //!
     virtual IErrorRecorder* getErrorRecorder() const noexcept = 0;
-};
 
+    //!
+    //! \brief Synchronously execute inference a network.
+    //!
+    //! This method requires an array of input and output buffers. The mapping from tensor names to indices can be
+    //! queried using ICudaEngine::getBindingIndex().
+    //! This method only works for execution contexts built with full dimension networks.
+    //! \param bindings An array of pointers to input and output buffers for the network.
+    //!
+    //! \return True if execution succeeded.
+    //!
+    //! \see ICudaEngine::getBindingIndex() ICudaEngine::getMaxBatchSize()
+    //!
+    virtual bool executeV2(void** bindings) noexcept = 0;
+
+    //!
+    //! \brief Asynchronously execute inference.
+    //!
+    //! This method requires an array of input and output buffers. The mapping from tensor names to indices can be
+    //! queried using ICudaEngine::getBindingIndex().
+    //! This method only works for execution contexts built with full dimension networks.
+    //! \param bindings An array of pointers to input and output buffers for the network.
+    //! \param stream A cuda stream on which the inference kernels will be enqueued
+    //! \param inputConsumed An optional event which will be signaled when the input buffers can be refilled with new
+    //! data
+    //!
+    //! \return True if the kernels were enqueued successfully.
+    //!
+    //! \see ICudaEngine::getBindingIndex() ICudaEngine::getMaxBatchSize()
+    //!
+    virtual bool enqueueV2(void** bindings, cudaStream_t stream, cudaEvent_t* inputConsumed) noexcept = 0;
+};
 }
 
 extern "C" TENSORRTAPI void* createInferRuntime_INTERNAL(void* logger, int version); //!< Internal C entry point for creating IRuntime.

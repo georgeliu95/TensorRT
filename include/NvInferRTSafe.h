@@ -217,7 +217,7 @@ enum class TensorFormat : int
     //! Row major linear format.
     //! For a tensor with dimensions {N, C, H, W} or {numbers, channels,
     //! columns, rows}, the dimensional index corresponds to {3, 2, 1, 0}
-    //! and thus the order is W major.
+    //! and thus the order is W minor.
     kLINEAR = 0,
     kNCHW TRT_DEPRECATED_ENUM = kLINEAR, //! <-- Deprecated, used for backward compatibility
 
@@ -1318,8 +1318,41 @@ public:
     //!
     virtual IErrorRecorder* getErrorRecorder() const noexcept = 0;
 
+    //!
+    //! \brief Synchronously execute inference on a batch.
+    //!
+    //! This method requires an array of input and output buffers. The mapping from tensor names to indices can be
+    //! queried using safe::ICudaEngine::getBindingIndex().
+    //! This method only works for execution contexts built with full dimension networks.
+    //! \param bindings An array of pointers to input and output buffers for the network.
+    //!
+    //! \return True if execution succeeded.
+    //!
+    //! \see safe::ICudaEngine::getBindingIndex() safe::ICudaEngine::getMaxBatchSize()
+    //!
+    virtual bool executeV2(void** bindings) noexcept = 0;
+
+    //!
+    //! \brief Asynchronously execute inference on a batch.
+    //!
+    //! This method requires an array of input and output buffers. The mapping from tensor names to indices can be
+    //! queried using safe::ICudaEngine::getBindingIndex().
+    //! This method only works for execution contexts built with full dimension networks.
+    //! \param bindings An array of pointers to input and output buffers for the network.
+    //! \param stream A cuda stream on which the inference kernels will be enqueued
+    //! \param inputConsumed An optional event which will be signaled when the input buffers can be refilled with new
+    //! data
+    //!
+    //! \return True if the kernels were enqueued successfully.
+    //!
+    //! \see safe::ICudaEngine::getBindingIndex() safe::ICudaEngine::getMaxBatchSize()
+    //!
+    virtual bool enqueueV2(void** bindings, cudaStream_t stream, cudaEvent_t* inputConsumed) noexcept = 0;
+
 protected:
-    virtual ~IExecutionContext() noexcept {}
+    virtual ~IExecutionContext() noexcept
+    {
+    }
 };
 
 } // namespace nvinfer1::safe
