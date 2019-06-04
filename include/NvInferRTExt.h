@@ -70,14 +70,14 @@ class IPluginFactory; //!< Forward declaration of IPluginFactory for use by othe
 //!
 //! \brief List of supported engine capability flows.
 //!
-//! \note at present, kSAFE_DLA flow doesn't strictly limit execution to DLA/PVA devices - it simply
-//! restricts the engine capabilities to DLA/PVA support levels anticipated in future releases.
+//! \note at present, kSAFE_DLA flow doesn't strictly limit execution to DLA devices - it simply
+//! restricts the engine capabilities to DLA support levels anticipated in future releases.
 //!
 enum class EngineCapability : int
 {
-    kDEFAULT = 0,       //!< Full capability, TensorRT mode without any restrictions.
-    kSAFE_GPU = 1,      //!< Safety restricted capability, TensorRT flow that can only run on GPU devices.
-    kSAFE_DLA = 2,      //!< Safety restricted capability, TensorRT flow that can only run on DLA/PVA devices.
+    kDEFAULT = 0,  //!< Full capability, TensorRT mode without any restrictions.
+    kSAFE_GPU = 1, //!< Safety restricted capability, TensorRT flow that can only run on GPU devices.
+    kSAFE_DLA = 2, //!< Safety restricted capability, TensorRT flow that can only run on DLA devices.
 };
 
 template <>

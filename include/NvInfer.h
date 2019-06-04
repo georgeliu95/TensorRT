@@ -201,7 +201,9 @@ public:
 //! \class DimsCHW
 //! \brief Descriptor for data with one channel dimension and two spatial dimensions.
 //!
-class DimsCHW : public Dims3
+//! \deprecated DimsCHW will be removed in a future version of TensorRT, use Dims3 instead.
+//!
+class TRT_DEPRECATED DimsCHW : public Dims3
 {
 public:
     //!
@@ -309,7 +311,9 @@ public:
 //! \class DimsNCHW
 //! \brief Descriptor for data with one index dimension, one channel dimension and two spatial dimensions.
 //!
-class DimsNCHW : public Dims4
+//! \deprecated DimsNCHW will be removed in a future version of TensorRT, use Dims instead.
+//!
+class TRT_DEPRECATED DimsNCHW : public Dims4
 {
 public:
     //!
@@ -497,6 +501,7 @@ public:
     //!
     //! \return The dimensions of the tensor.
     //!
+    //! \warning getDimensions() returns a -1 for dimensions that are derived from a wildcard dimension.
     //! \see setDimensions()
     //!
     virtual Dims getDimensions() const TRTNOEXCEPT = 0;
@@ -566,6 +571,7 @@ public:
     //! This method is only valid for network input tensors, since the flags of layer output tensors are inferred based
     //! on layer inputs and parameters.
     //! If this state is modified for a tensor in the network, the states of all dependent tensors will be recomputed.
+    //! If the tensor is for an explicit batch network, then this function does nothing.
     //!
     //! \param broadcastAcrossBatch Whether to enable broadcast of tensor across the batch.
     //!
@@ -577,7 +583,8 @@ public:
     //! \brief Check if tensor is broadcast across the batch.
     //!
     //! When a tensor is broadcast across a batch, it has the same value for every member in the batch.
-    //! Memory is only allocated once for the single member.
+    //! Memory is only allocated once for the single member. If the network is in explicit batch mode,
+    //! this function returns true if the leading dimension is 1.
     //!
     //! \return True if tensor is broadcast across the batch, false otherwise.
     //!
@@ -633,15 +640,14 @@ public:
     //!
     //! \brief Set allowed formats.
     //!
-    //! \param formats The combination of supported TensorFormat by binary OR
-    //! operations.
+    //! \param formats A bitmask of TensorFormat values that are supported for this tensor.
     //!
     //! \see ITensor::getAllowedFormats()
     //!
     virtual void setAllowedFormats(TensorFormats formats) TRTNOEXCEPT = 0;
 
     //!
-    //! \brief Get the allowed set of format candidates.
+    //! \brief Get a bitmask of TensorFormat values that the tensor supports.
     //!
     //! \see ITensor::getAllowReformat(), ITensor::setAllowedFormats()
     //!
@@ -654,6 +660,8 @@ public:
     //! then ICudaEngine::isShapeBinding will be true for that tensor.
     //!
     //! It is possible for a tensor to be both a shape tensor and an execution tensor.
+    //!
+    //! \return True if tensor is a shape tensor, false otherwise.
     //!
     virtual bool isShapeTensor() const TRTNOEXCEPT = 0;
 
@@ -1363,9 +1371,6 @@ constexpr inline int EnumMax<PoolingType>()
 //! \brief A Pooling layer in a network definition.
 //!
 //! The layer applies a reduction operation within a window over the input.
-//!
-//! The output size is determined from the input size using the formula set by
-//! INetworkDefinition::setCustomPoolingDimensions().
 //!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
@@ -2914,9 +2919,11 @@ public:
 //!
 //! \see IPluginExt
 //!
+//! \deprecated This interface is superseded by IPluginV2Layer
+//!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
-class IPluginLayer : public ILayer
+class TRT_DEPRECATED IPluginLayer : public ILayer
 {
 public:
     //!
@@ -3160,7 +3167,7 @@ struct Permutation
 //! This class shuffles data by applying in sequence: a transpose operation, a reshape operation
 //! and a second transpose operation. The dimension types of the output are those of the reshape dimension.
 //!
-//! The layer has an optional second input.  If present, it must be a 1D Int32 tensor,
+//! The layer has an optional second input.  If present, it must be a 1D Int32 shape tensor,
 //! and the reshape dimensions are taken from it.
 //!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
@@ -3271,7 +3278,7 @@ protected:
 //! specified at build time.
 //!
 //! The slice layer selects for each dimension a start location from within the input tensor, and given the
-//! specified stride, copies strided elements to the output tensor. Start, Size, and Stride tensors must be
+//! specified stride, copies strided elements to the output tensor. Start, Size, and Stride shape tensors must be
 //! DataType::kINT32.
 //!
 //! For example using slice on a data tensor:
@@ -3624,8 +3631,8 @@ public:
     //! \brief Set the weights for the layer.
     //!
     //! If weights.type is DataType::kINT32, the output is a tensor of 32-bit indices.
-    //! Otherwise the output is a tensor of real values, and the output type will be
-    //! FP32, FP16, or quantized INT8 following TensorRT's normal precision rules.
+    //! Otherwise the output is a tensor of real values and the output type will be
+    //! follow TensorRT's normal precision rules.
     //!
     //! \see getWeights()
     //!
@@ -3820,6 +3827,8 @@ public:
     //! When index == 1 and nbInputs == 1, the output dimensions are used from
     //! the input tensor, overriding the dimensions supplied by setOutputDimensions.
     //!
+    //! \warning tensor must be a shape tensor.
+    //!
     void setInput(int index, ITensor& tensor) _TENSORRT_OVERRIDE TRTNOEXCEPT = 0;
 
 protected:
@@ -3831,6 +3840,18 @@ protected:
 //!
 //! \brief A network definition for input to the builder.
 //!
+//! A network definition defines the structure of the network, and combined with a INetworkConfig, is built
+//! into an engine using an IBuilder. An INetworkDefinition can either have an implicit batch dimensions, specified
+//! at runtime, or all dimensions explicit, full dims mode, in the network definition. When a network has been
+//! created using createNetwork(), only implicit batch size mode is supported. The function hasImplicitBatchSize()
+//! is used to query the mode of the network.
+//!
+//! A network with implicit batch dimensions returns the dimensions of a layer without the implicit dimension,
+//! and instead the batch is specified at execute/enqueue time. If the network has all dimensions specified, then
+//! the first dimension follows elementwise broadcast rules: if it is 1 for some inputs and is some value N for all
+//! other inputs, then the first dimension of each outut is N, and the inputs with 1 for the first dimension are
+//! broadcast. Having divergent batch sizes across inputs to a layer is not supported.
+//!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
 class INetworkDefinition
@@ -3840,14 +3861,23 @@ public:
     //! \brief Add an input tensor to the network.
     //!
     //! The name of the input tensor is used to find the index into the buffer array for an engine built from
-    //! the network.
+    //! the network. The volume of the dimensions must be less than 2^30 elements.
+
+    //! For networks with an implicit batch dimension, this volume includes the batch dimension with its length set
+    //! to the maximum batch size. For networks with all explicit dimensions and with wildcard dimensions, the volume
+    //! is based on the maxima specified by an IOptimizationProfile.Dimensions are normally positive integers. The
+    //! exception is that in networks with all explicit dimensions, -1 can be used as a wildcard for a dimension to
+    //! be specified at runtime. Input tensors with such a wildcard must have a corresponding entry in the
+    //! IOptimizationProfiles indicating the permitted extrema, and the input dimensions must be set by
+    //! IExecutionContext::setBindingDimensions. Different IExecutionContext instances can have different dimensions.
+    //! Wildcard dimensions are only supported for EngineCapability::kDEFAULT with DeviceType::kGPU. They are not
+    //! supported in safety contexts or on the DLA.
     //!
     //! \param name The name of the tensor.
     //! \param type The type of the data held in the tensor.
     //! \param dimensions The dimensions of the tensor.
     //!
-    //! Only DataType::kFLOAT, DataType::kHALF and DataType::kINT32 are valid input tensor types.
-    //! The volume of the dimensions, including the maximum batch size, must be less than 2^30 elements.
+    //! \warning It is an error to specify a wildcard value on a dimension that is determined by trained parameters.
     //!
     //! \see ITensor
     //!
@@ -3873,9 +3903,13 @@ public:
     //!
     //! \see IConvolutionLayer
     //!
+    //! \warning It is an error to specify a wildcard value for the 'C' dimension of the input tensor.
+    //! \warning Int32 tensors are not valid input tensors.
+    //!
     //! \return The new convolution layer, or nullptr if it could not be created.
     //!
-    virtual IConvolutionLayer* addConvolution(ITensor& input, int nbOutputMaps, DimsHW kernelSize, Weights kernelWeights, Weights biasWeights) TRTNOEXCEPT = 0;
+    virtual IConvolutionLayer* addConvolution(ITensor& input, int nbOutputMaps, DimsHW kernelSize,
+        Weights kernelWeights, Weights biasWeights) TRTNOEXCEPT = 0;
 
     //!
     //! \brief Add a fully connected layer to the network.
@@ -3887,9 +3921,13 @@ public:
     //!
     //! \see IFullyConnectedLayer
     //!
+    //! \warning It is an error to specify a wildcard value for the 'C' dimension of the input tensor.
+    //! \warning Int32 tensors are not valid input tensors.
+    //!
     //! \return The new fully connected layer, or nullptr if it could not be created.
     //!
-    virtual IFullyConnectedLayer* addFullyConnected(ITensor& input, int nbOutputs, Weights kernelWeights, Weights biasWeights) TRTNOEXCEPT = 0;
+    virtual IFullyConnectedLayer* addFullyConnected(
+        ITensor& input, int nbOutputs, Weights kernelWeights, Weights biasWeights) TRTNOEXCEPT = 0;
 
     //!
     //! \brief Add an activation layer to the network.
@@ -3901,6 +3939,7 @@ public:
     //! output for activations that require these parameters.
     //!
     //! \see IActivationLayer ActivationType
+    //! \warning Int32 tensors are not valid input tensors.
     //!
     //! \return The new activation layer, or nullptr if it could not be created.
     //!
@@ -3914,6 +3953,7 @@ public:
     //! \param windowSize The size of the pooling window.
     //!
     //! \see IPoolingLayer PoolingType
+    //! \warning Int32 tensors are not valid input tensors.
     //!
     //! \return The new pooling layer, or nullptr if it could not be created.
     //!
@@ -3929,6 +3969,7 @@ public:
     //! \param k The k value for the LRN computation.
     //!
     //! \see ILRNLayer
+    //! \warning Int32 tensors are not valid input tensors.
     //!
     //! \return The new LRN layer, or nullptr if it could not be created.
     //!
@@ -3949,6 +3990,7 @@ public:
     //! For ::kELEMENTWISE, the number of weights is equal to the volume of the input.
     //!
     //! \see IScaleLayer
+    //! \warning Int32 tensors are not valid input tensors.
     //!
     //! \return The new Scale layer, or nullptr if it could not be created.
     //!
@@ -3958,6 +4000,7 @@ public:
     //! \brief Add a SoftMax layer to the network.
     //!
     //! \see ISoftMaxLayer
+    //! \warning Int32 tensors are not valid input tensors.
     //!
     //! \return The new SoftMax layer, or nullptr if it could not be created.
     //!
@@ -3988,9 +4031,13 @@ public:
     //!
     //! \see IDeconvolutionLayer
     //!
+    //! \warning It is an error to specify a wildcard value for the 'C' dimension of the input tensor.
+    //! \warning Int32 tensors are not valid input tensors.
+    //!
     //! \return The new deconvolution layer, or nullptr if it could not be created.
     //!
-    virtual IDeconvolutionLayer* addDeconvolution(ITensor& input, int nbOutputMaps, DimsHW kernelSize, Weights kernelWeights, Weights biasWeights) TRTNOEXCEPT = 0;
+    virtual IDeconvolutionLayer* addDeconvolution(ITensor& input, int nbOutputMaps, DimsHW kernelSize,
+        Weights kernelWeights, Weights biasWeights) TRTNOEXCEPT = 0;
 
     //!
     //! \brief Add an elementwise layer to the network.
@@ -4008,6 +4055,7 @@ public:
     //! corresponding input dimension.
     //!
     //! \see IElementWiseLayer
+    //! \warning For shape tensors, ElementWiseOperation::kPOW is not a valid op.
     //!
     //! \return The new elementwise layer, or nullptr if it could not be created.
     //!
@@ -4066,9 +4114,13 @@ public:
     //!
     //! \see IRNNLayer
     //!
+    //! \warning RNN inputs do not support wildcard dimensions or explicit batch size networks.
+    //! \warning Int32 tensors are not valid input tensors.
+    //!
     //! \return The new RNN layer, or nullptr if it could not be created.
     //!
-    TRT_DEPRECATED virtual IRNNLayer* addRNN(ITensor& inputs, int layerCount, std::size_t hiddenSize, int maxSeqLen, RNNOperation op, RNNInputMode mode, RNNDirection dir, Weights weights, Weights bias) TRTNOEXCEPT = 0;
+    TRT_DEPRECATED virtual IRNNLayer* addRNN(ITensor& inputs, int layerCount, std::size_t hiddenSize, int maxSeqLen,
+        RNNOperation op, RNNInputMode mode, RNNDirection dir, Weights weights, Weights bias) TRTNOEXCEPT = 0;
 
     //!
     //! \brief Add a plugin layer to the network.
@@ -4079,9 +4131,15 @@ public:
     //!
     //! \see IPluginLayer
     //!
+    //! \deprecated IPluginLayer is superseded by IPluginV2. use addPluginV2 instead.
+    //!
+    //! \warning Plugin inputs do not support wildcard dimensions or explicit batch size networks.
+    //! \warning Int32 tensors are not valid input tensors.
+    //!
     //! \return the new plugin layer, or nullptr if it could not be created.
     //!
-    virtual IPluginLayer* addPlugin(ITensor* const* inputs, int nbInputs, IPlugin& plugin) TRTNOEXCEPT = 0;
+    TRT_DEPRECATED virtual IPluginLayer* addPlugin(
+        ITensor* const* inputs, int nbInputs, IPlugin& plugin) TRTNOEXCEPT = 0;
 
     //!
     //! \brief Add a unary layer to the network.
@@ -4090,6 +4148,8 @@ public:
     //! \param operation The operation to apply.
     //!
     //! \see IUnaryLayer
+    //!
+    //! \warning Int32 tensors are not valid input tensors.
     //!
     //! \return The new unary layer, or nullptr if it could not be created
     //!
@@ -4126,18 +4186,22 @@ public:
     //!
     //! The default formula in each dimension is (inputDim + padding * 2 - kernelSize) / stride + 1.
     //!
+    //! \warning Custom output dimensions formulas are not supported with wildcard dimensions.
+    //!
     //! \see IOutputDimensionsFormula getPoolingOutputDimensionsFormula()
     //!
-    virtual void setPoolingOutputDimensionsFormula(IOutputDimensionsFormula* formula) TRTNOEXCEPT = 0;
+    TRT_DEPRECATED virtual void setPoolingOutputDimensionsFormula(IOutputDimensionsFormula* formula) TRTNOEXCEPT = 0;
 
     //!
     //! \brief Get the pooling output dimensions formula.
     //!
     //! \return The formula from computing the pooling output dimensions.
     //!
+    //! \warning Custom output dimensions formulas are not supported with wildcard dimensions.
+    //!
     //! \see IOutputDimensionsFormula setPoolingOutputDimensionsFormula()
     //!
-    virtual IOutputDimensionsFormula& getPoolingOutputDimensionsFormula() const TRTNOEXCEPT = 0;
+    TRT_DEPRECATED virtual IOutputDimensionsFormula& getPoolingOutputDimensionsFormula() const TRTNOEXCEPT = 0;
 
     //!
     //! \brief Set the convolution output dimensions formula.
@@ -4149,9 +4213,12 @@ public:
     //!
     //! The default formula in each dimension is (inputDim + padding * 2 - kernelSize) / stride + 1.
     //!
+    //! \warning Custom output dimensions formulas are not supported with wildcard dimensions.
+    //!
     //! \see IOutputDimensionsFormula getConvolutionOutputDimensionsFormula()
     //!
-    TRT_DEPRECATED virtual void setConvolutionOutputDimensionsFormula(IOutputDimensionsFormula* formula) TRTNOEXCEPT = 0;
+    TRT_DEPRECATED virtual void setConvolutionOutputDimensionsFormula(
+        IOutputDimensionsFormula* formula) TRTNOEXCEPT = 0;
 
     //!
     //! \brief Get the convolution output dimensions formula.
@@ -4159,6 +4226,8 @@ public:
     //! \deprecated This method does not currently work reliably and will be removed in a future release.
     //!
     //! \return The formula from computing the convolution output dimensions.
+    //!
+    //! \warning Custom output dimensions formulas are not supported with wildcard dimensions.
     //!
     //! \see IOutputDimensionsFormula setConvolutionOutputDimensionsFormula()
     //!
@@ -4174,9 +4243,12 @@ public:
     //!
     //! The default formula in each dimension is (inputDim - 1) * stride + kernelSize - 2 * padding.
     //!
+    //! \warning Custom output dimensions formulas are not supported with wildcard dimensions.
+    //!
     //! \see IOutputDimensionsFormula getDevonvolutionOutputDimensionsFormula()
     //!
-    TRT_DEPRECATED virtual void setDeconvolutionOutputDimensionsFormula(IOutputDimensionsFormula* formula) TRTNOEXCEPT = 0;
+    TRT_DEPRECATED virtual void setDeconvolutionOutputDimensionsFormula(
+        IOutputDimensionsFormula* formula) TRTNOEXCEPT = 0;
 
     //!
     //! \brief Get the deconvolution output dimensions formula.
@@ -4184,6 +4256,8 @@ public:
     //! \return The formula from computing the deconvolution output dimensions.
     //!
     //! \deprecated This method does not currently work reliably and will be removed in a future release.
+    //!
+    //! \warning Custom output dimensions formulas are not supported with wildcard dimensions.
     //!
     //! \see IOutputDimensionsFormula setDeconvolutionOutputDimensionsFormula()
     //!
@@ -4273,6 +4347,7 @@ public:
     //!        Bit 1 corresponds to the H dimension boolean.
     //!        Bit 2 corresponds to the W dimension boolean.
     //!        Note that reduction is not permitted over the batch size dimension.
+    //!        When network has explicit batch mode enabled, dimensions 0 is the batch dimension.
     //! \param keepDimensions The boolean that specifies whether or not to keep the reduced dimensions in the
     //! output of the layer.
     //!
@@ -4307,8 +4382,11 @@ public:
     //!        Bit 1 corresponds to the H dimension boolean.
     //!        Bit 2 corresponds to the W dimension boolean.
     //!        Note that TopK reduction is currently only permitted over one dimension.
+    //!        When network has explicit batch mode enabled, dimensions 0 is the batch dimension.
     //!
     //! \see ITopKLayer
+    //!
+    //! \warning Int32 tensors are not valid input tensors.
     //!
     //! \return The new TopK layer, or nullptr if it could not be created.
     //!
@@ -4335,6 +4413,9 @@ public:
     //!
     //! \see IRaggedSoftMaxLayer
     //!
+    //! \warning The bounds tensor cannot have the last dimension be the wildcard character.
+    //! \warning Int32 tensors are not valid input tensors.
+    //!
     //! \return The new RaggedSoftMax layer, or nullptr if it could not be created.
     //!
     virtual IRaggedSoftMaxLayer* addRaggedSoftMax(ITensor& input, ITensor& bounds) TRTNOEXCEPT = 0;
@@ -4349,9 +4430,12 @@ public:
     //!
     //! \see IMatrixMultiplyLayer
     //!
+    //! \warning Int32 tensors are not valid input tensors.
+    //!
     //! \return The new matrix multiply layer, or nullptr if it could not be created.
     //!
-    virtual IMatrixMultiplyLayer* addMatrixMultiply(ITensor& input0, MatrixOperation op0, ITensor& input1, MatrixOperation op1) TRTNOEXCEPT = 0;
+    virtual IMatrixMultiplyLayer* addMatrixMultiply(
+        ITensor& input0, MatrixOperation op0, ITensor& input1, MatrixOperation op1) TRTNOEXCEPT = 0;
 
     //!
     //! \brief Add a MatrixMultiply layer to the network.
@@ -4365,9 +4449,12 @@ public:
     //!
     //! \return The new matrix multiply layer, or nullptr if it could not be created.
     //!
+    //! \warning Int32 tensors are not valid input tensors.
+    //!
     //! \deprecated This interface is superseded by the overload that replaces bool with MatrixOperation.
     //!
-    TRT_DEPRECATED virtual IMatrixMultiplyLayer* addMatrixMultiply(ITensor& input0, bool transpose0, ITensor& input1, bool transpose1) TRTNOEXCEPT = 0;
+    TRT_DEPRECATED virtual IMatrixMultiplyLayer* addMatrixMultiply(
+        ITensor& input0, bool transpose0, ITensor& input1, bool transpose1) TRTNOEXCEPT = 0;
 
     //!
     //! \brief Add a constant layer to the network.
@@ -4380,11 +4467,14 @@ public:
     //! \return The new constant layer, or nullptr if it could not be created.
     //!
     //! If weights.type is DataType::kINT32, the output is a tensor of 32-bit indices.
-    //! Otherwise the output is a tensor of real values, and the output type will be
-    //! FP32, FP16, or quantized INT8 following TensorRT's normal precision rules.
+    //! Otherwise the output is a tensor of real values and the output type will be
+    //! follow TensorRT's normal precision rules.
     //!
     //! If tensors in the network have an implicit batch dimension, the constant
     //! is broadcast over that dimension.
+    //!
+    //! If a wildcard dimension is used, the volume of the runtime dimensions must equal
+    //! the number of weights specified.
     //!
     virtual IConstantLayer* addConstant(Dims dimensions, Weights weights) TRTNOEXCEPT = 0;
 
@@ -4444,9 +4534,13 @@ public:
     //!
     //! \see IRNNv2Layer
     //!
+    //! \warning RNN inputs do not support wildcard dimensions or explicit batch size networks.
+    //! \warning Int32 tensors are not valid input tensors.
+    //!
     //! \return The new RNN layer, or nullptr if it could not be created.
     //!
-    virtual IRNNv2Layer* addRNNv2(ITensor& input, int32_t layerCount, int32_t hiddenSize, int32_t maxSeqLen, RNNOperation op) TRTNOEXCEPT = 0;
+    virtual IRNNv2Layer* addRNNv2(
+        ITensor& input, int32_t layerCount, int32_t hiddenSize, int32_t maxSeqLen, RNNOperation op) TRTNOEXCEPT = 0;
 
     //!
     //! \brief Add a plugin layer to the network using an IPluginExt interface.
@@ -4457,9 +4551,15 @@ public:
     //!
     //! \see IPluginLayer
     //!
+    //! \deprecated IPluginLayer is superseded by IPluginV2. use addPluginV2 instead.
+    //!
+    //! \warning Plugin inputs do not support wildcard dimensions or explicit batch size networks.
+    //! \warning Int32 tensors are not valid input tensors.
+    //!
     //! \return The new plugin layer, or nullptr if it could not be created.
     //!
-    virtual IPluginLayer* addPluginExt(ITensor* const* inputs, int nbInputs, IPluginExt& plugin) TRTNOEXCEPT = 0;
+    TRT_DEPRECATED virtual IPluginLayer* addPluginExt(
+        ITensor* const* inputs, int nbInputs, IPluginExt& plugin) TRTNOEXCEPT = 0;
 
     //!
     //! \brief Add an identity layer.
@@ -4467,6 +4567,8 @@ public:
     //! \param input The input tensor to the layer.
     //!
     //! \see IIdentityLayer
+    //!
+    //! \warning Int32 tensors are not valid input tensors.
     //!
     //! \return The new identity layer, or nullptr if it could not be created.
     //!
@@ -4501,6 +4603,9 @@ public:
     //! \param plugin The layer plugin.
     //!
     //! \see IPluginV2Layer
+    //!
+    //! \warning Dimension wildcard are only supported with IPluginV2DynamicExt or IPluginV2IOExt plugins.
+    //! \warning Int32 tensors are not valid input tensors.
     //!
     //! \return The new plugin layer, or nullptr if it could not be created.
     //!
@@ -4561,6 +4666,8 @@ public:
     //!
     //! \warning addShape is only supported when hasImplicitBatchDimensions is false.
     //!
+    //! \warning input to addShape cannot contain wildcard dimension values.
+    //!
     //! \return The new shape layer, or nullptr if it could not be created.
     //!
     virtual IShapeLayer* addShape(ITensor& input) TRTNOEXCEPT = 0;
@@ -4587,12 +4694,16 @@ public:
     //!
     //! The tensor must be of type DataType::kINT32 and have no more than one dimension.
     //!
+    //! \warning input to markOutputForShapes cannot contain wildcard dimension values.
+    //!
     //! \see isShapeBinding(), getShapeBinding()
     //!
     virtual bool markOutputForShapes(ITensor& tensor) TRTNOEXCEPT = 0;
 
     //!
     //! \brief Undo markOutputForShapes.
+    //!
+    //! \warning inputs to addShape cannot contain wildcard dimension values.
     //!
     //! \return True if successful, false if tensor is not marked as an output.
     //!
@@ -4606,6 +4717,8 @@ public:
     //!        to the input tensor.
     //!
     //! \see IParametricReLULayer
+    //!
+    //! \warning Int32 tensors are not valid input tensors.
     //!
     //! \return The new parametric ReLU layer, or nullptr if it could not be created.
     //!
@@ -4622,9 +4735,13 @@ public:
     //!
     //! \see IConvolutionLayer
     //!
+    //! \warning It is an error to specify a wildcard value for the 'C' dimension of the input tensor.
+    //! \warning Int32 tensors are not valid input tensors.
+    //!
     //! \return The new convolution layer, or nullptr if it could not be created.
     //!
-    virtual IConvolutionLayer* addConvolutionNd(ITensor& input, int nbOutputMaps, Dims kernelSize, Weights kernelWeights, Weights biasWeights) TRTNOEXCEPT = 0;
+    virtual IConvolutionLayer* addConvolutionNd(
+        ITensor& input, int nbOutputMaps, Dims kernelSize, Weights kernelWeights, Weights biasWeights) TRTNOEXCEPT = 0;
 
     //!
     //! \brief Add a multi-dimension pooling layer to the network.
@@ -4634,6 +4751,8 @@ public:
     //! \param windowSize The size of the pooling window.
     //!
     //! \see IPoolingLayer PoolingType
+    //!
+    //! \warning Int32 tensors are not valid input tensors.
     //!
     //! \return The new pooling layer, or nullptr if it could not be created.
     //!
@@ -4650,15 +4769,21 @@ public:
     //!
     //! \see IDeconvolutionLayer
     //!
+    //! \warning It is an error to specify a wildcard value for the 'C' dimension of the input tensor.
+    //! \warning Int32 tensors are not valid input tensors.
+    //
     //! \return The new deconvolution layer, or nullptr if it could not be created.
     //!
-    virtual IDeconvolutionLayer* addDeconvolutionNd(ITensor& input, int nbOutputMaps, Dims kernelSize, Weights kernelWeights, Weights biasWeights) TRTNOEXCEPT = 0;
+    virtual IDeconvolutionLayer* addDeconvolutionNd(
+        ITensor& input, int nbOutputMaps, Dims kernelSize, Weights kernelWeights, Weights biasWeights) TRTNOEXCEPT = 0;
 
     //! \brief Add a resize layer to the network.
     //!
     //! \param input The input tensor to the layer.
     //!
     //! \see IResizeLayer
+    //!
+    //! \warning Int32 tensors are not valid input tensors.
     //!
     //! \return The new resize layer, or nullptr if it could not be created.
     //!
@@ -4714,7 +4839,6 @@ public:
     //! \param names The names of the network input for each pointer in the binding array.
     //! \param nbBindings The number of pointers in the bindings array.
     //! \return False if there are no more batches for calibration.
-    //!
     //!
     //! \see getBatchSize()
     //!
@@ -5171,11 +5295,13 @@ public:
     //! \brief Create a network definition object where all tensors have an implicit batch dimension.
     //!
     //! This method is equivalent to createNetworkV2(true), and retained for compatibility
-    //! with TensorRT 5.1 and prior.  The network does not support dynamic shapes.
+    //! with earlier version of TensorRT.  The network does not support dynamic shapes or explicit batch sizes.
     //!
     //! \see INetworkDefinition, createNetworkV2
     //!
-    virtual nvinfer1::INetworkDefinition* createNetwork() TRTNOEXCEPT = 0;
+    //! \deprecated API will be removed in a future release, use IBuilder::createNetworkV2() instead.
+    //!
+    TRT_DEPRECATED virtual nvinfer1::INetworkDefinition* createNetwork() TRTNOEXCEPT = 0;
 
     //!
     //! \brief Set the maximum batch size.
@@ -5308,7 +5434,10 @@ public:
     //!
     //! \see INetworkDefinition ICudaEngine
     //!
-    virtual nvinfer1::ICudaEngine* buildCudaEngine(nvinfer1::INetworkDefinition& network) TRTNOEXCEPT = 0;
+    //! \depercated API will be removed in a future release, use INetworkConfig::buildEngineWithConfig instead.
+    //!
+    TRT_DEPRECATED virtual nvinfer1::ICudaEngine* buildCudaEngine(
+        nvinfer1::INetworkDefinition& network) TRTNOEXCEPT = 0;
 
     //!
     //! \brief Determine whether the platform has fast native fp16.
@@ -5421,6 +5550,8 @@ public:
     //! For any tensor the total volume of index dimensions combined(dimensions other than CHW) with the requested
     //! batch size should not exceed the value returned by this function.
     //!
+    //! \warning getMaxDLABatchSize does not work with dynamic shapes.
+    //!
     virtual int getMaxDLABatchSize() const TRTNOEXCEPT = 0;
 
     //!
@@ -5435,7 +5566,7 @@ public:
     TRT_DEPRECATED virtual void allowGPUFallback(bool setFallBackMode) TRTNOEXCEPT = 0;
 
     //!
-    //! \brief Returns number of DLA hardware cores accessible.
+    //! \brief Return the number of DLA engines available to this builder.
     //!
     virtual int getNbDLACores() const TRTNOEXCEPT = 0;
 
@@ -5462,10 +5593,14 @@ public:
     //!
     //! \brief Resets the builder state
     //!
-    virtual void reset(nvinfer1::INetworkDefinition& network) TRTNOEXCEPT = 0;
+    //! \deprecated API will be removed in a future release, use IBuilder::reset() instead.
+    //!
+    TRT_DEPRECATED virtual void reset(nvinfer1::INetworkDefinition& network) TRTNOEXCEPT = 0;
 
 protected:
-    virtual ~IBuilder() {}
+    virtual ~IBuilder()
+    {
+    }
 
 public:
     //!
@@ -5585,11 +5720,12 @@ public:
     //!
     //! In TensorRT 5.1 and prior, tensors defined by the network always had an implicit batch dimension,
     //! and this dimension was specified at execution by a batchSize parameter.
-    //! Use implicitBatchDimension=true for compatibility with TensorRT 5.1 and prior.
+    //! Use implicitBatchDimension=true for compatibility with those versions.
     //!
     //! Dynamic shape support requires implicitBatchDimension=false.
     //! With dynamic shapes, any of the input dimensions can vary at run-time,
-    //! and there are no implicit dimensions in the network specification.
+    //! and there are no implicit dimensions in the network specification. This is specified by using the
+    //! wildcard dimension value -1.
     //!
     //! \see INetworkDefinition, hasImplicitBatchDimension
     //!
@@ -5631,6 +5767,11 @@ public:
     //! \see setErrorRecorder
     //!
     virtual IErrorRecorder* getErrorRecorder() const TRTNOEXCEPT = 0;
+
+    //!
+    //! \brief Resets the builder state to default values.
+    //!
+    virtual void reset() TRTNOEXCEPT = 0;
 };
 
 } // namespace nvinfer1
@@ -5645,6 +5786,7 @@ namespace nvinfer1
 //! This class is the logging class for the builder.
 //!
 //! unnamed namespace avoids linkage surprises when linking objects built with different versions of this header.
+//!
 namespace
 {
 inline IBuilder* createInferBuilder(ILogger& logger)
