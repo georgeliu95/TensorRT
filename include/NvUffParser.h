@@ -177,8 +177,7 @@ public:
     //! \brief Register an input name of a UFF network with the associated Dimensions.
     //!
     //! \param inputName Input name.
-    //! \param inputDims Input Dimensions, always provide your dimensions in CHW even if your network
-    //!                  input was in HWC in your original framework.
+    //! \param inputDims Input dimensions.
     //! \param inputOrder Input order on which the framework input was originally.
     //!
     virtual bool registerInput(const char* inputName, nvinfer1::Dims inputDims, UffInputOrder inputOrder) TRTNOEXCEPT = 0;
