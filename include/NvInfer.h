@@ -573,6 +573,8 @@ public:
     //! If this state is modified for a tensor in the network, the states of all dependent tensors will be recomputed.
     //! If the tensor is for an explicit batch network, then this function does nothing.
     //!
+    //! \warning The broadcast flag is ignored when using explicit batch network mode.
+    //!
     //! \param broadcastAcrossBatch Whether to enable broadcast of tensor across the batch.
     //!
     //! \see getBroadcastAcrossBatch()
