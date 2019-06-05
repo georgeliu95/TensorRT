@@ -2172,19 +2172,34 @@ class IGatherLayer : public ILayer
 {
 public:
     //!
-    //! \brief Set the non-batch dimension axis to gather on.
-    //!  The axis must be less than the number of non-batch dimensions in the data input.
+    //! \brief Set the axis to gather on.
+    //!  The axis must be less than the number of dimensions in the data input.
     //!
     //! \see getGatherAxis()
     //!
     virtual void setGatherAxis(int axis) TRTNOEXCEPT = 0;
 
     //!
-    //! \brief Get the non-batch dimension axis to gather on.
+    //! \brief Get the axis to gather on.
     //!
     //! \see setGatherAxis()
     //!
     virtual int getGatherAxis() const TRTNOEXCEPT = 0;
+
+    //!
+    //! \brief Set the number of leading dimensions of indices tensor to be handled elementwise.
+    //! k must be 0 if there is an implicit batch dimension.  It can be 0 or 1 if there is not an implicit batch dimension.
+    //!
+    //! \see getNbElementWiseDims()
+    //!
+    virtual void setNbElementWiseDims(int k) TRTNOEXCEPT = 0;
+
+    //!
+    //! \brief Get the number of leading dimensions of indices tensor to be handled elementwise.
+    //!
+    //! \see setNbElementWiseDims()
+    //!
+    virtual int getNbElementWiseDims() const TRTNOEXCEPT = 0;
 
 protected:
     virtual ~IGatherLayer() {}
