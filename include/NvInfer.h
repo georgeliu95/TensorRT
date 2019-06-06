@@ -5255,24 +5255,6 @@ public:
     //! zero, if none has been defined yet).
     //!
     virtual int getNbOptimizationProfiles() const noexcept = 0;
-
-    //!
-    //! \brief Enable pointwise fusion.
-    //!
-    //! \param mode True to enable pointwise fusion else disable. Default value is true.
-    //!
-    //! \see getEnablePointWiseFusion()
-    //!
-    virtual void setEnablePointWiseFusion(bool mode) TRTNOEXCEPT = 0;
-    
-    //!
-    //! \brief Check if pointwise fusion is enabled.
-    //!
-    //! \return Status true if pointwise fusion is enabled else returns false.
-    //!
-    //! \see setEnablePointWiseFusion()
-    //!
-    virtual bool getEnablePointWiseFusion() const TRTNOEXCEPT = 0;
 protected:
     virtual ~INetworkConfig() {}
 };
