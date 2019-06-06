@@ -52,10 +52,10 @@
 
 #include "NvInfer.h"
 
-//Current supported Universal Framework Format (UFF) version for the parser.
+// Current supported Universal Framework Format (UFF) version for the parser.
 #define UFF_REQUIRED_VERSION_MAJOR 0
 #define UFF_REQUIRED_VERSION_MINOR 6
-#define UFF_REQUIRED_VERSION_PATCH 3
+#define UFF_REQUIRED_VERSION_PATCH 4
 
 namespace nvuffparser
 {
@@ -256,14 +256,14 @@ public:
     //! \brief Set the ErrorRecorder for this interface
     //!
     //! Assigns the ErrorRecorder to this interface. The ErrorRecorder will track all errors during execution.
-    //! This function will call incRefCount of the registered ErrorRecorder at least once. Setting 
+    //! This function will call incRefCount of the registered ErrorRecorder at least once. Setting
     //! recorder to nullptr unregisters the recorder with the interface, resulting in a call to decRefCount if
     //! a recorder has been registered.
-    //! 
+    //!
     //! \param recorder The error recorder to register with this interface.
     //
     //! \see getErrorRecorder
-    //! 
+    //!
     virtual void setErrorRecorder(nvinfer1::IErrorRecorder* recorder) TRTNOEXCEPT = 0;
 
     //!
