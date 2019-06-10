@@ -259,7 +259,7 @@ enum class TensorFormat : int
     kNHWC8 TRT_DEPRECATED_ENUM = kHWC8, //! <-- Deprecated, used for backward compatibility
 
     //! Four wide channel vectorized row major format. This format is bound to
-    //! INT8. It is only available for dimensions >= 3.
+    //! INT8 or FP16. It is only available for dimensions >= 3.
     //! For a tensor with dimensions {N, C, H, W},
     //! the memory layout is equivalent to a C array with dimensions
     //! [N][(C+3)/4][H][W][4], with the tensor coordinates (n, c, h, w)
@@ -275,7 +275,7 @@ enum class TensorFormat : int
     kCHW16 = 4,
 
     //! Thirty-two wide channel vectorized row major format. This format is
-    //! bound to INT8. It is only available for dimensions >= 3.
+    //! bound to INT8 or FP32. It is only available for dimensions >= 3.
     //! For a tensor with dimensions {N, C, H, W},
     //! the memory layout is equivalent to a C array with dimensions
     //! [N][(C+31)/32][H][W][32], with the tensor coordinates (n, c, h, w)
