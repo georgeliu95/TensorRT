@@ -1312,6 +1312,16 @@ public:
     virtual Dims getStrides(int bindingIndex) const noexcept = 0;
 
     //!
+    //! \brief Get the dimensions of a binding.
+    //!
+    //! \param bindingIndex The binding index.
+    //! \return The dimensions of the binding if the index is in range, otherwise (0,0,0).
+    //!
+    //! \see getBindingIndex()
+    //!
+    virtual Dims getBindingDimensions(int bindingIndex) const noexcept = 0;
+
+    //!
     //! \brief Set the ErrorRecorder for this interface
     //!
     //! Assigns the ErrorRecorder to this interface. The ErrorRecorder will track all errors during execution.
