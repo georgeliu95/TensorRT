@@ -296,23 +296,22 @@ constexpr inline int EnumMax<TensorFormat>()
     return 6;
 } //!< Maximum number of elements in TensorFormat enum. \see TensorFormat
 
-//! \struct PluginConfig
+//! \struct PluginTensorDesc
 //!
 //! \brief Fields that a plugin might see for an input or output.
 //!
-//! Scales are only valid when data type is DataType::kINT8 and the dimension of the tensor is greater
-//! than or equal to 3.
+//! Scale is only valid when data type is DataType::kINT8. TensorRT will set
+//! the value to -1.0f if it is invalid.
 //!
 //! \see IPluginV2IOExt::supportsFormat
 //! \see IPluginV2IOExt::configurePlugin
 //!
-struct PluginConfig
+struct PluginTensorDesc
 {
     Dims dims;
     DataType type;
     TensorFormat format;
-    const float* hostScale;
-    const float* deviceScale;
+    float scale;
 };
 
 //! \struct PluginVersion
@@ -632,14 +631,14 @@ public:
     //! \brief Configure the layer.
     //!
     //! This function is called by the builder prior to initialize(). It provides an opportunity for the layer to make
-    //! algorithm choices on the basis of I/O PluginConfig and the maximum batch size.
+    //! algorithm choices on the basis of I/O PluginTensorDesc and the maximum batch size.
     //!
     //! \param in The input tensors attributes that are used for configuration.
     //! \param nbInput Number of input tensors.
     //! \param out The output tensors attributes that are used for configuration.
     //! \param nbOutput Number of output tensors.
     //!
-    virtual void configurePlugin(const PluginConfig* in, int nbInput, const PluginConfig* out, int nbOutput) TRTNOEXCEPT = 0;
+    virtual void configurePlugin(const PluginTensorDesc* in, int nbInput, const PluginTensorDesc* out, int nbOutput) TRTNOEXCEPT = 0;
 
     //!
     //! \brief Return true if plugin supports the format and datatype for the input/output indexed by pos.
@@ -672,7 +671,7 @@ public:
     //!
     //! Warning: TensorRT will stop asking for formats once it finds kFORMAT_COMBINATION_LIMIT on combinations.
     //!
-    virtual bool supportsFormatCombination(int pos, const PluginConfig* inOut, int nbInputs, int nbOutputs) const TRTNOEXCEPT = 0;
+    virtual bool supportsFormatCombination(int pos, const PluginTensorDesc* inOut, int nbInputs, int nbOutputs) const TRTNOEXCEPT = 0;
 
 protected:
     //!

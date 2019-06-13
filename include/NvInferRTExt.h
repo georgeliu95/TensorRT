@@ -292,7 +292,7 @@ protected:
 //!
 //! \brief An operation on two IDimensionExpr, which represent integer expressions used in dimension computations.
 //!
-//! For example, given two IDimensionExpr x and y and an IExprBuilder& eb, 
+//! For example, given two IDimensionExpr x and y and an IExprBuilder& eb,
 //! eb.operation(DimensionOperation::kSUM, x, y) creates a representation of x+y.
 //!
 //! \see IDimensionExpr, IExprBuilder
@@ -342,7 +342,7 @@ public:
 //!
 //! Object for constructing IDimensionExpr.
 //!
-//! There is no public way to construct an IExprBuilder.  It appears as an argument to 
+//! There is no public way to construct an IExprBuilder.  It appears as an argument to
 //! method IPluginV2DynamicExt::getOutputDimensions().  Overrides of that method can use
 //! that IExprBuilder argument to construct expressions that define output dimensions
 //! in terms of input dimensions.
@@ -372,7 +372,7 @@ protected:
 //! \class DimsExprs
 //!
 //! Analog of class Dims with expressions instead of constants for the dimensions.
-//! 
+//!
 class DimsExprs
 {
 public:
@@ -380,33 +380,15 @@ public:
     const IDimensionExpr* d[Dims::MAX_DIMS]; //!< The extent of each dimension.
 };
 
-//! 
+//!
 //! \class DynamicPluginTensorDesc
-//!
-//! All information necessary to interpret a pointer to tensor data.
-//!
-//! Scale factors are present only if type == DataType::kINT and the tensor has at least 3 dimensions.
-//! In that case, the scale factors are indexed by the third-to-last dimension.  The algebraic value
-//! of a tensor element is recovered by multiplying the int8_t value by the scale factor.
-//!
-struct DynamicPluginTensorDesc
-{
-    Dims dims;                //!< The dimensions of the tensor
-    DataType type;            //!< Element type of the tensor
-    TensorFormat format;      //!< Format of the tensor
-    const float* deviceScale; //!< Scale factors on the device, if type == DataType::kINT, nullptr otherwise.
-    const float* hostScale;   //!< Scale factors on the host, if type == DataType::kINT8, nullptr otherwise.
-};
-
-//! 
-//! \class DynamicPluginConfig 
 //!
 //! Summarizes tensors that a plugin might see for an input or output.
 //!
-struct DynamicPluginConfig
+struct DynamicPluginTensorDesc
 {
     //! Information required to interpret a pointer to tensor data, except that desc.dims has -1 in place of any runtime dimension.
-    DynamicPluginTensorDesc desc;
+    PluginTensorDesc desc;
 
     //! Lower bounds on tensor’s dimensions
     Dims min;
@@ -417,7 +399,7 @@ struct DynamicPluginConfig
 
 //!
 //! \class IPluginV2DynamicExt
-//! 
+//!
 //! Similar to IPluginV2Ext, but with support for dynamic shapes.
 //!
 //! Clients should override the public methods, including the following inherited methods:
@@ -429,7 +411,7 @@ struct DynamicPluginConfig
 //!     virtual void destroy() TRTNOEXCEPT = 0;
 //!     virtual void setPluginNamespace(const char* pluginNamespace) TRTNOEXCEPT = 0;
 //!     virtual const char* getPluginNamespace() const TRTNOEXCEPT = 0;
-//! 
+//!
 //! For getOutputDataType, the inputTypes will always be DataType::kFLOAT or DataType::kINT32,
 //! and the returned type is canonicalized to DataType::kFLOAT if it is DataType::kHALF or DataType:kINT8.
 //! Details about the floating-point precision are elicited later by method supportsFormatCombination.
@@ -467,12 +449,12 @@ public:
 
     //!
     //! Limit on number of format combinations accepted.
-    //! 
+    //!
     static constexpr int kFORMAT_COMBINATION_LIMIT = 100;
 
-    //! 
+    //!
     //! \brief Return true if plugin supports the format and datatype for the input/output indexed by pos.
-    //!  
+    //!
     //! For this method inputs are numbered 0..(nbInputs-1) and outputs are numbered nbInputs..(nbInputs+nbOutputs-1).
     //! Using this numbering, pos is an index into InOut, where 0 <= pos < nbInputs+nbOutputs-1.
     //!
@@ -482,7 +464,7 @@ public:
     //! make its result conditional on the formats/datatypes in inOut[0..pos-1], which will be set to values
     //! that the plugin supports.  The override should not inspect inOut[pos+1..nbInputs+nbOutputs-1],
     //! which will have invalid values.  In other words, the decision for pos must be based on inOut[0..pos] only.
-    //! 
+    //!
     //! Some examples:
     //!
     //! * A definition for a plugin that supports only FP16 NCHW:
@@ -501,7 +483,7 @@ public:
     //!
     //! Warning: TensorRT will stop asking for formats once it finds kFORMAT_COMBINATION_LIMIT on combinations.
     //!
-    virtual bool supportsFormatCombination(int pos, const DynamicPluginTensorDesc* inOut, int nbInputs, int nbOutputs) TRTNOEXCEPT = 0;
+    virtual bool supportsFormatCombination(int pos, const PluginTensorDesc* inOut, int nbInputs, int nbOutputs) TRTNOEXCEPT = 0;
 
     //!
     //! \brief Configure the layer.
@@ -514,7 +496,7 @@ public:
     //! \param out The output tensors attributes that are used for configuration.
     //! \param nbOutputs Number of output tensors.
     //!
-    virtual void configurePlugin(const DynamicPluginConfig* in, int nbInputs, const DynamicPluginConfig* out, int nbOutputs) TRTNOEXCEPT = 0;
+    virtual void configurePlugin(const DynamicPluginTensorDesc* in, int nbInputs, const DynamicPluginTensorDesc* out, int nbOutputs) TRTNOEXCEPT = 0;
 
     //!
     //! \brief Find the workspace size required by the layer.
@@ -525,7 +507,7 @@ public:
     //!
     //! \return The workspace size.
     //!
-    virtual size_t getWorkspaceSize(const DynamicPluginTensorDesc* inputs, int nbInputs, const DynamicPluginTensorDesc* outputs, int nbOutputs) const TRTNOEXCEPT = 0;
+    virtual size_t getWorkspaceSize(const PluginTensorDesc* inputs, int nbInputs, const PluginTensorDesc* outputs, int nbOutputs) const TRTNOEXCEPT = 0;
 
     //!
     //! \brief Execute the layer.
@@ -539,9 +521,9 @@ public:
     //!
     //! \return 0 for success, else non-zero (which will cause engine termination).
     //!
-    virtual int enqueue(const DynamicPluginTensorDesc* inputDesc, const DynamicPluginTensorDesc* outputDesc, const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) TRTNOEXCEPT = 0;
+    virtual int enqueue(const PluginTensorDesc* inputDesc, const PluginTensorDesc* outputDesc, const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) TRTNOEXCEPT = 0;
 
-protected: 
+protected:
     int getTensorRTVersion() const _TENSORRT_OVERRIDE TRTNOEXCEPT
     {
         return (static_cast<int>(PluginVersion::kV2_DYNAMICEXT) << 24 | (NV_TENSORRT_VERSION & 0xFFFFFF));
@@ -559,7 +541,7 @@ protected:
     //!
     TRT_DEPRECATED
     Dims getOutputDimensions(int /*index*/, const Dims* /*inputs*/, int /*nbInputDims*/) _TENSORRT_FINAL TRTNOEXCEPT
-    { 
+    {
         Dims result;
         result.nbDims = -1;
         return result;
@@ -567,11 +549,11 @@ protected:
 
     //!
     //! \brief Derived classes should not implement this. In a C++11 API it would be override final.
-    //! 
+    //!
     //! With dynamic shapes, there is no implicit batch dimension to broadcast across.
     //!
     TRT_DEPRECATED
-    bool isOutputBroadcastAcrossBatch(int /*outputIndex*/, const bool* /*inputIsBroadcasted*/, int /*nbInputs*/) const _TENSORRT_FINAL TRTNOEXCEPT 
+    bool isOutputBroadcastAcrossBatch(int /*outputIndex*/, const bool* /*inputIsBroadcasted*/, int /*nbInputs*/) const _TENSORRT_FINAL TRTNOEXCEPT
     {
         return false;
     }
@@ -602,9 +584,9 @@ protected:
     //! \brief Derived classes should not implement this. In a C++11 API it would be override final.
     //!
     //! This method is not used because tensors with dynamic shapes do not have an implicit batch dimension,
-    //! input dimensions might be variable, and outputs might have different floating-point formats..  
+    //! input dimensions might be variable, and outputs might have different floating-point formats..
     //!
-    //! Instead, derived classes should override the overload of configurePlugin that takes poiners to DynamicPluginConfig.
+    //! Instead, derived classes should override the overload of configurePlugin that takes poiners to DynamicPluginTensorDesc.
     //!
     TRT_DEPRECATED
     void configurePlugin(const Dims* /*inputDims*/, int /*nbInputs*/, const Dims* /*outputDims*/,
@@ -617,7 +599,7 @@ protected:
     //! This method is not used because tensors with dynamic shapes do not have an implicit batch dimension,
     //! and the other dimensions might not be build-time constants.
     //!
-    //! Instead, derived classes should override the overload of getWorkspaceSize that takes pointers to DynamicPluginTensorDesc.
+    //! Instead, derived classes should override the overload of getWorkspaceSize that takes pointers to PluginTensorDesc.
     //! The arguments to that overload provide maximum bounds on all dimensions.
     //!
     TRT_DEPRECATED
@@ -628,7 +610,7 @@ protected:
     //!
     //! This method is not used because tensors with dynamic shapes can have different sizes in different execution contexts.
     //!
-    //! Instead, derived classes should override the overload of enqueue that takes pointers to DynamicPluginTensorDesc.
+    //! Instead, derived classes should override the overload of enqueue that takes pointers to PluginTensorDesc.
     //!
     TRT_DEPRECATED
     int enqueue(int /*batchSize*/, const void* const* /*inputs*/, void** /*outputs*/, void* /*workspace*/, cudaStream_t /*stream*/) _TENSORRT_FINAL TRTNOEXCEPT
