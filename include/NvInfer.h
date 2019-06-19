@@ -882,9 +882,6 @@ constexpr inline int EnumMax<PaddingMode>()
 //! This layer performs a correlation operation between 3-dimensional filter with a 4-dimensional tensor to produce
 //! another 4-dimensional tensor.
 //!
-//! The HW output size of the convolution is set according to the \p INetworkCustomDimensions set in
-//! INetworkDefinition::setCustomConvolutionDimensions().
-//!
 //! An optional bias argument is supported, which adds a per-channel constant to each value in the output.
 //!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
