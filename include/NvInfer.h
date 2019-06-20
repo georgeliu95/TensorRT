@@ -3502,6 +3502,13 @@ enum class MatrixOperation : int
 
     //! Treat x as a vector if it has one dimension, or as a collection of
     //! vectors if x has more than one dimension.  x must have at least one dimension.
+    //! The first input tensor with dimensions [M,K] used with MatrixOperation::kVECTOR is equivalent to a tensor
+    //! with dimensions [M, 1, K] with MatrixOperation::kNONE, i.e. is treated as M row vectors of length K.  
+    //! If MatrixOperation::kTRANSPOSE is specified, then the dimensions are [M, K, 1].
+    //!
+    //! The second input tensor with dimensions [M,K] used with MatrixOperation::kVECTOR is equivalent to a tensor
+    //! with dimensions [M, K, 1] with MatrixOperation::kNONE, i.e. is treated as M column vectors of length K.
+    //! If MatrixOperation::kTRANSPOSE is specified, then the dimensions are [M, 1, K].
     kVECTOR
 };
 
