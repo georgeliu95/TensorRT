@@ -4799,13 +4799,14 @@ enum class CalibrationAlgoType : int
 {
     kLEGACY_CALIBRATION = 0,
     kENTROPY_CALIBRATION = 1,
-    kENTROPY_CALIBRATION_2 = 2
+    kENTROPY_CALIBRATION_2 = 2,
+    kMINMAX_CALIBRATION = 3,    
 };
 
 template <>
 constexpr inline int EnumMax<CalibrationAlgoType>()
 {
-    return 3;
+    return 4;
 } //!< Maximum number of elements in CalibrationAlgoType enum. \see DataType
 
 //!
@@ -4908,6 +4909,21 @@ public:
     CalibrationAlgoType getAlgorithm() TRTNOEXCEPT override { return CalibrationAlgoType::kENTROPY_CALIBRATION_2; }
 
     virtual ~IInt8EntropyCalibrator2() {}
+};
+
+//!
+//! MinMax Calibrator. This is the preferred calibrator for NLP tasks. It supports per
+//! activation tensor scaling.
+//!
+class IInt8MinMaxCalibrator : public IInt8Calibrator
+{
+public:
+    //!
+    //! Signal that this is the MinMax Calibrator.
+    //!
+    CalibrationAlgoType getAlgorithm() TRTNOEXCEPT override { return CalibrationAlgoType::kMINMAX_CALIBRATION; }
+
+    virtual ~IInt8MinMaxCalibrator() {}
 };
 
 //!
