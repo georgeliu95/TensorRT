@@ -100,9 +100,9 @@ private:
     //!
     //! \brief Parses a Caffe model and creates a TensorRT network
     //!
-    bool constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder, SampleUniquePtr<nvinfer1::INetworkDefinition>& network,
-        SampleUniquePtr<nvinfer1::INetworkConfig>& config, SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser,
-        DataType dataType);
+    bool constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
+        SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config,
+        SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser, DataType dataType);
 
     //!
     //! \brief Reads the input and stores it in a managed buffer
@@ -139,7 +139,7 @@ bool SampleINT8::build(DataType dataType)
         return false;
     }
 
-    auto config = SampleUniquePtr<nvinfer1::INetworkConfig>(builder->createNetworkConfig());
+    auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     if (!config)
     {
         return false;
@@ -200,9 +200,9 @@ bool SampleINT8::isSupported(DataType dataType)
 //!
 //! \param builder Pointer to the engine builder
 //!
-bool SampleINT8::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder, SampleUniquePtr<nvinfer1::INetworkDefinition>& network,
-    SampleUniquePtr<nvinfer1::INetworkConfig>& config, SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser,
-    DataType dataType)
+bool SampleINT8::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
+    SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config,
+    SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser, DataType dataType)
 {
     const nvcaffeparser1::IBlobNameToTensor* blobNameToTensor
         = parser->parse(locateFile(mParams.prototxtFileName, mParams.dataDirs).c_str(),

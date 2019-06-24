@@ -183,7 +183,7 @@ private:
     std::vector<char> mCalibrationCache;
 };
 
-void configureBuilder(IBuilder* builder, INetworkConfig* config, RndInt8Calibrator& calibrator)
+void configureBuilder(IBuilder* builder, IBuilderConfig* config, RndInt8Calibrator& calibrator)
 {
     builder->setMaxBatchSize(gParams.batchSize);
 
@@ -216,12 +216,10 @@ ICudaEngine* caffeToTRTModel()
 
     // parse the caffe model to populate the network, then set the outputs
     INetworkDefinition* network = builder->createNetwork();
-    INetworkConfig* config = builder->createNetworkConfig();
+    IBuilderConfig* config = builder->createBuilderConfig();
     ICaffeParser* parser = createCaffeParser();
     const IBlobNameToTensor* blobNameToTensor = parser->parse(gParams.deployFile.c_str(),
-                                                              gParams.modelFile.empty() ? 0 : gParams.modelFile.c_str(),
-                                                              *network,
-                                                              DataType::kFLOAT);
+        gParams.modelFile.empty() ? 0 : gParams.modelFile.c_str(), *network, DataType::kFLOAT);
 
     if (!blobNameToTensor)
     {
@@ -284,7 +282,7 @@ ICudaEngine* uffToTRTModel()
 
     // parse the caffe model to populate the network, then set the outputs
     INetworkDefinition* network = builder->createNetwork();
-    INetworkConfig* config = builder->createNetworkConfig();
+    IBuilderConfig* config = builder->createBuilderConfig();
     IUffParser* parser = createUffParser();
 
     // specify which tensors are outputs
@@ -343,7 +341,7 @@ ICudaEngine* onnxToTRTModel()
         return nullptr;
     }
     nvinfer1::INetworkDefinition* network = builder->createNetwork();
-    INetworkConfig* config = builder->createNetworkConfig();
+    IBuilderConfig* config = builder->createBuilderConfig();
 
     // parse the onnx model to populate the network, then set the outputs
     IParser* parser = nvonnxparser::createParser(*network, gLogger.getTRTLogger());

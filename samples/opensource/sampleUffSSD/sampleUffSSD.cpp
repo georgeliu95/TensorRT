@@ -98,8 +98,9 @@ private:
     //!
     //! \brief Parses an UFF model for SSD and creates a TensorRT network
     //!
-    bool constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder, SampleUniquePtr<nvinfer1::INetworkDefinition>& network, 
-        SampleUniquePtr<nvinfer1::INetworkConfig>& config, SampleUniquePtr<nvuffparser::IUffParser>& parser);
+    bool constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
+        SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config,
+        SampleUniquePtr<nvuffparser::IUffParser>& parser);
 
     //!
     //! \brief Reads the input and mean data, preprocesses, and stores the result in a managed buffer
@@ -136,7 +137,7 @@ bool SampleUffSSD::build()
         return false;
     }
 
-    auto config = SampleUniquePtr<nvinfer1::INetworkConfig>(builder->createNetworkConfig());
+    auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     if (!config)
     {
         return false;
@@ -171,8 +172,9 @@ bool SampleUffSSD::build()
 //!
 //! \param builder Pointer to the engine builder
 //!
-bool SampleUffSSD::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder, SampleUniquePtr<nvinfer1::INetworkDefinition>& network, 
-    SampleUniquePtr<nvinfer1::INetworkConfig>& config, SampleUniquePtr<nvuffparser::IUffParser>& parser)
+bool SampleUffSSD::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
+    SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config,
+    SampleUniquePtr<nvuffparser::IUffParser>& parser)
 {
     parser->registerInput(mParams.inputTensorNames[0].c_str(), DimsCHW(3, 300, 300), nvuffparser::UffInputOrder::kNCHW);
     parser->registerOutput(mParams.outputTensorNames[0].c_str());

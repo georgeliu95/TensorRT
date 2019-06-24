@@ -127,7 +127,7 @@ bool SamplePlugin::build()
         return false;
     }
 
-    auto config = SampleUniquePtr<nvinfer1::INetworkConfig>(builder->createNetworkConfig());
+    auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     if (!config)
     {
         return false;

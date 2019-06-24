@@ -394,6 +394,10 @@ public:
     //! This function is called by the implementations of INetworkDefinition, IBuilder, and safe::ICudaEngine/ICudaEngine.
     //! In particular, it is called when creating an engine and when deserializing an engine.
     //!
+    //! \warning for the format field, the values PluginFormat::kCHW4, PluginFormat::kCHW16, and PluginFormat::kCHW32
+    //! will not be passed in, this is to keep backward compatibility with TensorRT 5.x series.  Use PluginV2IOExt
+    //! or PluginV2DynamicExt for other PluginFormats.
+    //!
     virtual bool supportsFormat(DataType type, PluginFormat format) const TRTNOEXCEPT = 0;
 
     //!
@@ -411,6 +415,10 @@ public:
     //! \param maxBatchSize The maximum batch size.
     //!
     //! The dimensions passed here do not include the outermost batch size (i.e. for 2-D image networks, they will be 3-dimensional CHW dimensions).
+    //!
+    //! \warning for the format field, the values PluginFormat::kCHW4, PluginFormat::kCHW16, and PluginFormat::kCHW32
+    //! will not be passed in, this is to keep backward compatibility with TensorRT 5.x series.  Use PluginV2IOExt
+    //! or PluginV2DynamicExt for other PluginFormats.
     //!
     virtual void configureWithFormat(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs, DataType type, PluginFormat format, int maxBatchSize) TRTNOEXCEPT = 0;
 
@@ -553,14 +561,18 @@ public:
     //! \param outputTypes The data types selected for the plugin outputs.
     //! \param inputIsBroadcast True for each input that the plugin must broadcast across the batch.
     //! \param outputIsBroadcast True for each output that TensorRT will broadcast across the batch.
-    //! \param floatFormat The format selected for the engine for the floating point
-    //!  inputs/outputs.
+    //! \param floatFormat The format selected for the engine for the floating point inputs/outputs.
     //! \param maxBatchSize The maximum batch size.
     //!
     //! The dimensions passed here do not include the outermost batch size (i.e. for 2-D image networks, they will be 3-dimensional CHW dimensions).
     //! When inputIsBroadcast or outputIsBroadcast is true, the outermost batch size for that input or output should be treated as if it is one.
     //! \ref inputIsBroadcast[i] is true only if the input is semantically broadcast across the batch and \ref canBroadcastInputAcrossBatch(i) returned true.
     //! \ref outputIsBroadcast[i] is true only if \ref isOutputBroadcastAcrossBatch(i) returned true.
+    //!
+    //! \warning for the floatFormat field, the values PluginFormat::kCHW4, PluginFormat::kCHW16, and PluginFormat::kCHW32
+    //! will not be passed in, this is to keep backward compatibility with TensorRT 5.x series.  Use PluginV2IOExt
+    //! or PluginV2DynamicExt for other PluginFormats.
+    //!
 
     virtual void configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims,
                                  int nbOutputs, const DataType* inputTypes, const DataType* outputTypes,

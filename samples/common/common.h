@@ -469,7 +469,7 @@ inline void setAllTensorScales(INetworkDefinition* network, float inScales = 2.0
     }
 }
 
-inline void setDummyInt8Scales(const INetworkConfig* c, INetworkDefinition* n)
+inline void setDummyInt8Scales(const IBuilderConfig* c, INetworkDefinition* n)
 {
     // Set dummy tensor scales if Int8 mode is requested.
     if (c->getFlag(BuilderFlag::kINT8))
@@ -479,7 +479,7 @@ inline void setDummyInt8Scales(const INetworkConfig* c, INetworkDefinition* n)
     }
 }
 
-inline void enableDLA(IBuilder* b, INetworkConfig* c, int useDLACore, bool allowGPUFallback = true)
+inline void enableDLA(IBuilder* b, IBuilderConfig* c, int useDLACore, bool allowGPUFallback = true)
 {
     if (useDLACore >= 0)
     {

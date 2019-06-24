@@ -110,9 +110,8 @@ private:
     //! \brief Parses a Uff model for a MLP NCF model, creates a TensorRT network, and builds a TensorRT engine.
     //!
     void constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
-                          SampleUniquePtr<nvinfer1::INetworkDefinition>& network,
-                          SampleUniquePtr<nvinfer1::INetworkConfig>& config,
-                          SampleUniquePtr<nvuffparser::IUffParser>& parser);
+        SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config,
+        SampleUniquePtr<nvuffparser::IUffParser>& parser);
     //!
     //! \brief Copies a batch of input data from SampleMovieLensParams into managed input buffers
     //!
@@ -173,7 +172,7 @@ bool SampleMovieLens::build()
     {
         return false;
     }
-    auto config = SampleUniquePtr<nvinfer1::INetworkConfig>(builder->createNetworkConfig());
+    auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     if (!config)
     {
         return false;
@@ -208,9 +207,8 @@ bool SampleMovieLens::build()
 //! \brief Parses a Uff model for a MLP NCF model, creates a TensorRT network, and builds a TensorRT engine.
 //!
 void SampleMovieLens::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
-                                       SampleUniquePtr<nvinfer1::INetworkDefinition>& network,
-                                       SampleUniquePtr<nvinfer1::INetworkConfig>& config,
-                                       SampleUniquePtr<nvuffparser::IUffParser>& parser)
+    SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config,
+    SampleUniquePtr<nvuffparser::IUffParser>& parser)
 {
 
     nvinfer1::Dims inputIndices;

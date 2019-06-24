@@ -96,8 +96,9 @@ private:
     //!
     //! \brief Parses a Caffe model for SSD and creates a TensorRT network
     //!
-    bool constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder, SampleUniquePtr<nvinfer1::INetworkDefinition>& network, 
-                        SampleUniquePtr<nvinfer1::INetworkConfig>& config, SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser);
+    bool constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
+        SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config,
+        SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser);
 
     //!
     //! \brief Reads the input and mean data, preprocesses, and stores the result in a managed buffer
@@ -134,7 +135,7 @@ bool SampleSSD::build()
         return false;
     }
 
-    auto config = SampleUniquePtr<nvinfer1::INetworkConfig>(builder->createNetworkConfig());
+    auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     if (!config)
     {
         return false;
@@ -167,14 +168,13 @@ bool SampleSSD::build()
 //!
 //! \param builder Pointer to the engine builder
 //!
-bool SampleSSD::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder, SampleUniquePtr<nvinfer1::INetworkDefinition>& network, 
-                               SampleUniquePtr<nvinfer1::INetworkConfig>& config, SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser)
+bool SampleSSD::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
+    SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config,
+    SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser)
 {
-    const nvcaffeparser1::IBlobNameToTensor* blobNameToTensor = parser->parse(
-        locateFile(mParams.prototxtFileName, mParams.dataDirs).c_str(),
-        locateFile(mParams.weightsFileName, mParams.dataDirs).c_str(),
-        *network,
-        DataType::kFLOAT);
+    const nvcaffeparser1::IBlobNameToTensor* blobNameToTensor
+        = parser->parse(locateFile(mParams.prototxtFileName, mParams.dataDirs).c_str(),
+            locateFile(mParams.weightsFileName, mParams.dataDirs).c_str(), *network, DataType::kFLOAT);
 
     for (auto& s : mParams.outputTensorNames)
     {

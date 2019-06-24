@@ -176,8 +176,7 @@ private:
     //! \brief Create full model using the TensorRT network definition API and build the engine.
     //!
     void constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
-                          SampleUniquePtr<nvinfer1::INetworkDefinition>& network,
-                          SampleUniquePtr<nvinfer1::INetworkConfig>& config);
+        SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config);
 
     //!
     //! \brief Looks up the embedding tensor for a given char and copies it to input buffer
@@ -224,7 +223,7 @@ bool SampleCharRNN::build()
     {
         return false;
     }
-    auto config = SampleUniquePtr<nvinfer1::INetworkConfig>(builder->createNetworkConfig());
+    auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     if (!config)
     {
         return false;
@@ -468,8 +467,7 @@ nvinfer1::IRNNv2Layer* SampleCharRNN::addRNNv2Layer(SampleUniquePtr<nvinfer1::IN
 //! \param modelStream The stream within which the engine is serialized once built.
 //!
 void SampleCharRNN::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
-                                     SampleUniquePtr<nvinfer1::INetworkDefinition>& network,
-                                     SampleUniquePtr<nvinfer1::INetworkConfig>& config)
+    SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config)
 {
     // add RNNv2 layer and set its parameters
     auto rnn = SampleCharRNN::addRNNv2Layer(network);

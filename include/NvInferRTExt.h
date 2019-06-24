@@ -972,7 +972,7 @@ constexpr inline int EnumMax<OptProfileSelector>()
 //! if the input tensor dimensions fall outside the valid range for this profile. Likewise, users provide minimum,
 //! optimum, and maximum values for all shape tensor input values.
 //!
-//! \see INetworkConfig::addOptimizationProfile()
+//! \see IBuilderConfig::addOptimizationProfile()
 //!
 class IOptimizationProfile
 {
@@ -1069,7 +1069,7 @@ public:
     virtual float getExtraMemoryTarget() const noexcept = 0;
 
     //!
-    //! \brief Check whether the optimization profile can be passed to an INetworkConfig object.
+    //! \brief Check whether the optimization profile can be passed to an IBuilderConfig object.
     //!
     //! This function performs partial validation, by e.g. checking that whenever one of the minimum, optimum, or
     //! maximum dimensions of a tensor have been set, the others have also been set and have the same rank, as
@@ -1077,9 +1077,10 @@ public:
     //! that the maximum dimensions are at least as large as the optimum dimensions. Some validation steps require
     //! knowledge of the network definition and are deferred to engine build time.
     //!
-    //! \return true if the optimization profile is valid and may be passed to an INetworkConfig, else false
+    //! \return true if the optimization profile is valid and may be passed to an IBuilderConfig, else false
     //!
     virtual bool isValid() const noexcept = 0;
+
 protected:
     ~IOptimizationProfile() noexcept = default;
 };

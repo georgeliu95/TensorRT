@@ -93,8 +93,8 @@ private:
     //!
     //! \brief Uses the API to create the MLP Network
     //!
-    bool constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder, SampleUniquePtr<nvinfer1::INetworkDefinition>& network,
-        SampleUniquePtr<nvinfer1::INetworkConfig>& config);
+    bool constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
+        SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config);
 
     //!
     //! \brief Reads the input  and stores the result in a managed buffer
@@ -157,7 +157,7 @@ bool SampleMLP::build()
         return false;
     }
 
-    auto config = SampleUniquePtr<nvinfer1::INetworkConfig>(builder->createNetworkConfig());
+    auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     if (!config)
     {
         return false;
@@ -187,8 +187,8 @@ bool SampleMLP::build()
 //!
 //! \param builder Pointer to the engine builder
 //!
-bool SampleMLP::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder, SampleUniquePtr<nvinfer1::INetworkDefinition>& network,
-    SampleUniquePtr<nvinfer1::INetworkConfig>& config)
+bool SampleMLP::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
+    SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config)
 {
     // FC layers must still have 3 dimensions, so we create a {C, 1, 1,} matrix.
     // Currently the mnist example is only trained in FP32 mode.

@@ -94,8 +94,9 @@ private:
     //!
     //! \brief Parses a Caffe model for FasterRCNN and creates a TensorRT network
     //!
-    void constructNetwork(SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser, SampleUniquePtr<nvinfer1::IBuilder>& builder, 
-    SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::INetworkConfig>& config);
+    void constructNetwork(SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser,
+        SampleUniquePtr<nvinfer1::IBuilder>& builder, SampleUniquePtr<nvinfer1::INetworkDefinition>& network,
+        SampleUniquePtr<nvinfer1::IBuilderConfig>& config);
 
     //!
     //! \brief Reads the input and mean data, preprocesses, and stores the result in a managed buffer
@@ -142,7 +143,7 @@ bool SampleFasterRCNN::build()
         return false;
     }
 
-    auto config = SampleUniquePtr<nvinfer1::INetworkConfig>(builder->createNetworkConfig());
+    auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     if (!config)
     {
         return false;
@@ -176,8 +177,9 @@ bool SampleFasterRCNN::build()
 //!
 //! \param builder Pointer to the engine builder
 //!
-void SampleFasterRCNN::constructNetwork(SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser, SampleUniquePtr<nvinfer1::IBuilder>& builder, 
-    SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::INetworkConfig>& config)
+void SampleFasterRCNN::constructNetwork(SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser,
+    SampleUniquePtr<nvinfer1::IBuilder>& builder, SampleUniquePtr<nvinfer1::INetworkDefinition>& network,
+    SampleUniquePtr<nvinfer1::IBuilderConfig>& config)
 {
     const nvcaffeparser1::IBlobNameToTensor* blobNameToTensor
         = parser->parse(locateFile(mParams.prototxtFileName, mParams.dataDirs).c_str(),

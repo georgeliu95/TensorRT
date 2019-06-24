@@ -94,8 +94,8 @@ private:
     //!
     //! \brief Uses the API to create the MNIST Network
     //!
-    bool constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder, SampleUniquePtr<nvinfer1::INetworkDefinition>& network,
-        SampleUniquePtr<nvinfer1::INetworkConfig>& config);
+    bool constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
+        SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config);
 
     //!
     //! \brief Reads the input  and stores the result in a managed buffer
@@ -137,7 +137,7 @@ bool SampleMNISTAPI::build()
         return false;
     }
 
-    auto config = SampleUniquePtr<nvinfer1::INetworkConfig>(builder->createNetworkConfig());
+    auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     if (!config)
     {
         return false;
@@ -167,11 +167,12 @@ bool SampleMNISTAPI::build()
 //!
 //! \param builder Pointer to the engine builder
 //!
-bool SampleMNISTAPI::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder, SampleUniquePtr<nvinfer1::INetworkDefinition>& network,
-    SampleUniquePtr<nvinfer1::INetworkConfig>& config)
+bool SampleMNISTAPI::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
+    SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config)
 {
     // Create input tensor of shape { 1, 1, 28, 28 }
-    ITensor* data = network->addInput(mParams.inputTensorNames[0].c_str(), DataType::kFLOAT, Dims3{1, mParams.inputH, mParams.inputW});
+    ITensor* data = network->addInput(
+        mParams.inputTensorNames[0].c_str(), DataType::kFLOAT, Dims3{1, mParams.inputH, mParams.inputW});
     assert(data);
 
     // Create scale layer with default power/shift and specified scale parameter.

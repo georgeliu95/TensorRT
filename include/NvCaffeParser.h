@@ -187,9 +187,9 @@ class ICaffeParser
 public:
     //!
     //! \brief Parse a prototxt file and a binaryproto Caffe model to extract
-    //!   network configuration and weights associated with the network, respectively.
+    //!   network definition and weights associated with the network, respectively.
     //!
-    //! \param deploy The plain text, prototxt file used to define the network configuration.
+    //! \param deploy The plain text, prototxt file used to define the network definition.
     //! \param model The binaryproto Caffe model that contains the weights associated with the network.
     //! \param network Network in which the CaffeParser will fill the layers.
     //! \param weightType The type to which the weights will transformed.
@@ -205,9 +205,9 @@ public:
 
     //!
     //! \brief Parse a deploy prototxt a binaryproto Caffe model from memory buffers to extract
-    //!   network configuration and weights associated with the network, respectively.
+    //!   network definition and weights associated with the network, respectively.
     //!
-    //! \param deployBuffer The plain text deploy prototxt used to define the network configuration.
+    //! \param deployBuffer The plain text deploy prototxt used to define the network definition.
     //! \param deployLength The length of the deploy buffer.
     //! \param modelBuffer The binaryproto Caffe memory buffer that contains the weights associated with the network.
     //! \param modelLength The length of the model buffer.

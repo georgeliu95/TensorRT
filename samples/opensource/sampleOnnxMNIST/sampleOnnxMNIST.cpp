@@ -76,8 +76,9 @@ private:
     //!
     //! \brief Parses an ONNX model for MNIST and creates a TensorRT network
     //!
-    bool constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder, SampleUniquePtr<nvinfer1::INetworkDefinition>& network, 
-                        SampleUniquePtr<nvinfer1::INetworkConfig>& config, SampleUniquePtr<nvonnxparser::IParser>& parser);
+    bool constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
+        SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config,
+        SampleUniquePtr<nvonnxparser::IParser>& parser);
 
     //!
     //! \brief Reads the input  and stores the result in a managed buffer
@@ -112,7 +113,7 @@ bool SampleOnnxMNIST::build()
         return false;
     }
 
-    auto config = SampleUniquePtr<nvinfer1::INetworkConfig>(builder->createNetworkConfig());
+    auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     if (!config)
     {
         return false;
@@ -155,10 +156,12 @@ bool SampleOnnxMNIST::build()
 //!
 //! \param builder Pointer to the engine builder
 //!
-bool SampleOnnxMNIST::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder, SampleUniquePtr<nvinfer1::INetworkDefinition>& network, 
-                                    SampleUniquePtr<nvinfer1::INetworkConfig>& config, SampleUniquePtr<nvonnxparser::IParser>& parser)
+bool SampleOnnxMNIST::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
+    SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config,
+    SampleUniquePtr<nvonnxparser::IParser>& parser)
 {
-    auto parsed = parser->parseFromFile(locateFile(mParams.onnxFileName, mParams.dataDirs).c_str(), static_cast<int>(gLogger.getReportableSeverity()));
+    auto parsed = parser->parseFromFile(
+        locateFile(mParams.onnxFileName, mParams.dataDirs).c_str(), static_cast<int>(gLogger.getReportableSeverity()));
     if (!parsed)
     {
         return false;

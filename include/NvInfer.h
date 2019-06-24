@@ -640,7 +640,7 @@ public:
     virtual float getDynamicRangeMax() const TRTNOEXCEPT = 0;
 
     //!
-    //! \brief Set allowed formats.
+    //! \brief Set allowed formats for this tensor. By default all formats are allowed.
     //!
     //! \param formats A bitmask of TensorFormat values that are supported for this tensor.
     //!
@@ -651,7 +651,9 @@ public:
     //!
     //! \brief Get a bitmask of TensorFormat values that the tensor supports.
     //!
-    //! \see ITensor::getAllowReformat(), ITensor::setAllowedFormats()
+    //! \return The value specified by setAllowedFormats or all possible formats.
+    //!
+    //! \see ITensor::setAllowedFormats()
     //!
     virtual TensorFormats getAllowedFormats() const TRTNOEXCEPT = 0;
 
@@ -3840,7 +3842,7 @@ protected:
 //!
 //! \brief A network definition for input to the builder.
 //!
-//! A network definition defines the structure of the network, and combined with a INetworkConfig, is built
+//! A network definition defines the structure of the network, and combined with a IBuilderConfig, is built
 //! into an engine using an IBuilder. An INetworkDefinition can either have an implicit batch dimensions, specified
 //! at runtime, or all dimensions explicit, full dims mode, in the network definition. When a network has been
 //! created using createNetwork(), only implicit batch size mode is supported. The function hasImplicitBatchSize()
@@ -4984,7 +4986,7 @@ public:
 //! \brief It is capable of representing one or more BuilderFlags by binary OR
 //! operations, e.g., 1U << BuilderFlag::kFP16 | 1U << BuilderFlag::kDEBUG.
 //!
-//! \see INetworkConfig::getFlags(), ITensor::setFlags(),
+//! \see IBuilderConfig::getFlags(), ITensor::setFlags(),
 //!
 typedef uint32_t BuilderFlags;
 
@@ -4993,16 +4995,16 @@ typedef uint32_t BuilderFlags;
 //!
 //! \brief List of valid modes that the builder can enable when creating an engine from a network definition.
 //!
-//! \see INetworkConfig::setFlag(), INetworkConfig::getFlag()
+//! \see IBuilderConfig::setFlag(), IBuilderConfig::getFlag()
 //!
 enum class BuilderFlag : int
 {
-    kFP16           = 0,    //!< Enable FP16 layer selection.
-    kINT8           = 1,    //!< Enable Int8 layer selection.
-    kDEBUG          = 2,    //!< Enable debugging of layers via synchronizing after every layer.
-    kGPU_FALLBACK   = 3,    //!< Enable layers marked to execute on GPU if layer cannot execute on DLA.
-    kSTRICT_TYPES   = 4,    //!< Enables strict type constraints.
-    kREFIT          = 5,    //!< Enable building a refittable engine.
+    kFP16 = 0,         //!< Enable FP16 layer selection.
+    kINT8 = 1,         //!< Enable Int8 layer selection.
+    kDEBUG = 2,        //!< Enable debugging of layers via synchronizing after every layer.
+    kGPU_FALLBACK = 3, //!< Enable layers marked to execute on GPU if layer cannot execute on DLA.
+    kSTRICT_TYPES = 4, //!< Enables strict type constraints.
+    kREFIT = 5,        //!< Enable building a refittable engine.
 };
 
 template <>
@@ -5012,11 +5014,11 @@ constexpr inline int EnumMax<BuilderFlag>()
 } //!< Maximum number of builder flags in BuilderFlag enum. \see BuilderFlag
 
 //!
-//! \class INetworkConfig
+//! \class IBuilderConfig
 //!
-//! \brief Holds properties for configuring a network for an engine. \see BuilderFlags
+//! \brief Holds properties for configuring a builder to produce an engine. \see BuilderFlags
 //!
-class INetworkConfig
+class IBuilderConfig
 {
 public:
     //!
@@ -5119,7 +5121,7 @@ public:
     virtual void setFlags(BuilderFlags builderFlags) TRTNOEXCEPT = 0;
 
     //!
-    //! \brief Get the set of build mode flags for this network config. Defaults to BuildMode::kDEFAULT.
+    //! \brief Get the set of build mode flags for this builder config. Defaults to BuildMode::kDEFAULT.
     //!
     //! \return The build options as a bitmask.
     //!
@@ -5224,16 +5226,16 @@ public:
     virtual DeviceType getDefaultDeviceType() const TRTNOEXCEPT = 0;
 
     //!
-    //! \brief Resets the network configuration to defaults.
+    //! \brief Resets the builder configuration to defaults.
     //!
-    //! When initializing a network config object, we can call this function.
+    //! When initializing a builder config object, we can call this function.
     //!
     virtual void reset() TRTNOEXCEPT = 0;
 
     //!
     //! \brief De-allocates any internally allocated memory.
     //!
-    //! When destroying a network config object, we can call this function.
+    //! When destroying a builder config object, we can call this function.
     //!
     virtual void destroy() TRTNOEXCEPT = 0;
 
@@ -5275,8 +5277,11 @@ public:
     //! zero, if none has been defined yet).
     //!
     virtual int getNbOptimizationProfiles() const noexcept = 0;
+
 protected:
-    virtual ~INetworkConfig() {}
+    virtual ~IBuilderConfig()
+    {
+    }
 };
 
 //!
@@ -5328,7 +5333,7 @@ public:
     //!
     //! \see getMaxWorkspaceSize()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::setMaxWorkspaceSize instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::setMaxWorkspaceSize instead.
     //!
     TRT_DEPRECATED virtual void setMaxWorkspaceSize(std::size_t workspaceSize) TRTNOEXCEPT = 0;
 
@@ -5339,7 +5344,7 @@ public:
     //!
     //! \see setMaxWorkspaceSize()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::getMaxWorkspaceSize instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::getMaxWorkspaceSize instead.
     //!
     TRT_DEPRECATED virtual std::size_t getMaxWorkspaceSize() const TRTNOEXCEPT = 0;
 
@@ -5353,7 +5358,7 @@ public:
     //!
     //! \see getHalf2Mode()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::setFlag instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::setFlag instead.
     //!
     TRT_DEPRECATED virtual void setHalf2Mode(bool mode) TRTNOEXCEPT = 0;
 
@@ -5362,7 +5367,7 @@ public:
     //!
     //! \see setHalf2Mode()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::getFlag instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::getFlag instead.
     //!
     TRT_DEPRECATED virtual bool getHalf2Mode() const TRTNOEXCEPT = 0;
 
@@ -5372,7 +5377,7 @@ public:
     //! If this flag is true, the builder will synchronize after timing each layer, and report the layer name. It can
     //! be useful when diagnosing issues at build time.
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::setFlag instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::setFlag instead.
     //!
     TRT_DEPRECATED virtual void setDebugSync(bool sync) TRTNOEXCEPT = 0;
 
@@ -5381,7 +5386,7 @@ public:
     //!
     //! \see setDebugSync()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::getFlag instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::getFlag instead.
     //!
     TRT_DEPRECATED virtual bool getDebugSync() const TRTNOEXCEPT = 0;
 
@@ -5393,7 +5398,7 @@ public:
     //!
     //! \see getMinFindIterations()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::setMinTimingIterations instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::setMinTimingIterations instead.
     //!
     TRT_DEPRECATED virtual void setMinFindIterations(int minFind) TRTNOEXCEPT = 0;
 
@@ -5402,7 +5407,7 @@ public:
     //!
     //! \see setMinFindIterations()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::getMinTimingIterations instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::getMinTimingIterations instead.
     //!
     TRT_DEPRECATED virtual int getMinFindIterations() const TRTNOEXCEPT = 0;
 
@@ -5414,7 +5419,7 @@ public:
     //!
     //! \see getAverageFindIterations()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::setAvgTimingIterations instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::setAvgTimingIterations instead.
     //!
     TRT_DEPRECATED virtual void setAverageFindIterations(int avgFind) TRTNOEXCEPT = 0;
 
@@ -5423,7 +5428,7 @@ public:
     //!
     //! \see setAverageFindIterations()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::getAvgTimingIterations instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::getAvgTimingIterations instead.
     //!
     TRT_DEPRECATED virtual int getAverageFindIterations() const TRTNOEXCEPT = 0;
 
@@ -5432,7 +5437,7 @@ public:
     //!
     //! \see INetworkDefinition ICudaEngine
     //!
-    //! \depercated API will be removed in a future release, use INetworkConfig::buildEngineWithConfig instead.
+    //! \depercated API will be removed in a future release, use IBuilderConfig::buildEngineWithConfig instead.
     //!
     TRT_DEPRECATED virtual nvinfer1::ICudaEngine* buildCudaEngine(
         nvinfer1::INetworkDefinition& network) TRTNOEXCEPT = 0;
@@ -5461,7 +5466,7 @@ public:
     //!
     //! \see getInt8Mode()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::setFlag instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::setFlag instead.
     //!
     TRT_DEPRECATED virtual void setInt8Mode(bool mode) TRTNOEXCEPT = 0;
 
@@ -5470,14 +5475,14 @@ public:
     //!
     //! \see setInt8Mode()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::getFlag instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::getFlag instead.
     //!
     TRT_DEPRECATED virtual bool getInt8Mode() const TRTNOEXCEPT = 0;
 
     //!
     //! \brief Set Int8 Calibration interface.
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::setInt8Calibrator instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::setInt8Calibrator instead.
     //!
     TRT_DEPRECATED virtual void setInt8Calibrator(IInt8Calibrator* calibrator) TRTNOEXCEPT = 0;
 
@@ -5491,7 +5496,7 @@ public:
     //!
     //! \see getDeviceType()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::setDeviceType instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::setDeviceType instead.
     //!
     TRT_DEPRECATED virtual void setDeviceType(ILayer* layer, DeviceType deviceType) TRTNOEXCEPT = 0;
 
@@ -5499,7 +5504,7 @@ public:
     //! \brief Get the device that this layer executes on.
     //! \return Returns DeviceType of the layer.
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::getDeviceType instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::getDeviceType instead.
     //!
     TRT_DEPRECATED virtual DeviceType getDeviceType(const ILayer* layer) const TRTNOEXCEPT = 0;
 
@@ -5508,7 +5513,7 @@ public:
     //! \return whether the DeviceType has been explicitly set
     //! \see setDeviceType() getDeviceType() resetDeviceType()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::isDeviceTypeSet instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::isDeviceTypeSet instead.
     //!
     TRT_DEPRECATED virtual bool isDeviceTypeSet(const ILayer* layer) const TRTNOEXCEPT = 0;
 
@@ -5517,7 +5522,7 @@ public:
     //!
     //! \see setDeviceType() getDeviceType() isDeviceTypeSet()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::resetDeviceType instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::resetDeviceType instead.
     //!
     TRT_DEPRECATED virtual void resetDeviceType(ILayer* layer) TRTNOEXCEPT = 0;
 
@@ -5532,14 +5537,14 @@ public:
     //! this device will run on it, unless setDeviceType is used to override the default DeviceType for a layer.
     //! \see getDefaultDeviceType()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::setDefaultDeviceType instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::setDefaultDeviceType instead.
     //!
     TRT_DEPRECATED virtual void setDefaultDeviceType(DeviceType deviceType) TRTNOEXCEPT = 0;
 
     //!
     //! \brief Get the default DeviceType which was set by setDefaultDeviceType.
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::getDefaultDeviceType instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::getDefaultDeviceType instead.
     //!
     TRT_DEPRECATED virtual DeviceType getDefaultDeviceType() const TRTNOEXCEPT = 0;
 
@@ -5559,7 +5564,7 @@ public:
     //! \note GPU fallback may only be specified for non-safety modes. \see EngineCapability
     //! Simultaneously enabling GPU fallback and safety-restricted modes is disallowed.
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::setFlag instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::setFlag instead.
     //!
     TRT_DEPRECATED virtual void allowGPUFallback(bool setFallBackMode) TRTNOEXCEPT = 0;
 
@@ -5576,7 +5581,7 @@ public:
     //! it will be associated with the DLA core which is configured for the runtime.
     //! \see IRuntime::setDLACore() getDLACore()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::setDLACore instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::setDLACore instead.
     //!
     TRT_DEPRECATED virtual void setDLACore(int dlaCore) TRTNOEXCEPT = 0;
 
@@ -5584,7 +5589,7 @@ public:
     //! \brief Get the DLA core that the engine executes on.
     //! \return If setDLACore is called, returns DLA core from 0 to N-1, else returns 0.
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::getDLACore instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::getDLACore instead.
     //!
     TRT_DEPRECATED virtual int getDLACore() const TRTNOEXCEPT = 0;
 
@@ -5623,7 +5628,7 @@ public:
     //!
     //! \see getFp16Mode()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::setFlag instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::setFlag instead.
     //!
     TRT_DEPRECATED virtual void setFp16Mode(bool mode) TRTNOEXCEPT = 0;
 
@@ -5632,7 +5637,7 @@ public:
     //!
     //! \see setFp16Mode()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::getFlag instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::getFlag instead.
     //!
     TRT_DEPRECATED virtual bool getFp16Mode() const TRTNOEXCEPT = 0;
 
@@ -5652,7 +5657,7 @@ public:
     //!
     //! \see getStrictTypeConstraints()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::setFlag instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::setFlag instead.
     //!
     TRT_DEPRECATED virtual void setStrictTypeConstraints(bool mode) TRTNOEXCEPT = 0;
 
@@ -5661,14 +5666,14 @@ public:
     //!
     //! \see setStrictTypeConstraints()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::getFlag instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::getFlag instead.
     //!
     TRT_DEPRECATED virtual bool getStrictTypeConstraints() const TRTNOEXCEPT = 0;
 
     //!
     //! Set whether engines will be refittable.
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::setFlag instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::setFlag instead.
     //!
     TRT_DEPRECATED virtual void setRefittable(bool canRefit) TRTNOEXCEPT = 0;
 
@@ -5677,14 +5682,14 @@ public:
     //!
     //! \see getRefittable()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::getFlag instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::getFlag instead.
     //!
     TRT_DEPRECATED virtual bool getRefittable() const TRTNOEXCEPT = 0;
 
     //!
     //! \brief Configure the builder to target specified EngineCapability flow.
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::setEngineCapability instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::setEngineCapability instead.
     //!
     TRT_DEPRECATED virtual void setEngineCapability(EngineCapability capability) TRTNOEXCEPT = 0;
 
@@ -5693,24 +5698,25 @@ public:
     //!
     //! \see setEngineCapability()
     //!
-    //! \deprecated API will be removed in a future release, use INetworkConfig::getEngineCapability instead.
+    //! \deprecated API will be removed in a future release, use IBuilderConfig::getEngineCapability instead.
     //!
     TRT_DEPRECATED virtual EngineCapability getEngineCapability() const TRTNOEXCEPT = 0;
 
     //!
-    //! \brief Create a network configuration object.
+    //! \brief Create a builder configuration object.
     //!
-    //! \see INetworkConfig
+    //! \see IBuilderConfig
     //!
-    virtual nvinfer1::INetworkConfig* createNetworkConfig() TRTNOEXCEPT = 0;
+    virtual nvinfer1::IBuilderConfig* createBuilderConfig() TRTNOEXCEPT = 0;
 
     //!
-    //! \brief Builds an engine for the given INetworkDefinition and given INetworkConfig.
+    //! \brief Builds an engine for the given INetworkDefinition and given IBuilderConfig.
     //!
     //! It enables the builder to build multiple engines based on the same network definition, but with different
-    //! network configurations.
+    //! builder configurations.
     //!
-    virtual nvinfer1::ICudaEngine* buildEngineWithConfig(INetworkDefinition& network, INetworkConfig& config) TRTNOEXCEPT = 0;
+    virtual nvinfer1::ICudaEngine* buildEngineWithConfig(
+        INetworkDefinition& network, IBuilderConfig& config) TRTNOEXCEPT = 0;
 
     //! \brief Create a network definition object.
     //!

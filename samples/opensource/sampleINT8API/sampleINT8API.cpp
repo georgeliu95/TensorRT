@@ -456,7 +456,7 @@ bool SampleINT8API::build()
         return false;
     }
 
-    auto config = SampleUniquePtr<nvinfer1::INetworkConfig>(builder->createNetworkConfig());
+    auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     if (!config)
     {
         gLogError << "Unable to create config object." << mParams.referenceFileName << std::endl;
