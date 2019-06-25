@@ -1784,18 +1784,31 @@ public:
     //!
     //! \brief Set the axis along which softmax is computed. Currently, only one axis can be set.
     //!
-    //! The axis is specified by setting the bit corresponding to the axis, after excluding the batch dimension, to 1.
+    //! The axis is specified by setting the bit corresponding to the axis to 1.
     //! Let's say we have an NCHW tensor as input (three non-batch dimensions).
+    //!
+    //! In implicit mode :
     //! Bit 0 corresponds to the C dimension boolean.
     //! Bit 1 corresponds to the H dimension boolean.
     //! Bit 2 corresponds to the W dimension boolean.
-    //! For example, to perform softmax on axis R of a NPQRCHW input, set bit 2.
-    //!
-    //! By default, softmax is performed on the axis which is the number of non-batch axes minus three. It is 0 if
+    //! By default, softmax is performed on the axis which is the number of axes minus three. It is 0 if
     //! there are fewer than 3 non-batch axes. For example, if the input is NCHW, the default axis is C. If the input
     //! is NHW, then the default axis is H.
     //!
+    //! In explicit mode :
+    //! Bit 0 corresponds to the N dimension boolean.
+    //! Bit 1 corresponds to the C dimension boolean.
+    //! Bit 2 corresponds to the H dimension boolean.
+    //! Bit 3 corresponds to the W dimension boolean.
+    //! By default, softmax is performed on the axis which is the number of axes minus three. It is 0 if
+    //! there are fewer than 3 axes. For example, if the input is NCHW, the default axis is C. If the input
+    //! is NHW, then the default axis is N.
+    //!
+    //! For example, to perform softmax on axis R of a NPQRCHW input, set bit 2 with implicit batch mode,
+    //! set bit 3 with explicit batch mode.
+    //!
     //! \param axes The axis along which softmax is computed.
+    //!        Here axes is a bitmap. For example, when doing softmax along axis 0, bit 0 is set to 1, axes = 1 << axis = 1.
     //!
     virtual void setAxes(uint32_t axes) TRTNOEXCEPT = 0;
 
@@ -4342,14 +4355,10 @@ public:
     //! \param input The input tensor to the layer.
     //! \param operation The reduction operation to perform.
     //! \param reduceAxes The reduction dimensions.
-    //!        Bit 0 of the uint32_t type corresponds to the non-batch dimension 0 boolean and so on.
-    //!        If a bit is set, then the corresponding dimension will be reduced.
-    //!        Let's say we have an NCHW tensor as input (three non-batch dimensions).
-    //!        Bit 0 corresponds to the C dimension boolean.
-    //!        Bit 1 corresponds to the H dimension boolean.
-    //!        Bit 2 corresponds to the W dimension boolean.
-    //!        Note that reduction is not permitted over the batch size dimension.
-    //!        When network has explicit batch mode enabled, dimensions 0 is the batch dimension.
+    //!        The bit in position i of bitmask reduceAxes corresponds to explicit dimension i if result.
+    //!        E.g., the least significant bit corresponds to the first explicit dimension and the next to least 
+    //!        significant bit corresponds to the second explicit dimension.
+    //!
     //! \param keepDimensions The boolean that specifies whether or not to keep the reduced dimensions in the
     //! output of the layer.
     //!
@@ -4377,14 +4386,11 @@ public:
     //! \param k Number of elements to keep.
     //!
     //! \param reduceAxes The reduction dimensions.
-    //!        Bit 0 of the uint32_t type corresponds to the non-batch dimension 0 boolean and so on.
-    //!        If a bit is set, then the corresponding dimension will be reduced.
-    //!        Let's say we have an NCHW tensor as input (three non-batch dimensions).
-    //!        Bit 0 corresponds to the C dimension boolean.
-    //!        Bit 1 corresponds to the H dimension boolean.
-    //!        Bit 2 corresponds to the W dimension boolean.
-    //!        Note that TopK reduction is currently only permitted over one dimension.
-    //!        When network has explicit batch mode enabled, dimensions 0 is the batch dimension.
+    //!        The bit in position i of bitmask reduceAxes corresponds to explicit dimension i of the result.
+    //!        E.g., the least significant bit corresponds to the first explicit dimension and the next to least 
+    //!        significant bit corresponds to the second explicit dimension.
+    //!
+    //!        Currently reduceAxes must specify exactly one dimension, and it must be one of the last four dimensions.
     //!
     //! \see ITopKLayer
     //!
