@@ -3518,7 +3518,7 @@ enum class MatrixOperation : int
     //! Treat x as a vector if it has one dimension, or as a collection of
     //! vectors if x has more than one dimension.  x must have at least one dimension.
     //! The first input tensor with dimensions [M,K] used with MatrixOperation::kVECTOR is equivalent to a tensor
-    //! with dimensions [M, 1, K] with MatrixOperation::kNONE, i.e. is treated as M row vectors of length K.  
+    //! with dimensions [M, 1, K] with MatrixOperation::kNONE, i.e. is treated as M row vectors of length K.
     //! If MatrixOperation::kTRANSPOSE is specified, then the dimensions are [M, K, 1].
     //!
     //! The second input tensor with dimensions [M,K] used with MatrixOperation::kVECTOR is equivalent to a tensor
@@ -4405,7 +4405,7 @@ public:
     //!
     //! \param data The tensor to gather values from.
     //! \param indices The tensor to get indices from to populate the output tensor.
-    //! \param axis The non-batch dimension axis in the data tensor to gather on.
+    //! \param axis The axis in the data tensor to gather on.
     //!
     //! \see IGatherLayer
     //!
@@ -4808,7 +4808,7 @@ enum class CalibrationAlgoType : int
     kLEGACY_CALIBRATION = 0,
     kENTROPY_CALIBRATION = 1,
     kENTROPY_CALIBRATION_2 = 2,
-    kMINMAX_CALIBRATION = 3,    
+    kMINMAX_CALIBRATION = 3,
 };
 
 template <>
