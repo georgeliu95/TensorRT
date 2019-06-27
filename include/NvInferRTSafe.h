@@ -1363,7 +1363,7 @@ public:
     //!
     //! This method requires an array of input and output buffers. The mapping from tensor names to indices can be
     //! queried using safe::ICudaEngine::getBindingIndex().
-    //! This method only works for execution contexts built with full dimension networks.
+    //! This method only works for an execution context built from a network without an implicit batch dimension.
     //! \param bindings An array of pointers to input and output buffers for the network.
     //!
     //! \return True if execution succeeded.
@@ -1377,7 +1377,7 @@ public:
     //!
     //! This method requires an array of input and output buffers. The mapping from tensor names to indices can be
     //! queried using safe::ICudaEngine::getBindingIndex().
-    //! This method only works for execution contexts built with full dimension networks.
+    //! This method only works for an execution context built from a network without an implicit batch dimension.
     //! \param bindings An array of pointers to input and output buffers for the network.
     //! \param stream A cuda stream on which the inference kernels will be enqueued
     //! \param inputConsumed An optional event which will be signaled when the input buffers can be refilled with new
