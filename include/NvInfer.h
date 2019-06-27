@@ -1670,7 +1670,7 @@ protected:
 enum class ScaleMode : int
 {
     kUNIFORM = 0,    //!< Identical coefficients across all elements of the tensor.
-    kCHANNEL = 1,    //!< Per-channel coefficients. The channel dimension is assumed to be the third to last dimension
+    kCHANNEL = 1,    //!< Per-channel coefficients.
     kELEMENTWISE = 2 //!< Elementwise coefficients.
 };
 
@@ -3993,13 +3993,13 @@ public:
     //!
     //! \brief Add a Scale layer to the network.
     //!
-    //! \param input The input tensor to The layer. This tensor is required to have a minimum of 3 dimensions.
+    //! \param input The input tensor to the layer. This tensor is required to have a minimum of 3 dimensions.
     //! \param mode The scaling mode.
     //! \param shift The shift value.
     //! \param scale The scale value.
     //! \param power The power value.
     //!
-    //! If the weights are available, then the size of weights are dependent on the on the ScaleMode.
+    //! If the weights are available, then the size of weights are dependent on the ScaleMode.
     //! For ::kUNIFORM, the number of weights is equal to 1.
     //! For ::kCHANNEL, the number of weights is equal to the channel dimension.
     //! For ::kELEMENTWISE, the number of weights is equal to the volume of the input.
@@ -4356,7 +4356,7 @@ public:
     //! \param operation The reduction operation to perform.
     //! \param reduceAxes The reduction dimensions.
     //!        The bit in position i of bitmask reduceAxes corresponds to explicit dimension i if result.
-    //!        E.g., the least significant bit corresponds to the first explicit dimension and the next to least 
+    //!        E.g., the least significant bit corresponds to the first explicit dimension and the next to least
     //!        significant bit corresponds to the second explicit dimension.
     //!
     //! \param keepDimensions The boolean that specifies whether or not to keep the reduced dimensions in the
@@ -4387,7 +4387,7 @@ public:
     //!
     //! \param reduceAxes The reduction dimensions.
     //!        The bit in position i of bitmask reduceAxes corresponds to explicit dimension i of the result.
-    //!        E.g., the least significant bit corresponds to the first explicit dimension and the next to least 
+    //!        E.g., the least significant bit corresponds to the first explicit dimension and the next to least
     //!        significant bit corresponds to the second explicit dimension.
     //!
     //!        Currently reduceAxes must specify exactly one dimension, and it must be one of the last four dimensions.
@@ -4745,6 +4745,7 @@ public:
     //!
     //! \warning It is an error to specify a wildcard value for the 'C' dimension of the input tensor.
     //! \warning Int32 tensors are not valid input tensors.
+    //! \warning Only 2D or 3D convolution is supported.
     //!
     //! \return The new convolution layer, or nullptr if it could not be created.
     //!
@@ -4761,6 +4762,7 @@ public:
     //! \see IPoolingLayer PoolingType
     //!
     //! \warning Int32 tensors are not valid input tensors.
+    //! \warning Only 2D or 3D pooling is supported.
     //!
     //! \return The new pooling layer, or nullptr if it could not be created.
     //!
@@ -4779,11 +4781,35 @@ public:
     //!
     //! \warning It is an error to specify a wildcard value for the 'C' dimension of the input tensor.
     //! \warning Int32 tensors are not valid input tensors.
+    //! \warning Only 2D or 3D deconvolution is supported.
     //
     //! \return The new deconvolution layer, or nullptr if it could not be created.
     //!
     virtual IDeconvolutionLayer* addDeconvolutionNd(
         ITensor& input, int nbOutputMaps, Dims kernelSize, Weights kernelWeights, Weights biasWeights) TRTNOEXCEPT = 0;
+
+    //!
+    //! \brief Add a multi-dimension scale layer to the network.
+    //!
+    //! \param input The input tensor to the layer.
+    //! \param mode The scaling mode.
+    //! \param shift The shift value.
+    //! \param scale The scale value.
+    //! \param power The power value.
+    //! \param channelAxis The channel axis.
+    //!
+    //! If the weights are available, then the size of weights are dependent on the ScaleMode.
+    //! For ::kUNIFORM, the number of weights is equal to 1.
+    //! For ::kCHANNEL, the number of weights is equal to the channel dimension.
+    //! For ::kELEMENTWISE, the number of weights is equal to the volume of the input.
+    //!
+    //! \see IScaleLayer
+    //! \warning Int32 tensors are not valid input tensors.
+    //! \warning Only 2D or 3D scale is supported.
+    //!
+    //! \return The new Scale layer, or nullptr if it could not be created.
+    //!
+    virtual IScaleLayer* addScaleNd(ITensor& input, ScaleMode mode, Weights shift, Weights scale, Weights power, int channelAxis) TRTNOEXCEPT = 0;
 
     //! \brief Add a resize layer to the network.
     //!
