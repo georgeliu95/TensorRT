@@ -1061,7 +1061,7 @@ public:
     //! \brief Get the dimensions of a binding.
     //!
     //! \param bindingIndex The binding index.
-    //! \return The dimensions of the binding if the index is in range, otherwise (0,0,0).
+    //! \return The dimensions of the binding if the index is in range, otherwise Dims()
     //!
     //! \see getBindingIndex()
     //!
@@ -1326,7 +1326,7 @@ public:
     //! \brief Get the dimensions of a binding.
     //!
     //! \param bindingIndex The binding index.
-    //! \return The dimensions of the binding if the index is in range, otherwise (0,0,0).
+    //! \return The dimensions of the binding if the index is in range, otherwise Dims()
     //!
     //! \see getBindingIndex()
     //!
