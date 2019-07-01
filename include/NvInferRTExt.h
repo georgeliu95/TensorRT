@@ -874,7 +874,7 @@ public:
     //! If tensorNames!=nullptr, each written pointer points to a string owned by
     //! the engine being refitted, and becomes invalid when the engine is destroyed.
     //!
-    virtual int getAllDynamicRanges(int size, const char** tensorNames) const TRTNOEXCEPT = 0;
+    virtual int getTensorsWithDynamicRange(int size, const char** tensorNames) const TRTNOEXCEPT = 0;
 
     //!
     //! \brief Set the ErrorRecorder for this interface
