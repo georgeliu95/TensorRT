@@ -1191,9 +1191,9 @@ public:
     //!
     //! \return A IHostMemory object that contains the serialized engine.
     //!
-    //! The network may be deserialized with IRuntime::deserializeSafeCudaEngine() and also IRuntime::deserializeSafeCudaEngine() if only functional-safe features are used in the engine.
+    //! The network may be deserialized with IRuntime::deserializeCudaEngine() and also safe::IRuntime::deserializeCudaEngine() if only functional-safe features are used in the engine.
     //!
-    //! \see IRuntime::deserializeCudaEngine() ISafeRuntime::deserializeSafeCudaEngine()
+    //! \see IRuntime::deserializeCudaEngine() safe::IRuntime::deserializeCudaEngine()
     //!
     virtual IHostMemory* serialize() const noexcept = 0;
 
@@ -1400,7 +1400,7 @@ public:
     //! \brief determine that execution capability this engine has.
     //!
     //! If the engine has EngineCapability::kDEFAULT, then all engine functionality is valid..
-    //! If the engine has EngineCapability::kSAFE_GPU, then only the functionality in ISafeCudaEngine is valid.
+    //! If the engine has EngineCapability::kSAFE_GPU, then only the functionality in safe::ICudaEngine is valid.
     //! If the engine has EngineCapability::kSAFE_DLA, then only serialize, destroy, and const-accessor functions are valid.
     //!
     //! \return The EngineCapability flag that the engine was built for.
