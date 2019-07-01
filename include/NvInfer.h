@@ -1255,12 +1255,6 @@ protected:
     virtual ~IFullyConnectedLayer() {}
 };
 
-template <>
-constexpr inline int EnumMax<ActivationType>()
-{
-    return 12;
-} //!< Maximum number of elements in ActivationType enum. \see ActivationType
-
 //!
 //! \class IActivationLayer
 //!

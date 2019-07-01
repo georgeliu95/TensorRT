@@ -154,6 +154,12 @@ enum class ActivationType : int
 template <typename T>
 constexpr inline int EnumMax(); //!< Maximum number of elements in an enumeration type.
 
+template <>
+constexpr inline int EnumMax<ActivationType>()
+{
+    return 12;
+} //!< Maximum number of elements in ActivationType enum. \see ActivationType
+
 //!
 //! \enum DataType
 //! \brief The type of weights and tensors.
