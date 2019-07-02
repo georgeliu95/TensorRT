@@ -1,26 +1,40 @@
 #!/bin/bash
 
+#
+# Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 ARCH="x86_64-linux"
 CUDA=10.1
 CUDNN=7.5
 TRT_LOCAL_SM=61
 BUILD_TYPE="release"
-CMAKE_BUILD_TYPE="Release"
-OSS_PATH=$PWD
-BUILD_ROOT=$PWD
+TRT_SOURCE=$PWD
 TOOLCHAIN=
 
 ARGS="$@"
 
 usage()
 {
-    echo "compile.sh usage"
+    echo "build.sh usage"
     echo "Arguments: "
-    echo -e "\t OSS_PATH      Path to OSS source code"
+    echo -e "\t TRT_SOURCE      Path to OSS source code"
     echo -e "\nOptional Args:"
-    echo "CUDA             Cuda build for compilation e.g. CUDA=10.1"
-    echo "CUDNN            CUDNN build for compilation e.g. CUDNN=7.5"
-    echo "ARCH             Architecture for compilation  e.g. x86_64-linux | aarch64-linux | aarch64-qnx (defaults to x86_64-linux)"
+    echo "CUDA             cuda version to build against CUDA=10.1"
+    echo "CUDNN            cuDNN version to build against e.g. CUDNN=7.5"
+    echo "ARCH             Architecture for compilation  e.g. x86_64-linux | aarch64-linux | aarch64-qnx"
     echo "BUILD_TYPE       Build type for compilation e.g. release | debug (defaults to release)"
     echo "TRT_LOCAL_SM     Local SM, Volta supports faster builds"
     exit -1
@@ -32,8 +46,8 @@ do
     arg=$1
     val=$2
     case $arg in
-        OSS_PATH)
-                OSS_PATH=$val
+        TRT_SOURCE)
+                TRT_SOURCE=$val
                 ;;
         CUDA)
                 CUDA=$val
@@ -62,6 +76,8 @@ done
 
 if [ "${BUILD_TYPE}" == "debug" ]; then
     CMAKE_BUILD_TYPE="Debug"
+else
+    CMAKE_BUILD_TYPE="Release"
 fi
 
 MAKE_BUILD_ARG=
@@ -94,25 +110,87 @@ echo "make -j$(nproc) ${MAKE_BUILD_ARG} ${COMPILE_ARGS} TRT_LOCAL_SM=${TRT_LOCAL
 make -j$(nproc) ${MAKE_BUILD_ARG} ${COMPILE_ARGS} TRT_LOCAL_SM=${TRT_LOCAL_SM}
 
 echo "Compiling OSS components"
-if [[ -d ${OSS_PATH}/build/cmake ]]; then
-    rm -rf ${OSS_PATH}/build/cmake/*
+if [[ -d ${TRT_SOURCE}/build/cmake ]]; then
+    rm -rf ${TRT_SOURCE}/build/cmake/*
 fi
 
-echo "mkdir -p ${OSS_PATH}/build/cmake && cd ${OSS_PATH}/build/cmake"
-mkdir -p ${OSS_PATH}/build/cmake && cd ${OSS_PATH}/build/cmake
+echo "mkdir -p ${TRT_SOURCE}/build/cmake && cd ${TRT_SOURCE}/build/cmake"
+mkdir -p ${TRT_SOURCE}/build/cmake && cd ${TRT_SOURCE}/build/cmake
 
-echo "cmake -DNVINTERNAL=OFF -DTRT_LIB_DIR=${TENSORRT_ROOT}/lib -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCUDA_VERSION=${CUDA} -DCUDNN_VERSION=${CUDNN} ../.."
-cmake \
+# Workaround for CUDA-9.x - build PPS independently
+if [ "$CUDA" = "9.0" ] || [ "$CUDA" = "9.1" ] || [ "$CUDA" = "9.2" ] ; then
+  echo "# Build Plugin Library"
+  echo "cmake -DNVINTERNAL=OFF -DTRT_LIB_DIR=${TENSORRT_ROOT}/lib -DTRT_BIN_DIR=`pwd`/out -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCUDA_VERSION=${CUDA} -DCUDNN_VERSION=${CUDNN} -DBUILD_PLUGINS=ON -DBUILD_PARSERS=OFF -DBUILD_SAMPLES=OFF ../.."
+  cmake \
     -DNVINTERNAL=OFF \
     -DBUILD_PLUGINS=ON \
-    -DBUILD_PARSERS=ON \
-    -DBUILD_SAMPLES=ON \
+    -DBUILD_PARSERS=OFF \
+    -DBUILD_SAMPLES=OFF \
     -DTRT_LIB_DIR=${TENSORRT_ROOT}/lib \
+    -DTRT_BIN_DIR=`pwd`/out \
+    -DCUDNN_ROOT_DIR=${CUDNN_ROOT} \
+    -DCUB_ROOT_DIR=${CUB_ROOT} \
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
     -DCUDA_VERSION=${CUDA} \
     -DCUDNN_VERSION=${CUDNN} \
     ${CMAKE_ARGS} \
     ../..
+  echo "make -j$(nproc) all"
+  make -j$(nproc) all
+  echo "# Build Parser Libraries"
+  echo "cmake -DNVINTERNAL=OFF -DTRT_LIB_DIR=${TENSORRT_ROOT}/lib -DTRT_BIN_DIR=`pwd`/out -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCUDA_VERSION=${CUDA} -DCUDNN_VERSION=${CUDNN} -DBUILD_PLUGINS=OFF -DBUILD_PARSERS=ON -DBUILD_SAMPLES=OFF ../.."
+  cmake \
+    -DNVINTERNAL=OFF \
+    -DBUILD_PLUGINS=OFF \
+    -DBUILD_PARSERS=ON \
+    -DBUILD_SAMPLES=OFF \
+    -DTRT_LIB_DIR=${TENSORRT_ROOT}/lib \
+    -DTRT_BIN_DIR=`pwd`/out \
+    -DCUDNN_ROOT_DIR=${CUDNN_ROOT} \
+    -DCUB_ROOT_DIR=${CUB_ROOT} \
+    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+    -DCUDA_VERSION=${CUDA} \
+    -DCUDNN_VERSION=${CUDNN} \
+    ${CMAKE_ARGS} \
+    ../..
+  echo "make -j$(nproc) all"
+  make -j$(nproc) all
+  echo "# Build Samples"
+  echo "cmake -DNVINTERNAL=OFF -DTRT_LIB_DIR=${TENSORRT_ROOT}/lib -DTRT_BIN_DIR=`pwd`/out -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCUDA_VERSION=${CUDA} -DCUDNN_VERSION=${CUDNN} -DBUILD_PLUGINS=OFF -DBUILD_PARSERS=OFF -DBUILD_SAMPLES=ON ../.."
+  cmake \
+    -DNVINTERNAL=OFF \
+    -DBUILD_PLUGINS=OFF \
+    -DBUILD_PARSERS=OFF \
+    -DBUILD_SAMPLES=ON \
+    -DTRT_LIB_DIR=${TENSORRT_ROOT}/lib \
+    -DTRT_BIN_DIR=`pwd`/out \
+    -DCUDNN_ROOT_DIR=${CUDNN_ROOT} \
+    -DCUB_ROOT_DIR=${CUB_ROOT} \
+    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+    -DCUDA_VERSION=${CUDA} \
+    -DCUDNN_VERSION=${CUDNN} \
+    ${CMAKE_ARGS} \
+    ../..
+  echo "make -j$(nproc) all"
+  make -j$(nproc) all
+else
+  echo "# Build all OSS components"
+  echo "cmake -DNVINTERNAL=OFF -DTRT_LIB_DIR=${TENSORRT_ROOT}/lib -DTRT_BIN_DIR=`pwd`/out -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCUDA_VERSION=${CUDA} -DCUDNN_VERSION=${CUDNN} ../.."
+  cmake \
+    -DNVINTERNAL=OFF \
+    -DBUILD_PLUGINS=ON \
+    -DBUILD_PARSERS=ON \
+    -DBUILD_SAMPLES=ON \
+    -DTRT_LIB_DIR=${TENSORRT_ROOT}/lib \
+    -DTRT_BIN_DIR=`pwd`/out \
+    -DCUDNN_ROOT_DIR=${CUDNN_ROOT} \
+    -DCUB_ROOT_DIR=${CUB_ROOT} \
+    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
+    -DCUDA_VERSION=${CUDA} \
+    -DCUDNN_VERSION=${CUDNN} \
+    ${CMAKE_ARGS} \
+    ../..
+  echo "make -j$(nproc) all"
+  make -j$(nproc) all
+fi
 
-echo "make -j$(nproc) all"
-make -j$(nproc) all

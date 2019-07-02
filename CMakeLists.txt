@@ -13,19 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
 cmake_minimum_required(VERSION 3.13 FATAL_ERROR)
 include(cmake/modules/set_ifndef.cmake)
 include(cmake/modules/find_library_create_target.cmake)
 
 set_ifndef(TRT_LIB_DIR ${CMAKE_BINARY_DIR})
-set_ifndef(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR})
-
-if(NVINTERNAL)
-   set_ifndef(TRT_BIN_DIR ${TRT_LIB_DIR})
-else()
-   set_ifndef(TRT_BIN_DIR ${CMAKE_INSTALL_PREFIX})
-endif()
-
+set_ifndef(TRT_BIN_DIR ${CMAKE_BINARY_DIR})
 
 file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/include/NvInferVersion.h" VERSION_STRINGS REGEX "#define NV_TENSORRT_.*")
 
@@ -41,15 +35,23 @@ endforeach(TYPE)
 
 set(TRT_VERSION "${TRT_MAJOR}.${TRT_MINOR}.${TRT_PATCH}.${TRT_BUILD}" CACHE STRING "TRT project version")
 set(TRT_SOVERSION "${TRT_SO_MAJOR}.${TRT_SO_MINOR}.${TRT_SO_PATCH}" CACHE STRING "TRT library so version")
+message("Building for TensorRT version: ${TRT_VERSION}, library version: ${TRT_SOVERSION}")
 
-set(FIND_CUDA "")
 if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
     find_program(CMAKE_CXX_COMPILER NAMES $ENV{CXX} g++)
-    set(FIND_CUDA "CUDA")
 endif()
 
-message("CHECK for ${FIND_CUDA}")
-project(tensorRT LANGUAGES CXX ${FIND_CUDA} VERSION ${TRT_VERSION})
+set(CMAKE_SKIP_BUILD_RPATH True)
+
+project(TensorRT
+        LANGUAGES CXX CUDA
+        VERSION ${TRT_VERSION}
+        DESCRIPTION "TensorRT is a C++ library that facilitates high performance inference on NVIDIA GPUs and deep learning accelerators."
+        HOMEPAGE_URL "https://github.com/NVIDIA/TensorRT")
+
+if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
+  set(CMAKE_INSTALL_PREFIX ${TRT_LIB_DIR}/../ CACHE PATH "TensorRT installation" FORCE)
+endif(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 
 option(BUILD_PLUGINS "Build TensorRT plugin" ON)
 option(BUILD_PARSERS "Build TensorRT parsers" ON)
@@ -144,16 +146,22 @@ if (NVINTERNAL)
 ########################################### DEPENDENCIES FOR BUILDING IN NVIDIA's TREE ############################################
 else()
 ########################################### DEPENDENCIES FOR BUILDING OUTSIDE OF NVIDIA ############################################
-    set(CUB_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/cub CACHE STRING "directory of CUB installation")
-    find_package(CUDA ${CUDA_VERSION} REQUIRED)
+    if(NOT CUB_ROOT_DIR)
+        set(CUB_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/third_party/cub CACHE STRING "directory of CUB installation")
+    endif()
+
+    ## find_package(CUDA) is broken for cross-compilation. Enable CUDA language instead.
+    if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+        find_package(CUDA ${CUDA_VERSION} REQUIRED)
+    endif()
 
     include_directories(
         ${CUDA_INCLUDE_DIRS}
     )
     find_library(CUDNN_LIB cudnn HINTS
-        ${CUDA_TOOLKIT_ROOT_DIR}/lib64)
+        ${CUDA_TOOLKIT_ROOT_DIR} ${CUDNN_ROOT_DIR} PATH_SUFFIXES lib64 lib)
     find_library(CUBLAS_LIB cublas HINTS
-        ${CUDA_TOOLKIT_ROOT_DIR}/lib64)
+        ${CUDA_TOOLKIT_ROOT_DIR} PATH_SUFFIXES lib64 lib lib/stubs)
 
     if(BUILD_PARSERS)
         configure_protobuf(${PROTOBUF_VERSION})
@@ -167,30 +175,31 @@ if (NOT (NVINTERNAL OR NVPARTNER))
     find_library_create_target(nvuffparser nvparsers SHARED ${TRT_LIB_DIR})
 endif()
 
-find_library(CUDART_LIB cudart HINTS ${CUDA_TOOLKIT_ROOT_DIR}/lib64)
+find_library(CUDART_LIB cudart HINTS ${CUDA_TOOLKIT_ROOT_DIR} PATH_SUFFIXES lib lib64)
 find_library(RT_LIB rt)
+
+set(CUDA_LIBRARIES ${CUDART_LIB})
 ############################################################################################
 # TensorRT
 
 if(BUILD_PLUGINS)
     add_subdirectory(plugin${NVINTERNAL_SUFFIX})
 else()
-    find_library_create_target(nvinfer_plugin nvinfer_plugin SHARED ${TRT_LIB_DIR})
+    find_library_create_target(nvinfer_plugin nvinfer_plugin SHARED ${TRT_BIN_DIR} ${TRT_LIB_DIR})
 endif()
 
 if(BUILD_PARSERS)
     add_subdirectory(parsers${NVINTERNAL_SUFFIX})
 else()
     if(NVPARTNER OR NVINTERNAL)
-        find_library_create_target(nvuffparser nvparsers SHARED ${TRT_LIB_DIR})
+        find_library_create_target(nvuffparser nvparsers SHARED ${TRT_BIN_DIR} ${TRT_LIB_DIR})
     endif()
 
-    find_library_create_target(nvcaffeparser nvparsers SHARED ${TRT_LIB_DIR})
-    find_library_create_target(nvonnxparser nvonnxparser SHARED ${TRT_LIB_DIR})
+    find_library_create_target(nvcaffeparser nvparsers SHARED ${TRT_BIN_DIR} ${TRT_LIB_DIR})
+    find_library_create_target(nvonnxparser nvonnxparser SHARED ${TRT_BIN_DIR} ${TRT_LIB_DIR})
 endif()
 
 if(BUILD_SAMPLES)
     add_subdirectory(samples${NVINTERNAL_SUFFIX})
 endif()
-
 
