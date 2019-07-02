@@ -69,9 +69,6 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	export TRT_SOURCE=`pwd`
 	```
 
-	> INTERNAL NOTE: Download from GitLab repo
-	> `git clone -b master https://gitlab-master.nvidia.com/TensorRT/Public/oss TensorRT`
-
 2. #### Download the TensorRT binary release.
 
 	To build the TensorRT OSS, obtain the corresponding TensorRT 5.1.5 binary release from [NVidia Developer Zone](https://developer.nvidia.com/nvidia-tensorrt-5x-download). For a list of key features, known and fixed issues, see the [TensorRT 5.1.5 Release Notes](https://docs.nvidia.com/deeplearning/sdk/tensorrt-release-notes/tensorrt-5.html#rel_5-1-5).
@@ -79,8 +76,6 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	**Example: Ubuntu 18.04 with cuda-10.1**
 
 	Download and extract the *TensorRT 5.1.5.0 GA for Ubuntu 18.04 and CUDA 10.1 tar package*
-	> INTERNAL NOTE: Download from local archive
-	> `wget http://cuda-repo/release-candidates/Libraries/TensorRT/v5.1/5.1.5.0-GA-cl_26231626/10.1-r418/Ubuntu18_04-x64/tar/TensorRT-5.1.5.0.Ubuntu-18.04.2.x86_64-gnu.cuda-10.1.cudnn7.5.tar.gz`
 	```bash
 	cd ~/Downloads
 	# Download TensorRT-5.1.5.0.Ubuntu-18.04.2.x86_64-gnu.cuda-10.1.cudnn7.5.tar.gz
@@ -91,8 +86,6 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	**Example: CentOS/RedHat 7 with cuda-9.0**
 
 	Download and extract the *TensorRT 5.1.5.0 GA for CentOS/RedHat 7 and CUDA 9.0 tar package*
-	> INTERNAL NOTE: Download from local archive
-	> `wget http://cuda-repo/release-candidates/Libraries/TensorRT/v5.1/5.1.5.0-GA-cl_26231626/9.0-r384/RHEL7_3-x64/tar/TensorRT-5.1.5.0.Red-Hat.x86_64-gnu.cuda-9.0.cudnn7.5.tar.gz`
 	```bash
 	cd ~/Downloads
 	# Download TensorRT-5.1.5.0.Red-Hat.x86_64-gnu.cuda-9.0.cudnn7.5.tar.gz
@@ -186,9 +179,9 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 
 	Other build options with limited applicability:
 
-	> INTERNAL NOTE:
-	> - `NVINTERNAL`: Used by TensorRT team for internal builds. Values consists of [`OFF`] | `ON`.
-	> - `PROTOBUF_INTERNAL_VERSION`: The version of protobuf to use, for example [`10.0`].  Only applicable if `NVINTERNAL` is also enabled.
+	- `NVINTERNAL`: Used by TensorRT team for internal builds. Values consists of [`OFF`] | `ON`.
+
+	- `PROTOBUF_INTERNAL_VERSION`: The version of protobuf to use, for example [`10.0`].  Only applicable if `NVINTERNAL` is also enabled.
 
 	- `NVPARTNER`: For use by NVIDIA partners with exclusive source access.  Values consists of [`OFF`] | `ON`.
 
@@ -222,9 +215,6 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 
 ## Known Issues
 
-#### TensorRT *Next*
-* See the TensorRT [Release Notes](https://docs.nvidia.com/deeplearning/sdk/tensorrt-release-notes/tensorrt-5.html#rel_5-1-5).
-
-> INTERNAL NOTE
-ONNX Parser insists on picking up a precompiled version of `libnvinfer_plugin`, since it looks for the library during configure step. This will be fixed when the onnx-tensorrt build system is updated. 
-
+#### TensorRT 5.1.5
+* FP16/INT8 modes have been disabled in SampleSSD (Caffe version). Please see the [SampleSSD README](samples/opensource/sampleSSD/README.md#known-issues) for details.
+* Additionally, see the TensorRT [Release Notes](https://docs.nvidia.com/deeplearning/sdk/tensorrt-release-notes/tensorrt-5.html#rel_5-1-5).
