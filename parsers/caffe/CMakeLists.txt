@@ -62,6 +62,7 @@ set_target_properties(${SHARED_TARGET}
 
 target_link_libraries(${SHARED_TARGET} 
     ${Protobuf_LIBRARY}
+    nvinfer
 )
 
 # modify google namespace to avoid namespace collision.
@@ -71,6 +72,8 @@ target_compile_definitions(${SHARED_TARGET}
     "-Dgoogle=${GOOGLE}"
     "-DGOOGLE_PROTOBUF_ARCH_64_BIT"
 )
+
+set_target_properties(${SHARED_TARGET} PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL")
 
 set_target_properties(${SHARED_TARGET} PROPERTIES DEBUG_POSTFIX ${TRT_DEBUG_POSTFIX})
 
@@ -119,6 +122,8 @@ target_compile_definitions(${STATIC_TARGET}
     "-DGOOGLE_PROTOBUF_ARCH_64_BIT"
 )
 
+set_target_properties(${STATIC_TARGET} PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL")
+
 set_target_properties(${STATIC_TARGET} PROPERTIES DEBUG_POSTFIX ${TRT_DEBUG_POSTFIX})
 
 set_target_properties(${STATIC_TARGET} PROPERTIES VERSION ${TRT_VERSION} SOVERSION ${TRT_SOVERSION} )
@@ -128,3 +133,11 @@ set_property(TARGET ${STATIC_TARGET} PROPERTY CUDA_STANDARD 11)
 #########################################################################################
 
 add_dependencies(nvcaffeparserlibs ${SHARED_TARGET} ${STATIC_TARGET})
+
+################################### INSTALLATION ########################################
+
+install(TARGETS ${TARGET_NAME}
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+)

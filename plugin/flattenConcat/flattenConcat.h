@@ -139,7 +139,7 @@ private:
     static std::vector<PluginField> mPluginAttributes;
 };
 
-} // namesplace plugin
+} // namespace plugin
 } // namespace nvinfer1
 
 #endif // TRT_FLATTENCONCAT_PLUGIN_H

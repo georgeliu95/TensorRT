@@ -22,14 +22,14 @@
 #include <vector>
 
 using namespace nvinfer1;
-using nvinfer1::plugin::GridAnchorPluginCreator;
 using nvinfer1::plugin::GridAnchorGenerator;
+using nvinfer1::plugin::GridAnchorPluginCreator;
 
 namespace
 {
 const char* GRID_ANCHOR_PLUGIN_VERSION{"1"};
 const char* GRID_ANCHOR_PLUGIN_NAME{"GridAnchor_TRT"};
-}
+} // namespace
 PluginFieldCollection GridAnchorPluginCreator::mFC{};
 std::vector<PluginField> GridAnchorPluginCreator::mPluginAttributes;
 
@@ -123,7 +123,7 @@ GridAnchorGenerator::GridAnchorGenerator(const GridAnchorParameters* paramIn, in
 
 GridAnchorGenerator::GridAnchorGenerator(const void* data, size_t length)
 {
-    const char *d = reinterpret_cast<const char *>(data), *a = d;
+    const char *d = reinterpret_cast<const char*>(data), *a = d;
     mNumLayers = read<int>(d);
     CUASSERT(cudaMallocHost((void**) &mNumPriors, mNumLayers * sizeof(int)));
     CUASSERT(cudaMallocHost((void**) &mDeviceWidths, mNumLayers * sizeof(Weights)));
@@ -186,9 +186,7 @@ int GridAnchorGenerator::initialize()
     return STATUS_SUCCESS;
 }
 
-void GridAnchorGenerator::terminate()
-{
-}
+void GridAnchorGenerator::terminate() {}
 
 size_t GridAnchorGenerator::getWorkspaceSize(int maxBatchSize) const
 {
@@ -225,7 +223,7 @@ size_t GridAnchorGenerator::getSerializationSize() const
 
 void GridAnchorGenerator::serialize(void* buffer) const
 {
-    char *d = reinterpret_cast<char *>(buffer), *a = d;
+    char *d = reinterpret_cast<char*>(buffer), *a = d;
     write(d, mNumLayers);
     for (int id = 0; id < mNumLayers; id++)
     {
@@ -334,9 +332,7 @@ void GridAnchorGenerator::attachToContext(
 }
 
 // Detach the plugin object from its execution context.
-void GridAnchorGenerator::detachFromContext()
-{
-}
+void GridAnchorGenerator::detachFromContext() {}
 
 void GridAnchorGenerator::destroy()
 {
@@ -457,7 +453,7 @@ IPluginV2Ext* GridAnchorPluginCreator::createPlugin(const char* name, const Plug
     }
     // A comprehensive list of box parameters that are required by anchor generator
     std::vector<GridAnchorParameters> boxParams(numLayers);
-    
+
     // One set of box parameters for one layer
     for (int i = 0; i < numLayers; i++)
     {

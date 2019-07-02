@@ -16,8 +16,11 @@
 add_custom_target(plugin)
 
 set(TARGET_NAME nvinfer_plugin)
+set(SHARED_TARGET ${TARGET_NAME})
+set(STATIC_TARGET ${TARGET_NAME}_static)
 
 set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR})
+set(PLUGIN_EXPORT_MAP ${TARGET_DIR}/exports.map)
 
 if(${CMAKE_BUILD_TYPE} MATCHES "Debug")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
@@ -38,6 +41,8 @@ set(PLUGIN_LISTS
     nvFasterRCNN
     batchedNMSPlugin
     flattenConcat
+    cropAndResizePlugin
+    proposalPlugin
     )
 
 include_directories(common common/kernels)
@@ -52,11 +57,13 @@ add_subdirectory(common)
 
 list(APPEND PLUGIN_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/InferPlugin.cpp")
 
-add_library(${TARGET_NAME} SHARED
+################################## SHARED LIBRARY #######################################
+
+add_library(${SHARED_TARGET} SHARED
     ${PLUGIN_SOURCES}
 )
 
-target_include_directories(${TARGET_NAME}
+target_include_directories(${SHARED_TARGET}
     PUBLIC ${PROJECT_SOURCE_DIR}/include
     PUBLIC ${CUB_ROOT_DIR}
     PRIVATE ${PROJECT_SOURCE_DIR}/common
@@ -64,7 +71,7 @@ target_include_directories(${TARGET_NAME}
     PRIVATE ${TARGET_DIR}
 )
 
-set_target_properties(${TARGET_NAME} PROPERTIES
+set_target_properties(${SHARED_TARGET} PROPERTIES
     CXX_STANDARD "11"
     CXX_STANDARD_REQUIRED "YES"
     CXX_EXTENSIONS "NO"
@@ -73,10 +80,59 @@ set_target_properties(${TARGET_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${TRT_BIN_DIR}"
 )
 
-set_target_properties(${TARGET_NAME} PROPERTIES DEBUG_POSTFIX ${TRT_DEBUG_POSTFIX})
+set_target_properties(${SHARED_TARGET} PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL -Wl,--version-script=${PLUGIN_EXPORT_MAP} -Wl,--no-undefined")
 
-set_target_properties(${TARGET_NAME} PROPERTIES VERSION ${TRT_VERSION} SOVERSION ${TRT_SOVERSION} )
+set_target_properties(${SHARED_TARGET} PROPERTIES DEBUG_POSTFIX ${TRT_DEBUG_POSTFIX})
 
-set_property(TARGET ${TARGET_NAME} PROPERTY CUDA_STANDARD 11)
+set_target_properties(${SHARED_TARGET} PROPERTIES VERSION ${TRT_VERSION} SOVERSION ${TRT_SOVERSION} )
 
-add_dependencies(plugin ${TARGET_NAME})
+set_property(TARGET ${SHARED_TARGET} PROPERTY CUDA_STANDARD 11)
+
+target_link_libraries(${SHARED_TARGET}
+    ${CUBLAS_LIB}
+    ${CUDART_LIB}
+    nvinfer
+)
+
+################################## STATIC LIBRARY #######################################
+
+add_library(${STATIC_TARGET} STATIC
+    ${PLUGIN_SOURCES}
+)
+
+target_include_directories(${STATIC_TARGET}
+    PUBLIC ${PROJECT_SOURCE_DIR}/include
+    PUBLIC ${CUB_ROOT_DIR}
+    PRIVATE ${PROJECT_SOURCE_DIR}/common
+    PUBLIC ${CUDA_INSTALL_DIR}/include
+    PRIVATE ${TARGET_DIR}
+)
+
+set_target_properties(${STATIC_TARGET} PROPERTIES
+    CXX_STANDARD "11"
+    CXX_STANDARD_REQUIRED "YES"
+    CXX_EXTENSIONS "NO"
+    ARCHIVE_OUTPUT_DIRECTORY "${TRT_BIN_DIR}"
+    LIBRARY_OUTPUT_DIRECTORY "${TRT_BIN_DIR}"
+    RUNTIME_OUTPUT_DIRECTORY "${TRT_BIN_DIR}"
+)
+
+set_target_properties(${STATIC_TARGET} PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL")
+
+set_target_properties(${STATIC_TARGET} PROPERTIES DEBUG_POSTFIX ${TRT_DEBUG_POSTFIX})
+
+set_target_properties(${STATIC_TARGET} PROPERTIES VERSION ${TRT_VERSION} SOVERSION ${TRT_SOVERSION} )
+
+set_property(TARGET ${STATIC_TARGET} PROPERTY CUDA_STANDARD 11)
+
+#########################################################################################
+
+add_dependencies(plugin ${SHARED_TARGET} ${STATIC_TARGET})
+
+################################### INSTALLATION ########################################
+
+install(TARGETS ${TARGET_NAME}
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
+)

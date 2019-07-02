@@ -34,7 +34,7 @@ namespace samplesCommon
 //!
 struct SampleParams
 {
-    int batchSize{1};                     //!< Number of inputs in a batch
+    int batchSize{1};                  //!< Number of inputs in a batch
     int dlaCore{-1};                   //!< Specify the DLA core to run network on.
     bool int8{false};                  //!< Allow runnning the network in Int8 mode.
     bool fp16{false};                  //!< Allow running the network in FP16 mode.
@@ -53,7 +53,6 @@ struct CaffeSampleParams : public SampleParams
     std::string weightsFileName;  //!< Filename of trained weights file of a network
     std::string meanFileName;     //!< Filename of mean file of a network
 };
-
 
 //!
 //! \brief The OnnxSampleParams structure groups the additional parameters required by
@@ -97,13 +96,9 @@ inline bool parseArgs(Args& args, int argc, char* argv[])
     while (1)
     {
         int arg;
-        static struct option long_options[] = {
-            {"help", no_argument, 0, 'h'},
-            {"datadir", required_argument, 0, 'd'},
-            {"int8", no_argument, 0, 'i'},
-            {"fp16", no_argument, 0, 'f'},
-            {"useDLACore", required_argument, 0, 'u'},
-            {nullptr, 0, nullptr, 0}};
+        static struct option long_options[]
+            = {{"help", no_argument, 0, 'h'}, {"datadir", required_argument, 0, 'd'}, {"int8", no_argument, 0, 'i'},
+                {"fp16", no_argument, 0, 'f'}, {"useDLACore", required_argument, 0, 'u'}, {nullptr, 0, nullptr, 0}};
         int option_index = 0;
         arg = getopt_long(argc, argv, "hd:iu", long_options, &option_index);
         if (arg == -1)
@@ -113,9 +108,7 @@ inline bool parseArgs(Args& args, int argc, char* argv[])
 
         switch (arg)
         {
-        case 'h':
-            args.help = true;
-            return true;
+        case 'h': args.help = true; return true;
         case 'd':
             if (optarg)
             {
@@ -127,20 +120,15 @@ inline bool parseArgs(Args& args, int argc, char* argv[])
                 return false;
             }
             break;
-        case 'i':
-            args.runInInt8 = true;
-            break;
-        case 'f':
-            args.runInFp16 = true;
-            break;
+        case 'i': args.runInInt8 = true; break;
+        case 'f': args.runInFp16 = true; break;
         case 'u':
             if (optarg)
             {
                 args.useDLACore = std::stoi(optarg);
             }
             break;
-        default:
-            return false;
+        default: return false;
         }
     }
     return true;

@@ -19,7 +19,8 @@
 //! This file contains the implementation of the ONNX MNIST sample. It creates the network using
 //! the MNIST onnx model.
 //! It can be run with the following command line:
-//! Command: ./sample_onnx_mnist [-h or --help] [-d=/path/to/data/dir or --datadir=/path/to/data/dir] [--useDLACore=<int>]
+//! Command: ./sample_onnx_mnist [-h or --help] [-d=/path/to/data/dir or --datadir=/path/to/data/dir]
+//! [--useDLACore=<int>]
 //!
 
 #include "argsParser.h"
@@ -131,7 +132,8 @@ bool SampleOnnxMNIST::build()
         return false;
     }
 
-    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
+    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
+        builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
     if (!mEngine)
     {
         return false;
@@ -329,10 +331,17 @@ samplesCommon::OnnxSampleParams initializeSampleParams(const samplesCommon::Args
 //!
 void printHelpInfo()
 {
-    std::cout << "Usage: ./sample_onnx_mnist [-h or --help] [-d or --datadir=<path to data directory>] [--useDLACore=<int>]" << std::endl;
+    std::cout
+        << "Usage: ./sample_onnx_mnist [-h or --help] [-d or --datadir=<path to data directory>] [--useDLACore=<int>]"
+        << std::endl;
     std::cout << "--help          Display help information" << std::endl;
-    std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used multiple times to add multiple directories. If no data directories are given, the default is to use (data/samples/mnist/, data/mnist/)" << std::endl;
-    std::cout << "--useDLACore=N  Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, where n is the number of DLA engines on the platform." << std::endl;
+    std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used "
+                 "multiple times to add multiple directories. If no data directories are given, the default is to use "
+                 "(data/samples/mnist/, data/mnist/)"
+              << std::endl;
+    std::cout << "--useDLACore=N  Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, "
+                 "where n is the number of DLA engines on the platform."
+              << std::endl;
     std::cout << "--int8          Run in Int8 mode." << std::endl;
     std::cout << "--fp16          Run in FP16 mode." << std::endl;
 }

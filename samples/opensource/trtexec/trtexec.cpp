@@ -29,16 +29,15 @@
 #include <time.h>
 #include <vector>
 
-#include "NvOnnxParser.h"
 #include "NvCaffeParser.h"
 #include "NvInfer.h"
 #include "NvInferPlugin.h"
+#include "NvOnnxParser.h"
 #include "NvUffParser.h"
 
 #include "buffers.h"
 #include "common.h"
 #include "logger.h"
-
 
 using namespace nvinfer1;
 using namespace nvcaffeparser1;
@@ -76,6 +75,7 @@ struct Params
     bool dumpOutput{false};
     bool dumpLayerTime{false};
     bool help{false};
+    std::vector<std::string> plugins;
 } gParams;
 
 inline int volume(Dims dims)
@@ -165,15 +165,14 @@ public:
         std::ifstream input(mCacheFile, std::ios::binary);
         input >> std::noskipws;
         if (input.good())
-            std::copy(std::istream_iterator<char>(input), std::istream_iterator<char>(), std::back_inserter(mCalibrationCache));
+            std::copy(std::istream_iterator<char>(input), std::istream_iterator<char>(),
+                std::back_inserter(mCalibrationCache));
 
         length = mCalibrationCache.size();
         return length ? &mCalibrationCache[0] : nullptr;
     }
 
-    virtual void writeCalibrationCache(const void*, size_t) override
-    {
-    }
+    virtual void writeCalibrationCache(const void*, size_t) override {}
 
 private:
     int mTotalSamples;
@@ -201,7 +200,8 @@ void configureBuilder(IBuilder* builder, IBuilderConfig* config, RndInt8Calibrat
 
     if (gParams.safeMode)
     {
-        config->setEngineCapability(gParams.useDLACore >= 0 ? EngineCapability::kSAFE_DLA : EngineCapability::kSAFE_GPU);
+        config->setEngineCapability(
+            gParams.useDLACore >= 0 ? EngineCapability::kSAFE_DLA : EngineCapability::kSAFE_GPU);
     }
 }
 
@@ -231,7 +231,8 @@ ICudaEngine* caffeToTRTModel()
         Dims3 dims = static_cast<Dims3&&>(network->getInput(i)->getDimensions());
         gParams.inputs.push_back(network->getInput(i)->getName());
         gInputDimensions.insert(std::make_pair(network->getInput(i)->getName(), dims));
-        gLogInfo << "Input \"" << network->getInput(i)->getName() << "\": " << dims.d[0] << "x" << dims.d[1] << "x" << dims.d[2] << std::endl;
+        gLogInfo << "Input \"" << network->getInput(i)->getName() << "\": " << dims.d[0] << "x" << dims.d[1] << "x"
+                 << dims.d[2] << std::endl;
     }
 
     // specify which tensors are outputs
@@ -319,7 +320,7 @@ ICudaEngine* uffToTRTModel()
     RndInt8Calibrator calibrator(1, gParams.calibrationCache);
     configureBuilder(builder, config, calibrator);
 
-    samplesCommon::enableDLA(builder, config,  gParams.useDLACore);
+    samplesCommon::enableDLA(builder, config, gParams.useDLACore);
 
     ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
     if (engine == nullptr)
@@ -345,7 +346,7 @@ ICudaEngine* onnxToTRTModel()
 
     // parse the onnx model to populate the network, then set the outputs
     IParser* parser = nvonnxparser::createParser(*network, gLogger.getTRTLogger());
-    if ( !parser->parseFromFile( gParams.onnxModelFile.c_str(), static_cast<int>( gLogger.getReportableSeverity() ) ) )
+    if (!parser->parseFromFile(gParams.onnxModelFile.c_str(), static_cast<int>(gLogger.getReportableSeverity())))
     {
         gLogError << "failed to parse onnx file" << std::endl;
         return nullptr;
@@ -404,7 +405,7 @@ void doInference(ICudaEngine& engine)
     std::vector<float> times(gParams.avgRuns);
     for (int j = 0; j < gParams.iterations; j++)
     {
-        float totalGpu{0}; // GPU timer
+        float totalGpu{0};  // GPU timer
         float totalHost{0}; // Host timer
 
         for (int i = 0; i < gParams.avgRuns; i++)
@@ -425,8 +426,9 @@ void doInference(ICudaEngine& engine)
 
         totalGpu /= gParams.avgRuns;
         totalHost /= gParams.avgRuns;
-        gLogInfo << "Average over " << gParams.avgRuns << " runs is " << totalGpu << " ms (host walltime is " << totalHost
-                 << " ms, " << static_cast<int>(gParams.pct) << "\% percentile time is " << percentile(gParams.pct, times) << ")." << std::endl;
+        gLogInfo << "Average over " << gParams.avgRuns << " runs is " << totalGpu << " ms (host walltime is "
+                 << totalHost << " ms, " << static_cast<int>(gParams.pct) << "\% percentile time is "
+                 << percentile(gParams.pct, times) << ")." << std::endl;
     }
 
     if (gParams.dumpOutput)
@@ -465,7 +467,9 @@ static void printUsage()
     printf("  OR --loadEngine=<file>   Load a saved engine\n");
 
     printf("\nMandatory params for UFF:\n");
-    printf("  --uffInput=<name>,C,H,W Input blob name and its dimensions for UFF parser (can be specified multiple times)\n");
+    printf(
+        "  --uffInput=<name>,C,H,W Input blob name and its dimensions for UFF parser (can be specified multiple "
+        "times)\n");
     printf("  --output=<name>      Output blob name (can be specified multiple times)\n");
 
     printf("\nMandatory params for Caffe:\n");
@@ -476,8 +480,12 @@ static void printUsage()
     printf("  --batch=N               Set batch size (default = %d)\n", gParams.batchSize);
     printf("  --device=N              Set cuda device to N (default = %d)\n", gParams.device);
     printf("  --iterations=N          Run N iterations (default = %d)\n", gParams.iterations);
-    printf("  --avgRuns=N             Set avgRuns to N - perf is measured as an average of avgRuns (default=%d)\n", gParams.avgRuns);
-    printf("  --percentile=P          For each iteration, report the percentile time at P percentage (0<=P<=100, with 0 representing min, and 100 representing max; default = %.1f%%)\n", gParams.pct);
+    printf("  --avgRuns=N             Set avgRuns to N - perf is measured as an average of avgRuns (default=%d)\n",
+        gParams.avgRuns);
+    printf(
+        "  --percentile=P          For each iteration, report the percentile time at P percentage (0<=P<=100, with 0 "
+        "representing min, and 100 representing max; default = %.1f%%)\n",
+        gParams.pct);
     printf("  --workspace=N           Set workspace size in megabytes (default = %d)\n", gParams.workspaceSize);
     printf("  --safe                  Only test the functionality available in safety restricted flows.\n");
     printf("  --fp16                  Run in fp16 mode (default = false). Permits 16-bit kernels\n");
@@ -485,10 +493,17 @@ static void printUsage()
     printf("  --verbose               Use verbose logging (default = false)\n");
     printf("  --saveEngine=<file>     Save a serialized engine to file.\n");
     printf("  --loadEngine=<file>     Load a serialized engine from file.\n");
+    printf("  --plugins=<file>        Load a TensorRT custom plugin.\n");
     printf("  --calib=<file>          Read INT8 calibration cache file.  Currently no support for ONNX model.\n");
-    printf("  --useDLACore=N          Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, where n is the number of DLA engines on the platform.\n");
-    printf("  --allowGPUFallback      If --useDLACore flag is present and if a layer can't run on DLA, then run on GPU. \n");
-    printf("  --useSpinWait           Actively wait for work completion. This option may decrease multi-process synchronization time at the cost of additional CPU usage. (default = false)\n");
+    printf(
+        "  --useDLACore=N          Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, "
+        "where n is the number of DLA engines on the platform.\n");
+    printf(
+        "  --allowGPUFallback      If --useDLACore flag is present and if a layer can't run on DLA, then run on GPU. "
+        "\n");
+    printf(
+        "  --useSpinWait           Actively wait for work completion. This option may decrease multi-process "
+        "synchronization time at the cost of additional CPU usage. (default = false)\n");
     printf("  --dumpOutput            Dump outputs at end of test. \n");
     printf("  --dumpLayerTime         Dump inferencing time of each layer at end of test. \n");
     printf("  -h, --help              Print usage\n");
@@ -507,7 +522,7 @@ bool parseString(const char* arg, const char* name, std::string& value)
     return match;
 }
 
-template<typename T>
+template <typename T>
 bool parseAtoi(const char* arg, const char* name, T& value)
 {
     size_t n = strlen(name);
@@ -533,7 +548,8 @@ bool parseUnsigned(const char* arg, const char* name, unsigned int& value)
 // parse a boolean option of the form --name, or optionally, -letter.
 bool parseBool(const char* arg, const char* name, bool& value, char letter = '\0')
 {
-    bool match = arg[0] == '-' && ((arg[1] == '-' && !strcmp(arg + 2, name)) || (letter && arg[1] == letter && !arg[2]));
+    bool match
+        = arg[0] == '-' && ((arg[1] == '-' && !strcmp(arg + 2, name)) || (letter && arg[1] == letter && !arg[2]));
     if (match)
     {
         // Always report the long form of the option.
@@ -586,8 +602,7 @@ bool parseArgs(int argc, char* argv[])
 
     for (int j = 1; j < argc; j++)
     {
-        if (parseString(argv[j], "model", gParams.modelFile)
-            || parseString(argv[j], "deploy", gParams.deployFile))
+        if (parseString(argv[j], "model", gParams.modelFile) || parseString(argv[j], "deploy", gParams.deployFile))
         {
             continue;
         }
@@ -641,14 +656,13 @@ bool parseArgs(int argc, char* argv[])
                 return false;
             }
 
-            gParams.uffInputs.push_back(std::make_pair(uffInputStrs[0], Dims3(atoi(uffInputStrs[1].c_str()), atoi(uffInputStrs[2].c_str()), atoi(uffInputStrs[3].c_str()))));
+            gParams.uffInputs.push_back(std::make_pair(uffInputStrs[0],
+                Dims3(atoi(uffInputStrs[1].c_str()), atoi(uffInputStrs[2].c_str()), atoi(uffInputStrs[3].c_str()))));
             continue;
         }
 
-        if (parseInt(argv[j], "batch", gParams.batchSize)
-            || parseInt(argv[j], "iterations", gParams.iterations)
-            || parseInt(argv[j], "avgRuns", gParams.avgRuns)
-            || parseInt(argv[j], "device", gParams.device)
+        if (parseInt(argv[j], "batch", gParams.batchSize) || parseInt(argv[j], "iterations", gParams.iterations)
+            || parseInt(argv[j], "avgRuns", gParams.avgRuns) || parseInt(argv[j], "device", gParams.device)
             || parseInt(argv[j], "workspace", gParams.workspaceSize)
             || parseInt(argv[j], "useDLACore", gParams.useDLACore))
             continue;
@@ -656,10 +670,15 @@ bool parseArgs(int argc, char* argv[])
         if (parseFloat(argv[j], "percentile", gParams.pct))
             continue;
 
-        if (parseBool(argv[j], "safe", gParams.safeMode)
-            || parseBool(argv[j], "fp16", gParams.fp16)
-            || parseBool(argv[j], "int8", gParams.int8)
-            || parseBool(argv[j], "verbose", gParams.verbose)
+        std::string plugin;
+        if (parseString(argv[j], "plugins", plugin))
+        {
+            gParams.plugins.push_back(plugin);
+            continue;
+        }
+
+        if (parseBool(argv[j], "safe", gParams.safeMode) || parseBool(argv[j], "fp16", gParams.fp16)
+            || parseBool(argv[j], "int8", gParams.int8) || parseBool(argv[j], "verbose", gParams.verbose)
             || parseBool(argv[j], "allowGPUFallback", gParams.allowGPUFallback)
             || parseBool(argv[j], "useSpinWait", gParams.useSpinWait)
             || parseBool(argv[j], "dumpOutput", gParams.dumpOutput)
@@ -798,6 +817,14 @@ int main(int argc, char** argv)
     cudaSetDevice(gParams.device);
 
     initLibNvInferPlugins(&gLogger.getTRTLogger(), "");
+
+    for (const auto& plugin : gParams.plugins)
+    {
+	if (EXIT_SUCCESS != loadLibrary(plugin))
+        {
+            return gLogger.reportFail(sampleTest);
+        }
+    }
 
     ICudaEngine* engine = createEngine();
     if (!engine)

@@ -18,9 +18,9 @@
 
 using namespace nvinfer1;
 using nvinfer1::PluginType;
-using nvinfer1::plugin::RegionPluginCreator;
 using nvinfer1::plugin::Region;
 using nvinfer1::plugin::RegionParameters; // Needed for Windows Build
+using nvinfer1::plugin::RegionPluginCreator;
 
 namespace
 {
@@ -42,7 +42,7 @@ void allocateChunk(T*& ptr, int count)
 {
     ptr = static_cast<T*>(malloc(count * sizeof(T)));
 }
-}
+} // namespace
 
 PluginFieldCollection RegionPluginCreator::mFC{};
 std::vector<PluginField> RegionPluginCreator::mPluginAttributes;
@@ -68,7 +68,7 @@ Region::Region(RegionParameters params, int C, int H, int W)
 
 Region::Region(const void* buffer, size_t length)
 {
-    const char *d = reinterpret_cast<const char *>(buffer), *a = d;
+    const char *d = reinterpret_cast<const char*>(buffer), *a = d;
     C = read<int>(d);
     H = read<int>(d);
     W = read<int>(d);
@@ -272,7 +272,7 @@ size_t Region::getSerializationSize() const
 
 void Region::serialize(void* buffer) const
 {
-    char *d = reinterpret_cast<char *>(buffer), *a = d;
+    char *d = reinterpret_cast<char*>(buffer), *a = d;
     write(d, C);
     write(d, H);
     write(d, W);
@@ -444,21 +444,17 @@ void Region::configurePlugin(const Dims* inputDims, int nbInputs, const Dims* ou
     W = inputDims[0].d[2];
     /*
      * In the below assertion, 1 stands for the objectness of the bounding box
-     * We should also 
+     * We should also
      * ASSERT(coords == 4);
      */
     ASSERT(C == num * (coords + 1 + classes));
 }
 
 // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
-void Region::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
-{
-}
+void Region::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) {}
 
 // Detach the plugin object from its execution context.
-void Region::detachFromContext()
-{
-}
+void Region::detachFromContext() {}
 
 RegionPluginCreator::RegionPluginCreator()
 {

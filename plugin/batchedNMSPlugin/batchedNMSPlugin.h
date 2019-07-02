@@ -17,9 +17,9 @@
 #define TRT_BATCHED_NMS_PLUGIN_H
 #include "batchedNMSPlugin/batchedNMSInference.h"
 #include "batchedNMSPlugin/gatherNMSOutputs.h"
+#include "kernel.h"
 #include "nmsUtils.h"
 #include "plugin.h"
-#include "kernel.h"
 #include <string>
 #include <vector>
 

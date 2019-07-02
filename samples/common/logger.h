@@ -29,4 +29,3 @@ extern LogStreamConsumer gLogFatal;
 void setReportableSeverity(Logger::Severity severity);
 
 #endif // LOGGER_H
-

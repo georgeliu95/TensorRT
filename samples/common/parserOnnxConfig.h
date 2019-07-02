@@ -57,9 +57,7 @@ public:
 #ifdef ONNX_DEBUG
         if (isDebug())
         {
-            std::cout << " ParserOnnxConfig::ctor(): "
-                      << this << "\t"
-                      << std::endl;
+            std::cout << " ParserOnnxConfig::ctor(): " << this << "\t" << std::endl;
         }
 #endif
     }
@@ -76,35 +74,65 @@ protected:
     }
 
 public:
-    virtual void setModelDtype(const nvinfer1::DataType modelDtype) { mModelDtype = modelDtype; }
+    virtual void setModelDtype(const nvinfer1::DataType modelDtype)
+    {
+        mModelDtype = modelDtype;
+    }
 
     virtual nvinfer1::DataType getModelDtype() const
     {
         return mModelDtype;
     }
 
-    virtual const char* getModelFileName() const { return mModelFilename.c_str(); }
+    virtual const char* getModelFileName() const
+    {
+        return mModelFilename.c_str();
+    }
     virtual void setModelFileName(const char* onnxFilename)
     {
         mModelFilename = string(onnxFilename);
     }
-    virtual nvonnxparser::IOnnxConfig::Verbosity getVerbosityLevel() const { return mVerbosity; }
-    virtual void addVerbosity() { ++mVerbosity; }
-    virtual void reduceVerbosity() { --mVerbosity; }
-    virtual void setVerbosityLevel(nvonnxparser::IOnnxConfig::Verbosity verbosity) { mVerbosity = verbosity; }
+    virtual nvonnxparser::IOnnxConfig::Verbosity getVerbosityLevel() const
+    {
+        return mVerbosity;
+    }
+    virtual void addVerbosity()
+    {
+        ++mVerbosity;
+    }
+    virtual void reduceVerbosity()
+    {
+        --mVerbosity;
+    }
+    virtual void setVerbosityLevel(nvonnxparser::IOnnxConfig::Verbosity verbosity)
+    {
+        mVerbosity = verbosity;
+    }
 
-    virtual const char* getTextFileName() const { return mTextFilename.c_str(); }
+    virtual const char* getTextFileName() const
+    {
+        return mTextFilename.c_str();
+    }
     virtual void setTextFileName(const char* textFilename)
     {
         mTextFilename = string(textFilename);
     }
-    virtual const char* getFullTextFileName() const { return mFullTextFilename.c_str(); }
+    virtual const char* getFullTextFileName() const
+    {
+        return mFullTextFilename.c_str();
+    }
     virtual void setFullTextFileName(const char* fullTextFilename)
     {
         mFullTextFilename = string(fullTextFilename);
     }
-    virtual bool getPrintLayerInfo() const { return mPrintLayercInfo; }
-    virtual void setPrintLayerInfo(bool src) { mPrintLayercInfo = src; } //!< get the boolean variable corresponding to the Layer Info, see getPrintLayerInfo()
+    virtual bool getPrintLayerInfo() const
+    {
+        return mPrintLayercInfo;
+    }
+    virtual void setPrintLayerInfo(bool src)
+    {
+        mPrintLayercInfo = src;
+    } //!< get the boolean variable corresponding to the Layer Info, see getPrintLayerInfo()
 
     virtual bool isDebug() const
     {
@@ -115,7 +143,10 @@ public:
 #endif
     }
 
-    virtual void destroy() { delete this; }
+    virtual void destroy()
+    {
+        delete this;
+    }
 
 }; // class ParserOnnxConfig
 

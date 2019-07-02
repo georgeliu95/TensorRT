@@ -23,14 +23,14 @@
 #include <vector>
 
 using namespace nvinfer1;
-using nvinfer1::plugin::PriorBoxPluginCreator;
 using nvinfer1::plugin::PriorBox;
+using nvinfer1::plugin::PriorBoxPluginCreator;
 
 namespace
 {
 const char* PRIOR_BOX_PLUGIN_VERSION{"1"};
 const char* PRIOR_BOX_PLUGIN_NAME{"PriorBox_TRT"};
-}
+} // namespace
 
 PluginFieldCollection PriorBoxPluginCreator::mFC{};
 std::vector<PluginField> PriorBoxPluginCreator::mPluginAttributes;
@@ -83,7 +83,7 @@ PriorBox::PriorBox(PriorBoxParameters param)
     /*
      * If we have maxSizes, as long as all the maxSizes meets assertion requirement, we add one bounding box per maxSize
      * The final number of prior boxes per grid cell on feature map
-     * numPriors = 
+     * numPriors =
      * tmpAR.size() * param.numMinSize If numMaxSize == 0
      * (tmpAR.size() + 1) * param.numMinSize If param.numMinSize == param.numMaxSize
      */
@@ -153,7 +153,7 @@ PriorBox::PriorBox(PriorBoxParameters param, int H, int W)
 
 PriorBox::PriorBox(const void* data, size_t length)
 {
-    const char *d = reinterpret_cast<const char *>(data), *a = d;
+    const char *d = reinterpret_cast<const char*>(data), *a = d;
     mParam = read<PriorBoxParameters>(d);
     numPriors = read<int>(d);
     H = read<int>(d);
@@ -233,7 +233,7 @@ size_t PriorBox::getSerializationSize() const
 
 void PriorBox::serialize(void* buffer) const
 {
-    char *d = reinterpret_cast<char *>(buffer), *a = d;
+    char *d = reinterpret_cast<char*>(buffer), *a = d;
     write(d, mParam);
     write(d, numPriors);
     write(d, H);
@@ -311,7 +311,7 @@ DataType PriorBox::getOutputDataType(int index, const nvinfer1::DataType* inputT
 {
     // Two outputs
     ASSERT(index == 0 || index == 1);
-    return DataType::kINT32;
+    return DataType::kFLOAT;
 }
 
 // Return true if output tensor is broadcast across a batch.
@@ -350,21 +350,13 @@ void PriorBox::configurePlugin(const Dims* inputDims, int nbInputs, const Dims* 
         mParam.stepH = static_cast<float>(mParam.imgH) / H;
         mParam.stepW = static_cast<float>(mParam.imgW) / W;
     }
-    // unset unnecessary pointers
-    mParam.minSize = nullptr;
-    mParam.maxSize = nullptr;
-    mParam.aspectRatios = nullptr;
 }
 
 // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
-void PriorBox::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
-{
-}
+void PriorBox::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) {}
 
 // Detach the plugin object from its execution context.
-void PriorBox::detachFromContext()
-{
-}
+void PriorBox::detachFromContext() {}
 
 PriorBoxPluginCreator::PriorBoxPluginCreator()
 {

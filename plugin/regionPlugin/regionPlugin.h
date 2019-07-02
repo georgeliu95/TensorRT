@@ -15,8 +15,8 @@
  */
 #ifndef TRT_REGION_PLUGIN_H
 #define TRT_REGION_PLUGIN_H
-#include "plugin.h"
 #include "kernel.h"
+#include "plugin.h"
 #include <iostream>
 #include <vector>
 
@@ -114,7 +114,7 @@ private:
     RegionParameters params;
     static std::vector<PluginField> mPluginAttributes;
 };
-}
-}
+} // namespace plugin
+} // namespace nvinfer1
 
 #endif // TRT_REGION_PLUGIN_H

@@ -128,20 +128,41 @@ public:
         mBatchCount = x;
     }
 
-    float* getBatch() { return mBatch.data(); }
+    float* getBatch()
+    {
+        return mBatch.data();
+    }
 
-    float* getLabels() { return mLabels.data(); }
+    float* getLabels()
+    {
+        return mLabels.data();
+    }
 
-    int getBatchesRead() const { return mBatchCount; }
+    int getBatchesRead() const
+    {
+        return mBatchCount;
+    }
 
-    int getBatchSize() const { return mBatchSize; }
+    int getBatchSize() const
+    {
+        return mBatchSize;
+    }
 
-    nvinfer1::Dims getDims() const { return mDims; }
+    nvinfer1::Dims getDims() const
+    {
+        return mDims;
+    }
 
 private:
-    float* getFileBatch() { return mFileBatch.data(); }
+    float* getFileBatch()
+    {
+        return mFileBatch.data();
+    }
 
-    float* getFileLabels() { return mFileLabels.data(); }
+    float* getFileLabels()
+    {
+        return mFileLabels.data();
+    }
 
     bool update()
     {

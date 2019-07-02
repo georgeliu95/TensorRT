@@ -15,9 +15,9 @@
  */
 #ifndef TRT_NORMALIZE_PLUGIN_H
 #define TRT_NORMALIZE_PLUGIN_H
-#include "plugin.h"
-#include "kernel.h"
 #include "cudnn.h"
+#include "kernel.h"
+#include "plugin.h"
 #include <cublas_v2.h>
 #include <string>
 #include <vector>
@@ -90,7 +90,7 @@ private:
     void serializeFromDevice(char*& hostBuffer, Weights deviceWeights) const;
     Weights deserializeToDevice(const char*& hostBuffer, size_t count);
 
-    cublasHandle_t* mCublas;
+    cublasHandle_t mCublas{};
 
     int C, H, W, mNbWeights;
     bool acrossSpatial;
@@ -124,7 +124,7 @@ private:
     int mNbWeights;
     static std::vector<PluginField> mPluginAttributes;
 };
-}
-}
+} // namespace plugin
+} // namespace nvinfer1
 
 #endif // TRT_NORMALIZE_PLUGIN_H

@@ -73,7 +73,7 @@ FlattenConcat::FlattenConcat(
 
 FlattenConcat::FlattenConcat(const void* data, size_t length)
 {
-    const char *d = reinterpret_cast<const char *>(data), *a = d;
+    const char *d = reinterpret_cast<const char*>(data), *a = d;
     mIgnoreBatch = read<bool>(d);
     mConcatAxisID = read<int>(d);
     ASSERT(mConcatAxisID == 1 || mConcatAxisID == 2 || mConcatAxisID == 3);
@@ -199,7 +199,7 @@ size_t FlattenConcat::getSerializationSize() const
 
 void FlattenConcat::serialize(void* buffer) const
 {
-    char *d = reinterpret_cast<char *>(buffer), *a = d;
+    char *d = reinterpret_cast<char*>(buffer), *a = d;
     write(d, mIgnoreBatch);
     write(d, mConcatAxisID);
     write(d, mOutputConcatAxis);
@@ -223,9 +223,7 @@ void FlattenConcat::attachToContext(
 }
 
 // Detach the plugin object from its execution context.
-void FlattenConcat::detachFromContext()
-{
-}
+void FlattenConcat::detachFromContext() {}
 
 // Return true if output tensor is broadcast across a batch.
 bool FlattenConcat::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const

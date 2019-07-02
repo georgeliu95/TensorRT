@@ -17,17 +17,17 @@
 #define TENSORRT_BUFFERS_H
 
 #include "NvInfer.h"
-#include "half.h"
 #include "common.h"
-#include <cuda_runtime_api.h>
+#include "half.h"
 #include <cassert>
+#include <cuda_runtime_api.h>
 #include <iostream>
 #include <iterator>
 #include <memory>
+#include <new>
 #include <numeric>
 #include <string>
 #include <vector>
-#include <new>
 
 using namespace std;
 
@@ -96,17 +96,26 @@ public:
     //!
     //! \brief Returns pointer to underlying array.
     //!
-    void* data() { return mBuffer; }
+    void* data()
+    {
+        return mBuffer;
+    }
 
     //!
     //! \brief Returns pointer to underlying array.
     //!
-    const void* data() const { return mBuffer; }
+    const void* data() const
+    {
+        return mBuffer;
+    }
 
     //!
     //! \brief Returns the size (in bytes) of the buffer.
     //!
-    size_t size() const { return mByteSize; }
+    size_t size() const
+    {
+        return mByteSize;
+    }
 
     ~GenericBuffer()
     {
@@ -123,13 +132,19 @@ private:
 class DeviceAllocator
 {
 public:
-    bool operator()(void** ptr, size_t size) const { return cudaMalloc(ptr, size) == cudaSuccess; }
+    bool operator()(void** ptr, size_t size) const
+    {
+        return cudaMalloc(ptr, size) == cudaSuccess;
+    }
 };
 
 class DeviceFree
 {
 public:
-    void operator()(void* ptr) const { cudaFree(ptr); }
+    void operator()(void* ptr) const
+    {
+        cudaFree(ptr);
+    }
 };
 
 class HostAllocator
@@ -145,7 +160,10 @@ public:
 class HostFree
 {
 public:
-    void operator()(void* ptr) const { free(ptr); }
+    void operator()(void* ptr) const
+    {
+        free(ptr);
+    }
 };
 
 using DeviceBuffer = GenericBuffer<DeviceAllocator, DeviceFree>;
@@ -199,24 +217,36 @@ public:
     //! \brief Returns a vector of device buffers that you can use directly as
     //!        bindings for the execute and enqueue methods of IExecutionContext.
     //!
-    std::vector<void*>& getDeviceBindings() { return mDeviceBindings; }
+    std::vector<void*>& getDeviceBindings()
+    {
+        return mDeviceBindings;
+    }
 
     //!
     //! \brief Returns a vector of device buffers.
     //!
-    const std::vector<void*>& getDeviceBindings() const { return mDeviceBindings; }
+    const std::vector<void*>& getDeviceBindings() const
+    {
+        return mDeviceBindings;
+    }
 
     //!
     //! \brief Returns the device buffer corresponding to tensorName.
     //!        Returns nullptr if no such tensor can be found.
     //!
-    void* getDeviceBuffer(const std::string& tensorName) const { return getBuffer(false, tensorName); }
+    void* getDeviceBuffer(const std::string& tensorName) const
+    {
+        return getBuffer(false, tensorName);
+    }
 
     //!
     //! \brief Returns the host buffer corresponding to tensorName.
     //!        Returns nullptr if no such tensor can be found.
     //!
-    void* getHostBuffer(const std::string& tensorName) const { return getBuffer(true, tensorName); }
+    void* getHostBuffer(const std::string& tensorName) const
+    {
+        return getBuffer(true, tensorName);
+    }
 
     //!
     //! \brief Returns the size of the host and device buffers that correspond to tensorName.
@@ -292,22 +322,34 @@ public:
     //!
     //! \brief Copy the contents of input host buffers to input device buffers synchronously.
     //!
-    void copyInputToDevice() { memcpyBuffers(true, false, false); }
+    void copyInputToDevice()
+    {
+        memcpyBuffers(true, false, false);
+    }
 
     //!
     //! \brief Copy the contents of output device buffers to output host buffers synchronously.
     //!
-    void copyOutputToHost() { memcpyBuffers(false, true, false); }
+    void copyOutputToHost()
+    {
+        memcpyBuffers(false, true, false);
+    }
 
     //!
     //! \brief Copy the contents of input host buffers to input device buffers asynchronously.
     //!
-    void copyInputToDeviceAsync(const cudaStream_t& stream = 0) { memcpyBuffers(true, false, true, stream); }
+    void copyInputToDeviceAsync(const cudaStream_t& stream = 0)
+    {
+        memcpyBuffers(true, false, true, stream);
+    }
 
     //!
     //! \brief Copy the contents of output device buffers to output host buffers asynchronously.
     //!
-    void copyOutputToHostAsync(const cudaStream_t& stream = 0) { memcpyBuffers(false, true, true, stream); }
+    void copyOutputToHostAsync(const cudaStream_t& stream = 0)
+    {
+        memcpyBuffers(false, true, true, stream);
+    }
 
     ~BufferManager() = default;
 
@@ -324,8 +366,10 @@ private:
     {
         for (int i = 0; i < mEngine->getNbBindings(); i++)
         {
-            void* dstPtr = deviceToHost ? mManagedBuffers[i]->hostBuffer.data() : mManagedBuffers[i]->deviceBuffer.data();
-            const void* srcPtr = deviceToHost ? mManagedBuffers[i]->deviceBuffer.data() : mManagedBuffers[i]->hostBuffer.data();
+            void* dstPtr
+                = deviceToHost ? mManagedBuffers[i]->hostBuffer.data() : mManagedBuffers[i]->deviceBuffer.data();
+            const void* srcPtr
+                = deviceToHost ? mManagedBuffers[i]->deviceBuffer.data() : mManagedBuffers[i]->hostBuffer.data();
             const size_t byteSize = mManagedBuffers[i]->hostBuffer.size();
             const cudaMemcpyKind memcpyType = deviceToHost ? cudaMemcpyDeviceToHost : cudaMemcpyHostToDevice;
             if ((copyInput && mEngine->bindingIsInput(i)) || (!copyInput && !mEngine->bindingIsInput(i)))
@@ -341,7 +385,7 @@ private:
     std::shared_ptr<nvinfer1::ICudaEngine> mEngine;              //!< The pointer to the engine
     int mBatchSize;                                              //!< The batch size
     std::vector<std::unique_ptr<ManagedBuffer>> mManagedBuffers; //!< The vector of pointers to managed buffers
-    std::vector<void*> mDeviceBindings;                          //!< The vector of device buffers needed for engine execution
+    std::vector<void*> mDeviceBindings; //!< The vector of device buffers needed for engine execution
 };
 
 } // namespace samplesCommon

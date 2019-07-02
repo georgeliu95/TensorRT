@@ -19,7 +19,8 @@
 //! This file contains the implementation of the MNIST API sample. It creates the network
 //! for MNIST classification using the API.
 //! It can be run with the following command line:
-//! Command: ./sample_mnist_api [-h or --help] [-d=/path/to/data/dir or --datadir=/path/to/data/dir] [--useDLACore=<int>]
+//! Command: ./sample_mnist_api [-h or --help] [-d=/path/to/data/dir or --datadir=/path/to/data/dir]
+//! [--useDLACore=<int>]
 //!
 
 #include "argsParser.h"
@@ -184,7 +185,8 @@ bool SampleMNISTAPI::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& build
     assert(scale_1);
 
     // Add convolution layer with 20 outputs and a 5x5 filter.
-    IConvolutionLayer* conv1 = network->addConvolution(*scale_1->getOutput(0), 20, DimsHW{5, 5}, mWeightMap["conv1filter"], mWeightMap["conv1bias"]);
+    IConvolutionLayer* conv1 = network->addConvolution(
+        *scale_1->getOutput(0), 20, DimsHW{5, 5}, mWeightMap["conv1filter"], mWeightMap["conv1bias"]);
     assert(conv1);
     conv1->setStride(DimsHW{1, 1});
 
@@ -194,7 +196,8 @@ bool SampleMNISTAPI::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& build
     pool1->setStride(DimsHW{2, 2});
 
     // Add second convolution layer with 50 outputs and a 5x5 filter.
-    IConvolutionLayer* conv2 = network->addConvolution(*pool1->getOutput(0), 50, DimsHW{5, 5}, mWeightMap["conv2filter"], mWeightMap["conv2bias"]);
+    IConvolutionLayer* conv2 = network->addConvolution(
+        *pool1->getOutput(0), 50, DimsHW{5, 5}, mWeightMap["conv2filter"], mWeightMap["conv2bias"]);
     assert(conv2);
     conv2->setStride(DimsHW{1, 1});
 
@@ -204,7 +207,8 @@ bool SampleMNISTAPI::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& build
     pool2->setStride(DimsHW{2, 2});
 
     // Add fully connected layer with 500 outputs.
-    IFullyConnectedLayer* ip1 = network->addFullyConnected(*pool2->getOutput(0), 500, mWeightMap["ip1filter"], mWeightMap["ip1bias"]);
+    IFullyConnectedLayer* ip1
+        = network->addFullyConnected(*pool2->getOutput(0), 500, mWeightMap["ip1filter"], mWeightMap["ip1bias"]);
     assert(ip1);
 
     // Add activation layer using the ReLU algorithm.
@@ -212,7 +216,8 @@ bool SampleMNISTAPI::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& build
     assert(relu1);
 
     // Add second fully connected layer with 20 outputs.
-    IFullyConnectedLayer* ip2 = network->addFullyConnected(*relu1->getOutput(0), mParams.outputSize, mWeightMap["ip2filter"], mWeightMap["ip2bias"]);
+    IFullyConnectedLayer* ip2 = network->addFullyConnected(
+        *relu1->getOutput(0), mParams.outputSize, mWeightMap["ip2filter"], mWeightMap["ip2bias"]);
     assert(ip2);
 
     // Add softmax layer to determine the probability.
@@ -236,7 +241,8 @@ bool SampleMNISTAPI::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& build
 
     samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
 
-    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
+    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
+        builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
     if (!mEngine)
     {
         return false;
@@ -299,11 +305,11 @@ bool SampleMNISTAPI::processInput(const samplesCommon::BufferManager& buffers)
     srand(unsigned(time(nullptr)));
     std::vector<uint8_t> fileData(mParams.inputH * mParams.inputW);
     mNumber = rand() % mParams.outputSize;
-    readPGMFile(locateFile(std::to_string(mNumber) + ".pgm", mParams.dataDirs), fileData.data(), mParams.inputH, mParams.inputW);
+    readPGMFile(locateFile(std::to_string(mNumber) + ".pgm", mParams.dataDirs), fileData.data(), mParams.inputH,
+        mParams.inputW);
 
     // Print ASCII representation of digit image
-    std::cout << "\nInput:\n"
-              << std::endl;
+    std::cout << "\nInput:\n" << std::endl;
     for (int i = 0; i < mParams.inputH * mParams.inputW; i++)
     {
         std::cout << (" .:-=+*#%@"[fileData[i] / 26]) << (((i + 1) % mParams.inputW) ? "" : "\n");
@@ -316,7 +322,8 @@ bool SampleMNISTAPI::processInput(const samplesCommon::BufferManager& buffers)
         return false;
     }
 
-    auto meanBlob = SampleUniquePtr<nvcaffeparser1::IBinaryProtoBlob>(parser->parseBinaryProto(locateFile(mParams.mnistMeansProto, mParams.dataDirs).c_str()));
+    auto meanBlob = SampleUniquePtr<nvcaffeparser1::IBinaryProtoBlob>(
+        parser->parseBinaryProto(locateFile(mParams.mnistMeansProto, mParams.dataDirs).c_str()));
     if (!meanBlob)
     {
         return false;
@@ -346,8 +353,7 @@ bool SampleMNISTAPI::processInput(const samplesCommon::BufferManager& buffers)
 bool SampleMNISTAPI::verifyOutput(const samplesCommon::BufferManager& buffers)
 {
     float* prob = static_cast<float*>(buffers.getHostBuffer(mParams.outputTensorNames[0]));
-    std::cout << "\nOutput:\n"
-              << std::endl;
+    std::cout << "\nOutput:\n" << std::endl;
     float maxVal{0.0f};
     int idx{0};
     for (int i = 0; i < mParams.outputSize; i++)
@@ -480,10 +486,17 @@ SampleMNISTAPIParams initializeSampleParams(const samplesCommon::Args& args)
 //!
 void printHelpInfo()
 {
-    std::cout << "Usage: ./sample_mnist_api [-h or --help] [-d or --datadir=<path to data directory>] [--useDLACore=<int>]" << std::endl;
+    std::cout
+        << "Usage: ./sample_mnist_api [-h or --help] [-d or --datadir=<path to data directory>] [--useDLACore=<int>]"
+        << std::endl;
     std::cout << "--help          Display help information" << std::endl;
-    std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used multiple times to add multiple directories. If no data directories are given, the default is to use (data/samples/mnist/, data/mnist/)" << std::endl;
-    std::cout << "--useDLACore=N  Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, where n is the number of DLA engines on the platform." << std::endl;
+    std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used "
+                 "multiple times to add multiple directories. If no data directories are given, the default is to use "
+                 "(data/samples/mnist/, data/mnist/)"
+              << std::endl;
+    std::cout << "--useDLACore=N  Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, "
+                 "where n is the number of DLA engines on the platform."
+              << std::endl;
     std::cout << "--int8          Run in Int8 mode." << std::endl;
     std::cout << "--fp16          Run in FP16 mode." << std::endl;
 }

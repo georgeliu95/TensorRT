@@ -30,7 +30,7 @@ This plugin takes three inputs, `loc_data`, `conf_data` and `prior_data` and gen
 -   `confidence score`
 -   `bounding box labels`
     
-after non maximum suppression.
+and another output containing the number of valid detections for each batch item after non maximum suppression.
 
 Where:
 -   `loc_data` is the predicted bounding box data subject to decoding. It has a shape of `[batchSize, numPriors * numLocClasses * 4, 1, 1]`. Where:
@@ -47,7 +47,7 @@ After decoding, the decoded boxes will proceed to the non maximum suppression st
 -   `nmsed box scores` (1 value)
 -   `nmsed box class IDs` (1 value)
 
-The `nmsPlugin` generates an output of shape `[batchSize, 1, keepTopK, 7]` which contains almost the same information as the outputs from `batchedNMSPlugin`.
+The `nmsPlugin` generates an output of shape `[batchSize, 1, keepTopK, 7]` which contains the same information as the outputs `nmsed box locations`, `nmsed box scores`, and `nmsed box class IDs` from `batchedNMSPlugin`, and an another output of shape `[batchSize, 1, 1, 1]` which contains the same information as the output `nmsed box count` from `batchedNMSPlugin`.
 
 ## Parameters
 
@@ -129,8 +129,7 @@ Using or having variance encoded, the encoded bounding box representation is:
 
 ### `inputOrder`
 
-Ensure you provide the correct order of the input pointers that the plugin is using. One way to determine the correct order of the input pointers is visualizing the model graphs in TensorBoard. Although the graph visualized is before TensorRT graph parsing, the order of input pointers will be maintained.
-
+When converting the frozen graph `pb` file to the unified framework format `uff` file using `convert-to-uff`, make sure to generate a human readable graph file with argument `-t`. The order of the tensor inputs to the plugin will be exactly the same to the order of tensor inputs in the corresponding node shown in the human readable graph file.
 
 ## Additional resources
 

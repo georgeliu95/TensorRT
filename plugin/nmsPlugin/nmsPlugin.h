@@ -15,9 +15,9 @@
  */
 #ifndef TRT_NMS_PLUGIN_H
 #define TRT_NMS_PLUGIN_H
+#include "kernel.h"
 #include "nmsUtils.h"
 #include "plugin.h"
-#include "kernel.h"
 #include <string>
 #include <vector>
 
@@ -114,7 +114,7 @@ private:
     DetectionOutputParameters params;
     static std::vector<PluginField> mPluginAttributes;
 };
-}
-}
+} // namespace plugin
+} // namespace nvinfer1
 
 #endif // TRT_NMS_PLUGIN_H

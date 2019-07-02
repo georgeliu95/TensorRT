@@ -22,7 +22,8 @@
 #include <string>
 
 // Enumerator for status
-typedef enum {
+typedef enum
+{
     STATUS_SUCCESS = 0,
     STATUS_FAILURE = 1,
     STATUS_BAD_PARAM = 2,

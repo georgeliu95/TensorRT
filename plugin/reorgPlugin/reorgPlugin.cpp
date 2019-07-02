@@ -17,8 +17,8 @@
 
 using namespace nvinfer1;
 using nvinfer1::PluginType;
-using nvinfer1::plugin::ReorgPluginCreator;
 using nvinfer1::plugin::Reorg;
+using nvinfer1::plugin::ReorgPluginCreator;
 
 static const char* REORG_PLUGIN_VERSION{"1"};
 static const char* REORG_PLUGIN_NAME{"Reorg_TRT"};
@@ -32,7 +32,7 @@ Reorg::Reorg(int stride)
 
 Reorg::Reorg(const void* buffer, size_t length)
 {
-    const char *d = reinterpret_cast<const char *>(buffer), *a = d;
+    const char *d = reinterpret_cast<const char*>(buffer), *a = d;
     C = read<int>(d);
     H = read<int>(d);
     W = read<int>(d);
@@ -69,7 +69,7 @@ size_t Reorg::getSerializationSize() const
 
 void Reorg::serialize(void* buffer) const
 {
-    char *d = reinterpret_cast<char *>(buffer), *a = d;
+    char *d = reinterpret_cast<char*>(buffer), *a = d;
     write(d, C);
     write(d, H);
     write(d, W);
@@ -87,9 +87,7 @@ int Reorg::initialize()
     return STATUS_SUCCESS;
 }
 
-void Reorg::terminate()
-{
-}
+void Reorg::terminate() {}
 
 size_t Reorg::getWorkspaceSize(int maxBatchSize) const
 {
@@ -161,14 +159,10 @@ void Reorg::configurePlugin(const Dims* inputDims, int nbInputs, const Dims* out
 }
 
 // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
-void Reorg::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
-{
-}
+void Reorg::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) {}
 
 // Detach the plugin object from its execution context.
-void Reorg::detachFromContext()
-{
-}
+void Reorg::detachFromContext() {}
 
 IPluginV2Ext* Reorg::clone() const
 {

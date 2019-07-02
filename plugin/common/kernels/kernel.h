@@ -16,8 +16,8 @@
 #ifndef TRT_KERNEL_H
 #define TRT_KERNEL_H
 
-#include "plugin.h"
 #include "cublas_v2.h"
+#include "plugin.h"
 #include <cassert>
 #include <cstdio>
 
@@ -25,7 +25,11 @@ using namespace nvinfer1;
 using namespace nvinfer1::plugin;
 #define DEBUG_ENABLE 0
 
-typedef enum { NCHW = 0, NC4HW = 1 } DLayout_t;
+typedef enum
+{
+    NCHW = 0,
+    NC4HW = 1
+} DLayout_t;
 
 pluginStatus_t allClassNMS(cudaStream_t stream, int num, int num_classes, int num_preds_per_class, int top_k,
     float nms_threshold, bool share_location, bool isNormalized, DataType DT_SCORE, DataType DT_BBOX, void* bbox_data,
@@ -38,7 +42,7 @@ pluginStatus_t detectionInference(cudaStream_t stream, int N, int C1, int C2, bo
     const void* priorData, DataType DT_SCORE, const void* confData, void* keepCount, void* topDetections,
     void* workspace, bool isNormalized = true, bool confSigmoid = false
 
-    );
+);
 
 pluginStatus_t gatherTopDetections(cudaStream_t stream, bool shareLocation, int numImages, int numPredsPerClass,
     int numClasses, int topK, int keepTopK, DataType DT_BBOX, DataType DT_SCORE, const void* indices,
@@ -195,5 +199,15 @@ pluginStatus_t RPROIInferenceFused(cudaStream_t stream, int N, int A, int C, int
 // GENERATE ANCHORS CPU
 pluginStatus_t generateAnchors_cpu(
     int numRatios, float* ratios, int numScales, float* scales, int baseSize, float* anchors);
+
+int cropAndResizeInference(cudaStream_t stream, int n, const void* image, const void* rois, int batch_size,
+    int input_height, int input_width, int num_boxes, int crop_height, int crop_width, int depth, void* output);
+
+int proposalInference_gpu(cudaStream_t stream, const void* rpn_prob, const void* rpn_regr, int batch_size,
+    int input_height, int input_width, int rpn_height, int rpn_width, int MAX_BOX_NUM, int RPN_PRE_NMS_TOP_N,
+    float* ANCHOR_SIZES, int anc_size_num, float* ANCHOR_RATIOS, int anc_ratio_num, float rpn_std_scaling,
+    int rpn_stride, float bbox_min_size, float nms_iou_threshold, void* workspace, void* output);
+
+size_t _get_workspace_size(int N, int anc_size_num, int anc_ratio_num, int H, int W, int nmsMaxOut);
 
 #endif

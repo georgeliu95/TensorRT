@@ -22,15 +22,15 @@
 #include <vector>
 
 using namespace nvinfer1;
-using nvinfer1::plugin::BatchedNMSPluginCreator;
 using nvinfer1::plugin::BatchedNMSPlugin;
+using nvinfer1::plugin::BatchedNMSPluginCreator;
 using nvinfer1::plugin::NMSParameters;
 
 namespace
 {
 const char* NMS_PLUGIN_VERSION{"1"};
 const char* NMS_PLUGIN_NAME{"BatchedNMS_TRT"};
-}
+} // namespace
 
 PluginFieldCollection BatchedNMSPluginCreator::mFC{};
 std::vector<PluginField> BatchedNMSPluginCreator::mPluginAttributes;
@@ -42,7 +42,7 @@ BatchedNMSPlugin::BatchedNMSPlugin(NMSParameters params)
 
 BatchedNMSPlugin::BatchedNMSPlugin(const void* data, size_t length)
 {
-    const char *d = reinterpret_cast<const char *>(data), *a = d;
+    const char *d = reinterpret_cast<const char*>(data), *a = d;
     param = read<NMSParameters>(d);
     boxesSize = read<int>(d);
     scoresSize = read<int>(d);
@@ -61,9 +61,7 @@ int BatchedNMSPlugin::initialize()
     return STATUS_SUCCESS;
 }
 
-void BatchedNMSPlugin::terminate()
-{
-}
+void BatchedNMSPlugin::terminate() {}
 
 Dims BatchedNMSPlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
 {
@@ -127,7 +125,7 @@ size_t BatchedNMSPlugin::getSerializationSize() const
 
 void BatchedNMSPlugin::serialize(void* buffer) const
 {
-    char *d = reinterpret_cast<char *>(buffer), *a = d;
+    char *d = reinterpret_cast<char*>(buffer), *a = d;
     write(d, param);
     write(d, boxesSize);
     write(d, scoresSize);

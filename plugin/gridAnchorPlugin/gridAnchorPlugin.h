@@ -15,9 +15,9 @@
  */
 #ifndef TRT_GRID_ANCHOR_PLUGIN_H
 #define TRT_GRID_ANCHOR_PLUGIN_H
-#include "plugin.h"
-#include "kernel.h"
 #include "cudnn.h"
+#include "kernel.h"
+#include "plugin.h"
 #include <cublas_v2.h>
 #include <string>
 #include <vector>
@@ -116,7 +116,7 @@ private:
     static PluginFieldCollection mFC;
     static std::vector<PluginField> mPluginAttributes;
 };
-}
-}
+} // namespace plugin
+} // namespace nvinfer1
 
 #endif // TRT_GRID_ANCHOR_PLUGIN_H

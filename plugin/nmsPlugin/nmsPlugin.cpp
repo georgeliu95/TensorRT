@@ -20,15 +20,15 @@
 #include <vector>
 
 using namespace nvinfer1;
-using nvinfer1::plugin::NMSPluginCreator;
 using nvinfer1::plugin::DetectionOutput;
 using nvinfer1::plugin::DetectionOutputParameters;
+using nvinfer1::plugin::NMSPluginCreator;
 
 namespace
 {
 const char* NMS_PLUGIN_VERSION{"1"};
 const char* NMS_PLUGIN_NAME{"NMS_TRT"};
-}
+} // namespace
 
 PluginFieldCollection NMSPluginCreator::mFC{};
 std::vector<PluginField> NMSPluginCreator::mPluginAttributes;
@@ -50,9 +50,9 @@ DetectionOutput::DetectionOutput(DetectionOutputParameters params, int C1, int C
 // Parameterized constructor
 DetectionOutput::DetectionOutput(const void* data, size_t length)
 {
-    const char *d = reinterpret_cast<const char *>(data), *a = d;
+    const char *d = reinterpret_cast<const char*>(data), *a = d;
     param = read<DetectionOutputParameters>(d);
-    // Channel size of the locData tensor 
+    // Channel size of the locData tensor
     // numPriors * numLocClasses * 4
     C1 = read<int>(d);
     // Channel size of the confData tensor
@@ -74,9 +74,7 @@ int DetectionOutput::initialize()
     return STATUS_SUCCESS;
 }
 
-void DetectionOutput::terminate()
-{
-}
+void DetectionOutput::terminate() {}
 
 // Returns output dimensions at given index
 Dims DetectionOutput::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
@@ -131,7 +129,7 @@ size_t DetectionOutput::getSerializationSize() const
 // Serialization of plugin parameters
 void DetectionOutput::serialize(void* buffer) const
 {
-    char *d = reinterpret_cast<char *>(buffer), *a = d;
+    char *d = reinterpret_cast<char*>(buffer), *a = d;
     write(d, param);
     write(d, C1);
     write(d, C2);
@@ -258,9 +256,7 @@ void DetectionOutput::attachToContext(
 }
 
 // Detach the plugin object from its execution context.
-void DetectionOutput::detachFromContext()
-{
-}
+void DetectionOutput::detachFromContext() {}
 
 // Plugin creator constructor
 NMSPluginCreator::NMSPluginCreator()

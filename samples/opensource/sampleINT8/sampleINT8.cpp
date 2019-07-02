@@ -46,9 +46,9 @@ const std::string gSampleName = "TensorRT.sample_int8";
 //!
 struct SampleINT8Params : public samplesCommon::CaffeSampleParams
 {
-    int nbCalBatches; //!< The number of batches for calibration
-    int calBatchSize; //!< The calibration batch size
-    std::string networkName;  //!< The name of the network
+    int nbCalBatches;        //!< The number of batches for calibration
+    int calBatchSize;        //!< The calibration batch size
+    std::string networkName; //!< The name of the network
 };
 
 //! \brief  The SampleINT8 class implements the INT8 sample
@@ -235,8 +235,8 @@ bool SampleINT8::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
     {
         BatchStream calibrationStream(
             mParams.calBatchSize, mParams.nbCalBatches, "batches/batch", "", mParams.dataDirs);
-        calibrator.reset(
-            new Int8EntropyCalibrator2(calibrationStream, 0, mParams.networkName.c_str(), mParams.inputTensorNames[0].c_str()));
+        calibrator.reset(new Int8EntropyCalibrator2(
+            calibrationStream, 0, mParams.networkName.c_str(), mParams.inputTensorNames[0].c_str()));
         config->setInt8Calibrator(calibrator.get());
     }
 
@@ -251,7 +251,8 @@ bool SampleINT8::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
         }
     }
 
-    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
+    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
+        builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
     if (!mEngine)
     {
         return false;
@@ -530,7 +531,7 @@ int main(int argc, char** argv)
             if (!sample.isSupported(dataTypes[i]))
             {
                 gLogWarning << "Skipping " << dataTypeNames[i] << " since the platform does not support this data type."
-                    << std::endl;
+                            << std::endl;
                 continue;
             }
             return gLogger.reportFail(sampleTest);

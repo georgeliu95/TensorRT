@@ -27,7 +27,8 @@
 class EntropyCalibratorImpl
 {
 public:
-    EntropyCalibratorImpl(BatchStream& stream, int firstBatch, std::string networkName, const char* inputBlobName, bool readCache = true)
+    EntropyCalibratorImpl(
+        BatchStream& stream, int firstBatch, std::string networkName, const char* inputBlobName, bool readCache = true)
         : mStream(stream)
         , mCalibrationTableName("CalibrationTable" + networkName)
         , mInputBlobName(inputBlobName)
@@ -44,7 +45,10 @@ public:
         CHECK(cudaFree(mDeviceInput));
     }
 
-    int getBatchSize() const { return mStream.getBatchSize(); }
+    int getBatchSize() const
+    {
+        return mStream.getBatchSize();
+    }
 
     bool getBatch(void* bindings[], const char* names[], int nbBindings)
     {
@@ -65,7 +69,8 @@ public:
         input >> std::noskipws;
         if (mReadCache && input.good())
         {
-            std::copy(std::istream_iterator<char>(input), std::istream_iterator<char>(), std::back_inserter(mCalibrationCache));
+            std::copy(std::istream_iterator<char>(input), std::istream_iterator<char>(),
+                std::back_inserter(mCalibrationCache));
         }
         length = mCalibrationCache.size();
         return length ? mCalibrationCache.data() : nullptr;
@@ -95,12 +100,16 @@ private:
 class Int8EntropyCalibrator2 : public IInt8EntropyCalibrator2
 {
 public:
-    Int8EntropyCalibrator2(BatchStream& stream, int firstBatch, const char* networkName, const char* inputBlobName, bool readCache = true)
+    Int8EntropyCalibrator2(
+        BatchStream& stream, int firstBatch, const char* networkName, const char* inputBlobName, bool readCache = true)
         : mImpl(stream, firstBatch, networkName, inputBlobName, readCache)
     {
     }
 
-    int getBatchSize() const override { return mImpl.getBatchSize(); }
+    int getBatchSize() const override
+    {
+        return mImpl.getBatchSize();
+    }
 
     bool getBatch(void* bindings[], const char* names[], int nbBindings) override
     {

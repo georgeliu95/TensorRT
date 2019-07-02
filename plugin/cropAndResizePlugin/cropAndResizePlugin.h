@@ -13,26 +13,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef TRT_REORG_PLUGIN_H
-#define TRT_REORG_PLUGIN_H
+
+#ifndef CROP_AND_RESIZE_PLUGIN_H
+#define CROP_AND_RESIZE_PLUGIN_H
+
+#include "NvInferPlugin.h"
 #include "kernel.h"
 #include "plugin.h"
-#include <iostream>
+#include <string>
 #include <vector>
 
+using namespace nvinfer1::plugin;
+
+// One of the preferred ways of making TensorRT to be able to see
+// our custom layer requires extending IPluginV2Ext and BaseCreator classes.
+// For requirements for overriden functions, check TensorRT API docs.
 namespace nvinfer1
 {
 namespace plugin
 {
 
-class Reorg : public IPluginV2Ext
+class CropAndResizePlugin : public IPluginV2Ext
 {
 public:
-    Reorg(int stride);
+    CropAndResizePlugin(const std::string name);
+    CropAndResizePlugin(const std::string name, int crop_width, int crop_height);
+    CropAndResizePlugin(const std::string name, int crop_width, int crop_height, int depth, int input_width,
+        int input_height, int max_box_num);
+    CropAndResizePlugin(const std::string name, const void* serial_buf, size_t serial_size);
 
-    Reorg(const void* buffer, size_t length);
+    // It doesn't make sense to make CropAndResizePlugin without arguments, so we delete default constructor.
+    CropAndResizePlugin() = delete;
 
-    ~Reorg() override = default;
+    ~CropAndResizePlugin() override;
 
     int getNbOutputs() const override;
 
@@ -42,7 +55,10 @@ public:
 
     void terminate() override;
 
-    size_t getWorkspaceSize(int maxBatchSize) const override;
+    size_t getWorkspaceSize(int) const override
+    {
+        return 0;
+    };
 
     int enqueue(
         int batchSize, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream) override;
@@ -59,7 +75,7 @@ public:
 
     void destroy() override;
 
-    IPluginV2Ext* clone() const override;
+    nvinfer1::IPluginV2Ext* clone() const override;
 
     void setPluginNamespace(const char* pluginNamespace) override;
 
@@ -81,17 +97,17 @@ public:
     void detachFromContext() override;
 
 private:
-    int C, H, W;
-    int stride;
-    const char* mPluginNamespace;
+    const std::string mLayerName;
+    size_t mInputWidth, mInputHeight, mNumboxes, mCropHeight, mCropWidth, mDepth;
+    std::string mNamespace;
 };
 
-class ReorgPluginCreator : public BaseCreator
+class CropAndResizePluginCreator : public BaseCreator
 {
 public:
-    ReorgPluginCreator();
+    CropAndResizePluginCreator();
 
-    ~ReorgPluginCreator() override = default;
+    ~CropAndResizePluginCreator() override;
 
     const char* getPluginName() const override;
 
@@ -105,10 +121,12 @@ public:
 
 private:
     static PluginFieldCollection mFC;
-    int stride;
     static std::vector<PluginField> mPluginAttributes;
+    std::string mNamespace;
 };
+
 } // namespace plugin
+
 } // namespace nvinfer1
 
-#endif // TRT_REORG_PLUGIN_H
+#endif // CROP_AND_RESIZE_PLUGIN_H

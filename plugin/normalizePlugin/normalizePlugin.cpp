@@ -21,14 +21,14 @@
 #include <sstream>
 
 using namespace nvinfer1;
-using nvinfer1::plugin::NormalizePluginCreator;
 using nvinfer1::plugin::Normalize;
+using nvinfer1::plugin::NormalizePluginCreator;
 
 namespace
 {
 const char* NORMALIZE_PLUGIN_VERSION{"1"};
 const char* NORMALIZE_PLUGIN_NAME{"Normalize_TRT"};
-}
+} // namespace
 
 PluginFieldCollection NormalizePluginCreator::mFC{};
 std::vector<PluginField> NormalizePluginCreator::mPluginAttributes;
@@ -42,6 +42,7 @@ Normalize::Normalize(const Weights* weights, int nbWeights, bool acrossSpatial, 
     ASSERT(nbWeights == 1);
     ASSERT(weights[0].count >= 1);
     mWeights = copyToDevice(weights[0].values, weights[0].count);
+    cublasCreate(&mCublas);
 }
 
 Normalize::Normalize(
@@ -57,11 +58,12 @@ Normalize::Normalize(
     ASSERT(nbWeights == 1);
     ASSERT(weights[0].count >= 1);
     mWeights = copyToDevice(weights[0].values, weights[0].count);
+    cublasCreate(&mCublas);
 }
 
 Normalize::Normalize(const void* buffer, size_t length)
 {
-    const char *d = reinterpret_cast<const char *>(buffer), *a = d;
+    const char *d = reinterpret_cast<const char*>(buffer), *a = d;
     C = read<int>(d);
     H = read<int>(d);
     W = read<int>(d);
@@ -90,13 +92,12 @@ Dims Normalize::getOutputDimensions(int index, const Dims* inputs, int nbInputDi
 
 int Normalize::initialize()
 {
-    mCublas = nullptr;
     return 0;
 }
 
 void Normalize::terminate()
 {
-    CUBLASASSERT(cublasDestroy(*mCublas));
+    CUBLASASSERT(cublasDestroy(mCublas));
 }
 
 size_t Normalize::getWorkspaceSize(int maxBatchSize) const
@@ -108,7 +109,7 @@ int Normalize::enqueue(int batchSize, const void* const* inputs, void** outputs,
 {
     const void* inputData = inputs[0];
     void* outputData = outputs[0];
-    pluginStatus_t status = normalizeInference(stream, *mCublas, acrossSpatial, channelShared, batchSize, C, H, W, eps,
+    pluginStatus_t status = normalizeInference(stream, mCublas, acrossSpatial, channelShared, batchSize, C, H, W, eps,
         reinterpret_cast<const float*>(mWeights.values), inputData, outputData, workspace);
     ASSERT(status == STATUS_SUCCESS);
     return 0;
@@ -122,7 +123,7 @@ size_t Normalize::getSerializationSize() const
 
 void Normalize::serialize(void* buffer) const
 {
-    char *d = reinterpret_cast<char *>(buffer), *a = d;
+    char *d = reinterpret_cast<char*>(buffer), *a = d;
     write(d, C);
     write(d, H);
     write(d, W);
@@ -219,17 +220,10 @@ void Normalize::configurePlugin(const Dims* inputDims, int nbInputs, const Dims*
 // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
 void Normalize::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
 {
-    mCublas = static_cast<cublasHandle_t*>(&cublasContext);
 }
 
 // Detach the plugin object from its execution context.
-void Normalize::detachFromContext()
-{
-    if (nullptr != mCublas)
-    {
-        delete mCublas;
-    }
-}
+void Normalize::detachFromContext() {}
 
 const char* Normalize::getPluginType() const
 {

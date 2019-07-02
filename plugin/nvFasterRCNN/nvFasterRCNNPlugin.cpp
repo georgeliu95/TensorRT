@@ -15,20 +15,21 @@
  */
 #include "nvFasterRCNNPlugin.h"
 #include <cstdio>
+#include <cstring>
 #include <cublas_v2.h>
 #include <iostream>
 
 using namespace nvinfer1;
-using nvinfer1::plugin::RPROIPluginCreator;
-using nvinfer1::plugin::RPROIPlugin;
 using nvinfer1::Dims;
 using nvinfer1::PluginType;
+using nvinfer1::plugin::RPROIPlugin;
+using nvinfer1::plugin::RPROIPluginCreator;
 
 namespace
 {
 const char* RPROI_PLUGIN_VERSION{"1"};
 const char* RPROI_PLUGIN_NAME{"RPROI_TRT"};
-}
+} // namespace
 
 PluginFieldCollection RPROIPluginCreator::mFC{};
 std::vector<PluginField> RPROIPluginCreator::mPluginAttributes;
@@ -75,7 +76,7 @@ RPROIPlugin::RPROIPlugin(RPROIParams params, const float* anchorsRatios, const f
 RPROIPlugin::RPROIPlugin(const void* data, size_t length)
     : anchorsDev(nullptr)
 {
-    const char *d = reinterpret_cast<const char *>(data), *a = d;
+    const char *d = reinterpret_cast<const char*>(data), *a = d;
     params = *reinterpret_cast<const RPROIParams*>(d);
     d += sizeof(RPROIParams);
     A = read<int>(d);
@@ -157,7 +158,7 @@ int RPROIPlugin::enqueue(int batchSize, const void* const* inputs, void** output
 
     // Coordinates of region of interest (ROI) bounding boxes on the original input image.
     void* rois = outputs[0];
-    // ROI pooled feature map corresponding to the region of interest (ROI). 
+    // ROI pooled feature map corresponding to the region of interest (ROI).
     void* pfmap = outputs[1];
 
     pluginStatus_t status = RPROIInferenceFused(stream, batchSize, A, C, H, W, params.poolingH, params.poolingW,
@@ -180,7 +181,7 @@ size_t RPROIPlugin::getSerializationSize() const
 
 void RPROIPlugin::serialize(void* buffer) const
 {
-    char *d = reinterpret_cast<char *>(buffer), *a = d;
+    char *d = reinterpret_cast<char*>(buffer), *a = d;
     *reinterpret_cast<RPROIParams*>(d) = params;
     d += sizeof(RPROIParams);
     *reinterpret_cast<int*>(d) = A;
@@ -225,9 +226,7 @@ const char* RPROIPlugin::getPluginVersion() const
     return RPROI_PLUGIN_VERSION;
 }
 
-void RPROIPlugin::terminate()
-{
-}
+void RPROIPlugin::terminate() {}
 
 void RPROIPlugin::destroy()
 {
@@ -307,9 +306,7 @@ void RPROIPlugin::attachToContext(cudnnContext* cudnnContext, cublasContext* cub
 }
 
 // Detach the plugin object from its execution context.
-void RPROIPlugin::detachFromContext()
-{
-}
+void RPROIPlugin::detachFromContext() {}
 
 RPROIPluginCreator::RPROIPluginCreator()
 {

@@ -15,9 +15,9 @@
  */
 #ifndef TRT_PRIOR_BOX_PLUGIN_H
 #define TRT_PRIOR_BOX_PLUGIN_H
-#include "plugin.h"
-#include "kernel.h"
 #include "cudnn.h"
+#include "kernel.h"
+#include "plugin.h"
 #include <cstdlib>
 #include <cublas_v2.h>
 #include <string>
@@ -128,7 +128,7 @@ private:
     static std::vector<PluginField> mPluginAttributes;
     std::vector<void*> mTmpAllocs;
 };
-}
-}
+} // namespace plugin
+} // namespace nvinfer1
 
 #endif // TRT_PRIOR_BOX_PLUGIN_H

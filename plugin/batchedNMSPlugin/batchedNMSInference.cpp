@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 #include "bboxUtils.h"
-#include "nmsUtils.h"
-#include "kernel.h"
 #include "cuda_runtime_api.h"
 #include "gatherNMSOutputs.h"
+#include "kernel.h"
+#include "nmsUtils.h"
 
 pluginStatus_t nmsInference(cudaStream_t stream, const int N, const int perBatchBoxesSize, const int perBatchScoresSize,
     const bool shareLocation, const int backgroundLabelId, const int numPredsPerClass, const int numClasses,
@@ -31,7 +31,8 @@ pluginStatus_t nmsInference(cudaStream_t stream, const int N, const int perBatch
      * shareLocation
      * Bounding box are shared among all classes, i.e., a bounding box could be classified as any candidate class.
      * Otherwise
-     * Bounding box are designed for specific classes, i.e., a bounding box could be classified as one certain class or not (binary classification).
+     * Bounding box are designed for specific classes, i.e., a bounding box could be classified as one certain class or
+     * not (binary classification).
      */
     const int numLocClasses = shareLocation ? 1 : numClasses;
 
