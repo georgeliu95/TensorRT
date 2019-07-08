@@ -939,7 +939,6 @@ public:
     //!
     //! \param blob The memory that holds the serialized engine.
     //! \param size The size of the memory.
-    //! \param pluginFactory The plugin factory, if any plugins are used by the network, otherwise nullptr.
     //!
     //! \return The engine, or nullptr if it could not be deserialized.
     //!

@@ -764,6 +764,19 @@ public:
     //! \see setErrorRecorder
     //!
     virtual IErrorRecorder* getErrorRecorder() const noexcept = 0;
+
+    //!
+    //! \breif Deserialize an engine from a stream when plugin factory is not used.
+    //!
+    //! \param blob The memory that holds the serialized engine.
+    //! \param size The size of the memory.
+    //!
+    //! \return The engine, or nullptr if it could not be deserialized.
+    //!
+    nvinfer1::ICudaEngine* deserializeCudaEngine(const void* blob, std::size_t size) noexcept
+    {
+        return deserializeCudaEngine(blob, size, nullptr);
+    }
 };
 
 //!
