@@ -55,15 +55,15 @@ The TopK layer finds the top K maximum (or minimum) elements along a dimension, 
 
 ## Training an MLP network
 
-This sample comes with pre-trained weights. However, if you want to train your own MLP network, you first need to generate the weights by training a TensorFlow based neural network using an MLP optimizer, and then verify that the trained weights are converted into a format that sampleMLP can read. If you want to use the weights that are shipped with this sample, see [Running the sample](#heading-3).
+This sample comes with pre-trained weights. However, if you want to train your own MLP network, you first need to generate the weights by training a TensorFlow based neural network using an MLP optimizer, and then verify that the trained weights are converted into a format that sampleMLP can read. If you want to use the weights that are shipped with this sample, see [Running the sample](#running-the-sample).
 
-1.  Install [TensorFlow 1.4 or later](https://www.tensorflow.org/install/pip).
-2.  Download the [TensorFlow tutorial](https://github.com/aymericdamien/TensorFlow-Examples).
+1.  [Install Python](https://www.tensorflow.org/install/pip#1.-install-the-python-development-environment-on-your-system).
+2.  Install [TensorFlow 1.4 or later](https://www.tensorflow.org/install/pip).
+3.  Download the [TensorFlow tutorial](https://github.com/aymericdamien/TensorFlow-Examples).
 	```
 	git clone https://github.com/aymericdamien/TensorFlow-Examples.git
 	cd TensorFlow-Examples
 	```
-3.  [Install Python](https://www.tensorflow.org/install/pip#1.-install-the-python-development-environment-on-your-system).
 4.  Apply the `update_mlp.patch` file to save the final result.
 	```
 	patch -p1 < <TensorRT Install>/samples/sampleMLP/update_mlp.patch
