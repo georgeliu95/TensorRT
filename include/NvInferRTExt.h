@@ -1452,7 +1452,8 @@ public:
 //! \brief Context for executing inference using an engine, with functionally unsafe features.
 //!
 //! Multiple execution contexts may exist for one ICudaEngine instance, allowing the same
-//! engine to be used for the execution of multiple batches simultaneously.
+//! engine to be used for the execution of multiple batches simultaneously. If the engine supports
+//! dynamic shapes, each execution context in concurrent use must use a separate optimization profile.
 //!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 class IExecutionContext
@@ -1579,10 +1580,23 @@ public:
     //!        getEngine().getNbOptimizationProfiles() - 1
     //!
     //! The selected profile will be used in subsequent calls to execute() or enqueue().
-    //! If this method is never called, profile 0 is selected by default.
-    //! Calling setOptimizationProfile() will invalidate all dynamic bindings for the
-    //! current execution context, so that they have to be set again using
-    //! setBindingDimensions() before calling either execute() or enqueue().
+    //!
+    //! If the associated CUDA engine has dynamic inputs, this method must be called exactly once
+    //! with a unique profileIndex before calling execute or enqueue (i.e. the profile index
+    //! may not be in use by another execution context that has not been destroyed yet). Once the
+    //! optimization profile has been set (getOptimizationProfile() != -1), it cannot be changed.
+    //! For the first execution context that is created for an engine, setOptimizationProfile(0)
+    //! is called implicitly. This means users only ever need to call this method if they need more
+    //! than a single execution context. In this case, profileIdx must be nonzero and unique for
+    //! all execution contexts that are created after the first.
+    //!
+    //! If the associated CUDA engine has not dynamic inputs, this method need not be
+    //! called, in which case the default profile index of 0 will be used (this is particularly
+    //! the case for all safe engines).
+    //!
+    //! setOptimizationProfile() must be called before calling setBindingDimensions() and 
+    //! setInputShapeBinding() for all dynamic input tensors or input shape tensors, which in 
+    //! turn must be called before either execute() or enqueue().
     //!
     //! \return true if the call succeeded, else false (e.g. input out of range)
     //!
@@ -1590,7 +1604,11 @@ public:
     virtual bool setOptimizationProfile(int profileIndex) noexcept = 0;
 
     //!
-    //! \brief Get the index of the currently selected optimization profile
+    //! \brief Get the index of the currently selected optimization profile.
+    //!
+    //! If the profile index has not been set yet (implicitly to 0 for the first execution context
+    //! to be created, or explicitly for all subsequent contexts), an invalid value of -1 will be returned
+    //! and all calls to enqueue() or execute() will fail until a valid profile index has been set.
     //!
     virtual int getOptimizationProfile() const noexcept = 0;
 
@@ -1603,11 +1621,12 @@ public:
     //! new dimension > 0). Furthermore, the dimensions must be in the valid range for the
     //! currently selected optimization profile, and the corresponding engine must not be
     //! safety-certified.
+    //! This method will fail unless a valid optimization profile is defined for the current
+    //! execution context (getOptimizationProfile() must not be -1).
     //!
     //! For all dynamic non-output bindings (which have at least one wildcard dimension of -1),
-    //! this method needs to be called after the last call of setOptimizationProfile() before
-    //! either enqueue() or execute() may be called. This can be checked using the
-    //! method allInputDimensionsSpecified().
+    //! this method needs to be called before either enqueue() or execute() may be called.
+    //! This can be checked using the method allInputDimensionsSpecified().
     //!
     //! \return false if an error occurs (e.g. index out of range), else true
     //!
@@ -1623,6 +1642,9 @@ public:
     //! call setBindingDimensions() before enqueue() or execute() may be called.
     //!
     //! If the bindingIndex is out of range, an invalid Dims with nbDims == -1 is returned.
+    //! The same invalid Dims will be returned if the engine was not built with an implicit
+    //! batch dimension and if the execution context is not currently associated with a valid
+    //! optimization profile (i.e. if getOptimizationProfile() returns -1).
     //!
     //! If ICudaEngine::bindingIsInput(bindingIndex) is false, then both
     //! allInputDimensionsSpecified() and allInputShapesSpecified() must be true
@@ -1644,6 +1666,8 @@ public:
     //!
     //! If ICudaEngine::isShapeBinding(bindingIndex) and ICudaEngine::bindingIsInput(bindingIndex)
     //! are both true, this method must be called before enqueue() or execute() may be called.
+    //! This method will fail unless a valid optimization profile is defined for the current
+    //! execution context (getOptimizationProfile() must not be -1).
     //!
     virtual bool setInputShapeBinding(int bindingIndex, const int32_t* data) noexcept = 0;
 
@@ -1658,7 +1682,8 @@ public:
     //!
     //! If ICudaEngine::bindingIsInput(bindingIndex) is false, then both
     //! allInputDimensionsSpecified() and allInputShapesSpecified() must be true
-    //! before calling this method.
+    //! before calling this method. The method will also fail if no valid optimization profile
+    //! has been set for the current execution context, i.e. if getOptimizationProfile() returns -1.
     //!
     //! \see isShapeBinding(bindingIndex)
     //!
