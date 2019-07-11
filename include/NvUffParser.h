@@ -55,7 +55,7 @@
 // Current supported Universal Framework Format (UFF) version for the parser.
 #define UFF_REQUIRED_VERSION_MAJOR 0
 #define UFF_REQUIRED_VERSION_MINOR 6
-#define UFF_REQUIRED_VERSION_PATCH 4
+#define UFF_REQUIRED_VERSION_PATCH 5
 
 namespace nvuffparser
 {
