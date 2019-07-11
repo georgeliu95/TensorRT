@@ -4683,7 +4683,8 @@ public:
     //! have an implicit batch dimension or none of them do.
     //!
     //! hasImplicitBatchDimension() is true if and only if this INetworkDefinition
-    //! was created with createNetwork() or createNetworkV2(true).
+    //! was created with createNetwork() or createNetworkV2() with the
+    //! NetworkDefinitionCreationFlag::kDEFAULT flag.
     //!
     //! \see createNetworkV2
     //!
@@ -5310,6 +5311,41 @@ protected:
     }
 };
 
+//! \typedef NetworkDefinitionCreationFlags
+//!
+//! \brief This bitset is capable of representing one or more NetworkDefinitionCreationFlag flags
+//! constructed with binary OR operations.
+//!  e.g., 1U << NetworkDefinitionCreationFlag::kEXPLICIT_BATCH
+//!
+//! \see IBuilder::createNetworkV2
+//!
+typedef uint32_t NetworkDefinitionCreationFlags;
+
+//! \enum NetworkDefinitionCreationFlag
+//!
+//! \brief List of immutable network properties expressed at network creation time.
+//! NetworkDefinitionCreationFlag is used with createNetworkV2 to specify immutable properties of the network.
+//! The createNetwork() function always had an implicit batch dimension being specified by the
+//! maxBatchSize builder parameter. createNetworkV2 with kDEFAULT flag mimics that behaviour.
+//!
+//! \see IBuilder::createNetworkV2
+//!
+enum class NetworkDefinitionCreationFlag : int
+{
+    kDEFAULT = 0x0,
+
+    //! Dynamic shape support requires that the kEXPLICIT_BATCH flag is set.
+    //! With dynamic shapes, any of the input dimensions can vary at run-time,
+    //! and there are no implicit dimensions in the network specification. This is specified by using the
+    //! wildcard dimension value -1.
+    kEXPLICIT_BATCH = 0x1, //!< Mark the network to be an explicit batch network
+};
+template <>
+constexpr inline int EnumMax<NetworkDefinitionCreationFlag>()
+{
+    return 2;
+}
+
 //!
 //! \class IBuilder
 //!
@@ -5323,7 +5359,8 @@ public:
     //!
     //! \brief Create a network definition object where all tensors have an implicit batch dimension.
     //!
-    //! This method is equivalent to createNetworkV2(true), and retained for compatibility
+    //! This method is equivalent to createNetworkV2(NetworkDefinitionCreationFlag::kDEFAULT), and retained for
+    //! compatibility
     //! with earlier version of TensorRT.  The network does not support dynamic shapes or explicit batch sizes.
     //!
     //! \see INetworkDefinition, createNetworkV2
@@ -5744,22 +5781,17 @@ public:
     virtual nvinfer1::ICudaEngine* buildEngineWithConfig(
         INetworkDefinition& network, IBuilderConfig& config) TRTNOEXCEPT = 0;
 
-    //! \brief Create a network definition object.
+    //! \brief Create a network definition object
     //!
-    //! \param implicitBatchDimension true if tensors have an implicit batch dimension.
+    //! Creates a network definition object with immutable properties specified using the flags parameter. Providing
+    //! the kDEFAULT flag as parameter mimics the behaviour of createNetwork(). CreateNetworkV2 supports dynamic shapes
+    //! and explicit batch dimensions when used with NetworkDefinitionCreationFlag::kEXPLICIT_BATCH flag.
     //!
-    //! In TensorRT 5.1 and prior, tensors defined by the network always had an implicit batch dimension,
-    //! and this dimension was specified at execution by a batchSize parameter.
-    //! Use implicitBatchDimension=true for compatibility with those versions.
+    //! \param flags Bitset of NetworkDefinitionCreationFlags specifying network properties
     //!
-    //! Dynamic shape support requires implicitBatchDimension=false.
-    //! With dynamic shapes, any of the input dimensions can vary at run-time,
-    //! and there are no implicit dimensions in the network specification. This is specified by using the
-    //! wildcard dimension value -1.
+    //! \see INetworkDefinition, NetworkDefinitionCreationFlags
     //!
-    //! \see INetworkDefinition, hasImplicitBatchDimension
-    //!
-    virtual nvinfer1::INetworkDefinition* createNetworkV2(bool implicitBatchDimension) TRTNOEXCEPT = 0;
+    virtual nvinfer1::INetworkDefinition* createNetworkV2(NetworkDefinitionCreationFlags flags) TRTNOEXCEPT = 0;
 
     //! \brief Create a new optimization profile.
     //!
