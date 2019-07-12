@@ -641,6 +641,7 @@ public:
 
     //!
     //! \brief Set allowed formats for this tensor. By default all formats are allowed.
+    //!        Shape tensors (for which isShapeTensor() returns true) may only have row major linear format.
     //!
     //! \param formats A bitmask of TensorFormat values that are supported for this tensor.
     //!
@@ -650,6 +651,7 @@ public:
 
     //!
     //! \brief Get a bitmask of TensorFormat values that the tensor supports.
+    //!        For a shape tensor, only row major linear format is allowed.
     //!
     //! \return The value specified by setAllowedFormats or all possible formats.
     //!
