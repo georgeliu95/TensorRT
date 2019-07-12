@@ -17,10 +17,18 @@
 #ifndef TENSORRT_COMMON_H
 #define TENSORRT_COMMON_H
 
+// For loadLibrary
+#ifdef _MSC_VER
+// Needed so that the max/min definitions in windows.h do not conflict with std::max/min.
+#define NOMINMAX
+#include <windows.h>
+#undef NOMINMAX
+#else
+#include <dlfcn.h>
+#endif
+
 #include "NvInfer.h"
 #include "NvInferPlugin.h"
-#include "NvOnnxConfig.h"
-#include "NvOnnxParser.h"
 #include "logger.h"
 #include <algorithm>
 #include <cassert>
@@ -41,26 +49,51 @@
 #include <string>
 #include <utility>
 #include <vector>
-#if !defined(_WIN32)
-#include <dlfcn.h>
-#else
-#include <windows.h>
-#endif
 
-using namespace std;
 using namespace nvinfer1;
 using namespace plugin;
 
-#define CHECK(status)                                                                                                  \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        auto ret = (status);                                                                                           \
-        if (ret != 0)                                                                                                  \
-        {                                                                                                              \
-            std::cout << "Cuda failure: " << ret << std::endl;                                                         \
-            abort();                                                                                                   \
-        }                                                                                                              \
+#ifdef _MSC_VER
+#define FN_NAME __FUNCTION__
+#else
+#define FN_NAME __func__
+#endif
+
+#define CHECK(status)                                          \
+    do                                                         \
+    {                                                          \
+        auto ret = (status);                                   \
+        if (ret != 0)                                          \
+        {                                                      \
+            std::cerr << "Cuda failure: " << ret << std::endl; \
+            abort();                                           \
+        }                                                      \
     } while (0)
+
+#define CHECK_RETURN_W_MSG(status, val, errMsg)                \
+    do                                                         \
+    {                                                          \
+        if (!(status))                                         \
+        {                                                      \
+            std::cerr << errMsg << " Error in " << __FILE__    \
+                << ", function " << FN_NAME << "(), line "     \
+                << __LINE__ << std::endl;                      \
+            return val;                                        \
+        }                                                      \
+    } while (0)
+
+#define CHECK_RETURN(status, val)                              \
+    CHECK_RETURN_W_MSG(status, val, "")
+
+#define OBJ_GUARD(A) std::unique_ptr<A, void (*)(A * t)>
+
+template <typename T, typename T_>
+OBJ_GUARD(T) makeObjGuard(T_* t)
+{
+    CHECK(!(std::is_base_of<T, T_>::value || std::is_same<T, T_>::value));
+    auto deleter = [](T* t) { t->destroy(); };
+    return std::unique_ptr<T, decltype(deleter)>{static_cast<T*>(t), deleter};
+}
 
 constexpr long double operator"" _GiB(long double val)
 {
@@ -232,6 +265,46 @@ inline void readPGMFile(const std::string& fileName, uint8_t* buffer, int inH, i
 namespace samplesCommon
 {
 
+class HostMemory : public IHostMemory
+{
+public:
+    HostMemory() = delete;
+    void* data() const noexcept override { return mData; }
+    std::size_t size() const noexcept override { return mSize; }
+    DataType type() const noexcept override { return mType; }
+protected:
+    HostMemory(std::size_t size, DataType type)
+        : mSize(size)
+        , mType(type)
+    {
+    }
+    void* mData;
+    std::size_t mSize;
+    DataType mType;
+
+};
+
+template <typename ElemType, DataType dataType>
+class TypedHostMemory : public HostMemory
+{
+public:
+    TypedHostMemory(std::size_t size)
+        : HostMemory(size, dataType)
+    {
+        mData = new ElemType[size];
+    };
+    void destroy() noexcept override
+    {
+        delete[](ElemType*) mData;
+        delete this;
+    }
+    ElemType* raw() noexcept { return static_cast<ElemType*>(data()); }
+};
+
+using FloatMemory = TypedHostMemory<float, DataType::kFLOAT>;
+using HalfMemory = TypedHostMemory<uint16_t, DataType::kHALF>;
+using ByteMemory = TypedHostMemory<uint8_t, DataType::kINT8>;
+
 inline void* safeCudaMalloc(size_t memSize)
 {
     void* deviceMem;
@@ -292,7 +365,7 @@ inline bool readReferenceFile(const std::string& fileName, std::vector<std::stri
     std::ifstream infile(fileName);
     if (!infile.is_open())
     {
-        cout << "ERROR: readReferenceFile: Attempting to read from a file that is not open." << endl;
+        std::cout << "ERROR: readReferenceFile: Attempting to read from a file that is not open." << std::endl;
         return false;
     }
     std::string line;
@@ -307,8 +380,7 @@ inline bool readReferenceFile(const std::string& fileName, std::vector<std::stri
 }
 
 template <typename result_vector_t>
-inline std::vector<std::string> classify(
-    const vector<string>& refVector, const result_vector_t& output, const size_t topK)
+inline std::vector<std::string> classify(const std::vector<std::string>& refVector, const result_vector_t& output, const size_t topK)
 {
     auto inds = samplesCommon::argsort(output.cbegin(), output.cend(), true);
     std::vector<std::string> result;
@@ -321,21 +393,21 @@ inline std::vector<std::string> classify(
 
 // Returns top K indices, not values.
 template <typename T>
-inline vector<size_t> topK(const vector<T> inp, const size_t k)
+inline std::vector<size_t> topK(const std::vector<T> inp, const size_t k)
 {
-    vector<size_t> result;
+    std::vector<size_t> result;
     std::vector<size_t> inds = samplesCommon::argsort(inp.cbegin(), inp.cend(), true);
     result.assign(inds.begin(), inds.begin() + k);
     return result;
 }
 
 template <typename T>
-inline bool readASCIIFile(const string& fileName, const size_t size, vector<T>& out)
+inline bool readASCIIFile(const std::string& fileName, const size_t size, std::vector<T>& out)
 {
     std::ifstream infile(fileName);
     if (!infile.is_open())
     {
-        cout << "ERROR readASCIIFile: Attempting to read from a file that is not open." << endl;
+        std::cout << "ERROR readASCIIFile: Attempting to read from a file that is not open." << std::endl;
         return false;
     }
     out.clear();
@@ -346,17 +418,17 @@ inline bool readASCIIFile(const string& fileName, const size_t size, vector<T>& 
 }
 
 template <typename T>
-inline bool writeASCIIFile(const string& fileName, const vector<T>& in)
+inline bool writeASCIIFile(const std::string& fileName, const std::vector<T>& in)
 {
     std::ofstream outfile(fileName);
     if (!outfile.is_open())
     {
-        cout << "ERROR: writeASCIIFile: Attempting to write to a file that is not open." << endl;
+        std::cout << "ERROR: writeASCIIFile: Attempting to write to a file that is not open." << std::endl;
         return false;
     }
     for (auto fn : in)
     {
-        outfile << fn << " ";
+        outfile << fn << "\n";
     }
     outfile.close();
     return true;
@@ -364,23 +436,21 @@ inline bool writeASCIIFile(const string& fileName, const vector<T>& in)
 
 inline void print_version()
 {
-// This can be only done after statically linking this support into parserONNX.library
-#if 0
-    std::cout << "Parser built against:" << std::endl;
-    std::cout << "  ONNX IR version:  " << nvonnxparser::onnx_ir_version_string(onnx::IR_VERSION) << std::endl;
-#endif
-    std::cout << "  TensorRT version: " << NV_TENSORRT_MAJOR << "." << NV_TENSORRT_MINOR << "." << NV_TENSORRT_PATCH
-              << "." << NV_TENSORRT_BUILD << std::endl;
+    std::cout << "  TensorRT version: "
+              << NV_TENSORRT_MAJOR << "."
+              << NV_TENSORRT_MINOR << "."
+              << NV_TENSORRT_PATCH << "."
+              << NV_TENSORRT_BUILD << std::endl;
 }
 
-inline string getFileType(const string& filepath)
+inline std::string getFileType(const std::string& filepath)
 {
     return filepath.substr(filepath.find_last_of(".") + 1);
 }
 
-inline string toLower(const string& inp)
+inline std::string toLower(const std::string& inp)
 {
-    string out = inp;
+    std::string out = inp;
     std::transform(out.begin(), out.end(), out.begin(), ::tolower);
     return out;
 }
@@ -459,11 +529,11 @@ inline void setDummyInt8Scales(const IBuilderConfig* c, INetworkDefinition* n)
     }
 }
 
-inline void enableDLA(IBuilder* b, IBuilderConfig* c, int useDLACore, bool allowGPUFallback = true)
+inline void enableDLA(IBuilder* builder, IBuilderConfig* config, int useDLACore, bool allowGPUFallback = true)
 {
     if (useDLACore >= 0)
     {
-        if (b->getNbDLACores() == 0)
+        if (builder->getNbDLACores() == 0)
         {
             std::cerr << "Trying to use DLA core " << useDLACore << " on a platform that doesn't have any DLA cores"
                       << std::endl;
@@ -471,17 +541,18 @@ inline void enableDLA(IBuilder* b, IBuilderConfig* c, int useDLACore, bool allow
         }
         if (allowGPUFallback)
         {
-            c->setFlag(BuilderFlag::kGPU_FALLBACK);
+            config->setFlag(BuilderFlag::kGPU_FALLBACK);
         }
-        if (!b->getInt8Mode())
+        if (!builder->getInt8Mode() && !config->getFlag(BuilderFlag::kINT8))
         {
             // User has not requested INT8 Mode.
             // By default run in FP16 mode. FP32 mode is not permitted.
-            b->setFp16Mode(true);
+            builder->setFp16Mode(true);
+            config->setFlag(BuilderFlag::kFP16);
         }
-        c->setDefaultDeviceType(DeviceType::kDLA);
-        c->setDLACore(useDLACore);
-        c->setFlag(BuilderFlag::kSTRICT_TYPES);
+        config->setDefaultDeviceType(DeviceType::kDLA);
+        config->setDLACore(useDLACore);
+        config->setFlag(BuilderFlag::kSTRICT_TYPES);
     }
 }
 
@@ -491,7 +562,7 @@ inline int parseDLA(int argc, char** argv)
     {
         std::string arg(argv[i]);
         if (strncmp(argv[i], "--useDLACore=", 13) == 0)
-            return stoi(argv[i] + 13);
+            return std::stoi(argv[i] + 13);
     }
     return -1;
 }
@@ -524,6 +595,12 @@ inline unsigned int elementSize(DataType t)
     case DataType::kINT8: return 1;
     }
     return 0;
+}
+
+template <typename A, typename B>
+inline A divUp(A x, B n)
+{
+    return (x + n - 1) / n;
 }
 
 template <int C, int H, int W>
@@ -767,6 +844,23 @@ inline int getW(const Dims& d)
     return d.nbDims >= 1 ? d.d[d.nbDims - 1] : 1;
 }
 
+inline void loadLibrary(const std::string& path)
+{
+#ifdef _MSC_VER
+    void* handle = LoadLibrary(path.c_str());
+#else
+    void* handle = dlopen(path.c_str(), RTLD_LAZY);
+#endif
+    if (handle == nullptr)
+    {
+#ifdef _MSC_VER
+        gLogError << "Could not load plugin library: " << path << std::endl;
+#else
+    gLogError << "Could not load plugin library: " << path << ", due to: " << dlerror() << std::endl;
+#endif
+    }
+}
+
 } // namespace samplesCommon
 
 inline std::ostream& operator<<(std::ostream& os, const nvinfer1::Dims& dims)
@@ -777,22 +871,6 @@ inline std::ostream& operator<<(std::ostream& os, const nvinfer1::Dims& dims)
         os << (i ? ", " : "") << dims.d[i];
     }
     return os << ")";
-}
-
-inline int loadLibrary(const std::string& libName)
-{
-    void *dlhandle = nullptr;
-#if !defined(_WIN32)
-    dlhandle = dlopen(libName.c_str(), RTLD_LAZY);
-#else
-    dlhandle = LoadLibrary(libName.c_str());
-#endif
-    if (!dlhandle)
-    {
-	std::cerr << "Error loading library: " << libName << " Error code: " << dlerror() << std::endl;
-        return EXIT_FAILURE;
-    }
-    return EXIT_SUCCESS;
 }
 
 #endif // TENSORRT_COMMON_H

@@ -112,8 +112,12 @@ GridAnchorGenerator::GridAnchorGenerator(const GridAnchorParameters* paramIn, in
         for (int i = 0; i < mNumPriors[id]; i++)
         {
             float sqrt_AR = sqrt(aspect_ratios[i]);
-            tmpWidths.push_back(scales[i] * sqrt_AR);
-            tmpHeights.push_back(scales[i] / sqrt_AR);
+            // Normalize scales for height and width (adapted for rectangular inputs).
+            // Assuming that the scales provided are with respect to height.
+            float scaleH = scales[i];
+            float scaleW = scaleH * mParam[id].H / mParam[id].W;
+            tmpWidths.push_back(scaleW * sqrt_AR);
+            tmpHeights.push_back(scaleH / sqrt_AR);
         }
 
         mDeviceWidths[id] = copyToDevice(&tmpWidths[0], tmpWidths.size());
@@ -376,15 +380,17 @@ const PluginFieldCollection* GridAnchorPluginCreator::getFieldNames()
 
 IPluginV2Ext* GridAnchorPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
 {
-    float minScale = 0.2F, maxScale = 0.95F;
+    float minScale = 0.2f, maxScale = 0.95f;
     int numLayers = 6;
     std::vector<float> aspectRatios;
-    std::vector<int> fMapShapes;
+    std::vector<int> fMapShapesH;
+    std::vector<int> fMapShapesW;
     std::vector<float> layerVariances;
     const PluginField* fields = fc->fields;
     for (int i = 0; i < fc->nbFields; ++i)
     {
         const char* attrName = fields[i].name;
+
         if (!strcmp(attrName, "numLayers"))
         {
             ASSERT(fields[i].type == PluginFieldType::kINT32);
@@ -427,12 +433,16 @@ IPluginV2Ext* GridAnchorPluginCreator::createPlugin(const char* name, const Plug
         else if (!strcmp(attrName, "featureMapShapes"))
         {
             ASSERT(fields[i].type == PluginFieldType::kINT32);
-            int size = fields[i].length;
-            fMapShapes.reserve(size);
+            ASSERT(fields[i].length % 2 == 0);
+            int size = fields[i].length >> 1;
+            fMapShapesH.reserve(size);
+            fMapShapesW.reserve(size);
             const int* fMap = static_cast<const int*>(fields[i].data);
             for (int j = 0; j < size; j++)
             {
-                fMapShapes.push_back(*fMap);
+                fMapShapesH.push_back(*fMap);
+                fMap++;
+                fMapShapesW.push_back(*fMap);
                 fMap++;
             }
         }
@@ -442,7 +452,7 @@ IPluginV2Ext* GridAnchorPluginCreator::createPlugin(const char* name, const Plug
     std::vector<float> firstLayerAspectRatios;
 
     ASSERT(numLayers > 0);
-    ASSERT((int) fMapShapes.size() == numLayers);
+    ASSERT((int) fMapShapesH.size() == numLayers);
 
     int numFirstLayerARs = 3;
     // First layer only has the first 3 aspect ratios from aspectRatios
@@ -461,13 +471,13 @@ IPluginV2Ext* GridAnchorPluginCreator::createPlugin(const char* name, const Plug
         if (i == 0)
         {
             boxParams[i] = {minScale, maxScale, firstLayerAspectRatios.data(), (int) firstLayerAspectRatios.size(),
-                fMapShapes[i], fMapShapes[i],
+                fMapShapesH[i], fMapShapesW[i],
                 {layerVariances[0], layerVariances[1], layerVariances[2], layerVariances[3]}};
         }
         else
         {
-            boxParams[i] = {minScale, maxScale, aspectRatios.data(), (int) aspectRatios.size(), fMapShapes[i],
-                fMapShapes[i], {layerVariances[0], layerVariances[1], layerVariances[2], layerVariances[3]}};
+            boxParams[i] = {minScale, maxScale, aspectRatios.data(), (int) aspectRatios.size(), fMapShapesH[i],
+                fMapShapesW[i], {layerVariances[0], layerVariances[1], layerVariances[2], layerVariances[3]}};
         }
     }
 

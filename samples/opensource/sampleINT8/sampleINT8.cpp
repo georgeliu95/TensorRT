@@ -410,10 +410,11 @@ int SampleINT8::calculateScore(
 //!
 //! \brief Initializes members of the params struct using the command line args
 //!
-SampleINT8Params initializeSampleParams(const samplesCommon::Args& args, const std::string& networkName, int batchSize)
+SampleINT8Params initializeSampleParams(const int dlaCore, const std::vector<std::string> dataDirs,
+    const std::string& networkName, int batchSize)
 {
     SampleINT8Params params;
-    if (args.dataDirs.empty()) //!< Use default directories if user hasn't provided directory paths
+    if (dataDirs.empty()) //!< Use default directories if user hasn't provided directory paths
     {
         params.dataDirs.push_back(std::string("data/") + networkName + std::string("/"));
         params.dataDirs.push_back(std::string("int8/") + networkName + std::string("/"));
@@ -422,10 +423,10 @@ SampleINT8Params initializeSampleParams(const samplesCommon::Args& args, const s
     }
     else //!< Use the data directory provided by the user
     {
-        params.dataDirs = args.dataDirs;
+        params.dataDirs = dataDirs;
     }
     params.batchSize = batchSize;
-    params.dlaCore = args.useDLACore;
+    params.dlaCore = dlaCore;
     params.nbCalBatches = 10;
     params.calBatchSize = 50;
     params.inputTensorNames.push_back("data");
@@ -446,7 +447,7 @@ SampleINT8Params initializeSampleParams(const samplesCommon::Args& args, const s
 //!
 void printHelpInfo()
 {
-    std::cout << "Usage: ./sample_int8 <network name> [-h or --help] [-d or --datadir=<path to data directory>] "
+    std::cout << "Usage: ./sample_int8 <network name> [-h or --help] [--datadir=<path to data directory>] "
                  "[--useDLACore=<int>]"
               << std::endl;
     std::cout << "--help          Display help information" << std::endl;
@@ -457,22 +458,23 @@ void printHelpInfo()
     std::cout << "--useDLACore=N  Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, "
                  "where n is the number of DLA engines on the platform."
               << std::endl;
-    std::cout << "batch=N         Set batch size (default = 100)." << std::endl;
-    std::cout << "start=N         Set the first batch to be scored (default = 100). All batches before this batch will "
+    std::cout << "--batch=N       Set batch size (default = 100)." << std::endl;
+    std::cout << "--start=N       Set the first batch to be scored (default = 100). All batches before this batch will "
                  "be used for calibration."
               << std::endl;
-    std::cout << "score=N         Set the number of batches to be scored (default = 400)." << std::endl;
+    std::cout << "--score=N       Set the number of batches to be scored (default = 400)." << std::endl;
 }
 
 int main(int argc, char** argv)
 {
-    if (argc < 2 || !strncmp(argv[1], "help", 4) || !strncmp(argv[1], "--help", 6) || !strncmp(argv[1], "--h", 3))
+    if (argc < 2 || !strncmp(argv[1], "help", 4) || !strncmp(argv[1], "--help", 6) || !strncmp(argv[1], "-h", 2))
     {
         printHelpInfo();
         return EXIT_FAILURE;
     }
     std::string networkName = argv[1];
-
+    std::vector<std::string> dataDirs;
+    int dlaCore = -1;
     // By default we score over 40K images starting at 10000, so we don't score those used to search calibration
     int batchSize = 100;
     int firstScoreBatch = 100;
@@ -481,23 +483,43 @@ int main(int argc, char** argv)
     // Parse extra arguments
     for (int i = 2; i < argc; i++)
     {
-        if (!strncmp(argv[i], "batch=", 6))
+        if (!strncmp(argv[i], "--batch=", 8))
         {
-            batchSize = atoi(argv[i] + 6);
+            batchSize = atoi(argv[i] + 8);
         }
-        else if (!strncmp(argv[i], "start=", 6))
+        else if (!strncmp(argv[i], "--start=", 8))
         {
-            firstScoreBatch = atoi(argv[i] + 6);
+            firstScoreBatch = atoi(argv[i] + 8);
         }
-        else if (!strncmp(argv[i], "score=", 6))
+        else if (!strncmp(argv[i], "--score=", 8))
         {
-            nbScoreBatches = atoi(argv[i] + 6);
+            nbScoreBatches = atoi(argv[i] + 8);
+        }
+        else if (!strncmp(argv[i], "--useDLACore=", 13))
+        {
+            dlaCore = atoi(argv[i] + 13);
+        }
+        else if (!strncmp(argv[i], "--datadir=", 10))
+        {
+            dataDirs.push_back(argv[i] + 10);
         }
     }
 
-    if (batchSize > 128)
+    if (batchSize <= 0 || batchSize > 128)
     {
-        gLogError << "Please provide batch size <= 128" << std::endl;
+        gLogError << "Please provide a batch size (--batch=) between 1 and 128 (inclusive)" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    if (firstScoreBatch <= 0)
+    {
+        gLogError << "Please provide a score start index (--start=) >0" << std::endl;
+        return EXIT_FAILURE;
+    }
+
+    if (nbScoreBatches <= 0)
+    {
+        gLogError << "Please provide a number of batches to score (--score=) >0" << std::endl;
         return EXIT_FAILURE;
     }
 
@@ -507,10 +529,7 @@ int main(int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    samplesCommon::Args args;
-    samplesCommon::parseArgs(args, argc, argv);
-
-    SampleINT8 sample(initializeSampleParams(args, networkName, batchSize));
+    SampleINT8 sample(initializeSampleParams(dlaCore, dataDirs, networkName, batchSize));
 
     auto sampleTest = gLogger.defineTest(gSampleName, argc, argv);
 
@@ -531,7 +550,7 @@ int main(int argc, char** argv)
             if (!sample.isSupported(dataTypes[i]))
             {
                 gLogWarning << "Skipping " << dataTypeNames[i] << " since the platform does not support this data type."
-                            << std::endl;
+                    << std::endl;
                 continue;
             }
             return gLogger.reportFail(sampleTest);

@@ -56,8 +56,10 @@ public:
     //!
     //! \brief Construct an empty buffer.
     //!
-    GenericBuffer()
-        : mByteSize(0)
+    GenericBuffer(nvinfer1::DataType type = nvinfer1::DataType::kFLOAT)
+        : mSize(0)
+        , mCapacity(0)
+        , mType(type)
         , mBuffer(nullptr)
     {
     }
@@ -65,18 +67,26 @@ public:
     //!
     //! \brief Construct a buffer with the specified allocation size in bytes.
     //!
-    GenericBuffer(size_t size)
-        : mByteSize(size)
+    GenericBuffer(size_t size, nvinfer1::DataType type)
+        : mSize(size)
+        , mCapacity(size)
+        , mType(type)
     {
-        if (!allocFn(&mBuffer, mByteSize))
+        if (!allocFn(&mBuffer, this->nbBytes()))
+        {
             throw std::bad_alloc();
+        }
     }
 
     GenericBuffer(GenericBuffer&& buf)
-        : mByteSize(buf.mByteSize)
+        : mSize(buf.mSize)
+        , mCapacity(buf.mCapacity)
+        , mType(buf.mType)
         , mBuffer(buf.mBuffer)
     {
-        buf.mByteSize = 0;
+        buf.mSize = 0;
+        buf.mCapacity = 0;
+        buf.mType = nvinfer1::DataType::kFLOAT;
         buf.mBuffer = nullptr;
     }
 
@@ -85,9 +95,13 @@ public:
         if (this != &buf)
         {
             freeFn(mBuffer);
-            mByteSize = buf.mByteSize;
+            mSize = buf.mSize;
+            mCapacity = buf.mCapacity;
+            mType = buf.mType;
             mBuffer = buf.mBuffer;
-            buf.mByteSize = 0;
+            // Reset buf.
+            buf.mSize = 0;
+            buf.mCapacity = 0;
             buf.mBuffer = nullptr;
         }
         return *this;
@@ -110,11 +124,44 @@ public:
     }
 
     //!
-    //! \brief Returns the size (in bytes) of the buffer.
+    //! \brief Returns the size (in number of elements) of the buffer.
     //!
     size_t size() const
     {
-        return mByteSize;
+        return mSize;
+    }
+
+    //!
+    //! \brief Returns the size (in bytes) of the buffer.
+    //!
+    size_t nbBytes() const
+    {
+        return this->size() * samplesCommon::getElementSize(mType);
+    }
+
+    //!
+    //! \brief Resizes the buffer. This is a no-op if the new size is smaller than or equal to the current capacity.
+    //!
+    void resize(size_t newSize)
+    {
+        mSize = newSize;
+        if (mCapacity < newSize)
+        {
+            freeFn(mBuffer);
+            if (!allocFn(&mBuffer, this->nbBytes()))
+            {
+                throw std::bad_alloc{};
+            }
+            mCapacity = newSize;
+        }
+    }
+
+    //!
+    //! \brief Overload of resize that accepts Dims
+    //!
+    void resize(const nvinfer1::Dims& dims)
+    {
+        return this->resize(samplesCommon::volume(dims));
     }
 
     ~GenericBuffer()
@@ -123,7 +170,8 @@ public:
     }
 
 private:
-    size_t mByteSize;
+    size_t mSize{0}, mCapacity{0};
+    nvinfer1::DataType mType;
     void* mBuffer;
     AllocFunc allocFn;
     FreeFunc freeFn;
@@ -199,17 +247,26 @@ public:
         : mEngine(engine)
         , mBatchSize(batchSize)
     {
+        // Create host and device buffers
         for (int i = 0; i < mEngine->getNbBindings(); i++)
         {
-            // Create host and device buffers
-            size_t vol = samplesCommon::volume(mEngine->getBindingDimensions(i));
-            size_t elementSize = samplesCommon::getElementSize(mEngine->getBindingDataType(i));
-            size_t allocationSize = static_cast<size_t>(mBatchSize) * vol * elementSize;
-            std::unique_ptr<ManagedBuffer> manBuf{new ManagedBuffer()};
-            manBuf->deviceBuffer = DeviceBuffer(allocationSize);
-            manBuf->hostBuffer = HostBuffer(allocationSize);
-            mDeviceBindings.emplace_back(manBuf->deviceBuffer.data());
-            mManagedBuffers.emplace_back(std::move(manBuf));
+            auto dims = mEngine->getBindingDimensions(i);
+            initBindingBuffers(dims, i, false);
+        }
+    }
+
+    //!
+    //! \brief Create a BufferManager for handling buffer interactions with engine with explicit dimensions.
+    //!
+    BufferManager(std::shared_ptr<nvinfer1::ICudaEngine> engine, const int& batchSize, nvinfer1::IExecutionContext& context)
+        : mEngine(engine)
+        , mBatchSize(batchSize)
+    {
+        // Create host and device buffers
+        for (int b = 0; b < mEngine->getNbBindings(); b++)
+        {
+            auto dims = context.getBindingDimensions(b);
+            initBindingBuffers(dims, b, true);
         }
     }
 
@@ -217,10 +274,7 @@ public:
     //! \brief Returns a vector of device buffers that you can use directly as
     //!        bindings for the execute and enqueue methods of IExecutionContext.
     //!
-    std::vector<void*>& getDeviceBindings()
-    {
-        return mDeviceBindings;
-    }
+    std::vector<void*>& getDeviceBindings() { return mDeviceBindings; }
 
     //!
     //! \brief Returns a vector of device buffers.
@@ -257,7 +311,7 @@ public:
         int index = mEngine->getBindingIndex(tensorName.c_str());
         if (index == -1)
             return kINVALID_SIZE_VALUE;
-        return mManagedBuffers[index]->hostBuffer.size();
+        return mManagedBuffers[index]->hostBuffer.nbBytes();
     }
 
     //!
@@ -273,7 +327,7 @@ public:
             return;
         }
         void* buf = mManagedBuffers[index]->hostBuffer.data();
-        size_t bufSize = mManagedBuffers[index]->hostBuffer.size();
+        size_t bufSize = mManagedBuffers[index]->hostBuffer.nbBytes();
         nvinfer1::Dims bufDims = mEngine->getBindingDimensions(index);
         size_t rowCount = static_cast<size_t>(bufDims.nbDims >= 1 ? bufDims.d[bufDims.nbDims - 1] : mBatchSize);
 
@@ -354,6 +408,26 @@ public:
     ~BufferManager() = default;
 
 private:
+
+    void initBindingBuffers(Dims dims, int binding, bool full)
+    {
+        size_t vol = full ? 1 : static_cast<size_t>(mBatchSize);
+        nvinfer1::DataType type = mEngine->getBindingDataType(binding);
+        int vecDim = mEngine->getBindingVectorizedDim(binding);
+        if (-1 != vecDim) // i.e., 0 != lgScalarsPerVector
+        {
+            int scalarsPerVec = mEngine->getBindingComponentsPerElement(binding);
+            dims.d[vecDim] = divUp(dims.d[vecDim], scalarsPerVec);
+            vol *= scalarsPerVec;
+        }
+        vol *= samplesCommon::volume(dims);
+        std::unique_ptr<ManagedBuffer> manBuf{new ManagedBuffer()};
+        manBuf->deviceBuffer = DeviceBuffer(vol, type);
+        manBuf->hostBuffer = HostBuffer(vol, type);
+        mDeviceBindings.emplace_back(manBuf->deviceBuffer.data());
+        mManagedBuffers.emplace_back(std::move(manBuf));
+    }
+
     void* getBuffer(const bool isHost, const std::string& tensorName) const
     {
         int index = mEngine->getBindingIndex(tensorName.c_str());
@@ -370,7 +444,7 @@ private:
                 = deviceToHost ? mManagedBuffers[i]->hostBuffer.data() : mManagedBuffers[i]->deviceBuffer.data();
             const void* srcPtr
                 = deviceToHost ? mManagedBuffers[i]->deviceBuffer.data() : mManagedBuffers[i]->hostBuffer.data();
-            const size_t byteSize = mManagedBuffers[i]->hostBuffer.size();
+            const size_t byteSize = mManagedBuffers[i]->hostBuffer.nbBytes();
             const cudaMemcpyKind memcpyType = deviceToHost ? cudaMemcpyDeviceToHost : cudaMemcpyHostToDevice;
             if ((copyInput && mEngine->bindingIsInput(i)) || (!copyInput && !mEngine->bindingIsInput(i)))
             {
@@ -385,7 +459,7 @@ private:
     std::shared_ptr<nvinfer1::ICudaEngine> mEngine;              //!< The pointer to the engine
     int mBatchSize;                                              //!< The batch size
     std::vector<std::unique_ptr<ManagedBuffer>> mManagedBuffers; //!< The vector of pointers to managed buffers
-    std::vector<void*> mDeviceBindings; //!< The vector of device buffers needed for engine execution
+    std::vector<void*> mDeviceBindings;                          //!< The vector of device buffers needed for engine execution
 };
 
 } // namespace samplesCommon

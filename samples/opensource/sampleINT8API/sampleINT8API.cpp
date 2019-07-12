@@ -92,17 +92,17 @@ public:
     //!
     //! \brief Builds the network engine
     //!
-    bool build();
+    Logger::TestResult build();
 
     //!
     //! \brief Runs the TensorRT inference engine for this sample
     //!
-    bool infer();
+    Logger::TestResult infer();
 
     //!
     //! \brief Used to clean up any state created in the sample class
     //!
-    bool teardown();
+    Logger::TestResult teardown();
 
     SampleINT8APIParams mParams; //!< Stores Sample Parameter
 
@@ -445,34 +445,34 @@ bool SampleINT8API::verifyOutput(const samplesCommon::BufferManager& buffers) co
 //!
 //! \return Returns true if the engine was created successfully and false otherwise
 //!
-bool SampleINT8API::build()
+Logger::TestResult SampleINT8API::build()
 {
     auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
     if (!builder)
     {
         gLogError << "Unable to create builder object." << std::endl;
-        return false;
+        return Logger::TestResult::kFAILED;
     }
 
     auto network = SampleUniquePtr<nvinfer1::INetworkDefinition>(builder->createNetwork());
     if (!network)
     {
         gLogError << "Unable to create network object." << mParams.referenceFileName << std::endl;
-        return false;
+        return Logger::TestResult::kFAILED;
     }
 
     auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     if (!config)
     {
         gLogError << "Unable to create config object." << mParams.referenceFileName << std::endl;
-        return false;
+        return Logger::TestResult::kFAILED;
     }
 
     auto parser = SampleUniquePtr<nvonnxparser::IParser>(nvonnxparser::createParser(*network, gLogger.getTRTLogger()));
     if (!parser)
     {
         gLogError << "Unable to create parser object." << mParams.referenceFileName << std::endl;
-        return false;
+        return Logger::TestResult::kFAILED;
     }
 
     // Parse ONNX model file to populate TensorRT INetwork
@@ -480,19 +480,19 @@ bool SampleINT8API::build()
     if (!parser->parseFromFile(mParams.modelFileName.c_str(), verbosity))
     {
         gLogError << "Unable to parse ONNX model file: " << mParams.modelFileName << std::endl;
-        return false;
+        return Logger::TestResult::kFAILED;
     }
 
     if (mParams.writeNetworkTensors)
     {
         writeNetworkTensorNames(network);
-        return false;
+        return Logger::TestResult::kWAIVED;
     }
 
     if (!builder->platformHasFastInt8())
     {
-        gLogError << "Platform does not support INT8 inference. SampleINT8API can only run in INT8 Mode." << std::endl;
-        return false;
+        gLogError << "Platform does not support INT8 inference. sampleINT8API can only run in INT8 Mode." << std::endl;
+        return Logger::TestResult::kWAIVED;
     }
 
     // Configure buider
@@ -525,7 +525,7 @@ bool SampleINT8API::build()
     if (!setDynamicRange(network))
     {
         gLogError << "Unable to set per tensor dynamic range." << std::endl;
-        return false;
+        return Logger::TestResult::kFAILED;
     }
 
     // build TRT engine
@@ -534,7 +534,7 @@ bool SampleINT8API::build()
     if (!mEngine)
     {
         gLogError << "Unable to build cuda engine." << std::endl;
-        return false;
+        return Logger::TestResult::kFAILED;
     }
 
     // populates input output map structure
@@ -547,7 +547,7 @@ bool SampleINT8API::build()
     const int outputIndex = mEngine.get()->getBindingIndex(mInOut["output"].c_str());
     mOutputDims = mEngine.get()->getBindingDimensions(outputIndex);
 
-    return true;
+    return Logger::TestResult::kRUNNING;
 }
 
 //!
@@ -556,7 +556,7 @@ bool SampleINT8API::build()
 //! \details This function is the main execution function of the sample. It allocates
 //!          the buffer, sets inputs, executes the engine, and verifies the output
 //!
-bool SampleINT8API::infer()
+Logger::TestResult SampleINT8API::infer()
 {
     // Create RAII buffer manager object
     samplesCommon::BufferManager buffers(mEngine, mParams.batchSize);
@@ -564,7 +564,7 @@ bool SampleINT8API::infer()
     auto context = SampleUniquePtr<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
     if (!context)
     {
-        return false;
+        return Logger::TestResult::kFAILED;
     }
 
     // Read the input data into the managed buffers
@@ -572,7 +572,7 @@ bool SampleINT8API::infer()
 
     if (!prepareInput(buffers))
     {
-        return false;
+        return Logger::TestResult::kFAILED;
     }
 
     // Create CUDA stream for the execution of this inference
@@ -585,7 +585,7 @@ bool SampleINT8API::infer()
     // Asynchronously enqueue the inference work
     if (!context->enqueue(mParams.batchSize, buffers.getDeviceBindings().data(), stream, nullptr))
     {
-        return false;
+        return Logger::TestResult::kFAILED;
     }
 
     // Asynchronously copy data from device output buffers to host output buffers
@@ -598,15 +598,15 @@ bool SampleINT8API::infer()
     cudaStreamDestroy(stream);
 
     // Check and print the output of the inference
-    return verifyOutput(buffers);
+    return verifyOutput(buffers) ? Logger::TestResult::kRUNNING : Logger::TestResult::kFAILED;
 }
 
 //!
 //! \brief Used to clean up any state created in the sample class
 //!
-bool SampleINT8API::teardown()
+Logger::TestResult SampleINT8API::teardown()
 {
-    return true;
+    return Logger::TestResult::kRUNNING;
 }
 
 //!
@@ -624,7 +624,7 @@ struct SampleINT8APIArgs : public samplesCommon::Args
     std::string networkTensorsFileName{"network_tensors.txt"};
 };
 
-//! \brief This function parses arguments specific to sampleINT8API
+//! \brief This function parses arguments specific to SampleINT8API
 //!
 bool parseSampleINT8APIArgs(SampleINT8APIArgs& args, int argc, char* argv[])
 {
@@ -812,17 +812,22 @@ int main(int argc, char** argv)
     SampleINT8API sample(params);
     gLogInfo << "Building and running a INT8 GPU inference engine for " << params.modelFileName << std::endl;
 
-    if (!sample.build())
+    auto buildStatus = sample.build();
+    if (buildStatus == Logger::TestResult::kWAIVED)
+    {
+        return gLogger.reportWaive(sampleTest);
+    }
+    else if (buildStatus == Logger::TestResult::kFAILED)
     {
         return gLogger.reportFail(sampleTest);
     }
 
-    if (!sample.infer())
+    if (sample.infer() != Logger::TestResult::kRUNNING)
     {
         return gLogger.reportFail(sampleTest);
     }
 
-    if (!sample.teardown())
+    if (sample.teardown() != Logger::TestResult::kRUNNING)
     {
         return gLogger.reportFail(sampleTest);
     }

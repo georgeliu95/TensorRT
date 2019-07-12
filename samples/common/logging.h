@@ -17,7 +17,7 @@
 #ifndef TENSORRT_LOGGING_H
 #define TENSORRT_LOGGING_H
 
-#include "NvInfer.h"
+#include "NvInferRTSafe.h"
 #include <cassert>
 #include <iostream>
 #include <ostream>

@@ -1,0 +1,76 @@
+#############################################################################
+#
+# Notes:
+# 
+# This makefile exports the following lists:
+#
+#   sampleMovieLensMPS_cpp_sources
+#   sampleMovieLensMPS_objects
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# sampleMovieLensMPS_*_sources to sampleMovieLensMPS_objects, and for linking
+# sampleMovieLensMPS_targets.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# sampleMovieLensMPS_cpp_sources.
+#
+# SAMPLES_OBJECTS is populated to contain everything from
+# sampleMovieLensMPS_objects.
+#
+# This makefile adds to SAMPLES_TARGETS a list of executables (exe,
+# dll, etc.)  that it creates. It defines recipes for building these
+# targets.
+#
+#############################################################################
+
+ifeq ($(NV_BUILD_TYPE),release)
+  sampleMovieLensMPS_basename = sample_movielens_mps
+else
+  sampleMovieLensMPS_basename = sample_movielens_mps_debug
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  sampleMovieLensMPS_makefile = $(NV_SOURCE)/samples/sampleMovieLensMPS/makefile-sampleMovieLensMPS.nvmk
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  sampleMovieLensMPS_cpp_sources += $(NV_SOURCE)/samples/common/logger.cpp
+  sampleMovieLensMPS_cpp_sources += $(NV_SOURCE)/samples/common/windows/getopt.c
+  sampleMovieLensMPS_cpp_sources += $(NV_SOURCE)/samples/sampleMovieLensMPS/sampleMovieLensMPS.cpp
+
+  SOURCES += $(sampleMovieLensMPS_cpp_sources)
+  sampleMovieLensMPS_objects += $(call BUILD_OBJECT_LIST,$(sampleMovieLensMPS_cpp_sources))
+  SAMPLES_OBJECTS += $(sampleMovieLensMPS_objects)
+
+  $(sampleMovieLensMPS_objects): $(sampleMovieLensMPS_makefile)
+
+  ############################################################
+  # C++ compiler flags
+
+  ############################################################
+  # Targets
+
+  sampleMovieLensMPS_target += $(OUTPUTDIR)/$(sampleMovieLensMPS_basename)$(EXESUFFIX)
+  SAMPLES_TARGETS += $(sampleMovieLensMPS_target)
+
+  $(sampleMovieLensMPS_target): $(sampleMovieLensMPS_makefile)
+
+  ############################################################
+  # Linker flags and Recipe
+
+  $(sampleMovieLensMPS_target): $(SAMPLES_PREREQUISITES)
+  $(sampleMovieLensMPS_target): $(sampleMovieLensMPS_objects)
+
+  $(sampleMovieLensMPS_target): LINKER_FLAGS += $(SAMPLES_LFLAGS)
+  $(sampleMovieLensMPS_target): LINKER_FLAGS += $(SAMPLES_LIBRARIES)
+  $(sampleMovieLensMPS_target): LINKER_FLAGS += $(sampleMovieLensMPS_objects)
+  $(sampleMovieLensMPS_target): LINKER_FLAGS += -out:$@
+
+  $(sampleMovieLensMPS_target): LINKER_PARAMETERS_FILE = linkParameters-$(sampleMovieLensMPS_basename).txt
+
+  $(eval $(call SAMPLES_MAKE_LINK_RECIPE,$(sampleMovieLensMPS_target)))
+
+endif # NVCFG_INITIALIZED

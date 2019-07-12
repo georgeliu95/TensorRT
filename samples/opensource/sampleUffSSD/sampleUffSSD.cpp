@@ -186,7 +186,7 @@ bool SampleUffSSD::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder
     }
 
     builder->setMaxBatchSize(mParams.batchSize);
-    config->setMaxWorkspaceSize(2_GiB);
+    config->setMaxWorkspaceSize(1_GiB);
     if (mParams.fp16)
     {
         config->setFlag(BuilderFlag::kFP16);
@@ -409,7 +409,7 @@ SampleUffSSDParams initializeSampleParams(const samplesCommon::Args& args)
     {
         params.dataDirs = args.dataDirs;
     }
-    params.uffFileName = "sample_ssd_relu6.uff";
+    params.uffFileName = "sample_ssd_v2.uff";
     params.labelsFileName = "ssd_coco_labels.txt";
     params.inputTensorNames.push_back("Input");
     params.batchSize = 2;

@@ -45,6 +45,8 @@
   <ItemGroup>
     <ClCompile Include="trtexec.cpp" />
     <ClCompile Include="../common/windows/getopt.c" />
+    <ClCompile Include="../common/sampleOptions.cpp" />
+    <ClCompile Include="../common/sampleEngines.cpp" />
     <ClCompile Include="../common/logger.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

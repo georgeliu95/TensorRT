@@ -1,0 +1,78 @@
+#############################################################################
+#
+# Notes:
+# 
+# This makefile exports the following lists:
+#
+#   sampleReformatFreeIO_cpp_sources
+#   sampleReformatFreeIO_objects
+#
+# Rules are defined (either implicitly from the nvmake standard
+# library, or explicitly within this makefile) for compiling
+# sampleReformatFreeIO_*_sources to sampleReformatFreeIO_objects, and for linking
+# sampleReformatFreeIO_targets.
+#
+# The nvmake-standard SOURCES is populated to contain everything from
+# sampleReformatFreeIO_cpp_sources.
+#
+# SAMPLES_OBJECTS is populated to contain everything from
+# sampleReformatFreeIO_objects.
+#
+# This makefile adds to SAMPLES_TARGETS a list of executables (exe,
+# dll, etc.)  that it creates. It defines recipes for building these
+# targets.
+#
+#############################################################################
+
+ifeq ($(NV_BUILD_TYPE),release)
+  sampleReformatFreeIO_basename = sample_reformat_free_io
+else
+  sampleReformatFreeIO_basename = sample_reformat_free_io_debug
+endif
+
+ifdef NVCFG_INITIALIZED
+
+  sampleReformatFreeIO_makefile = $(NV_SOURCE)/samples/sampleReformatFreeIO/makefile-sampleReformatFreeIO.nvmk
+
+  ############################################################
+  # Build lists of SOURCES and OBJECTS
+
+  sampleReformatFreeIO_cpp_sources += $(NV_SOURCE)/samples/common/logger.cpp
+  sampleReformatFreeIO_cpp_sources += $(NV_SOURCE)/samples/common/windows/getopt.c
+  sampleReformatFreeIO_cpp_sources += $(NV_SOURCE)/samples/sampleReformatFreeIO/sampleReformatFreeIO.cpp
+
+  SOURCES += $(sampleReformatFreeIO_cpp_sources)
+  sampleReformatFreeIO_objects += $(call BUILD_OBJECT_LIST,$(sampleReformatFreeIO_cpp_sources))
+  SAMPLES_OBJECTS += $(sampleReformatFreeIO_objects)
+
+  $(sampleReformatFreeIO_objects): $(sampleReformatFreeIO_makefile)
+
+  ############################################################
+  # C++ compiler flags
+
+  $(sampleReformatFreeIO_objects): NV_DEFINES += _SCL_SECURE_NO_WARNINGS
+
+  ############################################################
+  # Targets
+
+  sampleReformatFreeIO_target += $(OUTPUTDIR)/$(sampleReformatFreeIO_basename)$(EXESUFFIX)
+  SAMPLES_TARGETS += $(sampleReformatFreeIO_target)
+
+  $(sampleReformatFreeIO_target): $(sampleReformatFreeIO_makefile)
+
+  ############################################################
+  # Linker flags and Recipe
+
+  $(sampleReformatFreeIO_target): $(SAMPLES_PREREQUISITES)
+  $(sampleReformatFreeIO_target): $(sampleReformatFreeIO_objects)
+
+  $(sampleReformatFreeIO_target): LINKER_FLAGS += $(SAMPLES_LFLAGS)
+  $(sampleReformatFreeIO_target): LINKER_FLAGS += $(SAMPLES_LIBRARIES)
+  $(sampleReformatFreeIO_target): LINKER_FLAGS += $(sampleReformatFreeIO_objects)
+  $(sampleReformatFreeIO_target): LINKER_FLAGS += -out:$@
+
+  $(sampleReformatFreeIO_target): LINKER_PARAMETERS_FILE = linkParameters-$(sampleReformatFreeIO_basename).txt
+
+  $(eval $(call SAMPLES_MAKE_LINK_RECIPE,$(sampleReformatFreeIO_target)))
+
+endif # NVCFG_INITIALIZED

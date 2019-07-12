@@ -27,7 +27,7 @@ PriorBox = gs.create_plugin_node(name="GridAnchor", op="GridAnchor_TRT",
     maxSize=0.95,
     aspectRatios=[1.0, 2.0, 0.5, 3.0, 0.33],
     variance=[0.1,0.1,0.2,0.2],
-    featureMapShapes=[19, 10, 5, 3, 2, 1])
+    featureMapShapes=[19, 19, 10, 10, 5, 5, 3, 3, 2, 2, 1, 1])
 NMS = gs.create_plugin_node(name="NMS", op="NMS_TRT",
     shareLocation=1,
     varianceEncodedInTarget=0,

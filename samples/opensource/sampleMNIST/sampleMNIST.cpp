@@ -249,7 +249,9 @@ void SampleMNIST::constructNetwork(
     mMeanBlob
         = SampleUniquePtr<nvcaffeparser1::IBinaryProtoBlob>(parser->parseBinaryProto(mParams.meanFileName.c_str()));
     nvinfer1::Weights meanWeights{nvinfer1::DataType::kFLOAT, mMeanBlob->getData(), inputDims.d[1] * inputDims.d[2]};
-    // For this sample, a large range based on the mean data is chosen and applied to the entire network.
+    // For this sample, a large range based on the mean data is chosen and applied to the head of the network.
+    // After the mean subtraction occurs, the range is expected to be between -127 and 127, so the rest of the network
+    // is given a generic range.
     // The preferred method is use scales computed based on a representative data set
     // and apply each one individually based on the tensor. The range here is large enough for the
     // network, but is chosen for example purposes only.
@@ -257,9 +259,12 @@ void SampleMNIST::constructNetwork(
         = samplesCommon::getMaxValue(static_cast<const float*>(meanWeights.values), samplesCommon::volume(inputDims));
 
     auto mean = network->addConstant(nvinfer1::Dims3(1, inputDims.d[1], inputDims.d[2]), meanWeights);
+    mean->getOutput(0)->setDynamicRange(-maxMean, maxMean);
+    network->getInput(0)->setDynamicRange(-maxMean, maxMean);
     auto meanSub = network->addElementWise(*network->getInput(0), *mean->getOutput(0), ElementWiseOperation::kSUB);
+    meanSub->getOutput(0)->setDynamicRange(-maxMean, maxMean);
     network->getLayer(0)->setInput(0, *meanSub->getOutput(0));
-    samplesCommon::setAllTensorScales(network.get(), maxMean, maxMean);
+    samplesCommon::setAllTensorScales(network.get(), 127.0f, 127.0f);
 }
 
 //!

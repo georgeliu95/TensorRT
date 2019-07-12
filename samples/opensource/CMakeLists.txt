@@ -23,8 +23,11 @@ set(OPENSOURCE_SAMPLES_LIST
     sampleMNIST
     sampleMNISTAPI
     sampleMovieLens
+    sampleMovieLensMPS
     sampleOnnxMNIST
     samplePlugin
+    sampleUffPluginV2Ext
+    sampleReformatFreeIO
     sampleSSD
     sampleUffMNIST
     sampleUffSSD
