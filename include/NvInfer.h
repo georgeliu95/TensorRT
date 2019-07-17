@@ -4819,6 +4819,18 @@ public:
     //! \return The new resize layer, or nullptr if it could not be created.
     //!
     virtual IResizeLayer* addResize(ITensor& input) TRTNOEXCEPT = 0;
+
+    //!
+    //! \brief True if network is an explicit precision network
+    //!
+    //! hasExplicitPrecision() is true if and only if this INetworkDefinition
+    //! was created with createNetworkV2() with NetworkDefinitionCreationFlag::kEXPLICIT_PRECISION set.
+    //!
+    //! \see createNetworkV2
+    //!
+    //! \return True if network has explicit precision, false otherwise.
+    //!
+    virtual bool hasExplicitPrecision() const TRTNOEXCEPT = 0;
 };
 
 //!
@@ -5341,11 +5353,25 @@ enum class NetworkDefinitionCreationFlag : int
     //! and there are no implicit dimensions in the network specification. This is specified by using the
     //! wildcard dimension value -1.
     kEXPLICIT_BATCH = 0x1, //!< Mark the network to be an explicit batch network
+
+    //! Setting the network to be an explicit precision network has the following implications:
+    //! 1) Precision of all input tensors to the network have to be specified with ITensor::setType() function
+    //! 2) Precision of all layer output tensors in the network have to be specified using ILayer::setOutputType()
+    //! function
+    //! 3) The builder will not quantize the weights of any layer including those running in lower precision(INT8). It
+    //! will
+    //! simply cast the weights into the required precision.
+    //! 4) Dynamic ranges must not be provided to run the network in int8 mode. Dynamic ranges of each tensor in the
+    //! explicit
+    //! precision network is [-127,127].
+    //! 5) Quantizing and dequantizing activation values between higher (FP32) and lower (INT8) precision
+    //! will be performed using explicit Scale layers with input/output precision set appropriately.
+    kEXPLICIT_PRECISION = 0x2, //!< Mark the network to be an explicit precision network
 };
 template <>
 constexpr inline int EnumMax<NetworkDefinitionCreationFlag>()
 {
-    return 2;
+    return 3;
 }
 
 //!
