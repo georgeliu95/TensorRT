@@ -442,7 +442,7 @@ public:
     //! The body of the override of getOutputDimensions can be:
     //!
     //!     DimsExprs output(inputs[0]);
-    //!     output.d[0] = exprBuilder.operation(DimensionOperation::kSUM, output.d[0], output.d[1]);
+    //!     output.d[0] = exprBuilder.operation(DimensionOperation::kSUM, inputs[0].d[0], inputs[1].d[0]);
     //!     return output;
     //!
     virtual DimsExprs getOutputDimensions(int outputIndex, const DimsExprs* inputs, int nbInputs, IExprBuilder& exprBuilder) = 0;
