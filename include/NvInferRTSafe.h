@@ -1028,7 +1028,7 @@ public:
     //!
     //! \brief Retrieve the binding index for a named tensor.
     //!
-    //! safe::IExecutionContext::enqueue() and safe::IExecutionContext::execute() require an array of buffers.
+    //! safe::IExecutionContext::enqueue() requires an array of buffers.
     //!
     //! Engine bindings map from tensor names to indices in this array.
     //! Binding indices are assigned at engine build time, and take values in the range [0 ... n-1] where n is the total number of inputs and outputs.
@@ -1249,19 +1249,6 @@ class IExecutionContext
 {
 public:
     //!
-    //! \brief Synchronously execute inference on a batch.
-    //!
-    //! This method requires an array of input and output buffers. The mapping from tensor names to indices can be queried using safe::ICudaEngine::getBindingIndex()
-    //! \param batchSize The batch size. This is at most the value supplied when the engine was built.
-    //! \param bindings An array of pointers to input and output buffers for the network.
-    //!
-    //! \return True if execution succeeded.
-    //!
-    //! \see safe::ICudaEngine::getBindingIndex() safe::ICudaEngine::getMaxBatchSize()
-    //!
-    virtual bool execute(int batchSize, void** bindings) noexcept = 0;
-
-    //!
     //! \brief Asynchronously execute inference on a batch.
     //!
     //! This method requires an array of input and output buffers. The mapping from tensor names to indices can be queried using safe::ICudaEngine::getBindingIndex()
@@ -1309,9 +1296,8 @@ public:
     //!
     //! The memory must be aligned with cuda memory alignment property (using cudaGetDeviceProperties()), and its size must be at least that
     //! returned by getDeviceMemorySize(). If using enqueue() to run the network, The memory is in
-    //! use from the invocation of enqueue() until network execution is complete. If using execute(),
-    //! it is in use until execute() returns. Releasing or otherwise using the memory for other
-    //! purposes during this time will result in undefined behavior.
+    //! use from the invocation of enqueue() until network execution is complete.
+    //! Releasing or otherwise using the memory for other purposes during this time will result in undefined behavior.
     //!
     //! \see safe::ICudaEngine::getDeviceMemorySize() safe::ICudaEngine::createExecutionContextWithoutDeviceMemory()
     //!
@@ -1362,20 +1348,6 @@ public:
     //! \see setErrorRecorder
     //!
     virtual IErrorRecorder* getErrorRecorder() const noexcept = 0;
-
-    //!
-    //! \brief Synchronously execute inference on a batch.
-    //!
-    //! This method requires an array of input and output buffers. The mapping from tensor names to indices can be
-    //! queried using safe::ICudaEngine::getBindingIndex().
-    //! This method only works for an execution context built from a network without an implicit batch dimension.
-    //! \param bindings An array of pointers to input and output buffers for the network.
-    //!
-    //! \return True if execution succeeded.
-    //!
-    //! \see safe::ICudaEngine::getBindingIndex() safe::ICudaEngine::getMaxBatchSize()
-    //!
-    virtual bool executeV2(void** bindings) noexcept = 0;
 
     //!
     //! \brief Asynchronously execute inference on a batch.

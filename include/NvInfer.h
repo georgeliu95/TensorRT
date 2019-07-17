@@ -605,7 +605,7 @@ public:
     //! \brief Set the storage location of a tensor
     //! \param location the location of tensor data
     //!
-    //! Only input tensors for storing sequence lengths for RNNv2 are supported.
+    //! Only network input tensors for storing sequence lengths for RNNv2 are supported.
     //! Using host storage for layers that do not support it will generate
     //! errors at build time.
     //!
