@@ -57,6 +57,11 @@
 #define UFF_REQUIRED_VERSION_MINOR 6
 #define UFF_REQUIRED_VERSION_PATCH 5
 
+//!
+//! \namespace nvuffparser
+//!
+//! \brief The TensorRT UFF parser API namespace.
+//!
 namespace nvuffparser
 {
 

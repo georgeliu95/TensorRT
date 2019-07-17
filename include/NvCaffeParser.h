@@ -52,6 +52,11 @@
 
 #include "NvInfer.h"
 
+//!
+//! \namespace nvcaffeparser1
+//!
+//! \brief The TensorRT Caffe parser API namespace.
+//!
 namespace nvcaffeparser1
 {
 

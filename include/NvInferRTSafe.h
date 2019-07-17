@@ -124,6 +124,11 @@ namespace nvinfer1
 
 class IErrorRecorder; //!< Forward declare IErrorRecorder for use in other interfaces.
 class IGpuAllocator; //!< Forward declare IGpuAllocator for use in other interfaces.
+//!
+//! \namespace nvinfer1::safe
+//!
+//! \brief The safety subset of TensorRT's API version 1 namespace.
+//!
 namespace safe
 {
 class ICudaEngine; //!< Forward declare safe::ICudaEngine for use in other interfaces.
