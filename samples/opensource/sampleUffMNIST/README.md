@@ -8,7 +8,7 @@
 	* [Sample `--help` options](#sample---help-options)
 - [Additional resources](#additional-resources)
 - [License](#license)
-- [Changelog](#changelog
+- [Changelog](#changelog)
 - [Known issues](#known-issues)
 
 ## Description
