@@ -21,70 +21,182 @@
 //! It can be run with the following command line:
 //! Command: ./sample_mnist_safe_infer [-h or --help] [-d=/path/to/data/dir or --datadir=/path/to/data/dir]
 
-#include "safeInferCommon.h"
+#include "NvInferRTProxy.h"
+
+#include <algorithm>
+#include <cassert>
+#include <cmath>
+#include <cstring>
+#include <cuda_runtime_api.h>
+#include <fstream>
+#include <iostream>
+#include <memory>
 
 const std::string gSampleName = "TensorRT.sample_mnist_safe_infer";
+const std::string INPUT_BLOB_NAME = "data";
+const std::string OUTPUT_BLOB_NAME = "prob";
 
-using namespace safeInferCommon;
+#define CHECK(status)                                                                                                  \
+    {                                                                                                                  \
+        if (status != 0)                                                                                               \
+        {                                                                                                              \
+            std::cerr << "Cuda failure: " << status << std::endl;                                                      \
+            abort();                                                                                                   \
+        }                                                                                                              \
+    }
 
 //!
-//! \brief  The SampleSafeMNIST class implements the MNIST sample.
+//! \brief Locate path to file by its filename. Will walk back MAX_DEPTH dirs from CWD to check for such a file path.
 //!
-//! \details It loads a prebuild safe engine and runs the TensorRT inference.
+inline std::string locateFile(const std::string& fileName)
+{
+    std::string file = "data/samples/mnist/" + fileName;
+    const int MAX_DEPTH{10};
+    bool found{false};
+
+    for (int i = 0; i < MAX_DEPTH && !found; i++)
+    {
+        std::ifstream checkFile(file);
+        found = checkFile.is_open();
+        if (found)
+        {
+            break;
+        }
+        file = "../" + file; // Try again in parent dir.
+    }
+
+    if (!found)
+    {
+        std::cout << "Could not find " << fileName << " in data/samples/mnist/." << std::endl;
+        std::cout << "&&&& FAILED" << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    return file;
+}
+
 //!
-class SampleSafeMNIST
+//! \brief Read data from a pgm file, then store to the buffer.
+//!
+inline void readPGMFile(const std::string& fileName, uint8_t* buffer, int inH, int inW)
+{
+    std::ifstream infile(fileName, std::ifstream::binary);
+    assert(infile.is_open() && "Attempting to read from a file that is not open.");
+    std::string magic, h, w, max;
+    infile >> magic >> h >> w >> max;
+    infile.seekg(1, infile.cur);
+    infile.read(reinterpret_cast<char*>(buffer), inH * inW);
+}
+
+struct InferDeleter
 {
     template <typename T>
-    using SampleUniquePtr = std::unique_ptr<T, InferDeleter>;
-
-public:
-    SampleSafeMNIST(const samplesCommon::CaffeSampleParams& params)
-        : mParams(params)
+    void operator()(T* obj) const
     {
+        if (obj)
+        {
+            obj->destroy();
+        }
     }
-    
-    //!
-    //! \brief Runs the TensorRT inference engine for this sample.
-    //!
-    bool infer();
-
-private:
-    //!
-    //! \brief Reads the input and mean data, preprocesses, and stores the result in a managed buffer.
-    //!
-    bool processInput(const BufferManager& buffers, const std::string& inputTensorName, int inputFileIdx) const;
-
-    //!
-    //! \brief Verifies that the output is correct and prints it.
-    //!
-    bool verifyOutput(const BufferManager& buffers, const std::string& outputTensorName, int groundTruthDigit) const;
-
-    samplesCommon::CaffeSampleParams mParams; //!< The parameters for the sample.
-
-    nvinfer1::Dims mInputDims; //!< The dimensions of the input to the network.
 };
 
-//!
-//! \brief Reads the input and mean data, preprocesses, and stores the result in a managed buffer.
-//!
-bool SampleSafeMNIST::processInput(const BufferManager& buffers, const std::string& inputTensorName, int inputFileIdx) const
+template <typename T>
+inline std::shared_ptr<T> infer_object(T* obj)
 {
-    const int inputH = mInputDims.d[1];
-    const int inputW = mInputDims.d[2];
+    if (!obj)
+    {
+        throw std::runtime_error("Failed to create object");
+    }
+
+    return std::shared_ptr<T>(obj, InferDeleter());
+}
+
+//!
+//! \brief Logger for TensorRT info/warning/errors.
+//!
+class Logger : public nvinfer1::ILogger
+{
+    void log(Severity severity, const char* msg) override
+    {
+        // suppress info-level messages
+        if (severity != ILogger::Severity::kINFO)
+            std::cout << msg << std::endl;
+    }
+} gLogger;
+
+//!
+//! \brief Helper function to get the element size.
+//!
+inline unsigned int getElementSize(nvinfer1::DataType t)
+{
+    switch (t)
+    {
+    case nvinfer1::DataType::kINT32: return 4;
+    case nvinfer1::DataType::kFLOAT: return 4;
+    case nvinfer1::DataType::kHALF: return 2;
+    case nvinfer1::DataType::kINT8: return 1;
+    }
+    throw std::runtime_error("Invalid DataType.");
+    return 0;
+}
+
+//!
+//! \brief Helper function to get the volume.
+//!
+inline int64_t volume(const nvinfer1::Dims& d)
+{
+    return std::accumulate(d.d, d.d + d.nbDims, 1, std::multiplies<int64_t>());
+}
+
+//!
+//! \brief  Load a prebuilt TensorRT safe engine.
+//!
+std::shared_ptr<nvinfer1::ICudaEngine> loadEngine()
+{
+    const std::string& filename = "safe_mnist.engine";
+    std::vector<char> gieModelStream;
+    std::ifstream file(filename, std::ios::binary);
+    if (!file.good())
+    {
+        std::cout << "[E] Could not open input engine file or file is empty. File name: " << filename << std::endl;
+        return nullptr;
+    }
+    file.seekg(0, std::ifstream::end);
+    auto size = file.tellg();
+    file.seekg(0, std::ifstream::beg);
+    gieModelStream.resize(size);
+    file.read(gieModelStream.data(), size);
+    file.close();
+    auto infer = infer_object(nvinfer1::createInferRuntime(gLogger));
+    if (infer.get() == nullptr)
+    {
+        return nullptr;
+    }
+    auto engine = infer_object(infer->deserializeCudaEngine(gieModelStream.data(), size));
+
+    return engine;
+}
+
+//!
+//! \brief Reads the input data, preprocesses, and stores the result in a managed buffer.
+//!
+bool processInput(void* input, const std::string& inputTensorName, nvinfer1::Dims inputDims, const int inputFileIdx)
+{
+    const int inputH = inputDims.d[1];
+    const int inputW = inputDims.d[2];
 
     // Read the digit file according to the inputFileIdx.
     std::vector<uint8_t> fileData(inputH * inputW);
-    readPGMFile(locateFile(std::to_string(inputFileIdx) + ".pgm", mParams.dataDirs), fileData.data(), inputH, inputW);
+    readPGMFile(locateFile(std::to_string(inputFileIdx) + ".pgm"), fileData.data(), inputH, inputW);
 
     // Print ASCII representation of digit.
-    gLogInfo << "Input:\n";
+    std::cout << "[I] Input:\n";
     for (int i = 0; i < inputH * inputW; i++)
     {
-        gLogInfo << (" .:-=+*#%@"[fileData[i] / 26]) << (((i + 1) % inputW) ? "" : "\n");
+        std::cout << (" .:-=+*#%@"[fileData[i] / 26]) << (((i + 1) % inputW) ? "" : "\n");
     }
-    gLogInfo << std::endl;
+    std::cout << std::endl;
 
-    float* hostInputBuffer = static_cast<float*>(buffers.getHostBuffer(inputTensorName));
+    float* hostInputBuffer = static_cast<float*>(input);
     std::copy(fileData.begin(), fileData.end(), hostInputBuffer);
 
     return true;
@@ -93,12 +205,12 @@ bool SampleSafeMNIST::processInput(const BufferManager& buffers, const std::stri
 //!
 //! \brief Verifies that the output is correct and prints it.
 //!
-bool SampleSafeMNIST::verifyOutput(const BufferManager& buffers, const std::string& outputTensorName, int groundTruthDigit) const
+bool verifyOutput(void* output, const std::string& outputTensorName, int groundTruthDigit)
 {
-    const float* prob = static_cast<const float*>(buffers.getHostBuffer(outputTensorName));
+    const float* prob = static_cast<const float*>(output);
 
     // Print histogram of the output distribution.
-    gLogInfo << "Output:\n";
+    std::cout << "[I] Output:\n";
     float val{0.0f};
     int idx{0};
     const int kDIGITS{10};
@@ -111,9 +223,9 @@ bool SampleSafeMNIST::verifyOutput(const BufferManager& buffers, const std::stri
             idx = i;
         }
 
-        gLogInfo << i << ": " << std::string(int(std::floor(prob[i] * 10 + 0.5f)), '*') << "\n";
+        std::cout << i << ": " << std::string(int(std::floor(prob[i] * 10 + 0.5f)), '*') << "\n";
     }
-    gLogInfo << std::endl;
+    std::cout << std::endl;
 
     return (idx == groundTruthDigit && val > 0.9f);
 }
@@ -124,27 +236,44 @@ bool SampleSafeMNIST::verifyOutput(const BufferManager& buffers, const std::stri
 //! \details This function is the main execution function of the sample. It allocates
 //!          the buffer, sets inputs, executes the engine, and verifies the output.
 //!
-bool SampleSafeMNIST::infer()
+bool doInference(int batchSize)
 {
     // Load engine
     auto engine = loadEngine();
     if (engine.get() == nullptr)
     {
-        gLogError << "Unable to load engine." << std::endl;
+        std::cout << "[E] Unable to load engine." << std::endl;
         return false;
     }
 
-    // Get the input dimensions.
-    mInputDims = engine->getBindingDimensions(0);
+    // This sample only has one input and one output.
+    assert(engine->getNbBindings() == 2);
 
-    // Create RAII buffer manager object.
-    BufferManager buffers(engine, mParams.batchSize);
+    // Get the binding index according to the input/output tensor.
+    const int inputIndex = engine->getBindingIndex(INPUT_BLOB_NAME.c_str());
+    const int outputIndex = engine->getBindingIndex(OUTPUT_BLOB_NAME.c_str());
 
-    auto context = SampleUniquePtr<nvinfer1::IExecutionContext>(engine->createExecutionContext());
-    if (!context)
-    {
-        return false;
-    }
+    // Get the binding dimensions according to the input/output index.
+    nvinfer1::Dims inputDims = engine->getBindingDimensions(inputIndex);
+    nvinfer1::Dims outputDims = engine->getBindingDimensions(outputIndex);
+
+    // Get the input/output tensor volume.
+    const size_t inputVol = volume(inputDims);
+    const size_t outputVol = volume(outputDims);
+
+    // Get the input/output element size.
+    const size_t inElementSize = getElementSize(engine->getBindingDataType(inputIndex));
+    const size_t outElementSize = getElementSize(engine->getBindingDataType(outputIndex));
+
+    // Create GPU buffers
+    void* buffers[2];
+    CHECK(cudaMalloc(&buffers[inputIndex], batchSize * inputVol * inElementSize));
+    CHECK(cudaMalloc(&buffers[outputIndex], batchSize * outputVol * outElementSize));
+
+    // Create host buffers
+    void* hostBuffers[2];
+    hostBuffers[inputIndex] = malloc(batchSize * inputVol * inElementSize);
+    hostBuffers[outputIndex] = malloc(batchSize * outputVol * outElementSize);
 
     // Pick a random digit to try to infer.
     std::random_device rd;
@@ -153,104 +282,61 @@ bool SampleSafeMNIST::infer()
     const int digit = distribution(generator);
 
     // Read the input data into the managed buffers.
-    // There should be just 1 input tensor.
-    assert(mParams.inputTensorNames.size() == 1);
-    if (!processInput(buffers, mParams.inputTensorNames[0], digit))
+    if (!processInput(hostBuffers[inputIndex], INPUT_BLOB_NAME, inputDims, digit))
     {
         return false;
     }
-    
+
+    // Create execution context.
+    auto context = infer_object(engine->createExecutionContext());
+    if (context.get() == nullptr)
+    {
+        return false;
+    }
+
     // Create CUDA stream for the execution of this inference.
     cudaStream_t stream;
     CHECK(cudaStreamCreate(&stream));
 
     // Asynchronously copy data from host input buffers to device input buffers.
-    buffers.copyInputToDeviceAsync(stream);
+    CHECK(cudaMemcpyAsync(buffers[inputIndex], hostBuffers[inputIndex], batchSize * inputVol * inElementSize, cudaMemcpyHostToDevice, stream));
 
     // Asynchronously enqueue the inference work.
-    if (!context->enqueue(mParams.batchSize, buffers.getDeviceBindings().data(), stream, nullptr))
+    if (!context->enqueue(batchSize, buffers, stream, nullptr))
     {
         return false;
     }
+
     // Asynchronously copy data from device output buffers to host output buffers.
-    buffers.copyOutputToHostAsync(stream);
+    CHECK(cudaMemcpyAsync(hostBuffers[outputIndex], buffers[outputIndex], batchSize * outputVol * outElementSize, cudaMemcpyDeviceToHost, stream));
 
     // Wait for the work in the stream to complete.
     cudaStreamSynchronize(stream);
 
-    // Release stream.
-    cudaStreamDestroy(stream);
-
     // Check and print the output of the inference.
-    // There should be just one output tensor.
-    assert(mParams.outputTensorNames.size() == 1);
-    bool outputCorrect = verifyOutput(buffers, mParams.outputTensorNames[0], digit);
+    bool outputCorrect = verifyOutput(hostBuffers[outputIndex], OUTPUT_BLOB_NAME, digit);
+
+    // Release stream and buffers.
+    cudaStreamDestroy(stream);
+    free(hostBuffers[inputIndex]);
+    free(hostBuffers[outputIndex]);
+    CHECK(cudaFree(buffers[inputIndex]));
+    CHECK(cudaFree(buffers[outputIndex]));
 
     return outputCorrect;
 }
 
-//!
-//! \brief Initializes members of the params struct using the command line args.
-//!
-samplesCommon::CaffeSampleParams initializeSampleParams(const samplesCommon::Args& args)
-{
-    samplesCommon::CaffeSampleParams params;
-    if (args.dataDirs.empty()) //!< Use default directories if user hasn't provided directory paths.
-    {
-        params.dataDirs.push_back("data/mnist/");
-        params.dataDirs.push_back("data/samples/mnist/");
-    }
-    else //!< Use the data directory provided by the user.
-    {
-        params.dataDirs = args.dataDirs;
-    }
-
-    params.inputTensorNames.push_back("data");
-    params.batchSize = 1;
-    params.outputTensorNames.push_back("prob");
-
-    return params;
-}
-
-//!
-//! \brief Prints the help information for running this sample.
-//!
-void printHelpInfo()
-{
-    std::cout << "Usage: ./sample_mnist_safe_infer [-h or --help] [-d or --datadir=<path to data directory>]\n";
-    std::cout << "--help          Display help information\n";
-    std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used multiple times to add multiple directories. If no data directories are given, the default is to use (data/samples/mnist/, data/mnist/)" << std::endl;
-}
-
 int main(int argc, char** argv)
 {
-    samplesCommon::Args args;
-    bool argsOK = samplesCommon::parseArgs(args, argc, argv);
-    if (!argsOK)
+    auto cmdline = argv[0];
+    std::cout << "&&&& RUNNING " << gSampleName << " # " << cmdline << std::endl;
+
+    if (!doInference(1))
     {
-        gLogError << "Invalid arguments" << std::endl;
-        printHelpInfo();
+        std::cout << "&&&& FAILED " << gSampleName << " # " << cmdline << std::endl;
         return EXIT_FAILURE;
     }
-    if (args.help)
-    {
-        printHelpInfo();
-        return EXIT_SUCCESS;
-    }
 
-    auto sampleTest = gLogger.defineTest(gSampleName, argc, argv);
-
-    gLogger.reportTestStart(sampleTest);
-
-    samplesCommon::CaffeSampleParams params = initializeSampleParams(args);
-
-    SampleSafeMNIST sample(params);
-    gLogInfo << "Running a GPU inference engine for MNIST" << std::endl;
-
-    if (!sample.infer())
-    {
-        return gLogger.reportFail(sampleTest);
-    }
-
-    return gLogger.reportPass(sampleTest);
+    std::cout << "&&&& PASSED " << gSampleName << " # " << cmdline << std::endl;
+    return EXIT_SUCCESS;
 }

@@ -1,3 +1,18 @@
+#
+# Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
 cmake_minimum_required(VERSION 3.2 FATAL_ERROR)
 project(SafeMNIST LANGUAGES CXX C)
 
@@ -69,14 +84,12 @@ target_link_libraries(${BUILD_TARGET_NAME}
 
 add_executable(${INFER_TARGET_NAME}
     sampleSafeMNISTInfer.cpp
-    ${SAMPLES_DIR}/common/logger.cpp
     )
 
 # Add include directories
 target_include_directories(${INFER_TARGET_NAME}
     PUBLIC ${TRT_INC_DIR}
     PUBLIC ${CUDA_INC_DIR}
-    PRIVATE ${SAMPLES_DIR}/common
     )
 
 option(TRT_SAFE_BUILD "Build with ISO26262-compliant TensorRT library" OFF)
