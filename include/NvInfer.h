@@ -511,8 +511,8 @@ public:
     //!
     //! \param type The data type of the tensor.
     //!
-    //! The type is unchanged if the type is
-    //! invalid for the given tensor.
+    //! The type is unchanged if the tensor is not a network input tensor, or marked as an output tensor or shape
+    //! output tensor.
     //!
     //! \see getType()
     //!
@@ -808,7 +808,9 @@ public:
     //! given type. If it is not set, TensorRT will select the implementation based on performance considerations
     //! and the flags specified to the builder. Note that this method cannot be used to set the data type of the
     //! second output tensor of the topK layer. The data type of the second output tensor of the topK layer is
-    //! always Int32.
+    //! always Int32. Also the output type of all layers that are shape operations must be DataType::kINT32, and
+    //! all attempts to set the output type to some other data type will be ignored except for issuing an error 
+    //! message.
     //!
     //! \param index the index of the output to set
     //! \param dataType the type of the output
@@ -3901,6 +3903,8 @@ public:
     //!
     //! \param tensor The tensor to mark as an output tensor.
     //!
+    //! \warning It is an error to mark a network input as an output.
+    //!
     virtual void markOutput(ITensor& tensor) TRTNOEXCEPT = 0;
 
     //!
@@ -4699,7 +4703,9 @@ public:
     //!
     //! The tensor must be of type DataType::kINT32 and have no more than one dimension.
     //!
-    //! \warning input to markOutputForShapes cannot contain wildcard dimension values.
+    //! \warning The tensor must have dimensions that can be determined to be constants at build time.
+    //!
+    //! \warning It is an error to mark a network input as a shape output.
     //!
     //! \see isShapeBinding(), getShapeBinding()
     //!
