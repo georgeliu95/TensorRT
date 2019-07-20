@@ -265,6 +265,18 @@ inline void readPGMFile(const std::string& fileName, uint8_t* buffer, int inH, i
 namespace samplesCommon
 {
 
+// Swaps endianness of an integral type.
+template <typename T, typename std::enable_if<std::is_integral<T>::value, int>::type = 0>
+inline T swapEndianness(const T& value)
+{
+    uint8_t bytes[sizeof(T)];
+    for (int i = 0; i < static_cast<int>(sizeof(T)); ++i)
+    {
+        bytes[sizeof(T) - 1 - i] = *(reinterpret_cast<const uint8_t*>(&value) + i);
+    }
+    return *reinterpret_cast<T*>(bytes);
+}
+
 class HostMemory : public IHostMemory
 {
 public:

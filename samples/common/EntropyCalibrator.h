@@ -24,12 +24,13 @@
 //!
 //! \brief Implements common functionality for Entropy calibrators.
 //!
+template <typename TBatchStream>
 class EntropyCalibratorImpl
 {
 public:
     EntropyCalibratorImpl(
-        BatchStream& stream, int firstBatch, std::string networkName, const char* inputBlobName, bool readCache = true)
-        : mStream(stream)
+        TBatchStream stream, int firstBatch, std::string networkName, const char* inputBlobName, bool readCache = true)
+        : mStream{stream}
         , mCalibrationTableName("CalibrationTable" + networkName)
         , mInputBlobName(inputBlobName)
         , mReadCache(readCache)
@@ -83,7 +84,7 @@ public:
     }
 
 private:
-    BatchStream mStream;
+    TBatchStream mStream;
     size_t mInputCount;
     std::string mCalibrationTableName;
     const char* mInputBlobName;
@@ -97,11 +98,12 @@ private:
 //! \brief Implements Entropy calibrator 2.
 //!  CalibrationAlgoType is kENTROPY_CALIBRATION_2.
 //!
+template <typename TBatchStream>
 class Int8EntropyCalibrator2 : public IInt8EntropyCalibrator2
 {
 public:
     Int8EntropyCalibrator2(
-        BatchStream& stream, int firstBatch, const char* networkName, const char* inputBlobName, bool readCache = true)
+        TBatchStream stream, int firstBatch, const char* networkName, const char* inputBlobName, bool readCache = true)
         : mImpl(stream, firstBatch, networkName, inputBlobName, readCache)
     {
     }
@@ -127,7 +129,7 @@ public:
     }
 
 private:
-    EntropyCalibratorImpl mImpl;
+    EntropyCalibratorImpl<TBatchStream> mImpl;
 };
 
 #endif // ENTROPY_CALIBRATOR_H

@@ -197,7 +197,8 @@ bool SampleSSD::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
         gLogInfo << "Using Entropy Calibrator 2" << std::endl;
         BatchStream calibrationStream(
             mParams.batchSize, mParams.nbCalBatches, mParams.calibrationBatches, mParams.dataDirs);
-        calibrator.reset(new Int8EntropyCalibrator2(calibrationStream, 0, "SSD", mParams.inputTensorNames[0].c_str()));
+        calibrator.reset(
+            new Int8EntropyCalibrator2<BatchStream>(calibrationStream, 0, "SSD", mParams.inputTensorNames[0].c_str()));
         config->setFlag(BuilderFlag::kINT8);
         config->setInt8Calibrator(calibrator.get());
     }
