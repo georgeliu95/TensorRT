@@ -153,7 +153,7 @@ enum class ActivationType : int
     kCLIP = 8,             //!< Clip activation: max(alpha, min(beta, x))
     kHARD_SIGMOID = 9,     //!< Hard sigmoid activation: max(0, min(1, alpha*x+beta))
     kSCALED_TANH = 10,     //!< Scaled tanh activation: alpha*tanh(beta*x)
-    kTHRESHOLDED_RELU = 11 //!< Thresholded ReLU activation: x>alpha : x : 0
+    kTHRESHOLDED_RELU = 11 //!< Thresholded ReLU activation: x>alpha ? x : 0
 };
 
 template <typename T>
