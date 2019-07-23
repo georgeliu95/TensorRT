@@ -204,6 +204,7 @@ bool SampleINT8::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
     SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config,
     SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser, DataType dataType)
 {
+    mEngine = nullptr;
     const nvcaffeparser1::IBlobNameToTensor* blobNameToTensor
         = parser->parse(locateFile(mParams.prototxtFileName, mParams.dataDirs).c_str(),
             locateFile(mParams.weightsFileName, mParams.dataDirs).c_str(), *network,
