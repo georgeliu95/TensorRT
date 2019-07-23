@@ -766,9 +766,13 @@ public:
     //!
     //! \brief Set the computational precision of this layer
     //!
-    //! setting the precision forces TensorRT to choose implementations which run at this precision. If precision is
-    //! not set, TensorRT will select the computational precision based on performance considerations and the flags
-    //! specified to the builder.
+    //! Setting the precision allows TensorRT to choose implementation which run at this computational precision.
+    //! Layer input type would also get inferred from layer computational precision. TensorRT could still choose a
+    //! non-conforming fastest implementation ignoring set layer precision. Use BuilderFlag::kSTRICT_TYPES to force
+    //! choose implementations with requested precision. In case no implementation is found with requested precision,
+    //! TensorRT would choose available fastest implementation. If precision is not set, TensorRT will select the layer
+    //! computational precision and layer input type based on performance considerations and the flags specified to the
+    //! builder.
     //!
     //! \param precision the computational precision.
     //!
@@ -805,12 +809,14 @@ public:
     //! \brief Set the output type of this layer
     //!
     //! Setting the output type constrains TensorRT to choose implementations which generate output data with the
-    //! given type. If it is not set, TensorRT will select the implementation based on performance considerations
-    //! and the flags specified to the builder. Note that this method cannot be used to set the data type of the
-    //! second output tensor of the topK layer. The data type of the second output tensor of the topK layer is
-    //! always Int32. Also the output type of all layers that are shape operations must be DataType::kINT32, and
-    //! all attempts to set the output type to some other data type will be ignored except for issuing an error 
-    //! message.
+    //! given type. If it is not set, TensorRT will select output type based on layer computational precision. TensorRT
+    //! could still choose non-conforming output type based on fastest implementation. Use BuilderFlag::kSTRICT_TYPES to
+    //! force choose requested output type. In case layer precision is not specified, output type would depend on
+    //! choosen implementation based on performance considerations and the flags specified to the builder. Note that
+    //! this method cannot be used to set the data type of the second output tensor of the topK layer. The data type of
+    //! the second output tensor of the topK layer is always Int32. Also the output type of all layers that are shape
+    //! operations must be DataType::kINT32, and all attempts to set the output type to some other data type will be
+    //! ignored except for issuing an error message.
     //!
     //! \param index the index of the output to set
     //! \param dataType the type of the output
