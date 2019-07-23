@@ -19,8 +19,6 @@
 - [Running the sample](#running-the-sample)
 	* [Sample `--help` options](#sample---help-options)
 - [Additional resources](#additional-resources)
-	* [Sample `--help` options](#sample-help-options)
-- [Additional resources](#additiona-resources)
 - [License](#license)
 - [Changelog](#changelog)
 - [Known issues](#known-issues)

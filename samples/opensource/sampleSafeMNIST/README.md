@@ -6,7 +6,7 @@
 - [How does this sample work?](#how-does-this-sample-work)
 	* [TensorRT API layers and ops](#tensorrt-api-layers-and-ops)
 - [Running the sample](#running-the-sample)
-	* [Sample `--help` options](#sample-help-options)
+	* [Sample `--help` options](#sample---help-options)
 - [Additional resources](#additional-resources)
 - [License](#license)
 - [Changelog](#changelog)
@@ -71,7 +71,7 @@ The SoftMax layer applies the SoftMax function on the input tensor along an inpu
 	cmake ..
 	make
 	```
- 
+
 	Where `<TensorRT root directory>` is where you installed TensorRT.
 
 	**Note:** If any of the dependencies are not installed in their default locations, you can manually specify them. Set `-DTRT_SAFE_BUILD=ON` to enable safe mode for the infer part build, which means building against safe runtime. Otherwise, it will link against the extended runtime lib. Safe mode is forced to be enabled in the release build. For example:
@@ -87,14 +87,14 @@ The SoftMax layer applies the SoftMax function on the input tensor along an inpu
 	```
 	./sample_mnist_safe_build [--datadir=/path/to/data/dir/] [--fp16 or --int8]
 	```
-	
+
 	This sample generates `safe_mnist.engine`, which is a binary file that contains the serialized engine data.
 
 	This sample reads three Caffe files to build the network:
 	- `mnist.prototxt` - The prototxt file that contains the network design.
 	- `mnist.caffemodel` - The model file which contains the trained weights for the network.
 	- `mnist_mean.binaryproto` - The binaryproto file which contains the means.
-	  
+
 	**Note:** By default, this sample expects these files to be in either the `data/samples/mnist/` or `data/mnist/` directories. The list of default directories can be changed by adding one or more paths with `--datadir=/new/path/` as a command line argument.
 
 6. Verify that the sample ran successfully. If the sample runs successfully you should see output similar to the following:
@@ -144,7 +144,7 @@ The SoftMax layer applies the SoftMax function on the input tensor along an inpu
 	@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 	@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 	@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-	  
+
 	[I] Output:
 	0:
 	1:
@@ -159,7 +159,7 @@ The SoftMax layer applies the SoftMax function on the input tensor along an inpu
 
 	&&&& PASSED TensorRT.sample_safe_mnist_infer # ./sample_mnist_safe_infer
 	```
-	  
+
 	This output shows that the sample ran successfully; `PASSED`.
 
 

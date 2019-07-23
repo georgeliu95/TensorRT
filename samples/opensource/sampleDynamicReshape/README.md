@@ -10,7 +10,7 @@
     * [Running inference](#running-inference)
 	* [TensorRT API layers and ops](#tensorrt-api-layers-and-ops)
 - [Running the sample](#running-the-sample)
-	* [Sample `--help` options](#sample-help-options)
+	* [Sample `--help` options](#sample---help-options)
 - [Additional resources](#additional-resources)
 - [License](#license)
 - [Changelog](#changelog)
@@ -26,8 +26,8 @@ This sample creates an engine for resizing an input with dynamic dimensions to a
 
 Specifically, this sample:
 -   Creates a network with dynamic input dimensions to act as a preprocessor for the model
--   Parses an ONNX MNIST model to create a second network    
--   Builds engines for both networks    
+-   Parses an ONNX MNIST model to create a second network
+-   Builds engines for both networks
 -   Runs inference using both engines
 
 ### Creating the preprocessing network
