@@ -19,7 +19,7 @@
 //!
 //! It uses the prebuilt TensorRT engine to run inference on an input image of a digit.
 //! It can be run with the following command line:
-//! Command: ./sample_mnist_safe_infer [-h or --help] [-d=/path/to/data/dir or --datadir=/path/to/data/dir]
+//! Command: ./sample_mnist_safe_infer
 
 #include "NvInferRTProxy.h"
 
@@ -31,6 +31,9 @@
 #include <fstream>
 #include <iostream>
 #include <memory>
+#include <numeric>
+#include <random>
+#include <vector>
 
 const std::string gSampleName = "TensorRT.sample_mnist_safe_infer";
 const std::string INPUT_BLOB_NAME = "data";
