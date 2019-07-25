@@ -21,7 +21,7 @@
 #include <cstdint>
 #include <atomic>
 #include <exception>
-#include "NvInferRTSafe.h"
+#include "NvInferRuntimeCommon.h"
 using namespace nvinfer1;
 //!
 //! A simple imeplementation of the IErrorRecorder interface for
@@ -64,7 +64,7 @@ class SampleErrorRecorder : public IErrorRecorder
         // Empty the errorStack.
         void clear() noexcept final
         {
-            try 
+            try
             {
                 // grab a lock so that there is no addition while clearing.
                 std::lock_guard<std::mutex> guard(mStackLock);
@@ -76,7 +76,7 @@ class SampleErrorRecorder : public IErrorRecorder
             }
         };
 
-        //! Simple helper function that 
+        //! Simple helper function that
         bool empty() const noexcept
         {
             return mErrorStack.empty();
