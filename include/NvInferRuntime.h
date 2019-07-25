@@ -47,8 +47,8 @@
  * Users Notice.
  */
 
-#ifndef NV_INFER_RT_EXT_H
-#define NV_INFER_RT_EXT_H
+#ifndef NV_INFER_RUNTIME_H
+#define NV_INFER_RUNTIME_H
 
 //!
 //! \file NvInferRT.h
@@ -56,7 +56,7 @@
 //! This is the top-level API file for TensorRT extended runtime library.
 //!
 
-#include "NvInferRTSafe.h"
+#include "NvInferRuntimeCommon.h"
 
 namespace nvinfer1
 {
@@ -1800,4 +1800,4 @@ inline IRefitter* createInferRefitter(ICudaEngine& engine, ILogger& logger)
 }
 }
 
-#endif // NV_INFER_RT_EXT_H
+#endif // NV_INFER_RUNTIME_H

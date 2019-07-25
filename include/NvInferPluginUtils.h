@@ -49,7 +49,7 @@
  
 #ifndef NV_INFER_PLUGIN_UTILS_H
 #define NV_INFER_PLUGIN_UTILS_H
-#include "NvInferRTSafe.h"
+#include "NvInferRuntimeCommon.h"
 //!
 //! \file NvPluginUtils.h
 //!

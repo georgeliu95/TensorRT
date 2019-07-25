@@ -50,7 +50,7 @@
 #ifndef NV_INFER_H
 #define NV_INFER_H
 
-#include "NvInferRTExt.h"
+#include "NvInferRuntime.h"
 
 //!
 //! \mainpage

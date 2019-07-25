@@ -264,7 +264,7 @@ TENSORRTAPI nvinfer1::IPluginV2* createNMSPlugin(nvinfer1::plugin::DetectionOutp
 //! Registered plugin type "LReLU_TRT". Registered plugin version "1".
 //! \param negSlope Negative_slope value.
 //!
-TENSORRTAPI nvinfer1::IPluginV2* createLReLUPlugin(float negSlope);
+TRT_DEPRECATED_API nvinfer1::IPluginV2* createLReLUPlugin(float negSlope);
 
 //!
 //! \brief The Reorg plugin reshapes input of shape CxHxW into a (C*stride*stride)x(H/stride)x(W/stride) shape, used in YOLOv2.
@@ -293,7 +293,7 @@ TENSORRTAPI nvinfer1::IPluginV2* createRegionPlugin(nvinfer1::plugin::RegionPara
 //! \param clipMin The minimum value to clip to.
 //! \param clipMax The maximum value to clip to.
 //!
-TENSORRTAPI nvinfer1::IPluginV2* createClipPlugin(const char* layerName, float clipMin, float clipMax);
+TRT_DEPRECATED_API nvinfer1::IPluginV2* createClipPlugin(const char* layerName, float clipMin, float clipMax);
 
 //!
 //! \brief The BatchedNMS Plugin performs non_max_suppression on the input boxes, per batch, across all classes.

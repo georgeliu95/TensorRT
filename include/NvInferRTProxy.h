@@ -52,14 +52,14 @@
 
 #if TRT_SAFE
 
-// Prevent inclusion of NvInferRTExt.h in safe mode to avoid name clash
-#ifdef NV_INFER_RT_EXT_H
-#error "NvInferRTExt.h should not be included when using proxy in safe mode"
+// Prevent inclusion of NvInferRuntime.h in safe mode to avoid name clash
+#ifdef NV_INFER_RUNTIME_H
+#error "NvInferRuntime.h should not be included when using proxy in safe mode"
 #else
-#define NV_INFER_RT_EXT_H
+#define NV_INFER_RUNTIME_H
 #endif
 
-#include "NvInferRTSafe.h"
+#include "NvInferSafeRuntime.h"
 namespace nvinfer1
 {
 using safe::IRuntime;
@@ -70,7 +70,7 @@ using safe::createInferRuntime;
 
 #else
 
-#include "NvInferRTExt.h"
+#include "NvInferRuntime.h"
 
 #endif
 
