@@ -21,7 +21,7 @@
 //! It can be run with the following command line:
 //! Command: ./sample_mnist_safe_infer
 
-#include "NvInferRTProxy.h"
+#include "NvInferRuntimeSelect.h"
 
 #include <algorithm>
 #include <cassert>

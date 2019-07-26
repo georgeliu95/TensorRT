@@ -47,8 +47,8 @@
  * Users Notice.
  */
 
-#ifndef NV_INFER_RT_PROXY_H
-#define NV_INFER_RT_PROXY_H
+#ifndef NV_INFER_RUNTIME_SELECT_H
+#define NV_INFER_RUNTIME_SELECT_H
 
 #if TRT_SAFE
 
@@ -57,7 +57,7 @@
 #error "NvInferRuntime.h should not be included when using proxy in safe mode"
 #else
 #define NV_INFER_RUNTIME_H
-#endif
+#endif  
 
 #include "NvInferSafeRuntime.h"
 namespace nvinfer1
@@ -74,4 +74,4 @@ using safe::createInferRuntime;
 
 #endif
 
-#endif // NV_INFER_RT_PROXY_H
+#endif // NV_INFER_RUNTIME_SELECT_H
