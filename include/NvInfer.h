@@ -986,7 +986,7 @@ public:
     virtual void setNbGroups(int nbGroups) TRTNOEXCEPT = 0;
 
     //!
-    //! \brief Set the number of groups for a convolution.
+    //! \brief Get the number of groups of the convolution.
     //!
     //! \see setNbGroups()
     //!
@@ -1004,7 +1004,7 @@ public:
     virtual void setKernelWeights(Weights weights) TRTNOEXCEPT = 0;
 
     //!
-    //! \brief Get the kernel weights for the convolution.
+    //! \brief Get the kernel weights of the convolution.
     //!
     //! \see setKernelWeights()
     //!
