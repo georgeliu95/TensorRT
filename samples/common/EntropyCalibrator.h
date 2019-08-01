@@ -36,7 +36,7 @@ public:
         , mReadCache(readCache)
     {
         nvinfer1::Dims dims = mStream.getDims();
-        mInputCount = samplesCommon::volume(dims);
+        mInputCount = samplesCommon::volume(dims) * mStream.getBatchSize();
         CHECK(cudaMalloc(&mDeviceInput, mInputCount * sizeof(float)));
         mStream.reset(firstBatch);
     }
