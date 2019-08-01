@@ -5089,6 +5089,8 @@ public:
     //!
     //! \brief Query the number of minimization iterations.
     //!
+    //! By default the minimum number of iterations is 2.
+    //!
     //! \see setMinTimingIterations()
     //!
     virtual int getMinTimingIterations() const TRTNOEXCEPT = 0;
@@ -5105,6 +5107,8 @@ public:
 
     //!
     //! \brief Query the number of averaging iterations.
+    //!
+    //! By default the number of averaging iterations is 1.
     //!
     //! \see setAvgTimingIterations()
     //!
@@ -5152,6 +5156,8 @@ public:
 
     //!
     //! \brief Get the maximum workspace size.
+    //!
+    //! By default the workspace size is 0, which means there is no temporary memory.
     //!
     //! \return The maximum workspace size.
     //!
@@ -5275,6 +5281,8 @@ public:
 
     //!
     //! \brief Get the default DeviceType which was set by setDefaultDeviceType.
+    //!
+    //! By default it returns DeviceType::kGPU.
     //!
     virtual DeviceType getDefaultDeviceType() const TRTNOEXCEPT = 0;
 
