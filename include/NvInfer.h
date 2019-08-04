@@ -1767,6 +1767,21 @@ public:
 
 protected:
     virtual ~IScaleLayer() {}
+
+public:
+    //!
+    //! \brief Get the channel axis.
+    //!
+    //! \return channelAxis parameter passed to addScaleNd()
+    //!
+    //! The value is the index of the channel axis in the input tensor's dimensions. All dimensions
+    //! after the channel axis are assumed to be spatial dimensions, and the only spatial dimensions
+    //! in the tensor. The number of spatial dimensions is thus getDimensions().nbDims - channelAxis - 1.
+    //! Supported numbers of spatial dimensions are 2 and 3 for 2d and 3d scale layers respectively.
+    //!
+    //! \see addScaleNd()
+    //!
+    virtual int getChannelAxis() const TRTNOEXCEPT = 0;
 };
 
 //!
