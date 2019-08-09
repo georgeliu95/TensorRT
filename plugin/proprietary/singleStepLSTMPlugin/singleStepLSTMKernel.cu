@@ -59,7 +59,8 @@ __global__ void gemm_hmma_smallN_TN_a1b0_ker(const int m, const int n, const int
             for (int innerN = 0; innerN < N_MAX; innerN += 8)
             {
                 int actualN = localN + innerN;
-                b[step / 32][innerN / 8] = (actualN >= n || step >= k / K_WARPS) ? make_uint4(0, 0, 0, 0) : *(uint4*)(&B[(localN + innerN) * ldb + localK]);
+                if (actualN >= n || localK >= k) break;
+                b[step / 32][innerN / 8] = (actualN >= n || localK>= k) ? make_uint4(0, 0, 0, 0) : *(uint4*)(&B[(localN + innerN) * ldb + localK]);
             }
     }
     
@@ -90,6 +91,8 @@ __global__ void gemm_hmma_smallN_TN_a1b0_ker(const int m, const int n, const int
             {
                 int localK = step + (threadIdx.x % 4) * 8 + threadIdx.y * K_MAX / K_WARPS;
 
+                if (localK >= k) break;
+                
                 uint4 a[2];
                 
                 a[0] = step >= k / K_WARPS ? make_uint4(0, 0, 0, 0) : *(uint4*)(&A[localM1 * lda + localK]);
@@ -257,7 +260,8 @@ __global__ void gemm_hmma_smallN_TN_a1b0_ker(const int m, const int n, const int
                 {   
                     int actualN = (threadIdx.x % 4) * 2 + innerN;
 
-                    if (actualN < n) {                   
+                    if (actualN < n)
+                    {                   
                         *(reinterpret_cast<uint32_t*>(&C[localM1 * n + actualN])) = c_h2[mStep][0 + 2 * (innerN / 8)]; 
                         *(reinterpret_cast<uint32_t*>(&C[localM2 * n + actualN])) = c_h2[mStep][1 + 2 * (innerN / 8)]; 
                     }
@@ -267,12 +271,16 @@ __global__ void gemm_hmma_smallN_TN_a1b0_ker(const int m, const int n, const int
                 for (int innerN = 0; innerN < N_MAX; innerN += 8)
                 {       
                     int actualN = (threadIdx.x % 4) * 2 + innerN;
-
-                    if (actualN < n) {
-                        C[localM1 + (actualN)     * ldc] = c_h2[mStep][0 + 2 * (innerN / 8)].x; 
-                        C[localM1 + (actualN + 1) * ldc] = c_h2[mStep][0 + 2 * (innerN / 8)].y; 
-                        C[localM2 + (actualN)     * ldc] = c_h2[mStep][1 + 2 * (innerN / 8)].x;
-                        C[localM2 + (actualN + 1) * ldc] = c_h2[mStep][1 + 2 * (innerN / 8)].y;
+                    
+                    if (actualN < n)
+                    {
+                        C[localM1 + (actualN) * ldc] = c_h2[mStep][0 + 2 * (innerN / 8)].x; 
+                        C[localM2 + (actualN) * ldc] = c_h2[mStep][1 + 2 * (innerN / 8)].x;
+                        if (actualN + 1 < n)
+                        {                       
+                            C[localM1 + (actualN + 1) * ldc] = c_h2[mStep][0 + 2 * (innerN / 8)].y; 
+                            C[localM2 + (actualN + 1) * ldc] = c_h2[mStep][1 + 2 * (innerN / 8)].y;
+                        }
                     }
                 }
 #endif
@@ -571,40 +579,40 @@ __global__ void elementWise_fp(int hiddenSize,
     }
 }
  
-template<typename T_GEMM_IN, cudaDataType_t dataTypeIn, typename T_GEMM_OUT, cudaDataType_t dataTypeOut>
+template<cudaDataType_t dataTypeIn, cudaDataType_t dataTypeOut, bool firstSmallGemm, bool secondSmallGemm>
 void singleStepLSTMKernel(int hiddenSize, 
                                   int inputSize,
                                   int miniBatch, 
                                   int seqLength, 
                                   int numLayers,
                                   cublasHandle_t cublasHandle,
-                                  T_GEMM_IN *x, 
-                                  T_GEMM_IN **hx, 
-                                  T_GEMM_IN **cx, 
-                                  T_GEMM_IN **w, 
-                                  T_GEMM_IN **bias,
-                                  T_GEMM_IN *y, 
-                                  T_GEMM_IN **hy, 
-                                  T_GEMM_IN **cy,
-                                  T_GEMM_IN *concatData,
-                                  T_GEMM_IN *tmp_io,
-                                  T_GEMM_OUT *tmp_i,
-                                  T_GEMM_OUT *tmp_h,
+                                  half *x, 
+                                  half **hx, 
+                                  half **cx, 
+                                  half **w, 
+                                  half **bias,
+                                  half *y, 
+                                  half **hy, 
+                                  half **cy,
+                                  half *concatData,
+                                  half *tmp_io,
+                                  half *tmp_i,
+                                  half *tmp_h,
 #if (BATCHED_GEMM)
-                                  T_GEMM_IN **aPtrs,
-                                  T_GEMM_IN **bPtrs,
-                                  T_GEMM_IN **cPtrs,
+                                  half **aPtrs,
+                                  half **bPtrs,
+                                  half **cPtrs,
 #endif
                                   cudaStream_t streami,
                                   cudaStream_t* splitKStreams,
                                   cudaEvent_t* splitKEvents,
                                   int numSplitKStreams,
                                   cudaStream_t streamh) {
-    T_GEMM_OUT alphaR = 1.f;
-    T_GEMM_OUT betaR  = 0.f;    
+    half alphaR = 1.f;
+    half betaR  = 0.f;    
     
-    T_GEMM_OUT alphaL = 1.f;
-    T_GEMM_OUT betaL  = 0.f;
+    half alphaL = 1.f;
+    half betaL  = 0.f;
  
     int numElements = hiddenSize * miniBatch;
     
@@ -669,9 +677,9 @@ void singleStepLSTMKernel(int hiddenSize,
               
             {
 #if (NEW_GEMM)
-                if (false && miniBatch < 32)
+                if (firstSmallGemm && miniBatch < 32)
                 {
-                    gemm_hmma_smallN_TN<4, 4, T_GEMM_IN, T_GEMM_OUT>
+                    gemm_hmma_smallN_TN<4, 4, half, half>
                         (4 * hiddenSize, miniBatch, inputSize / numSplitKStreams, 
                          inputSize, hiddenSize, 4 * hiddenSize,
                          w[layer] + i * inputSize / numSplitKStreams, inData, tmp_i + 4 * i * numElements,
@@ -715,9 +723,9 @@ void singleStepLSTMKernel(int hiddenSize,
 #if (NEW_GEMM)            
             // For now just grabbing the sizes we're interested in
             // Needs to pass in the correct SM version to remove the false.
-            if (false && miniBatch < 32)
+            if (secondSmallGemm && miniBatch < 32)
             {
-                gemm_hmma_smallN_TN<4, 4, T_GEMM_IN, T_GEMM_OUT>
+                gemm_hmma_smallN_TN<4, 4, half, half>
                     (4 * hiddenSize, miniBatch, hiddenSize, 
                      hiddenSize, hiddenSize, 4 * hiddenSize,
                      &w[layer][4 * hiddenSize * inputSize], hx[layer], tmp_h + 4 * layer * numElements,
@@ -787,11 +795,28 @@ void singleStepLSTMKernel(int hiddenSize,
     }
 }
 
-template void singleStepLSTMKernel<half, CUDA_R_16F, half, CUDA_R_16F>(int, int, int, int, int, cublasHandle_t, half*,  half**,  half**,
+template void singleStepLSTMKernel<CUDA_R_16F, CUDA_R_16F, /* firstSmallGemm= */ false, /* secondSmallGemm= */ false>(int, int, int, int, int, cublasHandle_t, half*,  half**,  half**,
                                                                         half**,  half**, half*, half **, half **, half*, half*, half*, half*,
 #if (BATCHED_GEMM)
                                                                         half**, half**, half**,
 #endif
                                                                         cudaStream_t, cudaStream_t*, cudaEvent_t*, int, cudaStream_t);
-
+template void singleStepLSTMKernel<CUDA_R_16F, CUDA_R_16F, /* firstSmallGemm= */ false, /* secondSmallGemm= */ true>(int, int, int, int, int, cublasHandle_t, half*,  half**,  half**,
+                                                                        half**,  half**, half*, half **, half **, half*, half*, half*, half*,
+#if (BATCHED_GEMM)
+                                                                        half**, half**, half**,
+#endif
+                                                                        cudaStream_t, cudaStream_t*, cudaEvent_t*, int, cudaStream_t);
+template void singleStepLSTMKernel<CUDA_R_16F, CUDA_R_16F, /* firstSmallGemm= */ true, /* secondSmallGemm= */ false>(int, int, int, int, int, cublasHandle_t, half*,  half**,  half**,
+                                                                        half**,  half**, half*, half **, half **, half*, half*, half*, half*,
+#if (BATCHED_GEMM)
+                                                                        half**, half**, half**,
+#endif
+                                                                        cudaStream_t, cudaStream_t*, cudaEvent_t*, int, cudaStream_t);
+template void singleStepLSTMKernel<CUDA_R_16F, CUDA_R_16F, /* firstSmallGemm= */ true, /* secondSmallGemm= */ true>(int, int, int, int, int, cublasHandle_t, half*,  half**,  half**,
+                                                                        half**,  half**, half*, half **, half **, half*, half*, half*, half*,
+#if (BATCHED_GEMM)
+                                                                        half**, half**, half**,
+#endif
+                                                                        cudaStream_t, cudaStream_t*, cudaEvent_t*, int, cudaStream_t);
 #endif /* CUDA_VERSION >= 10000 && INCLUDE_MMA_KERNELS */

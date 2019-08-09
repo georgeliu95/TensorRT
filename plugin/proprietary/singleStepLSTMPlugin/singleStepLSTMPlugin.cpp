@@ -38,6 +38,10 @@ SingleStepLSTMPlugin::SingleStepLSTMPlugin(const PluginFieldCollection *fc) {
     
     mDataType = *(nvinfer1::DataType*)(fc->fields[idx].data);
     idx++;
+
+    mDevice = -1;
+    mSMVersionMajor = -1;
+    mSMVersionMinor = -1;
 }
 
 SingleStepLSTMPlugin::SingleStepLSTMPlugin(const void* data, size_t length) {
@@ -47,6 +51,9 @@ SingleStepLSTMPlugin::SingleStepLSTMPlugin(const void* data, size_t length) {
     read<int>(d, mAttentionSize);
     read<int>(d, mInputSize);
     read<int>(d, mBeamSize);
+    read<int>(d, mDevice);
+    read<int>(d, mSMVersionMajor);
+    read<int>(d, mSMVersionMinor);
     
     read<nvinfer1::DataType>(d, mDataType);
     
@@ -129,11 +136,33 @@ int SingleStepLSTMPlugin::initialize() {
     mSplitKStreams = (cudaStream_t*)malloc(NUM_SPLIT_K_STREAMS * sizeof(cudaStream_t));
     mSplitKEvents = (cudaEvent_t*)malloc(NUM_SPLIT_K_STREAMS * sizeof(cudaEvent_t));
 
-    for (int i = 0; i < NUM_SPLIT_K_STREAMS; i++) {
+    for (int i = 0; i < NUM_SPLIT_K_STREAMS; i++)
+    {
         CHECK(cudaStreamCreateWithPriority(&mSplitKStreams[i], 0, -1));
-    }        
+    }
 
-    return 0;
+    cudaError_t status;
+    cudaDeviceProp deviceProperties;
+
+    status = cudaGetDevice(&mDevice);
+    if (status != cudaSuccess)
+    {
+        return status;
+    }
+
+    status = cudaGetDeviceProperties(&deviceProperties, mDevice);
+    if (status != cudaSuccess)
+    {
+        return status;
+    }
+    mSMVersionMajor = deviceProperties.major;
+    mSMVersionMinor = deviceProperties.minor;
+    if (mSMVersionMajor <= 0 || mSMVersionMinor < 0)
+    {
+        return cudaErrorUnknown;
+    }
+
+    return cudaSuccess;
 }
 
 void SingleStepLSTMPlugin::terminate() {
@@ -190,7 +219,7 @@ int SingleStepLSTMPlugin::enqueue(int batchSize, const void* const* inputs, void
     assert(mInputSize == mHiddenSize);
 
     void *tmp_io = workspace;
-    void *tmp_i = (void*)((char*)(workspace) + (mNumLayers * mAttentionSize + mNumLayers * (mHiddenSize - 1) + mInputSize) * effectiveBatch * sizeof(half));
+    void *tmp_i = (void*)((char*)(workspace) + mNumLayers * (mAttentionSize + mInputSize) * effectiveBatch * sizeof(half));
     void *tmp_h = (void*)((char*)(tmp_i) + mHiddenSize * effectiveBatch * 4 * NUM_SPLIT_K_STREAMS * sizeof(half));
     
     cudaEvent_t event;
@@ -198,32 +227,113 @@ int SingleStepLSTMPlugin::enqueue(int batchSize, const void* const* inputs, void
     CHECK(cudaEventRecord(event, stream));  
     CHECK(cudaStreamWaitEvent(mStreami, event, 0));
     CHECK(cudaStreamWaitEvent(mStreamh, event, 0));
-    CHECK(cudaEventDestroy(event));  
+    CHECK(cudaEventDestroy(event));
+
+    cudaError_t status;
+    int device;
+    cudaDeviceProp deviceProperties;
+
+    status = cudaGetDevice(&device);
+    if (status != cudaSuccess)
+    {
+        return status;
+    }
+    assert(device == mDevice);
+
+    if (mSMVersionMajor <= 0 || mSMVersionMinor < 0)
+    {
+        status = cudaGetDeviceProperties(&deviceProperties, mDevice);
+        if (status != cudaSuccess)
+        {
+            return status;
+        }
+        mSMVersionMajor = deviceProperties.major;
+        mSMVersionMinor = deviceProperties.minor;
+        if (mSMVersionMajor <= 0 || mSMVersionMinor < 0)
+        {
+            return cudaErrorUnknown;
+        }
+    }
+
+    int inputSize = mInputSize + mAttentionSize;
+    
+    // The SM version needs to be 7.5 and mHiddenSize needs to be a multiple of 8 to run small Gemm kernel.
+    // The first small Gemm needs 128-bit alignment for x, w and tmp_io, and 32-bit alignment for tmp_i.
+    // Second small Gemm needs 128-bit alignment for hx, w, and 16-bit alignment for tmp_h;
+    bool smallGemm = (mSMVersionMajor == 7) && (mSMVersionMinor == 5) && (mHiddenSize % 128 == 0);
+    bool firstSmallGemm = smallGemm && ((uintptr_t)inputs[0] % 16 == 0) && ((uintptr_t)tmp_io % 16 == 0) && ((uintptr_t)tmp_i % 2 == 0);
+    bool secondSmallGemm = smallGemm && ((uintptr_t)tmp_h % 2 == 0);
+
+    for (int i = 0; i < mNumLayers; i++)
+    {
+        firstSmallGemm = firstSmallGemm && ((uintptr_t)inputs[2 + 2 * mNumLayers + i] % 16 == 0);
+        secondSmallGemm = secondSmallGemm && ((uintptr_t)inputs[2 + 2 * mNumLayers + i] % 16 == 0) && ((uintptr_t)inputs[2 + i] % 16 == 0);
+    }
 
     if (mDataType == nvinfer1::DataType::kHALF) {
-        singleStepLSTMKernel<half, CUDA_R_16F, half, CUDA_R_16F>(mHiddenSize, 
-                             mInputSize + mAttentionSize,
-                             effectiveBatch, 
-                             1,
-                             mNumLayers,
-                             this->mCublas,
-                             (half*)inputs[0], // x 
-                             (half**)(&(inputs[2])), // Array of hx, 
-                             (half**)(&inputs[2 + mNumLayers]), // Array of cx, 
-                             (half**)(&inputs[2 + 2 * mNumLayers]), // w, 
-                             (half**)(&inputs[2 + 3 * mNumLayers]), // bias
-                             (half*)outputs[0], // y, 
-                             (half**)(&outputs[1]), // Array of hy, 
-                             (half**)(&outputs[1 + mNumLayers]), // Array of cy,
-                             (half*)inputs[1], // concatData,
-                             (half*)tmp_io,
-                             (half*)tmp_i,
-                             (half*)tmp_h,
-                             mStreami,
-                             mSplitKStreams,
-                             mSplitKEvents,
-                             NUM_SPLIT_K_STREAMS,
-                             mStreamh);
+        using kernel = void(*)(int hiddenSize, 
+                            int inputSize,
+                            int miniBatch, 
+                            int seqLength, 
+                            int numLayers,
+                            cublasHandle_t cublasHandle,
+                            half *x, 
+                            half **hx, 
+                            half **cx, 
+                            half **w, 
+                            half **bias,
+                            half *y, 
+                            half **hy, 
+                            half **cy,
+                            half *concatData,
+                            half *tmp_io,
+                            half *tmp_i,
+                            half *tmp_h,
+#if (BATCHED_GEMM)
+                            half **aPtrs,
+                            half **bPtrs,
+                            half **cPtrs,
+#endif
+                            cudaStream_t streami,
+                            cudaStream_t* splitKStreams,
+                            cudaEvent_t* splitKEvents,
+                            int numSplitKStreams,
+                            cudaStream_t streamh);
+        kernel funcs[] = 
+        {
+            singleStepLSTMKernel<CUDA_R_16F, CUDA_R_16F, false, false>,
+            singleStepLSTMKernel<CUDA_R_16F, CUDA_R_16F, false, true>,
+            singleStepLSTMKernel<CUDA_R_16F, CUDA_R_16F, true, false>,
+            singleStepLSTMKernel<CUDA_R_16F, CUDA_R_16F, true, true>
+        };
+
+        // Every variable (firstSmallGemm, secondSmallGemm) has 2 options, which correspond 2 kernels when other variables are the same.
+        // int(firstSmallGemm) * 2 + int(secondSmallGemm) is getting the correct index of the specific kernel.
+        kernel func = funcs[int(firstSmallGemm) * 2 +  int(secondSmallGemm)];
+
+        func(mHiddenSize, 
+                 inputSize,
+                 effectiveBatch, 
+                 1,
+                 mNumLayers,
+                 this->mCublas,
+                 (half*)inputs[0], // x 
+                 (half**)(&(inputs[2])), // Array of hx, 
+                 (half**)(&inputs[2 + mNumLayers]), // Array of cx, 
+                 (half**)(&inputs[2 + 2 * mNumLayers]), // w, 
+                 (half**)(&inputs[2 + 3 * mNumLayers]), // bias
+                 (half*)outputs[0], // y, 
+                 (half**)(&outputs[1]), // Array of hy, 
+                 (half**)(&outputs[1 + mNumLayers]), // Array of cy,
+                 (half*)inputs[1], // concatData,
+                 (half*)tmp_io,
+                 (half*)tmp_i,
+                 (half*)tmp_h,
+                 mStreami,
+                 mSplitKStreams,
+                 mSplitKEvents,
+                 NUM_SPLIT_K_STREAMS,
+                 mStreamh);
     }
              
     cudaEvent_t eventEnd;
@@ -236,7 +346,7 @@ int SingleStepLSTMPlugin::enqueue(int batchSize, const void* const* inputs, void
 }
 
 size_t SingleStepLSTMPlugin::getSerializationSize() const {
-    size_t sz = sizeof(mNumLayers) + sizeof(mHiddenSize) + sizeof(mAttentionSize) + sizeof(mInputSize) + sizeof(mBeamSize) + sizeof(mDataType);
+    size_t sz = sizeof(mNumLayers) + sizeof(mHiddenSize) + sizeof(mAttentionSize) + sizeof(mInputSize) + sizeof(mBeamSize) + sizeof(mDataType) + sizeof(mSMVersionMajor) + sizeof(mSMVersionMinor) + sizeof(mDevice);
     return sz;
 }
 
@@ -248,6 +358,9 @@ void SingleStepLSTMPlugin::serialize(void* buffer) const {
     write<int>(d, mAttentionSize);
     write<int>(d, mInputSize);
     write<int>(d, mBeamSize);
+    write<int>(d, mDevice);
+    write<int>(d, mSMVersionMajor);
+    write<int>(d, mSMVersionMinor);
     write<nvinfer1::DataType>(d, mDataType);
     
     assert(d == a + getSerializationSize());

@@ -89,6 +89,10 @@ private:
     cudaEvent_t* mSplitKEvents;
     
     cublasHandle_t mCublas;
+
+    int mDevice;
+    int mSMVersionMajor;
+    int mSMVersionMinor;
     
     std::string mNamespace;
 };

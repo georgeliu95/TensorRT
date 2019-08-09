@@ -27,29 +27,29 @@
 #define K_WARPS2(x) 4
 #endif
 
-template<typename T_GEMM_IN, cudaDataType_t dataTypeIn, typename T_GEMM_OUT, cudaDataType_t dataTypeOut>
+template<cudaDataType_t dataTypeIn, cudaDataType_t dataTypeOut, bool firstSmallGemm, bool secondSmallGemm>
 void singleStepLSTMKernel(int hiddenSize, 
                             int inputSize,
                             int miniBatch, 
                             int seqLength, 
                             int numLayers,
                             cublasHandle_t cublasHandle,
-                            T_GEMM_IN *x, 
-                            T_GEMM_IN **hx, 
-                            T_GEMM_IN **cx, 
-                            T_GEMM_IN **w, 
-                            T_GEMM_IN **bias,
-                            T_GEMM_IN *y, 
-                            T_GEMM_IN **hy, 
-                            T_GEMM_IN **cy,
-                            T_GEMM_IN *concatData,
-                            T_GEMM_IN *tmp_io,
-                            T_GEMM_OUT *tmp_i,
-                            T_GEMM_OUT *tmp_h,
+                            half *x, 
+                            half **hx, 
+                            half **cx, 
+                            half **w, 
+                            half **bias,
+                            half *y, 
+                            half **hy, 
+                            half **cy,
+                            half *concatData,
+                            half *tmp_io,
+                            half *tmp_i,
+                            half *tmp_h,
 #if (BATCHED_GEMM)
-                            T_GEMM_IN **aPtrs,
-                            T_GEMM_IN **bPtrs,
-                            T_GEMM_IN **cPtrs,
+                            half **aPtrs,
+                            half **bPtrs,
+                            half **cPtrs,
 #endif
                             cudaStream_t streami,
                             cudaStream_t* splitKStreams,
@@ -58,4 +58,3 @@ void singleStepLSTMKernel(int hiddenSize,
                             cudaStream_t streamh);
 
 #endif // SINGLE_STEP_LSTM_KERNEL_H
-
