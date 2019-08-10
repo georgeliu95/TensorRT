@@ -51,7 +51,7 @@
 #define NV_INFER_RUNTIME_H
 
 //!
-//! \file NvInferRT.h
+//! \file NvInferRuntime.h
 //!
 //! This is the top-level API file for TensorRT extended runtime library.
 //!

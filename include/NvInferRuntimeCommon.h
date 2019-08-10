@@ -99,7 +99,7 @@
 #endif
 #define TRTNOEXCEPT
 //!
-//! \file NvInferRT.h
+//! \file NvInferRuntimeCommon.h
 //!
 //! This is the top-level API file for TensorRT core runtime library.
 //!
