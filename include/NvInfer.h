@@ -4710,8 +4710,8 @@ public:
     //! have an implicit batch dimension or none of them do.
     //!
     //! hasImplicitBatchDimension() is true if and only if this INetworkDefinition
-    //! was created with createNetwork() or createNetworkV2() with the
-    //! NetworkDefinitionCreationFlag::kDEFAULT flag.
+    //! was created with createNetwork() or createNetworkV2() without
+    //! NetworkDefinitionCreationFlag::kEXPLICIT_BATCH flag.
     //!
     //! \see createNetworkV2
     //!
@@ -5381,13 +5381,11 @@ typedef uint32_t NetworkDefinitionCreationFlags;
 //!
 enum class NetworkDefinitionCreationFlag : int
 {
-    kDEFAULT = 0x0,
-
     //! Dynamic shape support requires that the kEXPLICIT_BATCH flag is set.
     //! With dynamic shapes, any of the input dimensions can vary at run-time,
     //! and there are no implicit dimensions in the network specification. This is specified by using the
     //! wildcard dimension value -1.
-    kEXPLICIT_BATCH = 0x1, //!< Mark the network to be an explicit batch network
+    kEXPLICIT_BATCH = 0, //!< Mark the network to be an explicit batch network
 
     //! Setting the network to be an explicit precision network has the following implications:
     //! 1) Precision of all input tensors to the network have to be specified with ITensor::setType() function
@@ -5401,12 +5399,12 @@ enum class NetworkDefinitionCreationFlag : int
     //! precision network is [-127,127].
     //! 5) Quantizing and dequantizing activation values between higher (FP32) and lower (INT8) precision
     //! will be performed using explicit Scale layers with input/output precision set appropriately.
-    kEXPLICIT_PRECISION = 0x2, //!< Mark the network to be an explicit precision network
+    kEXPLICIT_PRECISION = 1, //!< Mark the network to be an explicit precision network
 };
 template <>
 constexpr inline int EnumMax<NetworkDefinitionCreationFlag>()
 {
-    return 3;
+    return 2;
 }
 
 //!
@@ -5422,7 +5420,7 @@ public:
     //!
     //! \brief Create a network definition object where all tensors have an implicit batch dimension.
     //!
-    //! This method is equivalent to createNetworkV2(NetworkDefinitionCreationFlag::kDEFAULT), and retained for
+    //! This method is equivalent to createNetworkV2(0U), and retained for
     //! compatibility
     //! with earlier version of TensorRT.  The network does not support dynamic shapes or explicit batch sizes.
     //!

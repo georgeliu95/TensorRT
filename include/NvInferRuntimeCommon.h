@@ -1028,16 +1028,21 @@ enum class ErrorCode : int
     //!
     kSUCCESS = 0,
 
+    //! 
+    //! An error that does not fall into any other category. This error is included for forward compatibility
+    //!
+    kUNSPECIFIED_ERROR = 1,
+
     //!
     //! A non-recoverable TensorRT error occurred.
     //!
-    kINTERNAL_ERROR = 1,
+    kINTERNAL_ERROR = 2,
 
     //!
     //! An argument passed to the function is invalid in isolation.
     //! This is a violation of the API contract
     //!
-    kINVALID_ARGUMENT = 2,
+    kINVALID_ARGUMENT = 3,
 
     //!
     //! An error occurred when comparing the state of an argument relative to other arguments. For example, the
@@ -1046,20 +1051,20 @@ enum class ErrorCode : int
     //! from the simple errors from the more complex errors.
     //! This is a violation of the API contract.
     //!
-    kINVALID_CONFIG = 3,
+    kINVALID_CONFIG = 4,
 
     //!
     //! An error occurred when performing an allocation of memory on the host or the device.
     //! A memory allocation error is normally fatal, but in the case where the application provided its own memory
     //! allocation routine, it is possible to increase the pool of available memory and resume execution.
     //!
-    kFAILED_ALLOCATION = 4,
+    kFAILED_ALLOCATION = 5,
 
     //!
     //! One, or more, of the components that TensorRT relies on did not initialize correctly.
     //! This is a system setup issue.
     //!
-    kFAILED_INITIALIZATION = 5,
+    kFAILED_INITIALIZATION = 6,
 
     //!
     //! An error occurred during execution that caused TensorRT to end prematurely, either an asynchronous error or
@@ -1067,7 +1072,7 @@ enum class ErrorCode : int
     //! data can be thrown away and the next frame can be processed or execution can be retried.
     //! This is either an execution error or a memory error.
     //!
-    kFAILED_EXECUTION = 6,
+    kFAILED_EXECUTION = 7,
 
     //!
     //! An error occurred during execution that caused the data to become corrupted, but execution finished. Examples
@@ -1075,7 +1080,7 @@ enum class ErrorCode : int
     //! next frame can be processed or execution can be retried.
     //! This is either a data corruption error, an input error, or a range error.
     //!
-    kFAILED_COMPUTATION = 7,
+    kFAILED_COMPUTATION = 8,
 
     //!
     //! TensorRT was put into a bad state by incorrect sequence of function calls. An example of an invalid state is
@@ -1089,7 +1094,7 @@ enum class ErrorCode : int
     //! to DLA not supporting the large kernel size. This can be recovered by either turning on GPU fallback
     //! or setting the layer to run on the GPU.
     //!
-    kINVALID_STATE = 8,
+    kINVALID_STATE = 9,
 
     //!
     //! An error occurred due to the network not being supported on the device due to constraints of the hardware or
@@ -1101,13 +1106,14 @@ enum class ErrorCode : int
     //!    workspace size.
     //!  * Tensor size exceeds the maximum element count and can be recovered by reducing the maximum batch size.
     //!
-    kUNSUPPORTED_STATE = 9
+    kUNSUPPORTED_STATE = 10,
+
 };
 
 template <>
 constexpr inline int EnumMax<ErrorCode>()
 {
-    return 10;
+    return 11;
 } //!< Maximum number of elements in ErrorCode enum. \see ErrorCode
 
 
