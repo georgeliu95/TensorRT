@@ -506,7 +506,8 @@ void CgPersistentLSTM::doInputTranspose(const void* x, void* y, const void* hx, 
         }
         else
         {
-            CUASSERT(cudaMemsetAsync(hy, 0, mScratch.hx.size, stream));
+            size_t hysize = dirMul * dataSize * maxBatchSize * param.numLayers * param.hiddenSize;
+            CUASSERT(cudaMemsetAsync(hy, 0, hysize, stream));
             hxT = mScratch.hx.data;
             CUASSERT(cudaMemsetAsync(mScratch.cx.data, 0,  mScratch.cx.size, stream));
             cxT = mScratch.cx.data;
@@ -598,7 +599,8 @@ void CgPersistentLSTM::execute(const void* x, void* y, const void* init_h, const
 
     if(param.setInitialStates)
     {
-        CUASSERT(cudaMemcpyAsync((void *)finalHCurrent,(void *) initHCurrent, mScratch.hx.size,
+        size_t hxsize = dirMul * dataSize * maxBatchSize * param.numLayers * param.hiddenSize;
+        CUASSERT(cudaMemcpyAsync((void *)finalHCurrent,(void *) initHCurrent, hxsize,
                 cudaMemcpyDeviceToDevice, stream));
     }
 
