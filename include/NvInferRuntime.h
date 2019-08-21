@@ -1109,7 +1109,10 @@ class ICudaEngine
 {
 public:
     //!
-    //! \brief Get the number of binding indices.
+    //! \brief Get the number of binding indices. 
+    //!
+    //! If the engine has been built for K profiles, the first getNbBindings() / K bindings are used by profile
+    //! number 0, the following getNbBindings() / K bindings are used by profile number 1 etc.
     //!
     //! \see getBindingIndex();
     //!
