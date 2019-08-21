@@ -548,8 +548,8 @@ __global__ void elementWise_fp(int hiddenSize,
     }
 
     float in_gate      = sigmoidf(g[0]);
-    float forget_gate  = sigmoidf(1 + g[2]);
-    float in_gate2     = tanhf(g[1]);
+    float forget_gate  = sigmoidf(1 + g[1]);
+    float in_gate2     = tanhf(g[2]);
     float out_gate     = sigmoidf(g[3]);
     
     float val = (forget_gate * (float)c_in[index]) + (in_gate * in_gate2);
