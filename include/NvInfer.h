@@ -818,6 +818,12 @@ public:
     //! operations must be DataType::kINT32, and all attempts to set the output type to some other data type will be
     //! ignored except for issuing an error message.
     //!
+    //! Note that the layer output type is generally not identical to the data type of the output tensor, as TensorRT may insert
+    //! implicit reformatting operations to convert the former to the latter. Calling layer->setOutputType(i, type)
+    //! has no effect on the data type of the i-th output tensor of layer, and users need to call layer->getOutput(i)->setType(type)
+    //! to change the tensor data type. This is particularly relevant if the tensor is marked as a network output, since only
+    //! setType() [but not setOutputType()] will affect the data representation in the corresponding output binding.
+    //!
     //! \param index the index of the output to set
     //! \param dataType the type of the output
     //!
