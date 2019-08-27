@@ -143,6 +143,10 @@ void SampleDynamicReshape::buildPreprocessorEngine(const SampleUniquePtr<nvinfer
     profile->setDimensions(input->getName(), OptProfileSelector::kMAX, Dims3{1, 56, 56});
     preprocessorConfig->addOptimizationProfile(profile);
     mPreprocessorEngine = this->makeUnique(builder->buildEngineWithConfig(*preprocessorNetwork, *preprocessorConfig));
+    gLogInfo << "Profile dimensions in preprocessor engine:\n";
+    gLogInfo << "    Minimum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kMIN) << '\n';
+    gLogInfo << "    Optimum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kOPT) << '\n';
+    gLogInfo << "    Maximum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kMAX) << std::endl;
 }
 
 //!
@@ -171,7 +175,7 @@ void SampleDynamicReshape::buildPredictionEngine(const SampleUniquePtr<nvinfer1:
     mPredictionInputDims = network->getInput(0)->getDimensions();
     mPredicitionOutputDims = network->getOutput(0)->getDimensions();
 
-    // Create a network config
+    // Create a builder config
     auto config = this->makeUnique(builder->createBuilderConfig());
     config->setMaxWorkspaceSize(16_MiB);
     if (mParams.fp16)
@@ -272,7 +276,7 @@ Dims SampleDynamicReshape::loadPGMFile(const std::string& fileName)
     infile.read(reinterpret_cast<char*>(fileData.data()), vol);
 
     // Print an ascii representation
-    gLogInfo << "Input:" << std::endl;
+    gLogInfo << "Input:\n";
     for (size_t i = 0; i < vol; i++)
     {
         gLogInfo << (" .:-=+*#%@"[fileData[i] / 26]) << (((i + 1) % w) ? "" : "\n");

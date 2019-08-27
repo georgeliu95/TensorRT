@@ -24,7 +24,6 @@
 #include "NvOnnxParser.h"
 #include "NvUffParser.h"
 
-#include "sampleOptions.h"
 #include "sampleUtils.h"
 
 namespace sample
@@ -67,7 +66,7 @@ nvinfer1::ICudaEngine* modelToEngine(const ModelOptions& model, const BuildOptio
 //!
 //! \return Pointer to the engine loaded or nullptr if the operation failed
 //!
-nvinfer1::ICudaEngine* loadEngine(const std::string& engine, std::ostream& err);
+nvinfer1::ICudaEngine* loadEngine(const std::string& engine, int DLACore, std::ostream& err);
 
 //!
 //! \brief Save an engine into a file

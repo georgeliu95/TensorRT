@@ -12,7 +12,7 @@
 - [Prerequisites](#prerequisites)
 - [Running the sample](#running-the-sample)
     * [Sample `--help` options](#sample---help-options)
-- [Additional resources](#additonal-resources)
+- [Additional resources](#additional-resources)
 - [License](#license)
 - [Changelog](#changelog)
 - [Known issues](#known-issues)

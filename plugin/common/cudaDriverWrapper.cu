@@ -4,19 +4,18 @@
 #include <stdio.h>
 #include <dlfcn.h>
 #include "cudaDriverWrapper.h"
-#include "checkMacros.h"
-#include "helpers.h"
+#include <assert.h>
 
 using namespace nvinfer1;
 
 CUDADriverWrapper::CUDADriverWrapper()
 {
     handle = dlopen("libcuda.so.1", RTLD_LAZY);
-    ASSERT(handle != nullptr);
+    assert(handle != nullptr);
 
     auto load_sym = [](void *handle, const char *name) {
         void *ret = dlsym(handle, name);
-        ASSERT(ret != nullptr);
+        assert(ret != nullptr);
         return ret;
     };
 

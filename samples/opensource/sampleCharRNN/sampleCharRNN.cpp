@@ -20,7 +20,7 @@
 //! It uses weights from a trained TensorFlow model and creates the network
 //! using the TensorRT network definition API
 //! It can be run with the following command line:
-//! Command: ./sample_char_rnn [-h or --help] [-d or --datadir=<path to data directory>] [--useDLACore=<int>]
+//! Command: ./sample_char_rnn [-h or --help] [-d or --datadir=<path to data directory>]
 //!
 
 #include <algorithm>
@@ -53,8 +53,7 @@ const std::string gSampleName = "TensorRT.sample_char_rnn";
 // The data set used: tensorflow-char-rnn/data/tiny_shakespeare.txt
 //
 // The command used to train:
-// python train.py --data_file=data/tiny_shakespeare.txt --num_epochs=100 --num_layer=2 --hidden_size=512
-// --embedding_size=512 --dropout=.5
+// python train.py --data_file=data/tiny_shakespeare.txt --num_epochs=100 --num_layer=2 --hidden_size=512 --embedding_size=512 --dropout=.5
 //
 // Epochs trained: 100
 // Test perplexity: 4.940
@@ -74,8 +73,8 @@ struct SampleCharRNNWeightNames
     const std::string FCB_NAME{"softmax_softmax_b"};
     const std::string EMBED_NAME{"embedding"};
 
-    std::unordered_set<std::string> names
-        = {{RNNW_L0_NAME, RNNB_L0_NAME, RNNW_L1_NAME, RNNB_L1_NAME, FCW_NAME, FCB_NAME, EMBED_NAME}};
+    std::unordered_set<std::string> names = {{RNNW_L0_NAME, RNNB_L0_NAME, RNNW_L1_NAME,
+                                              RNNB_L1_NAME, FCW_NAME, FCB_NAME, EMBED_NAME}};
 };
 
 struct SampleCharRNNBindingNames
@@ -92,19 +91,14 @@ struct SampleCharRNNBindingNames
 struct SampleCharRNNMaps
 {
     // A mapping from character to index used by the tensorflow model.
-    const std::map<char, int> charToID{{'\n', 0}, {'!', 1}, {' ', 2}, {'$', 3}, {'\'', 4}, {'&', 5}, {'-', 6}, {',', 7},
-        {'.', 8}, {'3', 9}, {';', 10}, {':', 11}, {'?', 12}, {'A', 13}, {'C', 14}, {'B', 15}, {'E', 16}, {'D', 17},
-        {'G', 18}, {'F', 19}, {'I', 20}, {'H', 21}, {'K', 22}, {'J', 23}, {'M', 24}, {'L', 25}, {'O', 26}, {'N', 27},
-        {'Q', 28}, {'P', 29}, {'S', 30}, {'R', 31}, {'U', 32}, {'T', 33}, {'W', 34}, {'V', 35}, {'Y', 36}, {'X', 37},
-        {'Z', 38}, {'a', 39}, {'c', 40}, {'b', 41}, {'e', 42}, {'d', 43}, {'g', 44}, {'f', 45}, {'i', 46}, {'h', 47},
-        {'k', 48}, {'j', 49}, {'m', 50}, {'l', 51}, {'o', 52}, {'n', 53}, {'q', 54}, {'p', 55}, {'s', 56}, {'r', 57},
-        {'u', 58}, {'t', 59}, {'w', 60}, {'v', 61}, {'y', 62}, {'x', 63}, {'z', 64}};
+    const std::map<char, int> charToID{{'\n', 0}, {'!', 1}, {' ', 2}, {'$', 3}, {'\'', 4}, {'&', 5}, {'-', 6}, {',', 7}, {'.', 8}, {'3', 9}, {';', 10}, {':', 11}, {'?', 12}, {'A', 13}, {'C', 14}, {'B', 15}, {'E', 16}, {'D', 17}, {'G', 18}, {'F', 19}, {'I', 20}, {'H', 21}, {'K', 22}, {'J', 23}, {'M', 24}, {'L', 25}, {'O', 26}, {'N', 27}, {'Q', 28}, {'P', 29}, {'S', 30}, {'R', 31}, {'U', 32}, {'T', 33}, {'W', 34}, {'V', 35}, {'Y', 36}, {'X', 37}, {'Z', 38}, {'a', 39}, {'c', 40}, {'b', 41}, {'e', 42}, {'d', 43}, {'g', 44}, {'f', 45}, {'i', 46}, {'h', 47}, {'k', 48}, {'j', 49}, {'m', 50}, {'l', 51}, {'o', 52}, {'n', 53}, {'q', 54}, {'p', 55}, {'s', 56}, {'r', 57}, {'u', 58}, {'t', 59}, {'w', 60}, {'v', 61}, {'y', 62}, {'x', 63}, {'z', 64}};
 
     // A mapping from index to character used by the tensorflow model.
-    const std::vector<char> idToChar{{'\n', '!', ' ', '$', '\'', '&', '-', ',', '.', '3', ';', ':', '?', 'A', 'C', 'B',
-        'E', 'D', 'G', 'F', 'I', 'H', 'K', 'J', 'M', 'L', 'O', 'N', 'Q', 'P', 'S', 'R', 'U', 'T', 'W', 'V', 'Y', 'X',
-        'Z', 'a', 'c', 'b', 'e', 'd', 'g', 'f', 'i', 'h', 'k', 'j', 'm', 'l', 'o', 'n', 'q', 'p', 's', 'r', 'u', 't',
-        'w', 'v', 'y', 'x', 'z'}};
+    const std::vector<char> idToChar{{'\n', '!', ' ', '$', '\'', '&', '-', ',',
+                                      '.', '3', ';', ':', '?', 'A', 'C', 'B', 'E', 'D', 'G', 'F', 'I', 'H', 'K',
+                                      'J', 'M', 'L', 'O', 'N', 'Q', 'P', 'S', 'R', 'U', 'T', 'W', 'V', 'Y', 'X',
+                                      'Z', 'a', 'c', 'b', 'e', 'd', 'g', 'f', 'i', 'h', 'k', 'j', 'm', 'l', 'o',
+                                      'n', 'q', 'p', 's', 'r', 'u', 't', 'w', 'v', 'y', 'x', 'z'}};
 };
 
 struct SampleCharRNNParams : samplesCommon::SampleParams
@@ -192,8 +186,8 @@ private:
     //!
     //! \brief Perform one time step of inference with the TensorRT execution context
     //!
-    bool stepOnce(samplesCommon::BufferManager& buffers, SampleUniquePtr<nvinfer1::IExecutionContext>& context,
-        cudaStream_t& stream);
+    bool stepOnce(samplesCommon::BufferManager& buffers,
+                  SampleUniquePtr<nvinfer1::IExecutionContext>& context, cudaStream_t& stream);
 
     //!
     //! \brief Copies Ct/Ht output from the RNN to the Ct-1/Ht-1 input buffers for next time step
@@ -218,7 +212,8 @@ private:
 //!
 bool SampleCharRNN::build()
 {
-    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
+    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(
+        nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
     if (!builder)
     {
         return false;
@@ -239,7 +234,6 @@ bool SampleCharRNN::build()
     builder->setMaxBatchSize(mParams.batchSize);
     config->setMaxWorkspaceSize(32_MiB);
     config->setFlag(BuilderFlag::kGPU_FALLBACK);
-    samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
 
     constructNetwork(builder, network, config);
 
@@ -279,7 +273,9 @@ std::map<std::string, nvinfer1::Weights> SampleCharRNN::loadWeights(const std::s
     while (count--)
     {
         if (mParams.weightNames.names.empty())
+        {
             break;
+        }
 
         nvinfer1::Weights wt{nvinfer1::DataType::kFLOAT, nullptr, 0};
 
@@ -393,32 +389,29 @@ nvinfer1::Weights SampleCharRNN::convertRNNBias(nvinfer1::Weights input)
 nvinfer1::IRNNv2Layer* SampleCharRNN::addRNNv2Layer(SampleUniquePtr<nvinfer1::INetworkDefinition>& network)
 {
     // Initialize data, hiddenIn, cellIn, and seqLenIn inputs into RNN Layer
-    nvinfer1::ITensor* data = network->addInput(mParams.bindingNames.INPUT_BLOB_NAME, nvinfer1::DataType::kFLOAT,
-        nvinfer1::Dims2(mParams.seqSize, mParams.dataSize));
+    nvinfer1::ITensor* data = network->addInput(mParams.bindingNames.INPUT_BLOB_NAME, nvinfer1::DataType::kFLOAT, nvinfer1::Dims2(mParams.seqSize, mParams.dataSize));
     assert(data != nullptr);
 
-    nvinfer1::ITensor* hiddenIn = network->addInput(mParams.bindingNames.HIDDEN_IN_BLOB_NAME,
-        nvinfer1::DataType::kFLOAT, nvinfer1::Dims2(mParams.layerCount, mParams.hiddenSize));
+    nvinfer1::ITensor* hiddenIn = network->addInput(mParams.bindingNames.HIDDEN_IN_BLOB_NAME, nvinfer1::DataType::kFLOAT, nvinfer1::Dims2(mParams.layerCount, mParams.hiddenSize));
     assert(hiddenIn != nullptr);
 
-    nvinfer1::ITensor* cellIn = network->addInput(mParams.bindingNames.CELL_IN_BLOB_NAME, nvinfer1::DataType::kFLOAT,
-        nvinfer1::Dims2(mParams.layerCount, mParams.hiddenSize));
+    nvinfer1::ITensor* cellIn = network->addInput(mParams.bindingNames.CELL_IN_BLOB_NAME, nvinfer1::DataType::kFLOAT, nvinfer1::Dims2(mParams.layerCount, mParams.hiddenSize));
     assert(cellIn != nullptr);
 
-    nvinfer1::ITensor* seqLenIn
-        = network->addInput(mParams.bindingNames.SEQ_LEN_IN_BLOB_NAME, nvinfer1::DataType::kINT32, nvinfer1::Dims{});
+    nvinfer1::ITensor* seqLenIn = network->addInput(mParams.bindingNames.SEQ_LEN_IN_BLOB_NAME, nvinfer1::DataType::kINT32, nvinfer1::Dims{});
     assert(seqLenIn != nullptr);
 
     // create an RNN layer w/ 2 layers and 512 hidden states
-    nvinfer1::IRNNv2Layer* rnn = network->addRNNv2(
-        *data, mParams.layerCount, mParams.hiddenSize, mParams.seqSize, nvinfer1::RNNOperation::kLSTM);
+    nvinfer1::IRNNv2Layer* rnn = network->addRNNv2(*data, mParams.layerCount, mParams.hiddenSize, mParams.seqSize, nvinfer1::RNNOperation::kLSTM);
     assert(rnn != nullptr);
 
     // Set RNNv2 optional inputs
     rnn->getOutput(0)->setName("RNN output");
     rnn->setHiddenState(*hiddenIn);
     if (rnn->getOperation() == nvinfer1::RNNOperation::kLSTM)
+    {
         rnn->setCellState(*cellIn);
+    }
 
     // Specify sequence lengths.  Note this can be omitted since we are always using the maximum
     // sequence length, but for illustrative purposes we explicitly pass in sequence length data
@@ -432,8 +425,10 @@ nvinfer1::IRNNv2Layer* SampleCharRNN::addRNNv2Layer(SampleUniquePtr<nvinfer1::IN
     nvinfer1::Weights rnnwL1 = SampleCharRNN::convertRNNWeights(mWeightMap[mParams.weightNames.RNNW_L1_NAME]);
     nvinfer1::Weights rnnbL1 = SampleCharRNN::convertRNNBias(mWeightMap[mParams.weightNames.RNNB_L1_NAME]);
 
-    std::vector<nvinfer1::RNNGateType> gateOrder({nvinfer1::RNNGateType::kINPUT, nvinfer1::RNNGateType::kCELL,
-        nvinfer1::RNNGateType::kFORGET, nvinfer1::RNNGateType::kOUTPUT});
+    std::vector<nvinfer1::RNNGateType> gateOrder({nvinfer1::RNNGateType::kINPUT,
+                                                  nvinfer1::RNNGateType::kCELL,
+                                                  nvinfer1::RNNGateType::kFORGET,
+                                                  nvinfer1::RNNGateType::kOUTPUT});
     const nvinfer1::DataType dataType = static_cast<nvinfer1::DataType>(rnnwL0.type);
     const float* wtsL0 = static_cast<const float*>(rnnwL0.values);
     const float* biasesL0 = static_cast<const float*>(rnnbL0.values);
@@ -481,12 +476,10 @@ void SampleCharRNN::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builde
     auto rnn = SampleCharRNN::addRNNv2Layer(network);
 
     // Transpose FC weights since TensorFlow's weights are transposed when compared to TensorRT
-    utils::transposeSubBuffers((void*) mWeightMap[mParams.weightNames.FCW_NAME].values, nvinfer1::DataType::kFLOAT, 1,
-        mParams.hiddenSize, mParams.vocabSize);
+    utils::transposeSubBuffers((void*) mWeightMap[mParams.weightNames.FCW_NAME].values, nvinfer1::DataType::kFLOAT, 1, mParams.hiddenSize, mParams.vocabSize);
 
     // add Constant layers for fully connected weights
-    auto fcwts = network->addConstant(
-        nvinfer1::Dims2(mParams.vocabSize, mParams.hiddenSize), mWeightMap[mParams.weightNames.FCW_NAME]);
+    auto fcwts = network->addConstant(nvinfer1::Dims2(mParams.vocabSize, mParams.hiddenSize), mWeightMap[mParams.weightNames.FCW_NAME]);
 
     // Add matrix multiplication layer for multiplying rnn output with FC weights
     auto matrixMultLayer = network->addMatrixMultiply(*fcwts->getOutput(0), false, *rnn->getOutput(0), true);
@@ -495,8 +488,7 @@ void SampleCharRNN::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builde
 
     // Add elementwise layer for adding bias
     auto fcbias = network->addConstant(nvinfer1::Dims2(mParams.vocabSize, 1), mWeightMap[mParams.weightNames.FCB_NAME]);
-    auto addBiasLayer = network->addElementWise(
-        *matrixMultLayer->getOutput(0), *fcbias->getOutput(0), nvinfer1::ElementWiseOperation::kSUM);
+    auto addBiasLayer = network->addElementWise(*matrixMultLayer->getOutput(0), *fcbias->getOutput(0), nvinfer1::ElementWiseOperation::kSUM);
     assert(addBiasLayer != nullptr);
     addBiasLayer->getOutput(0)->setName("Add Bias output");
 
@@ -534,7 +526,8 @@ bool SampleCharRNN::infer()
     // Create RAII buffer manager object
     samplesCommon::BufferManager buffers(mEngine, mParams.batchSize);
 
-    auto context = SampleUniquePtr<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
+    auto context = SampleUniquePtr<nvinfer1::IExecutionContext>(
+        mEngine->createExecutionContext());
 
     if (!context)
     {
@@ -556,8 +549,7 @@ bool SampleCharRNN::infer()
     CHECK(cudaStreamCreate(&stream));
 
     // Set sequence lengths to maximum
-    std::fill_n(reinterpret_cast<int32_t*>(buffers.getHostBuffer(mParams.bindingNames.SEQ_LEN_IN_BLOB_NAME)),
-        mParams.batchSize, mParams.seqSize);
+    std::fill_n(reinterpret_cast<int32_t*>(buffers.getHostBuffer(mParams.bindingNames.SEQ_LEN_IN_BLOB_NAME)), mParams.batchSize, mParams.seqSize);
 
     // Initialize hiddenIn and cellIn tensors to zero before seeding
     void* hiddenIn = buffers.getHostBuffer(mParams.bindingNames.HIDDEN_IN_BLOB_NAME);
@@ -619,15 +611,13 @@ void SampleCharRNN::copyEmbeddingToInput(samplesCommon::BufferManager& buffers, 
     float* inputBuffer = static_cast<float*>(buffers.getHostBuffer(mParams.bindingNames.INPUT_BLOB_NAME));
     auto index = mParams.charMaps.charToID.at(c);
 
-    std::memcpy(inputBuffer, static_cast<const float*>(embed.values) + index * mParams.dataSize,
-        buffers.size(mParams.bindingNames.INPUT_BLOB_NAME));
+    std::memcpy(inputBuffer, static_cast<const float*>(embed.values) + index * mParams.dataSize, buffers.size(mParams.bindingNames.INPUT_BLOB_NAME));
 }
 
 //!
 //! \brief Perform one time step of inference with the TensorRT execution context
 //!
-bool SampleCharRNN::stepOnce(
-    samplesCommon::BufferManager& buffers, SampleUniquePtr<nvinfer1::IExecutionContext>& context, cudaStream_t& stream)
+bool SampleCharRNN::stepOnce(samplesCommon::BufferManager& buffers, SampleUniquePtr<nvinfer1::IExecutionContext>& context, cudaStream_t& stream)
 {
     // Asynchronously copy data from host input buffers to device input buffers
     buffers.copyInputToDeviceAsync(stream);
@@ -702,8 +692,6 @@ SampleCharRNNParams initializeSampleParams(const samplesCommon::Args& args)
     params.vocabSize = 65;
     params.outputSize = 1;
     params.weightFileName = locateFile("char-rnn.wts", params.dataDirs);
-    params.dlaCore = args.useDLACore;
-    params.fp16 = args.runInFp16;
 
     // Input strings and their respective expected output strings
     const std::vector<std::string> inS{
@@ -742,16 +730,9 @@ SampleCharRNNParams initializeSampleParams(const samplesCommon::Args& args)
 //!
 void printHelpInfo()
 {
-    std::cout
-        << "Usage: ./sample_char_rnn [-h or --help] [-d or --datadir=<path to data directory>] [--useDLACore=<int>]\n";
+    std::cout << "Usage: ./sample_char_rnn [-h or --help] [-d or --datadir=<path to data directory>]\n";
     std::cout << "--help          Display help information\n";
-    std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used "
-                 "multiple times to add multiple directories. If no data directories are given, the default is to use "
-                 "data/samples/char-rnn/ and data/char-rnn/"
-              << std::endl;
-    std::cout << "--useDLACore=N  Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, "
-                 "where n is the number of DLA engines on the platform."
-              << std::endl;
+    std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used multiple times to add multiple directories. If no data directories are given, the default is to use data/samples/char-rnn/ and data/char-rnn/" << std::endl;
 }
 
 //!
@@ -759,6 +740,7 @@ void printHelpInfo()
 //!
 int main(int argc, char** argv)
 {
+    setReportableSeverity(Logger::Severity::kVERBOSE);
     samplesCommon::Args args;
     bool argsOK = samplesCommon::parseArgs(args, argc, argv);
     if (!argsOK)
@@ -780,7 +762,8 @@ int main(int argc, char** argv)
     SampleCharRNNParams params = initializeSampleParams(args);
     SampleCharRNN sample(params);
 
-    gLogInfo << "Building and running a GPU inference engine for Char RNN model..." << std::endl;
+    gLogInfo << "Building and running a GPU inference engine for Char RNN model..."
+             << std::endl;
 
     if (!sample.build())
     {

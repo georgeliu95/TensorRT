@@ -87,7 +87,6 @@ The TopK layer finds the top `K` maximum (or minimum) elements along a dimension
 ## Training an NCF network
 
 This sample comes with a pre-trained model. However, if you want to train your own model, you would need to also convert the model weights to UFF format before you can run the sample. For step-by-step instructions, refer to the `README.md` file in the `sampleMovieLens` directory.
-```
 
 ## Running the sample
 

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include <algorithm>
 #include <cctype>
 #include <chrono>
@@ -28,17 +29,17 @@
 #include <time.h>
 #include <vector>
 
-#include "NvCaffeParser.h"
 #include "NvInfer.h"
 #include "NvInferPlugin.h"
+#include "NvCaffeParser.h"
 #include "NvOnnxParser.h"
 #include "NvUffParser.h"
 
 #include "buffers.h"
 #include "common.h"
 #include "logger.h"
-#include "sampleEngines.h"
 #include "sampleOptions.h"
+#include "sampleEngines.h"
 
 using namespace nvinfer1;
 using namespace sample;
@@ -55,7 +56,7 @@ float percentile(float percentage, std::vector<float>& times)
     return std::numeric_limits<float>::infinity();
 }
 
-void doInference(ICudaEngine& engine, const InferenceOptions& inference, const ReportingOptions& reporting)
+bool doInference(ICudaEngine& engine, const InferenceOptions& inference, const ReportingOptions& reporting)
 {
     IExecutionContext* context = engine.createExecutionContext();
 
@@ -75,7 +76,13 @@ void doInference(ICudaEngine& engine, const InferenceOptions& inference, const R
         auto dims = context->getBindingDimensions(b);
         if (dims.d[0] == -1)
         {
-            dims.d[0] = inference.batch;
+            auto shape = inference.shapes.find(engine.getBindingName(b));
+            if (shape == inference.shapes.end())
+            {
+                gLogError << "Missing dynamic batch size in inference" << std::endl;
+                return false;
+            }
+            dims.d[0] = shape->second.d[0];
             context->setBindingDimensions(b, dims);
         }
     }
@@ -83,7 +90,7 @@ void doInference(ICudaEngine& engine, const InferenceOptions& inference, const R
     // Use an aliasing shared_ptr since we don't want engine to be deleted when bufferManager goes out of scope.
     std::shared_ptr<ICudaEngine> emptyPtr{};
     std::shared_ptr<ICudaEngine> aliasPtr(emptyPtr, &engine);
-    samplesCommon::BufferManager bufferManager(aliasPtr, inference.batch, *context);
+    samplesCommon::BufferManager bufferManager(aliasPtr, inference.batch, inference.batch ? nullptr : context);
     std::vector<void*> buffers = bufferManager.getDeviceBindings();
 
     cudaStream_t stream;
@@ -102,7 +109,14 @@ void doInference(ICudaEngine& engine, const InferenceOptions& inference, const R
         {
             auto tStart = std::chrono::high_resolution_clock::now();
             cudaEventRecord(start, stream);
-            context->enqueueV2(&buffers[0], stream, nullptr);
+            if (inference.batch)
+            {
+                context->enqueue(inference.batch, &buffers[0], stream, nullptr);
+            }
+            else
+            {
+                context->enqueueV2(&buffers[0], stream, nullptr);
+            }
             cudaEventRecord(end, stream);
             cudaEventSynchronize(end);
 
@@ -145,6 +159,8 @@ void doInference(ICudaEngine& engine, const InferenceOptions& inference, const R
     cudaEventDestroy(start);
     cudaEventDestroy(end);
     context->destroy();
+
+    return true;
 }
 
 int main(int argc, char** argv)
@@ -172,8 +188,6 @@ int main(int argc, char** argv)
                 }
                 failed = true;
             }
-
-            failed = failed || !options.isValid(gLogError);
         }
         catch (const std::invalid_argument& arg)
         {
@@ -184,6 +198,9 @@ int main(int argc, char** argv)
         if (failed)
         {
             AllOptions::help(std::cout);
+            std::cout << "Note: the following options are not fully supported in trtexec:"
+                         " dynamic shapes, multistream/threads, cuda graphs, json logs,"
+                         " and actual data IO" << std::endl;
             return gLogger.reportFail(sampleTest);
         }
     }
@@ -195,6 +212,9 @@ int main(int argc, char** argv)
     if (options.helps)
     {
         AllOptions::help(std::cout);
+        std::cout << "Note: the following options are not fully supported in trtexec:"
+                     " dynamic shapes, multistream/threads, cuda graphs, json logs,"
+                     " and actual data IO" << std::endl;
         return gLogger.reportPass(sampleTest);
     }
 
@@ -214,14 +234,40 @@ int main(int argc, char** argv)
         samplesCommon::loadLibrary(pluginPath);
     }
 
-    ICudaEngine* engine = modelToEngine(options.model, options.build, options.system, gLogError);
+    ICudaEngine* engine{nullptr};
+    if (options.build.load)
+    {
+        engine = loadEngine(options.build.engine, options.system.DLACore, gLogError);
+    }
+    else
+    {
+        engine = modelToEngine(options.model, options.build, options.system, gLogError);
+    }
     if (!engine)
     {
         gLogError << "Engine could not be created" << std::endl;
         return gLogger.reportFail(sampleTest);
     }
+    if (options.build.save)
+    {
+        saveEngine(*engine, options.build.engine, gLogError);
+    }
 
-    doInference(*engine, options.inference, options.reporting);
+    if (!options.inference.skip)
+    {
+        if (options.build.safe && options.system.DLACore >= 0)
+        {
+            gLogInfo << "Safe DLA capability is detected. Please save DLA loadable with --saveEngine option, "
+                        "then use dla_safety_runtime to run inference with saved DLA loadable, "
+                        "or alternatively run with your own application" << std::endl;
+            return gLogger.reportFail(sampleTest);
+        }
+        if (!doInference(*engine, options.inference, options.reporting))
+        {
+            gLogError << "Inference failure" << std::endl;
+            return gLogger.reportFail(sampleTest);
+        }
+    }
     engine->destroy();
 
     return gLogger.reportPass(sampleTest);

@@ -80,21 +80,22 @@ private:
     //!
     //! \brief Parses a Uff model for MNIST and creates a TensorRT network
     //!
-    void constructNetwork(
-        SampleUniquePtr<nvuffparser::IUffParser>& parser, SampleUniquePtr<nvinfer1::INetworkDefinition>& network);
+    void constructNetwork(SampleUniquePtr<nvuffparser::IUffParser>& parser,
+                          SampleUniquePtr<nvinfer1::INetworkDefinition>& network);
 
     //!
     //! \brief Reads the input and mean data, preprocesses, and stores the result
     //!        in a managed buffer
     //!
-    bool processInput(
-        const samplesCommon::BufferManager& buffers, const std::string& inputTensorName, int inputFileIdx) const;
+    bool processInput(const samplesCommon::BufferManager& buffers,
+                      const std::string& inputTensorName, int inputFileIdx) const;
 
     //!
     //! \brief Verifies that the output is correct and prints it
     //!
-    bool verifyOutput(
-        const samplesCommon::BufferManager& buffers, const std::string& outputTensorName, int groundTruthDigit) const;
+    bool verifyOutput(const samplesCommon::BufferManager& buffers,
+                      const std::string& outputTensorName,
+                      int groundTruthDigit) const;
 
     std::shared_ptr<nvinfer1::ICudaEngine> mEngine{nullptr}; //!< The TensorRT engine used to run the network
 
@@ -114,7 +115,8 @@ private:
 //!
 bool SampleUffMNIST::build()
 {
-    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
+    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(
+        nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
     if (!builder)
     {
         return false;
@@ -171,15 +173,17 @@ bool SampleUffMNIST::build()
 //! \param builder Pointer to the engine builder
 //!
 void SampleUffMNIST::constructNetwork(
-    SampleUniquePtr<nvuffparser::IUffParser>& parser, SampleUniquePtr<nvinfer1::INetworkDefinition>& network)
+    SampleUniquePtr<nvuffparser::IUffParser>& parser,
+    SampleUniquePtr<nvinfer1::INetworkDefinition>& network)
 {
     // There should only be one input and one output tensor
     assert(mParams.inputTensorNames.size() == 1);
     assert(mParams.outputTensorNames.size() == 1);
 
     // Register tensorflow input
-    parser->registerInput(
-        mParams.inputTensorNames[0].c_str(), nvinfer1::Dims3(1, 28, 28), nvuffparser::UffInputOrder::kNCHW);
+    parser->registerInput(mParams.inputTensorNames[0].c_str(),
+                          nvinfer1::Dims3(1, 28, 28),
+                          nvuffparser::UffInputOrder::kNCHW);
     parser->registerOutput(mParams.outputTensorNames[0].c_str());
 
     parser->parse(mParams.uffFileName.c_str(), *network, nvinfer1::DataType::kFLOAT);
@@ -193,20 +197,24 @@ void SampleUffMNIST::constructNetwork(
 //!
 //! \brief Reads the input data, preprocesses, and stores the result in a managed buffer
 //!
-bool SampleUffMNIST::processInput(
-    const samplesCommon::BufferManager& buffers, const std::string& inputTensorName, int inputFileIdx) const
+bool SampleUffMNIST::processInput(const samplesCommon::BufferManager& buffers,
+                                  const std::string& inputTensorName,
+                                  int inputFileIdx) const
 {
     const int inputH = mInputDims.d[1];
     const int inputW = mInputDims.d[2];
 
     std::vector<uint8_t> fileData(inputH * inputW);
-    readPGMFile(locateFile(std::to_string(inputFileIdx) + ".pgm", mParams.dataDirs), fileData.data(), inputH, inputW);
+    readPGMFile(
+        locateFile(std::to_string(inputFileIdx) + ".pgm", mParams.dataDirs),
+        fileData.data(), inputH, inputW);
 
     // Print ASCII representation of digit
     gLogInfo << "Input:\n";
     for (int i = 0; i < inputH * inputW; i++)
     {
-        gLogInfo << (" .:-=+*#%@"[fileData[i] / 26]) << (((i + 1) % inputW) ? "" : "\n");
+        gLogInfo << (" .:-=+*#%@"[fileData[i] / 26])
+                 << (((i + 1) % inputW) ? "" : "\n");
     }
     gLogInfo << std::endl;
 
@@ -222,8 +230,9 @@ bool SampleUffMNIST::processInput(
 //!
 //! \brief Verifies that the inference output is correct
 //!
-bool SampleUffMNIST::verifyOutput(
-    const samplesCommon::BufferManager& buffers, const std::string& outputTensorName, int groundTruthDigit) const
+bool SampleUffMNIST::verifyOutput(const samplesCommon::BufferManager& buffers,
+                                  const std::string& outputTensorName,
+                                  int groundTruthDigit) const
 {
     const float* prob = static_cast<const float*>(buffers.getHostBuffer(outputTensorName));
 
@@ -270,7 +279,8 @@ bool SampleUffMNIST::infer()
     // Create RAII buffer manager object
     samplesCommon::BufferManager buffers(mEngine, mParams.batchSize);
 
-    auto context = SampleUniquePtr<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
+    auto context = SampleUniquePtr<nvinfer1::IExecutionContext>(
+        mEngine->createExecutionContext());
     if (!context)
     {
         return false;
@@ -292,7 +302,8 @@ bool SampleUffMNIST::infer()
         const auto t_start = std::chrono::high_resolution_clock::now();
 
         // Execute the inference work
-        if (!context->execute(mParams.batchSize, buffers.getDeviceBindings().data()))
+        if (!context->execute(mParams.batchSize,
+                              buffers.getDeviceBindings().data()))
         {
             return false;
         }
@@ -310,7 +321,8 @@ bool SampleUffMNIST::infer()
 
     total /= kDIGITS;
 
-    gLogInfo << "Average over " << kDIGITS << " runs is " << total << " ms." << std::endl;
+    gLogInfo << "Average over " << kDIGITS << " runs is " << total << " ms."
+             << std::endl;
 
     return outputCorrect;
 }
@@ -328,7 +340,8 @@ bool SampleUffMNIST::teardown()
 //! \brief Initializes members of the params struct
 //!        using the command line args
 //!
-samplesCommon::UffSampleParams initializeSampleParams(const samplesCommon::Args& args)
+samplesCommon::UffSampleParams
+initializeSampleParams(const samplesCommon::Args& args)
 {
     samplesCommon::UffSampleParams params;
     if (args.dataDirs.empty()) //!< Use default directories if user hasn't provided paths
@@ -395,7 +408,8 @@ int main(int argc, char** argv)
     samplesCommon::UffSampleParams params = initializeSampleParams(args);
 
     SampleUffMNIST sample(params);
-    gLogInfo << "Building and running a GPU inference engine for Uff MNIST" << std::endl;
+    gLogInfo << "Building and running a GPU inference engine for Uff MNIST"
+             << std::endl;
 
     if (!sample.build())
     {

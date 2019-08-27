@@ -18,7 +18,7 @@
 	* [Generating batch files for non-Caffe users](#generating-batch-files-for-non-caffe-users)
 - [Running the sample](#running-the-sample)
 	* [Sample `--help` options](#sample---help-options)
-- [Additional resources](#additional-resources)
+- [Additional resources](#additiona-resources)
 - [License](#license)
 - [Changelog](#changelog)
 - [Known issues](#known-issues)
@@ -263,7 +263,7 @@ Download the [MNIST dataset](http://yann.lecun.com/exdb/mnist/)
 
 	This output shows that the sample ran successfully; `PASSED`.
 
-### Sample --help options
+### Sample `--help` options
 
 To see the full list of available options and their descriptions, use the `-h` or `--help` command line option.
 

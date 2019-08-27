@@ -261,22 +261,22 @@ void setTensorScales(const INetworkDefinition& network, float inScales = 2.0f, f
 
 ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys, IBuilder& builder, INetworkDefinition& network, std::ostream& err)
 {
-    if (network.hasImplicitBatchDimension())
-    {
-        err << "Cannot build engine, implicit batch dimensions (deprecated) is no longer supported" << std::endl;
-        return nullptr;
-    }
-
     unique_ptr<IBuilderConfig> config{builder.createBuilderConfig()};
 
     IOptimizationProfile* profile{nullptr};
-    if (build.minBatch < build.maxBatch)
+    if (build.maxBatch)
     {
-        profile = builder.createOptimizationProfile();
+        builder.setMaxBatchSize(build.maxBatch);
+    }
+    else
+    {
+        if (!build.shapes.empty())
+        {
+            profile = builder.createOptimizationProfile();
+        }
     }
 
-
-    for (unsigned int i = 0, n = network.getNbInputs(); i < n; i++) // BUILD->NETWORK
+    for (unsigned int i = 0, n = network.getNbInputs(); i < n; i++)
     {
         // Set formats and data types of inputs
         auto input = network.getInput(i);
@@ -291,28 +291,31 @@ ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys
             input->setAllowedFormats(1U << static_cast<int>(TensorFormat::kLINEAR));
         }
 
-        Dims dims = input->getDimensions();
-        if (std::any_of(dims.d + 1, dims.d + dims.nbDims, [](int dim){ return dim == -1; }))
-        {
-            err << "Only dynamic batch dimesion is supported, other dimensions must be static" << std::endl;
-            return nullptr;
-        }
         if (profile)
         {
+            Dims dims = input->getDimensions();
+            if (std::any_of(dims.d + 1, dims.d + dims.nbDims, [](int dim){ return dim == -1; }))
+            {
+                err << "Only dynamic batch dimension is currently supported, other dimensions must be static" << std::endl;
+                return nullptr;
+            }
             dims.d[0] = -1;
             Dims profileDims = dims;
-            profileDims.d[0] = build.minBatch;
+            auto shape = build.shapes.find(input->getName());
+            if (shape == build.shapes.end())
+            {
+                err << "Dynamic dimensions required for input " << input->getName() << std::endl;
+                return nullptr;
+            }
+            profileDims.d[0] = shape->second[static_cast<size_t>(OptProfileSelector::kMIN)].d[0];
             profile->setDimensions(input->getName(), OptProfileSelector::kMIN, profileDims);
-            profileDims.d[0] = build.optBatch;
+            profileDims.d[0] = shape->second[static_cast<size_t>(OptProfileSelector::kOPT)].d[0];
             profile->setDimensions(input->getName(), OptProfileSelector::kOPT, profileDims);
-            profileDims.d[0] = build.maxBatch;
+            profileDims.d[0] = shape->second[static_cast<size_t>(OptProfileSelector::kMAX)].d[0];
             profile->setDimensions(input->getName(), OptProfileSelector::kMAX, profileDims);
+
+            input->setDimensions(dims);
         }
-        else
-        {
-            dims.d[0] = build.minBatch;
-        }
-        input->setDimensions(dims);
     }
 
     if (profile)
@@ -408,7 +411,8 @@ ICudaEngine* modelToEngine(const ModelOptions& model, const BuildOptions& build,
         err << "Builder creation failed" << std::endl;
         return nullptr;
     }
-    unique_ptr<INetworkDefinition> network{builder->createNetworkV2(false)};
+    auto batchFlag = (build.maxBatch ? 0U : 1U) << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
+    unique_ptr<INetworkDefinition> network{builder->createNetworkV2(batchFlag)};
     if (!network)
     {
         err << "Network creation failed" << std::endl;
@@ -434,7 +438,7 @@ ICudaEngine* loadEngine(const std::string& engine, int DLACore, std::ostream& er
     }
 
     engineFile.seekg(0, engineFile.end);
-    auto fsize{engineFile.tellg()};
+    long int fsize = engineFile.tellg();
     engineFile.seekg(0, engineFile.beg);
 
     std::vector<char> engineData(fsize);

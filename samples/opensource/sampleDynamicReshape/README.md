@@ -4,7 +4,7 @@
 **Table Of Contents**
 - [Description](#description)
 - [How does this sample work?](#how-does-this-sample-work)
-    * [Creating the preprocessor network](#creating-the-preprocessor-network)
+    * [Creating the preprocessing network](#creating-the-preprocessing-network)
     * [Parsing the ONNX MNIST model](#parsing-the-onnx-mnist-model)
     * [Building engines](#building-engines)
     * [Running inference](#running-inference)

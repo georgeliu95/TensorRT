@@ -243,30 +243,29 @@ public:
     //!
     //! \brief Create a BufferManager for handling buffer interactions with engine.
     //!
-    BufferManager(std::shared_ptr<nvinfer1::ICudaEngine> engine, const int& batchSize)
+    BufferManager(std::shared_ptr<nvinfer1::ICudaEngine> engine, const int& batchSize, const nvinfer1::IExecutionContext* context = nullptr)
         : mEngine(engine)
         , mBatchSize(batchSize)
     {
         // Create host and device buffers
         for (int i = 0; i < mEngine->getNbBindings(); i++)
         {
-            auto dims = mEngine->getBindingDimensions(i);
-            initBindingBuffers(dims, i, false);
-        }
-    }
-
-    //!
-    //! \brief Create a BufferManager for handling buffer interactions with engine with explicit dimensions.
-    //!
-    BufferManager(std::shared_ptr<nvinfer1::ICudaEngine> engine, const int& batchSize, nvinfer1::IExecutionContext& context)
-        : mEngine(engine)
-        , mBatchSize(batchSize)
-    {
-        // Create host and device buffers
-        for (int b = 0; b < mEngine->getNbBindings(); b++)
-        {
-            auto dims = context.getBindingDimensions(b);
-            initBindingBuffers(dims, b, true);
+            auto dims = context ? context->getBindingDimensions(i) : mEngine->getBindingDimensions(i);
+            size_t vol = context ? 1 : static_cast<size_t>(mBatchSize);
+            nvinfer1::DataType type = mEngine->getBindingDataType(i);
+            int vecDim = mEngine->getBindingVectorizedDim(i);
+            if (-1 != vecDim) // i.e., 0 != lgScalarsPerVector
+            {
+                int scalarsPerVec = mEngine->getBindingComponentsPerElement(i);
+                dims.d[vecDim] = divUp(dims.d[vecDim], scalarsPerVec);
+                vol *= scalarsPerVec;
+            }
+            vol *= samplesCommon::volume(dims);
+            std::unique_ptr<ManagedBuffer> manBuf{new ManagedBuffer()};
+            manBuf->deviceBuffer = DeviceBuffer(vol, type);
+            manBuf->hostBuffer = HostBuffer(vol, type);
+            mDeviceBindings.emplace_back(manBuf->deviceBuffer.data());
+            mManagedBuffers.emplace_back(std::move(manBuf));
         }
     }
 
@@ -408,25 +407,6 @@ public:
     ~BufferManager() = default;
 
 private:
-
-    void initBindingBuffers(Dims dims, int binding, bool full)
-    {
-        size_t vol = full ? 1 : static_cast<size_t>(mBatchSize);
-        nvinfer1::DataType type = mEngine->getBindingDataType(binding);
-        int vecDim = mEngine->getBindingVectorizedDim(binding);
-        if (-1 != vecDim) // i.e., 0 != lgScalarsPerVector
-        {
-            int scalarsPerVec = mEngine->getBindingComponentsPerElement(binding);
-            dims.d[vecDim] = divUp(dims.d[vecDim], scalarsPerVec);
-            vol *= scalarsPerVec;
-        }
-        vol *= samplesCommon::volume(dims);
-        std::unique_ptr<ManagedBuffer> manBuf{new ManagedBuffer()};
-        manBuf->deviceBuffer = DeviceBuffer(vol, type);
-        manBuf->hostBuffer = HostBuffer(vol, type);
-        mDeviceBindings.emplace_back(manBuf->deviceBuffer.data());
-        mManagedBuffers.emplace_back(std::move(manBuf));
-    }
 
     void* getBuffer(const bool isHost, const std::string& tensorName) const
     {

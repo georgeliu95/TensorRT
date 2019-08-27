@@ -33,7 +33,7 @@ Specifically, this sample demonstrates how to:
 
 In order to perform INT8 inference, you need to provide TensorRT with the dynamic range for each network tensor, including network input and output tensor. One way to choose the dynamic range is to use the TensorRT INT8 calibrator. But if you don't want to go that route (for example, let’s say you used quantization-aware training or you just want to use the min and max tensor values seen during training), you can skip the INT8 calibration and set custom per-network tensor dynamic ranges. This sample implements INT8 inference for the ONNX ResNet-50 model using per-network tensor dynamic ranges specified in an input file.
 
-This sample uses the [ONNX ResNet-50 model](https://github.com/onnx/models/tree/master/resnet50).
+This sample uses the [ONNX ResNet-50 model](https://github.com/onnx/models/tree/master/vision/classification/resnet/resnet50).
 
 Specifically, this sample performs the following steps:
 - [Configuring the builder to use INT8 without the INT8 calibrator](#configuring-the-builder-to-use-int8-without-the-int8-calibrator)
@@ -160,7 +160,7 @@ The ResNet-50 per tensor dynamic ranges file.
 `airliner.ppm`
 The image to be inferred.
 
-1.  Download the [ONNX ResNet-50 model](https://github.com/onnx/models/tree/master/resnet50).
+1.  Download the [ONNX ResNet-50 model](https://github.com/onnx/models/tree/master/vision/classification/resnet/resnet50).
     `wget https://s3.amazonaws.com/download.onnx/models/opset_3/resnet50.tar.gz`
 
 2.  Unpackage the model file.
@@ -239,7 +239,7 @@ To see the full list of available options and their descriptions, use the `-h` o
 
 In order to use this sample with other model files with a custom configuration, perform the following steps:
 
-1.  Download the [Image Classification model files](https://github.com/onnx/models/tree/master/models/image_classification) from GitHub.
+1.  Download the [Image Classification model files](https://github.com/onnx/models/tree/master/vision/classification) from GitHub.
 
 2.  Create an input image with a PPM extension. Resize it with the dimensions of 224x224x3.
 
@@ -279,7 +279,7 @@ In order to use this sample with other model files with a custom configuration, 
 
 		**Note:** By default, the sample expects these files to be in either the `data/samples/int8_api/` or `data/int8_api/` directories. The list of default directories can be changed by adding one or more paths with `--data=/new/path` as a command line argument.
 
-	2.  To create the `<network_name>_per_tensor_dynamic_ranges.txt.txt` file, ensure each line corresponds to the tensor name and floating point dynamic range, for example `<tensor_name> : <float dynamic range>`.
+	2.  To create the `<network_name>_per_tensor_dynamic_ranges.txt` file, ensure each line corresponds to the tensor name and floating point dynamic range, for example `<tensor_name> : <float dynamic range>`.
 
 		Tensor names generated in the `network_tensors.txt` file (step 4-1) can be used here to represent `<tensor_name>`. The dynamic range can either be obtained from training (by measuring the `min` and `max` value of activation tensors in each epoch) or from using custom post processing techniques (similar to TensorRT calibration). You can also choose to use a dummy per tensor dynamic range to run the sample.
 
@@ -298,8 +298,8 @@ The following resources provide a deeper understanding how to perform inference 
 - [8-bit Inference with TensorRT](http://on-demand.gputechconf.com/gtc/2017/presentation/s7310-8-bit-inference-with-tensorrt.pdf)
 
 **Models:**
-- [ONNX ResNet-50 model](https://github.com/onnx/models/tree/master/resnet50)
-- [Image Classification Model Files](https://github.com/onnx/models/tree/master/models/image_classification)
+- [ONNX ResNet-50 model](https://github.com/onnx/models/tree/master/vision/classification/resnet/resnet50)
+- [Image Classification Model Files](https://github.com/onnx/models/tree/master/vision/classification)
 
 **Blogs:**
 - [Why are Eight Bits Enough for Deep Neural Networks?](https://petewarden.com/2015/05/23/why-are-eight-bits-enough-for-deep-neural-networks/)

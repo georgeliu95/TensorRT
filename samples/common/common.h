@@ -59,6 +59,10 @@ using namespace plugin;
 #define FN_NAME __func__
 #endif
 
+#if (!defined(__ANDROID__) && defined(__aarch64__)) || defined(__QNX__)
+#define ENABLE_DLA_API 1
+#endif
+
 #define CHECK(status)                                          \
     do                                                         \
     {                                                          \
@@ -219,8 +223,14 @@ inline std::string locateFile(const std::string& filepathSuffix, const std::vect
 
     for (auto& dir : directories)
     {
-        if (dir.back() != '/')
+        if (!dir.empty() && dir.back() != '/')
+        {
+#ifdef _MSC_VER
+            filepath = dir + "\\" + filepathSuffix;
+#else
             filepath = dir + "/" + filepathSuffix;
+#endif
+        }
         else
             filepath = dir + filepathSuffix;
 

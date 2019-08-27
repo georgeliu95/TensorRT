@@ -209,10 +209,10 @@ public:
         return mDebugBuilder;
     } //!<  get the boolean variable, corresponding to the debug builder
 
-    const char* getImageFileName() const
+    const char* getImageFileName() const //!<  set Image file name (PPM or ASCII)
     {
         return mImageFilename.c_str();
-    }                                                //!<  set Image file name (PPM or ASCII)
+    }
     void setImageFileName(const char* imageFilename) //!< get the Image file name
     {
         mImageFilename = string(imageFilename);
@@ -235,10 +235,10 @@ public:
         return mInputDataFormat;
     } //!<  returns the expected data format of the image file.
 
-    const char* getOutputFileName() const
+    const char* getOutputFileName() const //!<  specifies the file to save the results
     {
         return mOutputFilename.c_str();
-    }                                                  //!<  specifies the file to save the results
+    }
     void setOutputFileName(const char* outputFilename) //!<  get the output file name
     {
         mOutputFilename = string(outputFilename);

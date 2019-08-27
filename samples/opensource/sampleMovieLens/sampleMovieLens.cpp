@@ -70,8 +70,7 @@ struct SampleMovieLensParams : public samplesCommon::UffSampleParams
 
     // The below structures are used to compare the predicted values to inference (ground truth)
     std::map<int32_t, std::vector<int32_t>> userToItemsMap; // Lookup for inferred items for each user.
-    std::map<int32_t, std::vector<std::pair<int32_t, float>>>
-        userToExpectedItemProbMap; // Lookup for topK items and probs for each user.
+    std::map<int32_t, std::vector<std::pair<int32_t, float>>> userToExpectedItemProbMap; // Lookup for topK items and probs for each user.
     std::vector<OutputParams> outParamsVec;
 };
 
@@ -143,8 +142,7 @@ private:
     //!
     //! \brief Verifies the inference output with ground truth and logs the results
     //!
-    bool verifyOutput(
-        uint32_t* userInputPtr, uint32_t* /*itemInputPtr*/, uint32_t* topKItemNumberPtr, float* topKItemProbPtr);
+    bool verifyOutput(uint32_t* userInputPtr, uint32_t* /*itemInputPtr*/, uint32_t* topKItemNumberPtr, float* topKItemProbPtr);
 
     SampleMovieLensParams mParams;
 
@@ -163,7 +161,8 @@ private:
 //!
 bool SampleMovieLens::build()
 {
-    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
+    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(
+        nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
     if (!builder)
     {
         return false;
@@ -279,7 +278,8 @@ bool SampleMovieLens::infer()
     // Create RAII buffer manager object
     samplesCommon::BufferManager buffers(mEngine, mParams.batchSize);
 
-    auto context = SampleUniquePtr<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
+    auto context = SampleUniquePtr<nvinfer1::IExecutionContext>(
+        mEngine->createExecutionContext());
 
     if (!context)
     {
@@ -459,21 +459,18 @@ void SampleMovieLens::printOutputParams(OutputParams& outParams)
 {
     gLogVerbose << "User Id                            :   " << outParams.userId << std::endl;
     gLogVerbose << "Expected Predicted Max Rating Item :   " << outParams.expectedPredictedMaxRatingItem << std::endl;
-    gLogVerbose << "Expected Predicted Max Rating Prob :   " << outParams.expectedPredictedMaxRatingItemProb
-                << std::endl;
+    gLogVerbose << "Expected Predicted Max Rating Prob :   " << outParams.expectedPredictedMaxRatingItemProb << std::endl;
     gLogVerbose << "Total TopK Items : " << outParams.itemProbPairVec.size() << std::endl;
     for (unsigned int i = 0; i < outParams.itemProbPairVec.size(); ++i)
     {
-        gLogVerbose << outParams.itemProbPairVec.at(i).first << " : " << outParams.itemProbPairVec.at(i).second
-                    << std::endl;
+        gLogVerbose << outParams.itemProbPairVec.at(i).first << " : " << outParams.itemProbPairVec.at(i).second << std::endl;
     }
 }
 
 //!
 //! \brief Compares the inference output with ground truth and logs the results
 //!
-bool SampleMovieLens::verifyOutput(
-    uint32_t* userInput, uint32_t* /*itemInput*/, uint32_t* topKItemNumber, float* topKItemProb)
+bool SampleMovieLens::verifyOutput(uint32_t* userInput, uint32_t* /*itemInput*/, uint32_t* topKItemNumber, float* topKItemProb)
 {
     bool pass{true};
 
@@ -498,9 +495,7 @@ bool SampleMovieLens::verifyOutput(
             float predictedProb = topKItemProb[i * mParams.topKMovies + k];
             float expectedProb = mParams.userToExpectedItemProbMap.at(userIdx).at(k).second;
             int predictedItem = mParams.userToItemsMap.at(userIdx).at(predictedIdx);
-            gLogVerbose << "|" << std::setw(10) << userIdx << " | " << std::setw(10) << predictedItem << " | "
-                        << std::setw(15) << expectedProb << " | " << std::setw(15) << predictedProb << " | "
-                        << std::endl;
+            gLogVerbose << "|" << std::setw(10) << userIdx << " | " << std::setw(10) << predictedItem << " | " << std::setw(15) << expectedProb << " | " << std::setw(15) << predictedProb << " | " << std::endl;
         }
     }
 
@@ -510,8 +505,7 @@ bool SampleMovieLens::verifyOutput(
         int maxPredictedIdx = topKItemNumber[i * mParams.topKMovies];
         int maxExpectedItem = mParams.userToExpectedItemProbMap.at(userIdx).at(0).first;
         int maxPredictedItem = mParams.userToItemsMap.at(userIdx).at(maxPredictedIdx);
-        gLogInfo << "| User :" << std::setw(4) << userIdx << "  |  Expected Item :" << std::setw(5) << maxExpectedItem
-                 << "  |  Predicted Item :" << std::setw(5) << maxPredictedItem << " | " << std::endl;
+        gLogInfo << "| User :" << std::setw(4) << userIdx << "  |  Expected Item :" << std::setw(5) << maxExpectedItem << "  |  Predicted Item :" << std::setw(5) << maxPredictedItem << " | " << std::endl;
     }
 
     return pass;
@@ -643,7 +637,8 @@ int main(int argc, char** argv)
     SampleMovieLensParams params = initializeSampleParams(args);
     SampleMovieLens sample(params);
 
-    gLogInfo << "Building and running a GPU inference engine for MLP NCF model..." << std::endl;
+    gLogInfo << "Building and running a GPU inference engine for MLP NCF model..."
+             << std::endl;
 
     if (!sample.build())
     {

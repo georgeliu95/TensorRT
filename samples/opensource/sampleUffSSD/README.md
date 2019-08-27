@@ -221,7 +221,7 @@ The Shuffle layer implements a reshape and transpose operator for tensors.
 
 		The `config.py` script specifies the preprocessing operations necessary for the SSD TensorFlow graph. The plugin nodes and plugin parameters used in the `config.py` script should match the registered plugins in TensorRT.
 
-	3.  Copy the converted `.uff` file to the data directory and rename it to `sample_ssd_v2.uff <TensorRT Install>/data/ssd/sample_ssd_relu6.uff`.
+	3.  Copy the converted `.uff` file to the data directory and rename it to `sample_ssd_relu6.uff <TensorRT Install>/data/ssd/sample_ssd_relu6.uff`.
 
 4.  The sample also requires a `labels.txt` file with a list of all labels used to train the model. The labels file for this network is `<TensorRT Install>/data/ssd/ssd_coco_labels.txt`.
 

@@ -75,8 +75,7 @@ private:
     //!
     //! \brief Parses a Caffe model for GoogleNet and creates a TensorRT network
     //!
-    void constructNetwork(
-        SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser, SampleUniquePtr<nvinfer1::INetworkDefinition>& network);
+    void constructNetwork(SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser, SampleUniquePtr<nvinfer1::INetworkDefinition>& network);
 
     std::shared_ptr<nvinfer1::ICudaEngine> mEngine{nullptr}; //!< The TensorRT engine used to run the network
 };
@@ -120,8 +119,7 @@ bool SampleGoogleNet::build()
     config->setMaxWorkspaceSize(16_MiB);
     samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
 
-    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
+    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
     if (!mEngine)
         return false;
 
@@ -136,11 +134,13 @@ bool SampleGoogleNet::build()
 //!
 //! \param builder Pointer to the engine builder
 //!
-void SampleGoogleNet::constructNetwork(
-    SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser, SampleUniquePtr<nvinfer1::INetworkDefinition>& network)
+void SampleGoogleNet::constructNetwork(SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser, SampleUniquePtr<nvinfer1::INetworkDefinition>& network)
 {
     const nvcaffeparser1::IBlobNameToTensor* blobNameToTensor = parser->parse(
-        mParams.prototxtFileName.c_str(), mParams.weightsFileName.c_str(), *network, nvinfer1::DataType::kFLOAT);
+        mParams.prototxtFileName.c_str(),
+        mParams.weightsFileName.c_str(),
+        *network,
+        nvinfer1::DataType::kFLOAT);
 
     for (auto& s : mParams.outputTensorNames)
     {
@@ -234,16 +234,10 @@ samplesCommon::CaffeSampleParams initializeSampleParams(const samplesCommon::Arg
 //!
 void printHelpInfo()
 {
-    std::cout
-        << "Usage: ./sample_googlenet [-h or --help] [-d or --datadir=<path to data directory>] [--useDLACore=<int>]\n";
+    std::cout << "Usage: ./sample_googlenet [-h or --help] [-d or --datadir=<path to data directory>] [--useDLACore=<int>]\n";
     std::cout << "--help          Display help information\n";
-    std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used "
-                 "multiple times to add multiple directories. If no data directories are given, the default is to use "
-                 "data/samples/googlenet/ and data/googlenet/"
-              << std::endl;
-    std::cout << "--useDLACore=N  Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, "
-                 "where n is the number of DLA engines on the platform."
-              << std::endl;
+    std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used multiple times to add multiple directories. If no data directories are given, the default is to use data/samples/googlenet/ and data/googlenet/" << std::endl;
+    std::cout << "--useDLACore=N  Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, where n is the number of DLA engines on the platform." << std::endl;
 }
 
 int main(int argc, char** argv)

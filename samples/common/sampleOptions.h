@@ -20,6 +20,7 @@
 #include <utility>
 #include <stdexcept>
 #include <vector>
+#include <array>
 #include <string>
 #include <unordered_map>
 #include <algorithm>
@@ -31,7 +32,7 @@ namespace sample
 {
 
 // Build default params
-constexpr int defaultMinBatch{1};
+constexpr int defaultMaxBatch{1};
 constexpr int defaultWorkspace{16};
 constexpr int defaultMinTiming{1};
 constexpr int defaultAvgTiming{8};
@@ -57,11 +58,11 @@ using Arguments = std::unordered_multimap<std::string, std::string>;
 
 using IOFormat = std::pair<nvinfer1::DataType, nvinfer1::TensorFormats>;
 
+using ShapeRange = std::array<nvinfer1::Dims, nvinfer1::EnumMax<nvinfer1::OptProfileSelector>()>;
+
 struct Options
 {
     virtual void parse(Arguments& arguments) = 0;
-
-    virtual bool isValid(std::ostream& err) const = 0;
 };
 
 struct BaseModelOptions: public Options
@@ -71,19 +72,15 @@ struct BaseModelOptions: public Options
 
     void parse(Arguments& arguments) override;
 
-    bool isValid(std::ostream& err) const override { return true; }
-
     static void help(std::ostream& out);
 };
 
 struct UffInput: public Options
 {
-    std::vector<std::pair<std::string, nvinfer1::Dims3>> inputs;
+    std::vector<std::pair<std::string, nvinfer1::Dims>> inputs;
     bool NHWC{false};
 
     void parse(Arguments& arguments) override;
-
-    bool isValid(std::ostream& err) const override { return true; }
 
     static void help(std::ostream& out);
 };
@@ -97,16 +94,13 @@ struct ModelOptions: public Options
 
     void parse(Arguments& arguments) override;
 
-    bool isValid(std::ostream& err) const override;
-
     static void help(std::ostream& out);
 };
 
 struct BuildOptions: public Options
 {
-    int minBatch{defaultMinBatch};
-    int optBatch{defaultMinBatch};
-    int maxBatch{defaultMinBatch};
+    //bool explicitBatch{false};
+    int maxBatch{defaultMaxBatch}; // Parsing sets maxBatch to 0 if explicitBatch is true
     int workspace{defaultWorkspace};
     int minTiming{defaultMinTiming};
     int avgTiming{defaultAvgTiming};
@@ -117,12 +111,11 @@ struct BuildOptions: public Options
     bool load{false};
     std::string engine;
     std::string calibration;
+    std::unordered_map<std::string, ShapeRange> shapes;
     std::vector<IOFormat> inputFormats;
     std::vector<IOFormat> outputFormats;
 
     void parse(Arguments& arguments) override;
-
-    bool isValid(std::ostream& err) const override;
 
     static void help(std::ostream& out);
 };
@@ -136,14 +129,12 @@ struct SystemOptions: public Options
 
     void parse(Arguments& arguments) override;
 
-    bool isValid(std::ostream& err) const override { return true; }
-
     static void help(std::ostream& out);
 };
 
 struct InferenceOptions: public Options
 {
-    int batch{defaultBatch};
+    int batch{defaultBatch}; // Parsing sets batch to 0 is shapes is not empty
     int iterations{defaultIterations};
     int warmup{defaultWarmUp};
     int duration{defaultDuration};
@@ -152,10 +143,9 @@ struct InferenceOptions: public Options
     bool threads{true};
     bool graph{false};
     bool skip{false};
+    std::unordered_map<std::string, nvinfer1::Dims> shapes;
 
     void parse(Arguments& arguments) override;
-
-    bool isValid(std::ostream& err) const override { return true; }
 
     static void help(std::ostream& out);
 };
@@ -172,8 +162,6 @@ struct ReportingOptions: public Options
 
     void parse(Arguments& arguments) override;
 
-    bool isValid(std::ostream& err) const override;
-
     static void help(std::ostream& out);
 };
 
@@ -187,8 +175,6 @@ struct AllOptions: public Options
     bool helps{false};
 
     void parse(Arguments& arguments) override;
-
-    bool isValid(std::ostream& err) const override;
 
     static void help(std::ostream& out);
 };
@@ -207,6 +193,10 @@ std::ostream& operator<<(std::ostream& os, const UffInput& input);
 
 std::ostream& operator<<(std::ostream& os, const IOFormat& format);
 
+std::ostream& operator<<(std::ostream& os, const nvinfer1::Dims& dims);
+
+std::ostream& operator<<(std::ostream& os, const ShapeRange& dims);
+
 std::ostream& operator<<(std::ostream& os, const ModelOptions& options);
 
 std::ostream& operator<<(std::ostream& os, const BuildOptions& options);
@@ -221,19 +211,19 @@ std::ostream& operator<<(std::ostream& os, const AllOptions& options);
 
 // Utils to extract options
 
-inline std::vector<std::string> multiOptionToStrings(const std::string& option)
+inline std::vector<std::string> splitToStringVec(const std::string& option, char separator)
 {
     std::vector<std::string> options;
 
     for(size_t start = 0; start < option.length(); )
     {
-        size_t comma = option.find(',', start);
-        if (comma == std::string::npos)
+        size_t separatorIndex = option.find(separator, start);
+        if (separatorIndex == std::string::npos)
         {
-            comma = option.length();
+            separatorIndex = option.length();
         }
-        options.emplace_back(option.substr(start, comma-start));
-        start = comma+1;
+        options.emplace_back(option.substr(start, separatorIndex - start));
+        start = separatorIndex + 1;
     }
 
     return options;
@@ -264,6 +254,24 @@ inline bool stringToValue<bool>(const std::string& option)
 }
 
 template <>
+inline nvinfer1::Dims stringToValue<nvinfer1::Dims>(const std::string& option)
+{
+    nvinfer1::Dims dims;
+    dims.nbDims = 0;
+    std::vector<std::string> dimsStrings = splitToStringVec(option, 'x');
+    for (const auto& d : dimsStrings)
+    {
+        if (d == "*")
+        {
+            break;
+        }
+        dims.d[dims.nbDims] = stringToValue<int>(d);
+        ++dims.nbDims;
+    }
+    return dims;
+}
+
+template <>
 inline nvinfer1::DataType stringToValue<nvinfer1::DataType>(const std::string& option)
 {
     const std::unordered_map<std::string, nvinfer1::DataType> strToDT{{"fp32", nvinfer1::DataType::kFLOAT}, {"fp16", nvinfer1::DataType::kHALF},
@@ -279,7 +287,7 @@ inline nvinfer1::DataType stringToValue<nvinfer1::DataType>(const std::string& o
 template <>
 inline nvinfer1::TensorFormats stringToValue<nvinfer1::TensorFormats>(const std::string& option)
 {
-    std::vector<std::string> optionStrings = multiOptionToStrings(option);
+    std::vector<std::string> optionStrings = splitToStringVec(option, '+');
     const std::unordered_map<std::string, nvinfer1::TensorFormat> strToFmt{{"chw", nvinfer1::TensorFormat::kLINEAR}, {"chw2", nvinfer1::TensorFormat::kCHW2},
                                                                            {"chw4", nvinfer1::TensorFormat::kCHW4}, {"hwc8", nvinfer1::TensorFormat::kHWC8},
                                                                            {"chw16", nvinfer1::TensorFormat::kCHW16}, {"chw32", nvinfer1::TensorFormat::kCHW32}};

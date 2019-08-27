@@ -76,20 +76,17 @@ private:
     //! \brief uses a Caffe parser to create the MNIST Network and marks the
     //!        output layers
     //!
-    void constructNetwork(
-        SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser, SampleUniquePtr<nvinfer1::INetworkDefinition>& network);
+    void constructNetwork(SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser, SampleUniquePtr<nvinfer1::INetworkDefinition>& network);
 
     //!
     //! \brief Reads the input and mean data, preprocesses, and stores the result in a managed buffer
     //!
-    bool processInput(
-        const samplesCommon::BufferManager& buffers, const std::string& inputTensorName, int inputFileIdx) const;
+    bool processInput(const samplesCommon::BufferManager& buffers, const std::string& inputTensorName, int inputFileIdx) const;
 
     //!
     //! \brief Verifies that the output is correct and prints it
     //!
-    bool verifyOutput(
-        const samplesCommon::BufferManager& buffers, const std::string& outputTensorName, int groundTruthDigit) const;
+    bool verifyOutput(const samplesCommon::BufferManager& buffers, const std::string& outputTensorName, int groundTruthDigit) const;
 
     std::shared_ptr<nvinfer1::ICudaEngine> mEngine{nullptr}; //!< The TensorRT engine used to run the network
 
@@ -97,8 +94,7 @@ private:
 
     nvinfer1::Dims mInputDims; //!< The dimensions of the input to the network.
 
-    SampleUniquePtr<nvcaffeparser1::IBinaryProtoBlob>
-        mMeanBlob; //! the mean blob, which we need to keep around until build is done
+    SampleUniquePtr<nvcaffeparser1::IBinaryProtoBlob> mMeanBlob; //! the mean blob, which we need to keep around until build is done
 };
 
 //!
@@ -151,8 +147,7 @@ bool SampleMNIST::build()
 
     samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
 
-    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
+    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
 
     if (!mEngine)
         return false;
@@ -167,8 +162,7 @@ bool SampleMNIST::build()
 //!
 //! \brief Reads the input and mean data, preprocesses, and stores the result in a managed buffer
 //!
-bool SampleMNIST::processInput(
-    const samplesCommon::BufferManager& buffers, const std::string& inputTensorName, int inputFileIdx) const
+bool SampleMNIST::processInput(const samplesCommon::BufferManager& buffers, const std::string& inputTensorName, int inputFileIdx) const
 {
     const int inputH = mInputDims.d[1];
     const int inputW = mInputDims.d[2];
@@ -199,8 +193,7 @@ bool SampleMNIST::processInput(
 //!
 //! \brief Verifies that the output is correct and prints it
 //!
-bool SampleMNIST::verifyOutput(
-    const samplesCommon::BufferManager& buffers, const std::string& outputTensorName, int groundTruthDigit) const
+bool SampleMNIST::verifyOutput(const samplesCommon::BufferManager& buffers, const std::string& outputTensorName, int groundTruthDigit) const
 {
     const float* prob = static_cast<const float*>(buffers.getHostBuffer(outputTensorName));
 
@@ -233,11 +226,13 @@ bool SampleMNIST::verifyOutput(
 //!
 //! \param builder Pointer to the engine builder
 //!
-void SampleMNIST::constructNetwork(
-    SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser, SampleUniquePtr<nvinfer1::INetworkDefinition>& network)
+void SampleMNIST::constructNetwork(SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser, SampleUniquePtr<nvinfer1::INetworkDefinition>& network)
 {
     const nvcaffeparser1::IBlobNameToTensor* blobNameToTensor = parser->parse(
-        mParams.prototxtFileName.c_str(), mParams.weightsFileName.c_str(), *network, nvinfer1::DataType::kFLOAT);
+        mParams.prototxtFileName.c_str(),
+        mParams.weightsFileName.c_str(),
+        *network,
+        nvinfer1::DataType::kFLOAT);
 
     for (auto& s : mParams.outputTensorNames)
     {
@@ -246,8 +241,7 @@ void SampleMNIST::constructNetwork(
 
     // add mean subtraction to the beginning of the network
     nvinfer1::Dims inputDims = network->getInput(0)->getDimensions();
-    mMeanBlob
-        = SampleUniquePtr<nvcaffeparser1::IBinaryProtoBlob>(parser->parseBinaryProto(mParams.meanFileName.c_str()));
+    mMeanBlob = SampleUniquePtr<nvcaffeparser1::IBinaryProtoBlob>(parser->parseBinaryProto(mParams.meanFileName.c_str()));
     nvinfer1::Weights meanWeights{nvinfer1::DataType::kFLOAT, mMeanBlob->getData(), inputDims.d[1] * inputDims.d[2]};
     // For this sample, a large range based on the mean data is chosen and applied to the head of the network.
     // After the mean subtraction occurs, the range is expected to be between -127 and 127, so the rest of the network
@@ -255,8 +249,7 @@ void SampleMNIST::constructNetwork(
     // The preferred method is use scales computed based on a representative data set
     // and apply each one individually based on the tensor. The range here is large enough for the
     // network, but is chosen for example purposes only.
-    float maxMean
-        = samplesCommon::getMaxValue(static_cast<const float*>(meanWeights.values), samplesCommon::volume(inputDims));
+    float maxMean = samplesCommon::getMaxValue(static_cast<const float*>(meanWeights.values), samplesCommon::volume(inputDims));
 
     auto mean = network->addConstant(nvinfer1::Dims3(1, inputDims.d[1], inputDims.d[2]), meanWeights);
     mean->getOutput(0)->setDynamicRange(-maxMean, maxMean);
@@ -370,16 +363,10 @@ samplesCommon::CaffeSampleParams initializeSampleParams(const samplesCommon::Arg
 //!
 void printHelpInfo()
 {
-    std::cout
-        << "Usage: ./sample_mnist [-h or --help] [-d or --datadir=<path to data directory>] [--useDLACore=<int>]\n";
+    std::cout << "Usage: ./sample_mnist [-h or --help] [-d or --datadir=<path to data directory>] [--useDLACore=<int>]\n";
     std::cout << "--help          Display help information\n";
-    std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used "
-                 "multiple times to add multiple directories. If no data directories are given, the default is to use "
-                 "(data/samples/mnist/, data/mnist/)"
-              << std::endl;
-    std::cout << "--useDLACore=N  Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, "
-                 "where n is the number of DLA engines on the platform."
-              << std::endl;
+    std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used multiple times to add multiple directories. If no data directories are given, the default is to use (data/samples/mnist/, data/mnist/)" << std::endl;
+    std::cout << "--useDLACore=N  Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, where n is the number of DLA engines on the platform." << std::endl;
     std::cout << "--int8          Run in Int8 mode.\n";
     std::cout << "--fp16          Run in FP16 mode.\n";
 }

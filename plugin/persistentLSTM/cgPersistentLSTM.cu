@@ -629,14 +629,14 @@ void CgPersistentLSTM::execute(const void* x, void* y, const void* init_h, const
         rMatCurrent += dirMul * param.hiddenSize * param.hiddenSize * 4 * dataSize;
         biasCurrent += dirMul * 2 * param.hiddenSize * 4 * dataSize;
 
-        initHCurrent += dirMul * batchSize * param.hiddenSize * dataSize;
-        initCCurrent += dirMul * batchSize * param.hiddenSize * dataSize;
-        finalHCurrent += dirMul * batchSize * param.hiddenSize * dataSize;
-        finalCCurrent += dirMul * batchSize * param.hiddenSize * dataSize;
+        initHCurrent += dirMul * this->maxBatchSize * param.hiddenSize * dataSize;
+        initCCurrent += dirMul * this->maxBatchSize * param.hiddenSize * dataSize;
+        finalHCurrent += dirMul * this->maxBatchSize * param.hiddenSize * dataSize;
+        finalCCurrent += dirMul * this->maxBatchSize * param.hiddenSize * dataSize;
     }
 
     // Output transpose
-    doOutputTranspose(y, final_h, final_c, batchSize, stream);
+    doOutputTranspose(y, final_h, final_c, this->maxBatchSize, stream);
 }
 
 // helper function called within configurePlugin()

@@ -22,12 +22,12 @@
 //! Command: ./sample_ssd [-h or --help] [-d=/path/to/data/dir or --datadir=/path/to/data/dir]
 //!
 
-#include "BatchStream.h"
-#include "EntropyCalibrator.h"
 #include "argsParser.h"
 #include "buffers.h"
 #include "common.h"
 #include "logger.h"
+#include "BatchStream.h"
+#include "EntropyCalibrator.h"
 
 #include "NvCaffeParser.h"
 #include "NvInfer.h"
@@ -195,16 +195,13 @@ bool SampleSSD::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
     if (mParams.int8)
     {
         gLogInfo << "Using Entropy Calibrator 2" << std::endl;
-        BatchStream calibrationStream(
-            mParams.batchSize, mParams.nbCalBatches, mParams.calibrationBatches, mParams.dataDirs);
-        calibrator.reset(
-            new Int8EntropyCalibrator2<BatchStream>(calibrationStream, 0, "SSD", mParams.inputTensorNames[0].c_str()));
+        BatchStream calibrationStream(mParams.batchSize, mParams.nbCalBatches, mParams.calibrationBatches, mParams.dataDirs);
+        calibrator.reset(new Int8EntropyCalibrator2<BatchStream>(calibrationStream, 0, "SSD", mParams.inputTensorNames[0].c_str()));
         config->setFlag(BuilderFlag::kINT8);
         config->setInt8Calibrator(calibrator.get());
     }
 
-    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
+    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
     if (!mEngine)
     {
         return false;
@@ -325,9 +322,7 @@ bool SampleSSD::verifyOutput(const samplesCommon::BufferManager& buffers)
     const float* detectionOut = static_cast<const float*>(buffers.getHostBuffer("detection_out"));
     const int* keepCount = static_cast<const int*>(buffers.getHostBuffer("keep_count"));
 
-    const std::vector<std::string> classes{"background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car",
-        "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa",
-        "train", "tvmonitor"}; // List of class labels
+    const std::vector<std::string> classes{"background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow", "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"}; // List of class labels
 
     bool pass = true;
 
@@ -352,14 +347,15 @@ bool SampleSSD::verifyOutput(const samplesCommon::BufferManager& buffers)
                 correctDetection = true;
             }
 
-            gLogInfo << " Image name:" << mPPMs[p].fileName.c_str() << ", Label: " << classes[(int) det[1]].c_str()
-                     << ","
-                     << " confidence: " << det[2] * 100.f << " xmin: " << det[3] * inputW
-                     << " ymin: " << det[4] * inputH << " xmax: " << det[5] * inputW << " ymax: " << det[6] * inputH
+            gLogInfo << " Image name:" << mPPMs[p].fileName.c_str() << ", Label: " << classes[(int) det[1]].c_str() << ","
+                     << " confidence: " << det[2] * 100.f
+                     << " xmin: " << det[3] * inputW
+                     << " ymin: " << det[4] * inputH
+                     << " xmax: " << det[5] * inputW
+                     << " ymax: " << det[6] * inputH
                      << std::endl;
 
-            samplesCommon::writePPMFileWithBBox(
-                storeName, mPPMs[p], {det[3] * inputW, det[4] * inputH, det[5] * inputW, det[6] * inputH});
+            samplesCommon::writePPMFileWithBBox(storeName, mPPMs[p], {det[3] * inputW, det[4] * inputH, det[5] * inputW, det[6] * inputH});
         }
         pass &= numDetections >= 1;
         pass &= correctDetection;
@@ -396,8 +392,7 @@ SampleSSDParams initializeSampleParams(const samplesCommon::Args& args)
     params.fp16 = args.runInFp16;
 
     params.outputClsSize = 21;
-    params.keepTopK = 200; // Number of total bboxes to be kept per image after NMS step. It is same as
-                           // detection_output_param.keep_top_k in prototxt file
+    params.keepTopK = 200; // Number of total bboxes to be kept per image after NMS step. It is same as detection_output_param.keep_top_k in prototxt file
     params.nbCalBatches = 500;
     params.visualThreshold = 0.6f;
     params.calibrationBatches = "batches/batch_calibration";
@@ -410,16 +405,10 @@ SampleSSDParams initializeSampleParams(const samplesCommon::Args& args)
 //!
 void printHelpInfo()
 {
-    std::cout << "Usage: ./sample_ssd [-h or --help] [-d or --datadir=<path to data directory>] [--useDLACore=<int>]"
-              << std::endl;
+    std::cout << "Usage: ./sample_ssd [-h or --help] [-d or --datadir=<path to data directory>] [--useDLACore=<int>]" << std::endl;
     std::cout << "--help          Display help information" << std::endl;
-    std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used "
-                 "multiple times to add multiple directories. If no data directories are given, the default is to use "
-                 "data/samples/ssd/ and data/ssd/"
-              << std::endl;
-    std::cout << "--useDLACore=N  Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, "
-                 "where n is the number of DLA engines on the platform."
-              << std::endl;
+    std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used multiple times to add multiple directories. If no data directories are given, the default is to use data/samples/ssd/ and data/ssd/" << std::endl;
+    std::cout << "--useDLACore=N  Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, where n is the number of DLA engines on the platform." << std::endl;
     std::cout << "--fp16          Specify to run in fp16 mode." << std::endl;
     std::cout << "--int8          Specify to run in int8 mode." << std::endl;
 }
