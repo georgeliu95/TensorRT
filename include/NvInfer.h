@@ -3493,7 +3493,7 @@ public:
     //!
     //! \brief Set the k value for the layer.
     //!
-    //! Currently only values up to 25 are supported.
+    //! Currently only values up to 3840 are supported.
     //!
     //! \see getK()
     //!
