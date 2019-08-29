@@ -227,6 +227,9 @@ int SingleStepLSTMPlugin::enqueue(int batchSize, const void* const* inputs, void
     CHECK(cudaEventRecord(event, stream));  
     CHECK(cudaStreamWaitEvent(mStreami, event, 0));
     CHECK(cudaStreamWaitEvent(mStreamh, event, 0));
+    for (int i = 0; i < NUM_SPLIT_K_STREAMS; i++) {
+        CHECK(cudaStreamWaitEvent(mSplitKStreams[i], event, 0));
+    }
     CHECK(cudaEventDestroy(event));
 
     cudaError_t status;
@@ -335,8 +338,10 @@ int SingleStepLSTMPlugin::enqueue(int batchSize, const void* const* inputs, void
                  NUM_SPLIT_K_STREAMS,
                  mStreamh);
     }
-             
+
     cudaEvent_t eventEnd;
+
+    // The final kernel is the elementwise kernel launched to stream i, so only need to wait for that one to finish.
     CHECK(cudaEventCreate(&eventEnd, cudaEventDisableTiming));
     CHECK(cudaEventRecord(eventEnd, mStreami));  
     CHECK(cudaStreamWaitEvent(stream, eventEnd, 0));

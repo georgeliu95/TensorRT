@@ -710,7 +710,8 @@ void singleStepLSTMKernel(int hiddenSize,
 #endif
             cudaErrCheck(cudaEventRecord(splitKEvents[i], splitKStreams[i]));  
         }
-        
+
+        // Wait for layer GEMM streams
         for (int i = 0; i < numSplitKStreams; i++)
         {           
             cudaErrCheck(cudaStreamWaitEvent(streami, splitKEvents[i], 0));
@@ -767,6 +768,8 @@ void singleStepLSTMKernel(int hiddenSize,
 #else
         gridDim.x = (numElements + blockDim.x - 1) / blockDim.x;
 #endif
+
+        // Wait for recurrent GEMM. Already waited for layer GEMM above.
         cudaErrCheck(cudaStreamWaitEvent(streami, event, 0));
         
         elementWise_fp <<< gridDim, blockDim , 0, streami >>> 
@@ -784,7 +787,8 @@ void singleStepLSTMKernel(int hiddenSize,
                   cx[layer],
                   cy[layer]);
         cudaErrCheck(cudaGetLastError());
-        
+
+        // Wait for elementwise ops before starting the next layer GEMM.
         cudaErrCheck(cudaEventRecord(event, streami));  
         for (int i = 0; i < numSplitKStreams; i++)
         {           
