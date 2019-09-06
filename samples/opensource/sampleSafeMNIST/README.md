@@ -74,13 +74,13 @@ The SoftMax layer applies the SoftMax function on the input tensor along an inpu
 
 	Where `<TensorRT root directory>` is where you installed TensorRT.
 
-	**Note:** If any of the dependencies are not installed in their default locations, you can manually specify them. Set `-DTRT_SAFE_BUILD=ON` to enable safe mode for the infer part build, which means building against safe runtime. Otherwise, it will link against the extended runtime lib. Safe mode is forced to be enabled in the release build. For example:
+	**Note:** If any of the dependencies are not installed in their default locations, you can manually specify them. Set `-DNV_BUILD_CONFIGURATION_IS_SAFETY=ON` to enable safe mode for the infer part build, which means building against safe runtime. Otherwise, it will link against the extended runtime lib. Safe mode is forced to be enabled in the release build. For example:
 	```
 	cmake .. -DCUDA_ROOT=/usr/local/cuda-10.2/ -DTRT_LIB_DIR=/path/to/tensorrt/libs -DTRT_INC_DIR=/path/to/tensorrt/include/ -DCMAKE_BUILD_TYPE=RELEASE
 	```
 	Or
 	```
-	cmake .. -DCUDA_ROOT=/usr/local/cuda-10.2/ -DTRT_LIB_DIR=/path/to/tensorrt/libs -DTRT_INC_DIR=/path/to/tensorrt/include/ -DTRT_SAFE_BUILD=ON
+	cmake .. -DCUDA_ROOT=/usr/local/cuda-10.2/ -DTRT_LIB_DIR=/path/to/tensorrt/libs -DTRT_INC_DIR=/path/to/tensorrt/include/ -DNV_BUILD_CONFIGURATION_IS_SAFETY=ON
 	```
 
 5.  Run the sample to build a TensorRT safe engine.

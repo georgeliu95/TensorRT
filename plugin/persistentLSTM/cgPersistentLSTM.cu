@@ -530,12 +530,12 @@ void CgPersistentLSTM::doOutputTranspose(void* y, void* hy, void* cy, int inputB
         if (hy)
         {
             reformatRNNForwardInferenceTensor2NSE(dataType, param.isBi, hyT, hy, nullptr, gpuPermutation,
-                inputBatchSize, param.numLayers, param.hiddenSize, stream);
+                this->maxBatchSize, param.numLayers, param.hiddenSize, stream);
         }
         if (cy)
         {
             reformatRNNForwardInferenceTensor2NSE(dataType, param.isBi, cyT, cy, nullptr, gpuPermutation,
-                inputBatchSize, param.numLayers, param.hiddenSize, stream);
+                this->maxBatchSize, param.numLayers, param.hiddenSize, stream);
         }
     }
 }
@@ -847,7 +847,9 @@ void CgPersistentLSTMPlugin::_createCubin()
     char cudaIncludePath[1024];
     char libcudadevrtPath[1024];
     const char* cudaPath = nullptr;
+    const char* cudaLibPath = nullptr;
     std::string token;
+    std::string cudaLibPathString;
 
     // Trying to find the cuda path
     Dl_info info;
@@ -856,8 +858,9 @@ void CgPersistentLSTMPlugin::_createCubin()
         //the path should be -> /path/to/cuda/lib64/libcudart.so.10.1
         std::string s = std::string(info.dli_fname);
         std::string delimiter = "/";
-        std::string removeOne = s.substr(0, s.find_last_of(delimiter));
-        token = s.substr(0, removeOne.find_last_of(delimiter));
+        cudaLibPathString = s.substr(0, s.find_last_of(delimiter));
+        cudaLibPath = cudaLibPathString.c_str();
+        token = s.substr(0, cudaLibPathString.find_last_of(delimiter));
         cudaPath = token.c_str();
     }
     else
@@ -877,7 +880,7 @@ void CgPersistentLSTMPlugin::_createCubin()
     {
         printf("Cuda path too long.\n");
     }
-    l = snprintf(libcudadevrtPath, 1024, "%s/lib64/libcudadevrt.a", cudaPath);
+    l = snprintf(libcudadevrtPath, 1024, "%s/libcudadevrt.a", cudaLibPath);
     if (l > 1024)
     {
         printf("Cuda path too long.\n");

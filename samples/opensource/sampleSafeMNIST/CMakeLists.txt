@@ -92,21 +92,21 @@ target_include_directories(${INFER_TARGET_NAME}
     PUBLIC ${CUDA_INC_DIR}
     )
 
-option(TRT_SAFE_BUILD "Build with ISO26262-compliant TensorRT library" OFF)
+option(NV_BUILD_CONFIGURATION_IS_SAFETY "Build with ISO26262-compliant TensorRT library" OFF)
 # Force safe mode in release build
 if (CMAKE_BUILD_TYPE MATCHES RELEASE)
-    message("Setting TRT_SAFE_BUILD=ON in release build")
-    set(TRT_SAFE_BUILD ON)
+    message("Setting NV_BUILD_CONFIGURATION_IS_SAFETY=ON in release build")
+    set(NV_BUILD_CONFIGURATION_IS_SAFETY ON)
 endif()
 
-if (TRT_SAFE_BUILD)
-    target_compile_definitions(${INFER_TARGET_NAME} PRIVATE TRT_SAFE=1)
+if (NV_BUILD_CONFIGURATION_IS_SAFETY)
+    target_compile_definitions(${INFER_TARGET_NAME} PRIVATE NV_IS_SAFETY=1)
     target_link_libraries(${INFER_TARGET_NAME}
         ${CUDART_LIB}
         ${NVINFERSAFE_LIB}
         )
 else()
-    target_compile_definitions(${INFER_TARGET_NAME} PRIVATE TRT_SAFE=0)
+    target_compile_definitions(${INFER_TARGET_NAME} PRIVATE NV_IS_SAFETY=0)
     target_link_libraries(${INFER_TARGET_NAME}
         ${CUDART_LIB}
         ${NVINFER_LIB}

@@ -50,14 +50,14 @@
 #ifndef NV_INFER_RUNTIME_SELECT_H
 #define NV_INFER_RUNTIME_SELECT_H
 
-#if TRT_SAFE
+#if NV_IS_SAFETY
 
 // Prevent inclusion of NvInferRuntime.h in safe mode to avoid name clash
 #ifdef NV_INFER_RUNTIME_H
-#error "NvInferRuntime.h should not be included when using proxy in safe mode"
+static_assert(false, "NvInferRuntime.h should not be included when using proxy in safe mode");
 #else
 #define NV_INFER_RUNTIME_H
-#endif  
+#endif
 
 #include "NvInferSafeRuntime.h"
 namespace nvinfer1
@@ -66,7 +66,7 @@ using safe::IRuntime;
 using safe::ICudaEngine;
 using safe::IExecutionContext;
 using safe::createInferRuntime;
-}
+} // namespace nvinfer1
 
 #else
 
