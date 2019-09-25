@@ -324,6 +324,27 @@ TRT_DEPRECATED_API nvinfer1::IPluginV2* createClipPlugin(const char* layerName, 
 TENSORRTAPI nvinfer1::IPluginV2* createBatchedNMSPlugin(nvinfer1::plugin::NMSParameters param);
 
 //!
+//! \brief The Split Plugin performs a split operation on the input tensor. It
+//! splits the input tensor into several output tensors, each of a length corresponding to output_lengths.
+//! The split occurs along the axis specified by axis.
+//! \param axis The axis to split on.
+//! \param output_lengths The lengths of the output tensors.
+//! \param noutput The number of output tensors.
+//!
+TENSORRTAPI nvinfer1::IPluginV2* createSplitPlugin(int axis, int* output_lengths, int noutput);
+
+//!
+//! \brief The Instance Normalization Plugin computes the instance normalization of an input tensor.
+//! The instance normalization is calculated as found in the paper https://arxiv.org/abs/1607.08022.
+//! The calculation is y = scale * (x - mean) / sqrt(variance + epsilon) + bias where mean and variance 
+//! are computed per instance per channel.
+//! \param epsilon The epsilon value to use to avoid division by zero.
+//! \param scale_weights The input 1-dimensional scale weights of size C to scale.
+//! \param bias_weights The input 1-dimensional bias weights of size C to offset.
+//!
+TENSORRTAPI nvinfer1::IPluginV2* createInstanceNormalizationPlugin(float epsilon, nvinfer1::Weights scale_weights, nvinfer1::Weights bias_weights);
+
+//!
 //! \brief Initialize and register all the existing TensorRT plugins to the Plugin Registry with an optional namespace.
 //! The plugin library author should ensure that this function name is unique to the library.
 //! This function should be called once before accessing the Plugin Registry.
@@ -331,6 +352,7 @@ TENSORRTAPI nvinfer1::IPluginV2* createBatchedNMSPlugin(nvinfer1::plugin::NMSPar
 //! \param libNamespace Namespace used to register all the plugins in this library
 //!
 TENSORRTAPI bool initLibNvInferPlugins(void* logger, const char* libNamespace);
+
 } // extern "C"
 
 #endif // NV_INFER_PLUGIN_H

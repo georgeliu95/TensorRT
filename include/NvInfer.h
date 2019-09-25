@@ -436,13 +436,18 @@ enum class LayerType : int
     kSLICE = 24,           //!< Slice layer.
     kSHAPE = 25,           //!< Shape layer.
     kPARAMETRIC_RELU = 26, //!< Parametric ReLU layer.
-    kRESIZE = 27           //!< Resize Layer.
+    kRESIZE = 27,          //!< Resize Layer.
+    kTRIP_LIMIT = 28,      //!< Loop Trip limit layer
+    kRECURRENCE = 29,      //!< Loop Recurrence layer
+    kITERATOR = 30,        //!< Loop Iterator layer
+    kLOOP_OUTPUT = 31,     //!< Loop output layer
+    kSELECT = 32           //!< Select layer.
 };
 
 template <>
 constexpr inline int EnumMax<LayerType>()
 {
-    return 28;
+    return 33;
 } //!< Maximum number of elements in LayerType enum. \see LayerType
 
 //!
@@ -753,10 +758,10 @@ public:
     //!
     //! \brief replace an input of this layer with a specific tensor
     //!
-    //! Except of IShuffleLayer and ISliceLayer, this method cannot change the number of inputs to a layer.
+    //! Except for a few special layers, this method cannot change the number of inputs to a layer.
     //! The index argument must be less than the value of getNbInputs().
     //!
-    //! See comments for IShuffleLayer::setInput() and ISliceLayer::setInput() for their special behavior.
+    //! See overloaded setInput() comments for the layers special behavior.
     //!
     //! \param index the index of the input to modify.
     //! \param tensor the new input tensor
@@ -812,8 +817,9 @@ public:
     //! given type. If it is not set, TensorRT will select output type based on layer computational precision. TensorRT
     //! could still choose non-conforming output type based on fastest implementation. Use BuilderFlag::kSTRICT_TYPES to
     //! force choose requested output type. In case layer precision is not specified, output type would depend on
-    //! choosen implementation based on performance considerations and the flags specified to the builder. Note that
-    //! this method cannot be used to set the data type of the second output tensor of the topK layer. The data type of
+    //! chosen implementation based on performance considerations and the flags specified to the builder.
+    //!
+    //! This method cannot be used to set the data type of the second output tensor of the TopK layer. The data type of
     //! the second output tensor of the topK layer is always Int32. Also the output type of all layers that are shape
     //! operations must be DataType::kINT32, and all attempts to set the output type to some other data type will be
     //! ignored except for issuing an error message.
@@ -1723,7 +1729,7 @@ public:
     virtual void setMode(ScaleMode mode) TRTNOEXCEPT = 0;
 
     //!
-    //! \brief Set the scale mode.
+    //! \brief Get the scale mode.
     //!
     //! \see setMode()
     //!
@@ -2157,13 +2163,19 @@ enum class ElementWiseOperation : int
     kSUB = 4,      //!< Substract the second element from the first.
     kDIV = 5,      //!< Divide the first element by the second.
     kPOW = 6,      //!< The first element to the power of the second element.
-    kFLOOR_DIV = 7 //!< Floor division of the first element by the second.
+    kFLOOR_DIV = 7,//!< Floor division of the first element by the second.
+    kAND = 8,      //!< Logical AND of two elements.
+    kOR = 9,       //!< Logical OR of two elements.
+    kXOR = 10,     //!< Logical XOR of two elements.
+    kEQUAL = 11,   //!< Check if two elements are equal.
+    kGREATER = 12, //!< Check if element in first tensor is greater than corresponding element in second tensor.
+    kLESS = 13     //!< Check if element in first tensor is less than corresponding element in second tensor.
 };
 
 template <>
 constexpr inline int EnumMax<ElementWiseOperation>()
 {
-    return 8;
+    return 14;
 } //!< Maximum number of elements in ElementWiseOperation enum. \see ElementWiseOperation
 
 //!
@@ -2388,7 +2400,9 @@ constexpr inline int EnumMax<RNNInputMode>()
 //!
 //! \brief A RNN layer in a network definition.
 //!
-//! This layer applies an RNN operation on the inputs.
+//! This layer applies an RNN operation on the inputs. This layer only works with networks that
+//! that have an implicit batch dimension. For dynamic shapes and explicit batch dimension networks,
+//! use IRNNv2Layer.
 //!
 //! \deprecated This interface is superseded by IRNNv2Layer.
 //!
@@ -3020,13 +3034,15 @@ enum class UnaryOperation : int
     kACOSH = 15, //!< Inverse hyperbolic cosine.
     kATANH = 16, //!< Inverse hyperbolic tangent.
     kCEIL = 17,  //!< Ceiling.
-    kFLOOR = 18  //!< Floor.
+    kFLOOR = 18, //!< Floor.
+    kERF = 19,   //!< Gauss error function.
+    kNOT = 20    //!< Logical NOT.
 };
 
 template <>
 constexpr inline int EnumMax<UnaryOperation>()
 {
-    return 19;
+    return 21;
 } //!< Maximum number of elements in UnaryOperation enum. \see UnaryOperation
 
 //!
@@ -3300,6 +3316,23 @@ protected:
 };
 
 //!
+//! \brief Controls how ISliceLayer handles out of bounds coordinates.
+//!
+//! \see ISliceLayer
+//!
+enum class SliceMode : int
+{
+    kDEFAULT = 0, //!< Fail with error when the coordinates are out of bounds. This is the default.
+    kWRAP = 1,    //!< Coordinates wrap around periodically.
+};
+
+template <>
+constexpr inline int EnumMax<SliceMode>()
+{
+    return 2;
+} //!< Maximum number of elements in SliceMode enum. \see SliceMode
+
+//!
 //! \brief Slices an input tensor into an output tensor based on the offset and strides.
 //!
 //! The slice layer has two variants, static and dynamic. Static slice specifies the start, size, and stride
@@ -3397,6 +3430,20 @@ public:
     //! \see setStride
     //!
     virtual Dims getStride() const TRTNOEXCEPT = 0;
+
+    //!
+    //! \brief Set the slice mode.
+    //!
+    //! \see getMode()
+    //!
+    virtual void setMode(SliceMode mode) TRTNOEXCEPT = 0;
+
+    //!
+    //! \brief Get the slice mode.
+    //!
+    //! \see setMode()
+    //!
+    virtual SliceMode getMode() const TRTNOEXCEPT = 0;
 
     //!
     //! \brief replace an input of this layer with a specific tensor.
@@ -3875,6 +3922,199 @@ protected:
     virtual ~IResizeLayer() {}
 };
 
+//! Enum that describes kinds of loop outputs.
+enum class LoopOutput : int
+{
+    //! Output value is value of tensor for last iteration.
+    kLAST_VALUE = 0,
+
+    //! Output value is concatenation of values of tensor for each iteration, in forward order.
+    kCONCATENATE = 1,
+
+    //! Output value is concatenation of values of tensor for each iteration, in reverse order.
+    kREVERSE = 2
+};
+
+template <>
+constexpr inline int EnumMax<LoopOutput>()
+{
+    return 3;
+} //!< Maximum number of elements in LoopOutput enum. \see DataType
+
+//! Enum that describes kinds of trip limits.
+enum class TripLimit : int
+{
+    // Tensor is scalar of type kINT32 that contains the trip count.
+    kCOUNT = 0,
+
+    // Tensor is a scalar of type kINT32.  Loop terminates when value is zero.
+    kWHILE_NONZERO = 1
+};
+
+template <>
+constexpr inline int EnumMax<TripLimit>()
+{
+    return 2;
+} //!< Maximum number of elements in TripLimit enum. \see DataType
+
+class ILoop;
+
+class ILoopBoundaryLayer : public ILayer
+{
+public:
+    //! Return pointer to ILoop associated with this boundary layer.
+    virtual ILoop* getLoop() const noexcept = 0;
+};
+
+class IRecurrenceLayer : public ILoopBoundaryLayer
+{
+public:
+    //! Set the first or second input.
+    //! If index==1 and the number of inputs is one, the input is appended.
+    //! The first input specifies the initial output value, and must come from outside the loop.
+    //! The second input specifies the next output value, and must come from inside the loop.
+    //! The two inputs must have the same dimensions..
+    void setInput(int index, ITensor& tensor) _TENSORRT_OVERRIDE TRTNOEXCEPT = 0;
+};
+
+//!
+//! An ILoopOutputLayer is the sole way to get output from a loop.
+//!
+//! The first input tensor must be defined inside the loop; the output tensor is outside the loop.
+//! The second input tensor, if present, must be defined outside the loop.
+//!
+//! If getLoopOutput() is kLAST_VALUE, a single input must be provided.
+//!
+//! If getLoopOutput() is kCONCATENATE or kREVERSE, a second input must be provided.
+//! The second input must be a scalar “shape tensor”, defined before the loop commences,
+//! that specifies the concatenation length of the output.
+//!
+//! The output tensor has j more dimensions than the input tensor, where
+//! j == 0 if getLoopOutput() is kLAST_VALUE
+//! j == 1 if getLoopOutput() is kCONCATENATE or kREVERSE.
+//!
+class ILoopOutputLayer : public ILoopBoundaryLayer
+{
+public:
+    virtual LoopOutput getLoopOutput() const noexcept = 0;
+
+    //!
+    //! \brief Set where to insert the contenation axis. Ignored if getLoopOutput() is kLAST_VALUE.
+    //!
+    //! For example, if the input tensor has dimensions [b,c,d],
+    //! and getLoopOutput() is  kCONCATENATE, the output has four dimensions.
+    //! Let a be the value of the second input.
+    //! setAxis(0) causes the output to have dimensions [a,b,c,d].
+    //! setAxis(1) causes the output to have dimensions [b,a,c,d].
+    //! setAxis(2) causes the output to have dimensions [b,c,a,d].
+    //! setAxis(3) causes the output to have dimensions [b,c,d,a].
+    //! Default is axis is 0.
+    //!
+    virtual void setAxis(int axis) noexcept = 0;
+
+    //! Get axis being concatenated over.
+    virtual int getAxis() const noexcept = 0;
+
+    //! Like ILayer::setInput, but additionally works if index==1, nbInputs()==1, in which
+    //! case nbInputs() changes to 2.
+    void setInput(int index, ITensor& tensor) _TENSORRT_OVERRIDE TRTNOEXCEPT = 0;
+};
+
+class ITripLimitLayer : public ILoopBoundaryLayer
+{
+public:
+    virtual TripLimit getTripLimit() const noexcept = 0;
+};
+
+class IIteratorLayer : public ILoopBoundaryLayer
+{
+public:
+    //! Set axis to iterate over.
+    virtual void setAxis(int axis) noexcept = 0;
+
+    //! Get axis being iterated over.
+    virtual int getAxis() const noexcept = 0;
+
+    //! For reverse=false, the layer is equivalent to addGather(tensor, I, 0) where I is a
+    //! scalar tensor containing the loop iteration number.
+    //! For reverse=true, the layer is equivalent to addGather(tensor, M-1-I, 0) where M is the trip count
+    //! computed from TripLimits of kind kCOUNT.
+    //! The default is reverse=false.
+    virtual void setReverse(bool reverse) noexcept = 0;
+
+    //! True if and only if reversing input.
+    virtual bool getReverse() const noexcept = 0;
+};
+
+//!
+//! Helper for creating a recurrent subgraph.
+//!
+class ILoop
+{
+public:
+    //!
+    //! \brief Create a recurrence layer for this loop with initialValue as its first input.
+    //!
+    virtual IRecurrenceLayer* addRecurrence(ITensor& initialValue) noexcept = 0;
+
+    //!
+    //! \brief Add a trip-count limiter, based on the given tensor.
+    //!
+    //! There may be at most one kCOUNT and one kWHILE_NONZERO limiter for a loop.
+    //! When both trip limits exist, the loop exits when the
+    //! count is reached or condition is falsified.
+    //! It is an error to not add at least one trip limiter.
+    //! For kWHILE_NONZERO, tensor must be a result from addRecurrence.
+    //! Otherwise, tensor must be a tensor whose value is available before the loop starts.
+    //!
+    virtual ITripLimitLayer* addTripLimit(ITensor& tensor, TripLimit limit) noexcept = 0;
+
+    //!
+    //! \brief Return layer that subscripts tensor by loop iteration.
+    //!
+    //! For reverse=false, this is equivalent to addGather(tensor, I, 0) where I is a
+    //! scalar tensor containing the loop iteration number.
+    //! For reverse=true, this is equivalent to addGather(tensor, M-1-I, 0) where M is the trip count
+    //! computed from TripLimits of kind kCOUNT.
+    //!
+    virtual IIteratorLayer* addIterator(ITensor& tensor, int axis = 0, bool reverse = false) noexcept = 0;
+
+    //! \brief Make an output for this loop, based on the given tensor.
+    //!
+    //! axis is the axis for concatenation (if using outputKind of kCONCATENATE or kREVERSE).
+    //!
+    //! If outputKind is kCONCATENATE or kREVERSE, a second input specifying the
+    //! concatenation dimension must be added via method ILoopOutputLayer::setInput.
+    //!
+    virtual ILoopOutputLayer* addLoopOutput(ITensor& tensor, LoopOutput outputKind, int axis = 0) noexcept = 0;
+
+    //!
+    //! \brief Set the name of the loop.
+    //!
+    //! The name is used in error diagnostics.
+    //! This method copies the name string.
+    //!
+    //! \see getName()
+    //!
+    virtual void setName(const char* name) noexcept = 0;
+
+    //!
+    //! \brief Return the name of the loop.
+    //!
+    //! \see setName()
+    //!
+    virtual const char* getName() const noexcept = 0;
+};
+
+//!
+//! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
+//!
+class ISelectLayer : public ILayer
+{
+protected:
+    virtual ~ISelectLayer() {}
+};
+
 //!
 //! \class INetworkDefinition
 //!
@@ -3912,6 +4152,12 @@ public:
     //! IExecutionContext::setBindingDimensions. Different IExecutionContext instances can have different dimensions.
     //! Wildcard dimensions are only supported for EngineCapability::kDEFAULT with DeviceType::kGPU. They are not
     //! supported in safety contexts or on the DLA.
+    //!
+    //! Tensor dimensions are specified independent of format.  For example, if a
+    //! tensor is formatted in "NHWC" or a vectorized format, the dimensions are
+    //! still specified in the order{N, C, H, W}. For 2D images with a channel
+    //! dimension, the last three dimensions are always {C,H,W}. For 3D images
+    //! with a channel dimension, the last four dimensions are always {C,D,H,W}.
     //!
     //! \param name The name of the tensor.
     //! \param type The type of the data held in the tensor.
@@ -4156,7 +4402,7 @@ public:
     //!
     //! \see IRNNLayer
     //!
-    //! \warning RNN inputs do not support wildcard dimensions or explicit batch size networks.
+    //! \warning This layer does not support wildcard dimensions or explicit batch size networks.
     //! \warning Int32 tensors are not valid input tensors.
     //!
     //! \return The new RNN layer, or nullptr if it could not be created.
@@ -4570,7 +4816,7 @@ public:
     //! \see IRNNv2Layer
     //!
     //! \warning RNN inputs do not support wildcard dimensions or explicit batch size networks.
-    //! \warning Int32 tensors are not valid input tensors.
+    //! \warning Int32 tensors are not valid input tensors, only for sequence lengths.
     //!
     //! \return The new RNN layer, or nullptr if it could not be created.
     //!
@@ -4854,6 +5100,13 @@ public:
     virtual IResizeLayer* addResize(ITensor& input) TRTNOEXCEPT = 0;
 
     //!
+    //! \brief Add a loop to the network.
+    //!
+    //! An ILoop provides a way to specify a recurrent subgraph.
+    //!
+    virtual ILoop* addLoop() noexcept = 0;
+
+    //!
     //! \brief True if network is an explicit precision network
     //!
     //! hasExplicitPrecision() is true if and only if this INetworkDefinition
@@ -4864,6 +5117,17 @@ public:
     //! \return True if network has explicit precision, false otherwise.
     //!
     virtual bool hasExplicitPrecision() const TRTNOEXCEPT = 0;
+
+    //! \brief Add a select layer to the network.
+    //!
+    //! \param condition The condition tensor to the layer.
+    //! \param thenInput The "then" input tensor to the layer.
+    //! \param elseInput The "else" input tensor to the layer.
+    //!
+    //! \see ISelectLayer
+    //!
+    //! \return The new select layer, or nullptr if it could not be created.
+    virtual ISelectLayer* addSelect(ITensor& condition, ITensor& thenInput, ITensor& elseInput) TRTNOEXCEPT = 0;
 };
 
 //!
@@ -5073,8 +5337,8 @@ typedef uint32_t BuilderFlags;
 //!
 enum class BuilderFlag : int
 {
-    kFP16 = 0,         //!< Enable FP16 layer selection.
-    kINT8 = 1,         //!< Enable Int8 layer selection.
+    kFP16 = 0,         //!< Enable FP16 layer selection, with FP32 fallback.
+    kINT8 = 1,         //!< Enable Int8 layer selection, with FP32 fallback with FP16 fallback if kFP16 also specified.
     kDEBUG = 2,        //!< Enable debugging of layers via synchronizing after every layer.
     kGPU_FALLBACK = 3, //!< Enable layers marked to execute on GPU if layer cannot execute on DLA.
     kSTRICT_TYPES = 4, //!< Enables strict type constraints.
@@ -5366,6 +5630,7 @@ protected:
     }
 };
 
+
 //! \typedef NetworkDefinitionCreationFlags
 //!
 //! \brief This bitset is capable of representing one or more NetworkDefinitionCreationFlag flags
@@ -5412,6 +5677,7 @@ constexpr inline int EnumMax<NetworkDefinitionCreationFlag>()
 {
     return 2;
 }
+
 
 //!
 //! \class IBuilder
@@ -5848,6 +6114,7 @@ public:
     virtual nvinfer1::ICudaEngine* buildEngineWithConfig(
         INetworkDefinition& network, IBuilderConfig& config) TRTNOEXCEPT = 0;
 
+
     //! \brief Create a network definition object
     //!
     //! Creates a network definition object with immutable properties specified using the flags parameter. Providing
@@ -5859,6 +6126,7 @@ public:
     //! \see INetworkDefinition, NetworkDefinitionCreationFlags
     //!
     virtual nvinfer1::INetworkDefinition* createNetworkV2(NetworkDefinitionCreationFlags flags) TRTNOEXCEPT = 0;
+
 
     //! \brief Create a new optimization profile.
     //!

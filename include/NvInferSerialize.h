@@ -52,6 +52,8 @@
 
 #include "NvInfer.h"
 
+extern "C" TENSORRTAPI void* serializeNetwork_INTERNAL(const void* network);
+
 namespace nvinfer1
 {
 namespace serialize
@@ -65,58 +67,10 @@ namespace serialize
 //!
 //! The network might be deserialized with nvserialize::deserializeINetwork.
 //!
-//! \see nvinfer1::serialize::deserializeNetwork
-//!
-TENSORRTAPI nvinfer1::IHostMemory* serializeNetwork(const nvinfer1::INetworkDefinition* network);
-
-class IDeserializer
+inline nvinfer1::IHostMemory* serializeNetwork(const nvinfer1::INetworkDefinition& network)
 {
-public:
-    //!
-    //! \brief Deserialize TensorRT INetworkDefinition from stream.
-    //! \param blob The memory that holds the serialized network.
-    //! \param size The size of the memory.
-    //! \return True iff deserialization was successful.
-    //!
-    virtual bool deserialize(const void* blob, std::size_t size) TRTNOEXCEPT = 0;
-
-    //!
-    //! \brief Destroy the IDeserializer object.
-    //!
-    virtual void destroy() TRTNOEXCEPT = 0;
-
-    //!
-    //! \brief Set the ErrorRecorder for this interface
-    //!
-    //! Assigns the ErrorRecorder to this interface. The ErrorRecorder will track all errors during execution.
-    //! This function will call incRefCount of the registered ErrorRecorder at least once. Setting 
-    //! recorder to nullptr unregisters the recorder with the interface, resulting in a call to decRefCount if
-    //! a recorder has been registered.
-    //! 
-    //! \param recorder The error recorder to register with this interface.
-    //
-    //! \see getErrorRecorder
-    //! 
-    virtual void setErrorRecorder(IErrorRecorder* recorder) TRTNOEXCEPT = 0;
-
-    //!
-    //! \brief get the ErrorRecorder assigned to this interface.
-    //!
-    //! Retrieves the assigned error recorder object for the given class. A default error recorder does not exist,
-    //! so a nullptr will be returned if setErrorRecorder has not been called.
-    //!
-    //! \return A pointer to the IErrorRecorder object that has been registered.
-    //!
-    //! \see setErrorRecorder
-    //!
-    virtual IErrorRecorder* getErrorRecorder() const TRTNOEXCEPT = 0;
-};
-
-//!
-//! \brief Creates IDeserializer object.
-//! \param network A nvinfer1::INetworkDefinition object where deserialized network will be placed.
-//!
-TENSORRTAPI IDeserializer* createDeserializer(nvinfer1::INetworkDefinition* network, nvinfer1::ILogger* logger);
+    return static_cast<nvinfer1::IHostMemory*>(serializeNetwork_INTERNAL(&network));
+}
 
 } // namespace serialize
 } // namespace nvinfer1
