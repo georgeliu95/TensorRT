@@ -441,7 +441,8 @@ enum class LayerType : int
     kRECURRENCE = 29,      //!< Loop Recurrence layer
     kITERATOR = 30,        //!< Loop Iterator layer
     kLOOP_OUTPUT = 31,     //!< Loop output layer
-    kSELECT = 32           //!< Select layer.
+    kSELECT = 32,          //!< Select layer.
+    kFILL = 33             //!< Fill layer
 };
 
 template <>
@@ -3096,7 +3097,7 @@ constexpr inline int EnumMax<ReduceOperation>()
 //!
 //! \class IReduceLayer
 //!
-//! \brief Layer that represents a reduction operator.
+//! \brief Layer that represents a reduction operator across Shape, Int32, Float, and Half tensors.
 //!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
@@ -3947,8 +3948,8 @@ enum class TripLimit : int
     // Tensor is scalar of type kINT32 that contains the trip count.
     kCOUNT = 0,
 
-    // Tensor is a scalar of type kINT32.  Loop terminates when value is zero.
-    kWHILE_NONZERO = 1
+    // Tensor is a scalar of type kBOOL. Loop terminates when value is false.
+    kWHILE = 1
 };
 
 template <>
@@ -4060,12 +4061,18 @@ public:
     //!
     //! \brief Add a trip-count limiter, based on the given tensor.
     //!
-    //! There may be at most one kCOUNT and one kWHILE_NONZERO limiter for a loop.
+    //! There may be at most one kCOUNT and one kWHILE limiter for a loop.
     //! When both trip limits exist, the loop exits when the
     //! count is reached or condition is falsified.
     //! It is an error to not add at least one trip limiter.
-    //! For kWHILE_NONZERO, tensor must be a result from addRecurrence.
-    //! Otherwise, tensor must be a tensor whose value is available before the loop starts.
+    //!
+    //! For kTRIP_LIMIT, the input tensor must be available before the loop starts.
+    //!
+    //! For kWHILE, the input tensor must be the output of a subgraph that contains
+    //! only layers that are not ITripLimitLayer, IIteratorLayer or ILoopOutputLayer.
+    //! Any IRecurrenceLayers in the subgraph must belong to the same loop as the
+    //! ITripLimitLayer.  A trivial example of this rule is that the input to the kWHILE
+    //! is the output of an IRecurrenceLayer for the same loop.
     //!
     virtual ITripLimitLayer* addTripLimit(ITensor& tensor, TripLimit limit) noexcept = 0;
 
@@ -4113,6 +4120,168 @@ class ISelectLayer : public ILayer
 {
 protected:
     virtual ~ISelectLayer() {}
+};
+
+//!
+//! \enum FillOperation
+//!
+//! \brief Enumerates the tensor fill operations that may performed by a fill layer.
+//!
+//! \see IFillLayer
+//!
+enum class FillOperation : int
+{
+    kLINSPACE = 0,         //!< Generate evenly spaced numbers over a specified interval.
+    kRANDOM_UNIFORM = 1    //!< Generate a tensor with random values drawn from a uniform distribution.
+};
+
+template <>
+constexpr inline int EnumMax<FillOperation>()
+{
+    return 2;
+} //!< Maximum number of elements in FillOperation enum. \see FillOperation
+
+//!
+//! \brief Generate an output tensor with specified mode.
+//!
+//! The fill layer has two variants, static and dynamic. Static fill specifies the dimensions and FillOperation at layer
+//! create time, and can use get/set accessor to set/get the value of alpha and beta. Dynamic fill specifies the
+//! dimensions via ITensors. An application can determine if the IFillLayer is dynamic or static based on whether it
+//! has inputs(dynamic) or not(static).
+//!
+//! The fill layer will always output a tensor based on the size of the input parameter, \p Dimension, or the input
+//! shape tensor.
+//!
+//! Alpha and Beta are treated differently based on the Fill Operation specified. Details in IFillLayer::setAlpha(),
+//! IFillLayer::setBeta(), IFillLayer::setInput().
+//!
+//! \see FillOperation
+//!
+//! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
+class IFillLayer : public ILayer
+{
+public:
+    //!
+    //! \brief Set the output tensor's dimensions.
+    //!
+    //! \param dimensions The output tensor's dimensions.
+    //! \warning the dimensions' nbDims must be 1 for this method.
+    //! The reason is that if the static dimensions are used, then the delta value
+    //! comes from the static beta.  For ND output, use setInput(0, shapeTensor) to specify 
+    //! the dimensions and setInput(2, betaTensor) to specify the beta.
+    //! 
+    //! If the FillLayer is using dynamic inputs for the dimensions parameter, calling setDimensions() results in an error
+    //! and does not update value.
+    //!
+    //! \see getShape
+    //
+    virtual void setDimensions(Dims dimensions) noexcept = 0;
+
+    //!
+    //! \brief Get the output tensor's dimensions.
+    //!
+    //! \return The output tensor's dimensions, or an invalid Dims structure.
+    //! 
+    //! If the FillLayer is using dynamic inputs for the dimensions parameter, this function returns an invalid
+    //! Dims structure.
+    //!
+    //! \see setDimensions
+    //!
+    virtual Dims getDimensions() const noexcept = 0;
+
+    //!
+    //! \brief Set the fill operation for the layer.
+    //!
+    //! \see getOperation(), FillOperation
+    //!
+    virtual void setOperation(FillOperation type) noexcept = 0;
+
+    //!
+    //! \brief Get the fill operation for the layer.
+    //!
+    //! \see setOperation(), FillOperation
+    //!
+    virtual FillOperation getOperation() const noexcept = 0;
+
+    //!
+    //! \brief Set the Fill's first parameter, alpha.
+    //!
+    //! \param alpha has different meanings for each operators:
+    //! 
+    //! Operation          | Usage
+    //! kLINSPACE          | the start value;
+    //! kRANDOMUNIFORM     | the minimum value;
+    //!
+    //! If the FillLayer is using input tensor to specify the alpha parameter, calling setAlpha() results in an error
+    //! and does not update value.
+    //!
+    //! \see getAlpha
+    //!
+    virtual void setAlpha(double alpha) noexcept = 0;
+
+    //!
+    //! \brief Get the value of alpha parameter.
+    //!
+    //! \return A double value of alpha.
+    //!
+    //! If the FillLayer is using input tensor to specify the alpha parameter, this function returns -1.
+    //!
+    //! \see setAlpha
+    //!
+    virtual double getAlpha() const noexcept = 0;
+
+    //!
+    //! \brief Set the Fill's first parameter, beta.
+    //!
+    //! \param beta:
+    //! 
+    //! Operation          | Usage
+    //! kLINSPACE          | the delta value;
+    //! kRANDOMUNIFORM     | the maximal value;
+    //!
+    //! If the FillLayer is using input tensor to specify the beta parameter, calling setBeta() results in an error
+    //! and does not update value.
+    //!
+    //! \see getBeta
+    //!
+    virtual void setBeta(double beta) noexcept = 0;
+
+    //!
+    //! \brief Get the value of beta parameter.
+    //!
+    //! \return A double value of beta.
+    //!
+    //! If the FillLayer is using input tensor to specify the beta parameter, this function returns -1.
+    //!
+    //! \see setBeta
+    //!
+    virtual double getBeta() const noexcept = 0;
+
+    //!
+    //! \brief replace an input of this layer with a specific tensor.
+    //!
+    //! \param index the index of the input to modify.
+    //! \param tensor the new input tensor
+    //!
+    //! Index | Description for kLINSPACE
+    //!   0   | Shape tensor, represents the output tensor's dimensions.
+    //!   1   | Start, a scalar, represents the start value.
+    //!   2   | Delta, a 1D tensor, length equals to shape tensor's nbDims, represents the delta value for each dimension.
+    //!   3   | Not used.
+    //!
+    //! Index | Description for kRANDOM_UNIFORM
+    //!   0   | Shape tensor, represents the output tensor's dimensions.
+    //!   1   | Minimum, a scalar, represents the minimum random value.
+    //!   2   | Maximum, a scalar, represents the maximal random value.
+    //!   3   | Seed, a scalar, represents the seed.
+    //!
+    //! For input 1 and 2, the data type should be same. Input 3 can be Int32 or same with input 1 and 2.
+    //! If this function is called , then the function getNbInputs() changes.
+    //!
+    void setInput(int index, ITensor& tensor) _TENSORRT_OVERRIDE TRTNOEXCEPT = 0;
+
+protected:
+    virtual ~IFillLayer() {}
 };
 
 //!
@@ -4635,6 +4804,10 @@ public:
     //! \param keepDimensions The boolean that specifies whether or not to keep the reduced dimensions in the
     //! output of the layer.
     //!
+    //! The reduce layer works by performing an operation specified by \p operation to reduce the tensor \p input across
+    //! the
+    //! axes specified by \p reduceAxes.
+    //!
     //! \see IReduceLayer
     //!
     //! \warning If input is a shape tensor, ReduceOperation::kAVG is unsupported.
@@ -5128,6 +5301,18 @@ public:
     //!
     //! \return The new select layer, or nullptr if it could not be created.
     virtual ISelectLayer* addSelect(ITensor& condition, ITensor& thenInput, ITensor& elseInput) TRTNOEXCEPT = 0;
+
+    //! \brief Add a fill layer to the network.
+    //!
+    //! \param dimensions The output tensor dimensions. 
+    //! \param op The fill operation that the layer applies.
+    //!
+    //! \warning The dimensions's nbDims must be 1. 
+    //!
+    //! \see IFillLayer
+    //!
+    //! \return The new fill layer, or nullptr if it could not be created.
+    virtual IFillLayer* addFill(Dims dimensions, FillOperation op) noexcept = 0;
 };
 
 //!
