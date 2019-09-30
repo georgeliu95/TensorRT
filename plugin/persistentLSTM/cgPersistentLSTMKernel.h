@@ -21,7 +21,8 @@ __device__ inline int roundUp(int x, int y)                                     
 }                                                                                                                       \n\
 template <int bidirectionFactor, int bidirectionK>                                                                      \n\
 __device__ __forceinline__ void PLSTM_pointwise(int step, T_DATA* tmp_h, T_DATA* bias, T_DATA* y, T_DATA* tmp_i,        \n\
-    T_DATA* smemc, T_DATA* final_h, int blockSplitKFactor, int hiddenSize, int minibatch, int hInOffset, int validBatch)\n\
+    T_DATA* smemc, T_DATA* final_h, int blockSplitKFactor, int hiddenSize, int minibatch, int hInOffset, int validBatch,\n\
+    int* miniBatchArray)                                                                                                \n\
 {                                                                                                                       \n\
     int tid = blockIdx.x * BLOCK_DIM + threadIdx.x;                                                                     \n\
     int idx;                                                                                                            \n\
@@ -59,7 +60,7 @@ __device__ __forceinline__ void PLSTM_pointwise(int step, T_DATA* tmp_h, T_DATA*
         y[yIdx] = res;                                                                                                  \n\
         if (final_h != NULL)                                                                                            \n\
         {                                                                                                               \n\
-            final_h[bidirectionK * minibatch * hiddenSize + idx] = res;                                                 \n\
+            final_h[bidirectionK * miniBatchArray[0] * hiddenSize + idx] = res;                                         \n\
         }                                                                                                               \n\
     }                                                                                                                   \n\
 }                                                                                                                       \n\
@@ -387,7 +388,7 @@ __device__ __forceinline__ void PLSTM_GEMM_tcores_piped(                        
                 if (compileTimeGmemBoundsCheck2 || (subExample < minibatch))                                            \n\
                 {                                                                                                       \n\
                     registerBuffer[i / BLOCK_DIM][innerStep]                                                            \n\
-                        = init_h[bidirectionK * minibatch * hiddenSize + subExample * hiddenSize + row];                \n\
+                        = init_h[bidirectionK * miniBatchArray[0] * hiddenSize + subExample * hiddenSize + row];        \n\
                 }                                                                                                       \n\
                 else                                                                                                    \n\
                 {                                                                                                       \n\
@@ -439,7 +440,7 @@ __device__ __forceinline__ void PLSTM_GEMM_tcores_piped(                        
                     if (compileTimeGmemBoundsCheck2 || (subExample < minibatch))                                        \n\
                     {                                                                                                   \n\
                         registerBuffer[i / BLOCK_DIM][innerStep]                                                        \n\
-                            = init_h[bidirectionK * minibatch * hiddenSize + subExample * hiddenSize + row];            \n\
+                            = init_h[bidirectionK * miniBatchArray[0] * hiddenSize + subExample * hiddenSize + row];    \n\
                     }                                                                                                   \n\
                     else                                                                                                \n\
                     {                                                                                                   \n\
@@ -559,7 +560,7 @@ __launch_bounds__(BLOCK_DIM, BLOCKS_PER_SM) __global__                          
         }                                                                                                               \n\
         // Add non-recurrent part and perform pointwise ops                                                             \n\
         PLSTM_pointwise<bidirectionFactor, 0>(step, tmp_h, bias, y, tmp_i, smemc, final_h, blockSplitKFactor,           \n\
-            hiddenSize, minibatch, hInForWardOffset, miniBatchArray[step]);                                             \n\
+            hiddenSize, minibatch, hInForWardOffset, miniBatchArray[step], miniBatchArray);                             \n\
         if (compileTimeBidirectionalCheck)                                                                              \n\
         {                                                                                                               \n\
             if (step > 0)                                                                                               \n\
@@ -567,7 +568,7 @@ __launch_bounds__(BLOCK_DIM, BLOCKS_PER_SM) __global__                          
                 hInBackWardOffset -= hiddenSize * miniBatchArray[seqLength - step - 1];                                 \n\
             }                                                                                                           \n\
             PLSTM_pointwise<bidirectionFactor, 1>(step, tmp_h, bias, y, tmp_i, smemc, final_h, blockSplitKFactor,       \n\
-                hiddenSize, minibatch, hInBackWardOffset, miniBatchArray[seqLength - step - 1]);                        \n\
+                hiddenSize, minibatch, hInBackWardOffset, miniBatchArray[seqLength - step - 1], miniBatchArray);        \n\
         }                                                                                                               \n\
         // Wait for y to be written                                                                                     \n\
         grid.sync();                                                                                                    \n\
@@ -587,7 +588,7 @@ __launch_bounds__(BLOCK_DIM, BLOCKS_PER_SM) __global__                          
 }";
 
 const char* tCoreSourceSeparate
-= "#include <cooperative_groups.h>                                                                                         \n\
+= "#include <cooperative_groups.h>                                                                                      \n\
 using namespace cooperative_groups;                                                                                     \n\
 #include <mma.h>                                                                                                        \n\
 using namespace nvcuda;                                                                                                 \n\
@@ -609,7 +610,8 @@ __device__ inline int roundUp(int x, int y)                                     
 }                                                                                                                       \n\
 template <int bidirectionFactor, int bidirectionK>                                                                      \n\
 __device__ __forceinline__ void PLSTM_pointwise(int step, T_DATA* tmp_h, T_DATA* bias, T_DATA* y, T_DATA* tmp_i,        \n\
-    T_DATA* smemc, T_DATA* final_h, int blockSplitKFactor, int hiddenSize, int minibatch, int hInOffset, int validBatch)\n\
+    T_DATA* smemc, T_DATA* final_h, int blockSplitKFactor, int hiddenSize, int minibatch, int hInOffset, int validBatch,\n\
+    int* miniBatchArray)                                                                                                \n\
 {                                                                                                                       \n\
     int tid = blockIdx.x * BLOCK_DIM + threadIdx.x;                                                                     \n\
     int idx;                                                                                                            \n\
@@ -646,7 +648,7 @@ __device__ __forceinline__ void PLSTM_pointwise(int step, T_DATA* tmp_h, T_DATA*
         y[yIdx] = res;                                                                                                  \n\
         if (final_h != NULL)                                                                                            \n\
         {                                                                                                               \n\
-            final_h[bidirectionK * minibatch * hiddenSize + idx] = res;                                                 \n\
+            final_h[bidirectionK * miniBatchArray[0] * hiddenSize + idx] = res;                                         \n\
         }                                                                                                               \n\
     }                                                                                                                   \n\
 }                                                                                                                       \n\
@@ -964,7 +966,7 @@ __device__ __forceinline__ void PLSTM_GEMM_tcores_piped(                        
                 if (compileTimeGmemBoundsCheck2 || (subExample < minibatch))                                            \n\
                 {                                                                                                       \n\
                     registerBuffer[i / BLOCK_DIM][innerStep]                                                            \n\
-                        = init_h[bidirectionK * minibatch * hiddenSize + subExample * hiddenSize + row];                \n\
+                        = init_h[bidirectionK * miniBatchArray[0] * hiddenSize + subExample * hiddenSize + row];        \n\
                 }                                                                                                       \n\
                 else                                                                                                    \n\
                 {                                                                                                       \n\
@@ -1016,7 +1018,7 @@ __device__ __forceinline__ void PLSTM_GEMM_tcores_piped(                        
                     if (compileTimeGmemBoundsCheck2 || (subExample < minibatch))                                        \n\
                     {                                                                                                   \n\
                         registerBuffer[i / BLOCK_DIM][innerStep]                                                        \n\
-                            = init_h[bidirectionK * minibatch * hiddenSize + subExample * hiddenSize + row];            \n\
+                            = init_h[bidirectionK * miniBatchArray[0] * hiddenSize + subExample * hiddenSize + row];    \n\
                     }                                                                                                   \n\
                     else                                                                                                \n\
                     {                                                                                                   \n\
@@ -1132,7 +1134,7 @@ __launch_bounds__(BLOCK_DIM, BLOCKS_PER_SM) __global__                          
         }                                                                                                               \n\
         // Add non-recurrent part and perform pointwise ops                                                             \n\
         PLSTM_pointwise<bidirectionFactor, 0>(step, tmp_h, bias, y, tmp_i, smemc, final_h, blockSplitKFactor,           \n\
-            hiddenSize, minibatch, hInForWardOffset, miniBatchArray[step]);                                             \n\
+            hiddenSize, minibatch, hInForWardOffset, miniBatchArray[step], miniBatchArray);                             \n\
         // Wait for y to be written                                                                                     \n\
         grid.sync();                                                                                                    \n\
     }                                                                                                                   \n\
@@ -1152,7 +1154,7 @@ __launch_bounds__(BLOCK_DIM, BLOCKS_PER_SM) __global__                          
                 hInBackWardOffset -= hiddenSize * miniBatchArray[seqLength - step - 1];                                 \n\
             }                                                                                                           \n\
             PLSTM_pointwise<bidirectionFactor, 1>(step, tmp_h, bias, y, tmp_i, smemc, final_h, blockSplitKFactor,       \n\
-                hiddenSize, minibatch, hInBackWardOffset, miniBatchArray[seqLength - step - 1]);                        \n\
+                hiddenSize, minibatch, hInBackWardOffset, miniBatchArray[seqLength - step - 1], miniBatchArray);        \n\
             grid.sync();                                                                                                \n\
         }                                                                                                               \n\
     }                                                                                                                   \n\
@@ -1162,9 +1164,9 @@ __launch_bounds__(BLOCK_DIM, BLOCKS_PER_SM) __global__                          
         for (int k = 0; k < bidirectionFactor; k++)                                                                     \n\
         {                                                                                                               \n\
             c_idx = threadIdx.x;                                                                                        \n\
-            for (idx = tid; idx < minibatch * hiddenSize; idx += GRID_DIM * BLOCK_DIM, c_idx += BLOCK_DIM)              \n\
+            for (idx = tid; idx < miniBatchArray[0] * hiddenSize; idx += GRID_DIM * BLOCK_DIM, c_idx += BLOCK_DIM)      \n\
             {                                                                                                           \n\
-                final_c[k * minibatch * hiddenSize + idx] = smemc[k * cPerThread * BLOCK_DIM + c_idx];                  \n\
+                final_c[k * miniBatchArray[0] * hiddenSize + idx] = smemc[k * cPerThread * BLOCK_DIM + c_idx];          \n\
             }                                                                                                           \n\
         }                                                                                                               \n\
     }                                                                                                                   \n\

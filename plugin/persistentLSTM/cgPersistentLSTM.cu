@@ -530,12 +530,12 @@ void CgPersistentLSTM::doOutputTranspose(void* y, void* hy, void* cy, int inputB
         if (hy)
         {
             reformatRNNForwardInferenceTensor2NSE(dataType, param.isBi, hyT, hy, nullptr, gpuPermutation,
-                this->maxBatchSize, param.numLayers, param.hiddenSize, stream);
+                inputBatchSize, param.numLayers, param.hiddenSize, stream);
         }
         if (cy)
         {
             reformatRNNForwardInferenceTensor2NSE(dataType, param.isBi, cyT, cy, nullptr, gpuPermutation,
-                this->maxBatchSize, param.numLayers, param.hiddenSize, stream);
+                inputBatchSize, param.numLayers, param.hiddenSize, stream);
         }
     }
 }
@@ -629,10 +629,10 @@ void CgPersistentLSTM::execute(const void* x, void* y, const void* init_h, const
         rMatCurrent += dirMul * param.hiddenSize * param.hiddenSize * 4 * dataSize;
         biasCurrent += dirMul * 2 * param.hiddenSize * 4 * dataSize;
 
-        initHCurrent += dirMul * this->maxBatchSize * param.hiddenSize * dataSize;
-        initCCurrent += dirMul * this->maxBatchSize * param.hiddenSize * dataSize;
-        finalHCurrent += dirMul * this->maxBatchSize * param.hiddenSize * dataSize;
-        finalCCurrent += dirMul * this->maxBatchSize * param.hiddenSize * dataSize;
+        initHCurrent += dirMul * batchSize * param.hiddenSize * dataSize;
+        initCCurrent += dirMul * batchSize * param.hiddenSize * dataSize;
+        finalHCurrent += dirMul * batchSize * param.hiddenSize * dataSize;
+        finalCCurrent += dirMul * batchSize * param.hiddenSize * dataSize;
     }
 
     // Output transpose
