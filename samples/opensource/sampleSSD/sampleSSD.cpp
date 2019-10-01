@@ -393,7 +393,7 @@ SampleSSDParams initializeSampleParams(const samplesCommon::Args& args)
 
     params.outputClsSize = 21;
     params.keepTopK = 200; // Number of total bboxes to be kept per image after NMS step. It is same as detection_output_param.keep_top_k in prototxt file
-    params.nbCalBatches = 500;
+    params.nbCalBatches = 50;
     params.visualThreshold = 0.6f;
     params.calibrationBatches = "batches/batch_calibration";
 
