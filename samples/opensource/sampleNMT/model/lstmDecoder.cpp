@@ -61,12 +61,8 @@ LSTMDecoder::LSTMDecoder(ComponentWeights::ptr weights)
     assert(kernelOffset + biasOffset - biasStartOffset == mWeights->mWeights.size());
 }
 
-void LSTMDecoder::addToModel(
-    nvinfer1::INetworkDefinition* network,
-    nvinfer1::ITensor* inputEmbeddedData,
-    nvinfer1::ITensor** inputStates,
-    nvinfer1::ITensor** outputData,
-    nvinfer1::ITensor** outputStates)
+void LSTMDecoder::addToModel(nvinfer1::INetworkDefinition* network, nvinfer1::ITensor* inputEmbeddedData,
+    nvinfer1::ITensor** inputStates, nvinfer1::ITensor** outputData, nvinfer1::ITensor** outputStates)
 {
     int beamWidth;
     int inputWidth;
@@ -84,28 +80,22 @@ void LSTMDecoder::addToModel(
         auto shuffleLayer = network->addShuffle(*inputEmbeddedData);
         assert(shuffleLayer != nullptr);
         shuffleLayer->setName("Reshape input for LSTM decoder");
-        nvinfer1::Dims shuffleDims{3, {beamWidth, 1, inputWidth}, {nvinfer1::DimensionType::kINDEX, nvinfer1::DimensionType::kSEQUENCE, nvinfer1::DimensionType::kCHANNEL}};
+        nvinfer1::Dims shuffleDims{3, {beamWidth, 1, inputWidth},
+            {nvinfer1::DimensionType::kINDEX, nvinfer1::DimensionType::kSEQUENCE, nvinfer1::DimensionType::kCHANNEL}};
         shuffleLayer->setReshapeDimensions(shuffleDims);
         shuffledInput = shuffleLayer->getOutput(0);
         assert(shuffledInput != nullptr);
     }
 
-    auto decoderLayer = network->addRNNv2(
-        *shuffledInput,
-        mNumLayers,
-        mNumUnits,
-        1,
-        nvinfer1::RNNOperation::kLSTM);
+    auto decoderLayer = network->addRNNv2(*shuffledInput, mNumLayers, mNumUnits, 1, nvinfer1::RNNOperation::kLSTM);
     assert(decoderLayer != nullptr);
     decoderLayer->setName("LSTM decoder");
 
     decoderLayer->setInputMode(nvinfer1::RNNInputMode::kLINEAR);
     decoderLayer->setDirection(nvinfer1::RNNDirection::kUNIDIRECTION);
 
-    std::vector<nvinfer1::RNNGateType> gateOrder({nvinfer1::RNNGateType::kFORGET,
-                                                  nvinfer1::RNNGateType::kINPUT,
-                                                  nvinfer1::RNNGateType::kCELL,
-                                                  nvinfer1::RNNGateType::kOUTPUT});
+    std::vector<nvinfer1::RNNGateType> gateOrder({nvinfer1::RNNGateType::kFORGET, nvinfer1::RNNGateType::kINPUT,
+        nvinfer1::RNNGateType::kCELL, nvinfer1::RNNGateType::kOUTPUT});
     for (size_t i = 0; i < mGateKernelWeights.size(); i++)
     {
         // we have 4 + 4 gates
@@ -123,7 +113,8 @@ void LSTMDecoder::addToModel(
         auto shuffleLayer = network->addShuffle(**outputData);
         assert(shuffleLayer != nullptr);
         shuffleLayer->setName("Reshape output from LSTM decoder");
-        nvinfer1::Dims shuffleDims{2, {beamWidth, mNumUnits}, {nvinfer1::DimensionType::kINDEX, nvinfer1::DimensionType::kCHANNEL}};
+        nvinfer1::Dims shuffleDims{
+            2, {beamWidth, mNumUnits}, {nvinfer1::DimensionType::kINDEX, nvinfer1::DimensionType::kCHANNEL}};
         shuffleLayer->setReshapeDimensions(shuffleDims);
         auto shuffledOutput = shuffleLayer->getOutput(0);
         assert(shuffledOutput != nullptr);
@@ -141,8 +132,10 @@ void LSTMDecoder::addToModel(
 
 std::vector<nvinfer1::Dims> LSTMDecoder::getStateSizes()
 {
-    nvinfer1::Dims hiddenStateDims{2, {mNumLayers, mNumUnits}, {nvinfer1::DimensionType::kSPATIAL, nvinfer1::DimensionType::kCHANNEL}};
-    nvinfer1::Dims cellStateDims{2, {mNumLayers, mNumUnits}, {nvinfer1::DimensionType::kSPATIAL, nvinfer1::DimensionType::kCHANNEL}};
+    nvinfer1::Dims hiddenStateDims{
+        2, {mNumLayers, mNumUnits}, {nvinfer1::DimensionType::kSPATIAL, nvinfer1::DimensionType::kCHANNEL}};
+    nvinfer1::Dims cellStateDims{
+        2, {mNumLayers, mNumUnits}, {nvinfer1::DimensionType::kSPATIAL, nvinfer1::DimensionType::kCHANNEL}};
     return std::vector<nvinfer1::Dims>({hiddenStateDims, cellStateDims});
 }
 

@@ -34,6 +34,14 @@ using namespace nvinfer1::plugin;
 #include "regionPlugin/regionPlugin.h"
 #include "reorgPlugin/reorgPlugin.h"
 
+#include "batchTilePlugin/batchTilePlugin.h"
+#include "detectionLayerPlugin/detectionLayerPlugin.h"
+#include "proposalLayerPlugin/proposalLayerPlugin.h"
+#include "pyramidROIAlignPlugin/pyramidROIAlignPlugin.h"
+#include "resizeNearestPlugin/resizeNearestPlugin.h"
+#include "specialSlicePlugin/specialSlicePlugin.h"
+#include "instanceNormalizationPlugin/instanceNormalizationPlugin.h"
+
 using nvinfer1::plugin::RPROIParams;
 
 namespace nvinfer1
@@ -103,6 +111,13 @@ bool initLibNvInferPlugins(void* logger, const char* libNamespace)
     initializePlugin<nvinfer1::plugin::FlattenConcatPluginCreator>(logger, libNamespace);
     initializePlugin<nvinfer1::plugin::CropAndResizePluginCreator>(logger, libNamespace);
     initializePlugin<nvinfer1::plugin::ProposalPluginCreator>(logger, libNamespace);
+    initializePlugin<nvinfer1::plugin::BatchTilePluginCreator>(logger, libNamespace);
+    initializePlugin<nvinfer1::plugin::DetectionLayerPluginCreator>(logger, libNamespace);
+    initializePlugin<nvinfer1::plugin::ProposalLayerPluginCreator>(logger, libNamespace);
+    initializePlugin<nvinfer1::plugin::PyramidROIAlignPluginCreator>(logger, libNamespace);
+    initializePlugin<nvinfer1::plugin::ResizeNearestPluginCreator>(logger, libNamespace);
+    initializePlugin<nvinfer1::plugin::SpecialSlicePluginCreator>(logger, libNamespace);
+    initializePlugin<nvinfer1::plugin::InstanceNormalizationPluginCreator>(logger, libNamespace);
     return true;
 }
 } // extern "C"

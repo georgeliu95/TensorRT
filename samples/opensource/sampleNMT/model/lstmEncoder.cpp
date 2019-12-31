@@ -57,21 +57,12 @@ LSTMEncoder::LSTMEncoder(ComponentWeights::ptr weights)
     assert(kernelOffset + biasOffset - biasStartOffset == mWeights->mWeights.size());
 }
 
-void LSTMEncoder::addToModel(
-    nvinfer1::INetworkDefinition* network,
-    int maxInputSequenceLength,
-    nvinfer1::ITensor* inputEmbeddedData,
-    nvinfer1::ITensor* actualInputSequenceLengths,
-    nvinfer1::ITensor** inputStates,
-    nvinfer1::ITensor** memoryStates,
-    nvinfer1::ITensor** lastTimestepStates)
+void LSTMEncoder::addToModel(nvinfer1::INetworkDefinition* network, int maxInputSequenceLength,
+    nvinfer1::ITensor* inputEmbeddedData, nvinfer1::ITensor* actualInputSequenceLengths,
+    nvinfer1::ITensor** inputStates, nvinfer1::ITensor** memoryStates, nvinfer1::ITensor** lastTimestepStates)
 {
     auto encoderLayer = network->addRNNv2(
-        *inputEmbeddedData,
-        mNumLayers,
-        mNumUnits,
-        maxInputSequenceLength,
-        nvinfer1::RNNOperation::kLSTM);
+        *inputEmbeddedData, mNumLayers, mNumUnits, maxInputSequenceLength, nvinfer1::RNNOperation::kLSTM);
     assert(encoderLayer != nullptr);
     encoderLayer->setName("LSTM encoder");
 
@@ -79,10 +70,8 @@ void LSTMEncoder::addToModel(
     encoderLayer->setInputMode(nvinfer1::RNNInputMode::kLINEAR);
     encoderLayer->setDirection(nvinfer1::RNNDirection::kUNIDIRECTION);
 
-    std::vector<nvinfer1::RNNGateType> gateOrder({nvinfer1::RNNGateType::kFORGET,
-                                                  nvinfer1::RNNGateType::kINPUT,
-                                                  nvinfer1::RNNGateType::kCELL,
-                                                  nvinfer1::RNNGateType::kOUTPUT});
+    std::vector<nvinfer1::RNNGateType> gateOrder({nvinfer1::RNNGateType::kFORGET, nvinfer1::RNNGateType::kINPUT,
+        nvinfer1::RNNGateType::kCELL, nvinfer1::RNNGateType::kOUTPUT});
     for (size_t i = 0; i < mGateKernelWeights.size(); i++)
     {
         // we have 4 + 4 gates
@@ -115,8 +104,10 @@ int LSTMEncoder::getMemoryStatesSize()
 
 std::vector<nvinfer1::Dims> LSTMEncoder::getStateSizes()
 {
-    nvinfer1::Dims hiddenStateDims{2, {mNumLayers, mNumUnits}, {nvinfer1::DimensionType::kSPATIAL, nvinfer1::DimensionType::kCHANNEL}};
-    nvinfer1::Dims cellStateDims{2, {mNumLayers, mNumUnits}, {nvinfer1::DimensionType::kSPATIAL, nvinfer1::DimensionType::kCHANNEL}};
+    nvinfer1::Dims hiddenStateDims{
+        2, {mNumLayers, mNumUnits}, {nvinfer1::DimensionType::kSPATIAL, nvinfer1::DimensionType::kCHANNEL}};
+    nvinfer1::Dims cellStateDims{
+        2, {mNumLayers, mNumUnits}, {nvinfer1::DimensionType::kSPATIAL, nvinfer1::DimensionType::kCHANNEL}};
     return std::vector<nvinfer1::Dims>({hiddenStateDims, cellStateDims});
 }
 

@@ -22,14 +22,9 @@
 
 namespace nmtSample
 {
-void SoftmaxLikelihood::addToModel(
-    nvinfer1::INetworkDefinition* network,
-    int beamWidth,
-    nvinfer1::ITensor* inputLogits,
-    nvinfer1::ITensor* inputLikelihoods,
-    nvinfer1::ITensor** newCombinedLikelihoods,
-    nvinfer1::ITensor** newRayOptionIndices,
-    nvinfer1::ITensor** newVocabularyIndices)
+void SoftmaxLikelihood::addToModel(nvinfer1::INetworkDefinition* network, int beamWidth, nvinfer1::ITensor* inputLogits,
+    nvinfer1::ITensor* inputLikelihoods, nvinfer1::ITensor** newCombinedLikelihoods,
+    nvinfer1::ITensor** newRayOptionIndices, nvinfer1::ITensor** newVocabularyIndices)
 {
     auto softmaxLayer = network->addSoftMax(*inputLogits);
     assert(softmaxLayer != nullptr);
@@ -46,7 +41,8 @@ void SoftmaxLikelihood::addToModel(
     auto vocabularyIndices = topKLayer->getOutput(1);
     assert(vocabularyIndices != nullptr);
 
-    auto eltWiseLayer = network->addElementWise(*newLikelihoods, *inputLikelihoods, nvinfer1::ElementWiseOperation::kPROD);
+    auto eltWiseLayer
+        = network->addElementWise(*newLikelihoods, *inputLikelihoods, nvinfer1::ElementWiseOperation::kPROD);
     assert(eltWiseLayer != nullptr);
     eltWiseLayer->setName("EltWise multiplication in likelihood calculation");
     auto combinedLikelihoods = eltWiseLayer->getOutput(0);
@@ -83,7 +79,8 @@ void SoftmaxLikelihood::addToModel(
     assert(*newVocabularyIndices != nullptr);
 }
 
-float SoftmaxLikelihood::SoftmaxLikelihoodCombinationOperator::combine(float rayLikelihood, float optionLikelihood) const
+float SoftmaxLikelihood::SoftmaxLikelihoodCombinationOperator::combine(
+    float rayLikelihood, float optionLikelihood) const
 {
     return rayLikelihood * optionLikelihood;
 }

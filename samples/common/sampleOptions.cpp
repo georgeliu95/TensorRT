@@ -24,10 +24,229 @@
 
 #include "NvInfer.h"
 
+#include "sampleUtils.h"
 #include "sampleOptions.h"
 
 namespace sample
 {
+
+namespace
+{
+
+inline std::vector<std::string> splitToStringVec(const std::string& option, char separator)
+{
+    std::vector<std::string> options;
+
+    for(size_t start = 0; start < option.length(); )
+    {
+        size_t separatorIndex = option.find(separator, start);
+        if (separatorIndex == std::string::npos)
+        {
+            separatorIndex = option.length();
+        }
+        options.emplace_back(option.substr(start, separatorIndex - start));
+        start = separatorIndex + 1;
+    }
+
+    return options;
+}
+
+template <typename T>
+inline T stringToValue(const std::string& option)
+{
+    return T{option};
+}
+
+template <>
+inline int stringToValue<int>(const std::string& option)
+{
+    return std::stoi(option);
+}
+
+template <>
+inline float stringToValue<float>(const std::string& option)
+{
+    return std::stof(option);
+}
+
+template <>
+inline bool stringToValue<bool>(const std::string& option)
+{
+    return true;
+}
+
+template <>
+inline nvinfer1::Dims stringToValue<nvinfer1::Dims>(const std::string& option)
+{
+    nvinfer1::Dims dims;
+    dims.nbDims = 0;
+    std::vector<std::string> dimsStrings = splitToStringVec(option, 'x');
+    for (const auto& d : dimsStrings)
+    {
+        if (d == "*")
+        {
+            break;
+        }
+        dims.d[dims.nbDims] = stringToValue<int>(d);
+        ++dims.nbDims;
+    }
+    return dims;
+}
+
+template <>
+inline nvinfer1::DataType stringToValue<nvinfer1::DataType>(const std::string& option)
+{
+    const std::unordered_map<std::string, nvinfer1::DataType> strToDT{{"fp32", nvinfer1::DataType::kFLOAT}, {"fp16", nvinfer1::DataType::kHALF},
+                                                                      {"int8", nvinfer1::DataType::kINT8}, {"int32", nvinfer1::DataType::kINT32}};
+    auto dt = strToDT.find(option);
+    if (dt == strToDT.end())
+    {
+        throw std::invalid_argument("Invalid DataType " + option);
+    }
+    return dt->second;
+}
+
+template <>
+inline nvinfer1::TensorFormats stringToValue<nvinfer1::TensorFormats>(const std::string& option)
+{
+    std::vector<std::string> optionStrings = splitToStringVec(option, '+');
+    const std::unordered_map<std::string, nvinfer1::TensorFormat> strToFmt{{"chw", nvinfer1::TensorFormat::kLINEAR}, {"chw2", nvinfer1::TensorFormat::kCHW2},
+                                                                           {"chw4", nvinfer1::TensorFormat::kCHW4}, {"hwc8", nvinfer1::TensorFormat::kHWC8},
+                                                                           {"chw16", nvinfer1::TensorFormat::kCHW16}, {"chw32", nvinfer1::TensorFormat::kCHW32}};
+    nvinfer1::TensorFormats formats{};
+    for (auto f : optionStrings)
+    {
+        auto tf = strToFmt.find(f);
+        if (tf == strToFmt.end())
+        {
+            throw std::invalid_argument(std::string("Invalid TensorFormat ") + f);
+        }
+        formats |= 1U << int(tf->second);
+    }
+
+    return formats;
+}
+
+template <>
+inline IOFormat stringToValue<IOFormat>(const std::string& option)
+{
+    IOFormat ioFormat{};
+    size_t colon = option.find(':');
+
+    if (colon == std::string::npos)
+    {
+        throw std::invalid_argument(std::string("Invalid IOFormat ") + option);
+    }
+    ioFormat.first = stringToValue<nvinfer1::DataType>(option.substr(0, colon));
+    ioFormat.second = stringToValue<nvinfer1::TensorFormats>(option.substr(colon+1));
+
+    return ioFormat;
+}
+
+template <typename T>
+inline std::pair<std::string, T> splitNameAndValue(const std::string& s)
+{
+    std::string tensorName;
+    std::string valueString;
+    std::vector<std::string> nameWithQuotes{splitToStringVec(s, '\'')};
+    if (nameWithQuotes.size() == 1)
+    {
+        // Name not wrapped with single quotes
+        std::vector<std::string> nameRange{splitToStringVec(s, ':')};
+        tensorName = nameRange[0];
+        valueString = nameRange[1];
+    }
+    else
+    {
+        // Name wrapped with single quotes
+        tensorName = nameWithQuotes[1];
+        valueString = splitToStringVec(nameWithQuotes[2], ':')[1];
+    }
+    return std::pair<std::string, T>(tensorName, stringToValue<T>(valueString));
+}
+
+template <typename T>
+inline void splitInsertKeyValue(const std::vector<std::string>& kvList, T& map)
+{
+    for (const auto& kv : kvList)
+    {
+        map.insert(splitNameAndValue<typename T::mapped_type>(kv));
+    }
+}
+
+inline const char* boolToEnabled(bool enable)
+{
+    return enable ? "Enabled" : "Disabled";
+}
+
+template <typename T>
+inline bool checkEraseOption(Arguments& arguments, const std::string& option, T& value)
+{
+    auto match = arguments.find(option);
+    if (match != arguments.end())
+    {
+        value = stringToValue<T>(match->second);
+        arguments.erase(match);
+        return true;
+    }
+
+    return false;
+}
+
+template <typename T>
+inline bool checkEraseRepeatedOption(Arguments& arguments, const std::string& option, std::vector<T>& values)
+{
+    auto match = arguments.equal_range(option);
+    if (match.first == match.second)
+    {
+        return false;
+    }
+    auto addValue = [&values](Arguments::value_type& value) {values.emplace_back(stringToValue<T>(value.second));};
+    std::for_each(match.first, match.second, addValue);
+    arguments.erase(match.first, match.second);
+    return true;
+}
+
+void insertShapes(std::unordered_map<std::string, ShapeRange>& shapes, const std::string& name, const nvinfer1::Dims& dims)
+{
+    std::pair<std::string, ShapeRange> profile;
+    profile.first = name;
+    profile.second[static_cast<size_t>(nvinfer1::OptProfileSelector::kMIN)] = dims;
+    profile.second[static_cast<size_t>(nvinfer1::OptProfileSelector::kOPT)] = dims;
+    profile.second[static_cast<size_t>(nvinfer1::OptProfileSelector::kMAX)] = dims;
+    shapes.insert(profile);
+}
+
+template <typename T>
+void printShapes(std::ostream& os, const char* phase, const T& shapes)
+{
+    if (shapes.empty())
+    {
+        os << "Input " << phase << " shapes: model" << std::endl;
+    }
+    else
+    {
+        for (const auto& s : shapes)
+        {
+            os << "Input " << phase << " shape: " << s.first << "=" << s.second << std::endl;
+        }
+    }
+}
+
+std::ostream& printBatch(std::ostream& os, int maxBatch)
+{
+    if (maxBatch)
+    {
+        os << maxBatch;
+    }
+    else
+    {
+        os << "explicit";
+    }
+    return os;
+}
+
+}
 
 Arguments argsToArgumentsMap(int argc, char* argv[])
 {
@@ -37,8 +256,8 @@ Arguments argsToArgumentsMap(int argc, char* argv[])
         auto valuePtr = strchr(argv[i], '=');
         if (valuePtr)
         {
-            std::string value{valuePtr+1};
-            arguments.emplace(std::string(argv[i], valuePtr-argv[i]), value);
+            std::string value{valuePtr + 1};
+            arguments.emplace(std::string(argv[i], valuePtr - argv[i]), value);
         }
         else
         {
@@ -70,7 +289,7 @@ void UffInput::parse(Arguments& arguments)
     std::vector<std::string> args;
     if (checkEraseRepeatedOption(arguments, "--uffInput", args))
     {
-        for (const auto& i: args)
+        for (const auto& i : args)
         {
             std::vector<std::string> values{splitToStringVec(i, ',')};
             if (values.size() == 4)
@@ -122,9 +341,9 @@ void ModelOptions::parse(Arguments& arguments)
         std::vector<std::string> outArgs;
         if (checkEraseRepeatedOption(arguments, "--output", outArgs))
         {
-            for (const auto& o: outArgs)
+            for (const auto& o : outArgs)
             {
-                for (auto& v: splitToStringVec(o, ','))
+                for (auto& v : splitToStringVec(o, ','))
                 {
                     outputs.emplace_back(std::move(v));
                 }
@@ -137,20 +356,6 @@ void ModelOptions::parse(Arguments& arguments)
     }
 }
 
-namespace
-{
-
-void insertShapes(std::unordered_map<std::string, ShapeRange>& shapes, const std::string& name, const nvinfer1::Dims& dims)
-{
-    std::pair<std::string, ShapeRange> profile;
-    profile.first = name;
-    profile.second[static_cast<size_t>(nvinfer1::OptProfileSelector::kMIN)] = dims;
-    profile.second[static_cast<size_t>(nvinfer1::OptProfileSelector::kOPT)] = dims;
-    profile.second[static_cast<size_t>(nvinfer1::OptProfileSelector::kMAX)] = dims;
-    shapes.insert(profile);
-}
-
-}
 
 void BuildOptions::parse(Arguments& arguments)
 {
@@ -168,22 +373,24 @@ void BuildOptions::parse(Arguments& arguments)
     getFormats(inputFormats, "--inputIOFormats");
     getFormats(outputFormats, "--outputIOFormats");
 
-    auto getShapes = [&arguments](std::unordered_map<std::string, ShapeRange>& shapes, const char* argument, nvinfer1::OptProfileSelector selector)
-    {
+    auto getShapes = [&arguments](std::unordered_map<std::string, ShapeRange>& shapes, const char* argument,
+                         nvinfer1::OptProfileSelector selector) {
         std::string list;
         checkEraseOption(arguments, argument, list);
         std::vector<std::string> shapeList{splitToStringVec(list, ',')};
         for (const auto& s : shapeList)
         {
-            std::vector<std::string> nameRange{splitToStringVec(s, ':')};
-            if (shapes.find(nameRange[0]) == shapes.end())
+            auto nameDimsPair = splitNameAndValue<nvinfer1::Dims>(s);
+            std::string tensorName = nameDimsPair.first;
+            nvinfer1::Dims dims = nameDimsPair.second;
+
+            if (shapes.find(tensorName) == shapes.end())
             {
-                auto dims = stringToValue<nvinfer1::Dims>(nameRange[1]);
-                insertShapes(shapes, nameRange[0], dims);
+                insertShapes(shapes, tensorName, dims);
             }
             else
             {
-                shapes[nameRange[0]][static_cast<size_t>(selector)] = stringToValue<nvinfer1::Dims>(nameRange[1]);
+                shapes[tensorName][static_cast<size_t>(selector)] = dims;
             }
         }
     };
@@ -199,7 +406,8 @@ void BuildOptions::parse(Arguments& arguments)
     checkEraseOption(arguments, "--maxBatch", batch);
     if (explicitBatch && batch)
     {
-        throw std::invalid_argument("Explicit batch or dynamic shapes enabled with implicit maxBatch " + std::to_string(batch));
+        throw std::invalid_argument(
+            "Explicit batch or dynamic shapes enabled with implicit maxBatch " + std::to_string(batch));
     }
 
     if (explicitBatch)
@@ -213,7 +421,7 @@ void BuildOptions::parse(Arguments& arguments)
             maxBatch = batch;
         }
     }
-    
+
     checkEraseOption(arguments, "--workspace", workspace);
     checkEraseOption(arguments, "--minTiming", minTiming);
     checkEraseOption(arguments, "--avgTiming", avgTiming);
@@ -253,24 +461,33 @@ void InferenceOptions::parse(Arguments& arguments)
     checkEraseOption(arguments, "--iterations", iterations);
     checkEraseOption(arguments, "--duration", duration);
     checkEraseOption(arguments, "--warmUp", warmup);
+    checkEraseOption(arguments, "--sleepTime", sleep);
+    bool exposeDMA{false};
+    if (checkEraseOption(arguments, "--exposeDMA", exposeDMA))
+    {
+        overlap = !exposeDMA;
+    }
+    checkEraseOption(arguments, "--useSpinWait", spin);
     checkEraseOption(arguments, "--threads", threads);
     checkEraseOption(arguments, "--useCudaGraph", graph);
     checkEraseOption(arguments, "--buildOnly", skip);
 
     std::string list;
+    checkEraseOption(arguments, "--loadInputs", list);
+    std::vector<std::string> inputsList{splitToStringVec(list, ',')};
+    splitInsertKeyValue(inputsList, inputs);
+
+    list.erase();
     checkEraseOption(arguments, "--shapes", list);
     std::vector<std::string> shapeList{splitToStringVec(list, ',')};
-    for (const auto& s : shapeList)
-    {
-        std::vector<std::string> shapeSpec{splitToStringVec(s, ':')};
-        shapes.insert({shapeSpec[0], stringToValue<nvinfer1::Dims>(shapeSpec[1])});
-    }
+    splitInsertKeyValue(shapeList, shapes);
 
     int batchOpt{0};
     checkEraseOption(arguments, "--batch", batchOpt);
     if (!shapes.empty() && batchOpt)
     {
-        throw std::invalid_argument("Explicit batch or dynamic shapes enabled with implicit batch " + std::to_string(batchOpt));
+        throw std::invalid_argument(
+            "Explicit batch or dynamic shapes enabled with implicit batch " + std::to_string(batchOpt));
     }
     if (batchOpt)
     {
@@ -283,7 +500,6 @@ void InferenceOptions::parse(Arguments& arguments)
             batch = 0;
         }
     }
-
 }
 
 void ReportingOptions::parse(Arguments& arguments)
@@ -294,6 +510,7 @@ void ReportingOptions::parse(Arguments& arguments)
     checkEraseOption(arguments, "--dumpOutput", output);
     checkEraseOption(arguments, "--dumpProfile", profile);
     checkEraseOption(arguments, "--exportTimes", exportTimes);
+    checkEraseOption(arguments, "--exportOutput", exportOutput);
     checkEraseOption(arguments, "--exportProfile", exportProfile);
     if (percentile < 0 || percentile > 100)
     {
@@ -315,8 +532,8 @@ void AllOptions::parse(Arguments& arguments)
     system.parse(arguments);
     inference.parse(arguments);
 
-    if ((!build.maxBatch && inference.batch && inference.batch != defaultBatch) ||
-        (build.maxBatch && build.maxBatch != defaultMaxBatch && !inference.batch))
+    if ((!build.maxBatch && inference.batch && inference.batch != defaultBatch && !build.shapes.empty())
+        || (build.maxBatch && build.maxBatch != defaultMaxBatch && !inference.batch))
     {
         // If either has selected implict batch and the other has selected explicit batch
         throw std::invalid_argument("Conflicting build and inference batch settings");
@@ -351,8 +568,8 @@ void AllOptions::parse(Arguments& arguments)
         // than maxBatch, use inference batch also for maxBatch
         if (build.maxBatch != defaultMaxBatch && build.maxBatch < inference.batch)
         {
-            throw std::invalid_argument("Build max batch " + std::to_string(build.maxBatch) +
-                                        " is less than inference batch " + std::to_string(inference.batch));
+            throw std::invalid_argument("Build max batch " + std::to_string(build.maxBatch)
+                + " is less than inference batch " + std::to_string(inference.batch));
         }
         else
         {
@@ -383,16 +600,17 @@ void AllOptions::parse(Arguments& arguments)
                 return fmt.empty() ? false : std::all_of(fmt.begin(), fmt.end(), [](const IOFormat& pair)
                 {
                     bool supported{false};
-                    supported |= pair.first == nvinfer1::DataType::kINT8 &&
-                                 pair.second == 1U << static_cast<int>(nvinfer1::TensorFormat::kCHW32);
-                    supported |= pair.first == nvinfer1::DataType::kHALF &&
-                                 pair.second == 1U << static_cast<int>(nvinfer1::TensorFormat::kCHW16);
+                    supported |= pair.first == nvinfer1::DataType::kINT8
+                        && pair.second == 1U << static_cast<int>(nvinfer1::TensorFormat::kCHW32);
+                    supported |= pair.first == nvinfer1::DataType::kHALF
+                        && pair.second == 1U << static_cast<int>(nvinfer1::TensorFormat::kCHW16);
                     return supported;
                 });
             };
             if (!checkSafeDLAFormats(build.inputFormats) || !checkSafeDLAFormats(build.inputFormats))
             {
-                throw std::invalid_argument("I/O formats for safe DLA capability are restricted to fp16:chw16 or int8:chw32");
+                throw std::invalid_argument(
+                    "I/O formats for safe DLA capability are restricted to fp16:chw16 or int8:chw32");
             }
             if (system.fallback)
             {
@@ -451,7 +669,7 @@ std::ostream& operator<<(std::ostream& os, const ModelOptions& options)
     {
     case ModelFormat::kCAFFE:
     {
-        os << "Prototxt: " << options.prototxt;
+        os << "Prototxt: " << options.prototxt << std::endl;
         break;
     }
     case ModelFormat::kUFF:
@@ -476,7 +694,7 @@ std::ostream& operator<<(std::ostream& os, const ModelOptions& options)
 
 std::ostream& operator<<(std::ostream& os, const IOFormat& format)
 {
-    switch(format.first)
+    switch (format.first)
     {
     case nvinfer1::DataType::kFLOAT:
     {
@@ -498,17 +716,22 @@ std::ostream& operator<<(std::ostream& os, const IOFormat& format)
         os << "int32:";
         break;
     }
+    case nvinfer1::DataType::kBOOL:
+    {
+        os << "Bool:";
+        break;
+    }
     }
 
-    for(int f = 0; f < nvinfer1::EnumMax<nvinfer1::TensorFormat>(); ++f)
+    for (int f = 0; f < nvinfer1::EnumMax<nvinfer1::TensorFormat>(); ++f)
     {
-        if ((1U<<f) & format.second)
+        if ((1U << f) & format.second)
         {
             if (f)
             {
                 os << "+";
             }
-            switch(nvinfer1::TensorFormat(f))
+            switch (nvinfer1::TensorFormat(f))
             {
             case nvinfer1::TensorFormat::kLINEAR:
             {
@@ -546,15 +769,6 @@ std::ostream& operator<<(std::ostream& os, const IOFormat& format)
     return os;
 };
 
-std::ostream& operator<<(std::ostream& os, const nvinfer1::Dims& dims)
-{
-    for (int i = 0; i < dims.nbDims; ++i)
-    {
-        os << ( i ? "x" : "" ) << dims.d[i];
-    }
-    return os;
-}
-
 std::ostream& operator<<(std::ostream& os, const ShapeRange& dims)
 {
     int i = 0;
@@ -564,44 +778,10 @@ std::ostream& operator<<(std::ostream& os, const ShapeRange& dims)
         {
             break;
         }
-        os << ( i ? "+" : "" ) << d;
+        os << (i ? "+" : "") << d;
         ++i;
     }
     return os;
-}
-
-namespace
-{
-
-template <typename T>
-void printShapes(std::ostream& os, const char* phase, const T& shapes)
-{
-    if (shapes.empty())
-    {
-        os << "Input " << phase << " shapes: model" << std::endl;
-    }
-    else
-    {
-        for (const auto& s : shapes)
-        {
-            os << "Input " << phase << " shape: " << s.first << "=" << s.second << std::endl;
-        }
-    }
-}
-
-std::ostream& printBatch(std::ostream& os, int maxBatch)
-{
-    if (maxBatch)
-    {
-        os << maxBatch;
-    }
-    else
-    {
-        os << "explicit";
-    }
-    return os;
-}
-
 }
 
 std::ostream& operator<<(std::ostream& os, const BuildOptions& options)
@@ -664,29 +844,36 @@ std::ostream& operator<<(std::ostream& os, const SystemOptions& options)
 std::ostream& operator<<(std::ostream& os, const InferenceOptions& options)
 {
 // clang-format off
-    os << "=== Inference Options ==="                                        << std::endl <<
+    os << "=== Inference Options ==="                                << std::endl <<
 
           "Batch: ";
     if (options.batch && options.shapes.empty())
     {
-                          os << options.batch                                << std::endl;
+                          os << options.batch                        << std::endl;
     }
     else
     {
-                          os << "Explicit"                                   << std::endl;
+                          os << "Explicit"                           << std::endl;
     }
-    os << "Iterations: "     << options.iterations << " (" << options.warmup <<
-                                                      " ms warm up)"         << std::endl <<
-          "Duration: "       << options.duration   << "s"                    << std::endl <<
-          "Sleep time: "     << options.sleep      << "ms"                   << std::endl <<
-          "Streams: "        << options.streams                              << std::endl <<
-          "Multithreading: " << boolToEnabled(options.threads)               << std::endl <<
-          "CUDA Graph: "     << boolToEnabled(options.graph)                 << std::endl <<
-          "Skip inference: " << boolToEnabled(options.skip)                  << std::endl;
-// clang-format on
+    os << "Iterations: "     << options.iterations                   << std::endl <<
+          "Duration: "       << options.duration   << "s (+ "
+                             << options.warmup     << "ms warm up)"  << std::endl <<
+          "Sleep time: "     << options.sleep      << "ms"           << std::endl <<
+          "Streams: "        << options.streams                      << std::endl <<
+          "ExposeDMA: "      << boolToEnabled(!options.overlap)      << std::endl <<
+          "Spin-wait: "      << boolToEnabled(options.spin)          << std::endl <<
+          "Multithreading: " << boolToEnabled(options.threads)       << std::endl <<
+          "CUDA Graph: "     << boolToEnabled(options.graph)         << std::endl <<
+          "Skip inference: " << boolToEnabled(options.skip)          << std::endl;
     if (options.batch)
     {
         printShapes(os, "inference", options.shapes);
+    }
+// clang-format on
+    os << "Inputs:" << std::endl;
+    for (const auto& input : options.inputs)
+    {
+        os << input.first << "<-" << input.second << std::endl;
     }
 
     return os;
@@ -703,6 +890,7 @@ std::ostream& operator<<(std::ostream& os, const ReportingOptions& options)
           "Dump output: "                 << boolToEnabled(options.output)  << std::endl <<
           "Profile: "                     << boolToEnabled(options.profile) << std::endl <<
           "Export timing to JSON file: "  << options.exportTimes            << std::endl <<
+          "Export output to JSON file: "  << options.exportOutput           << std::endl <<
           "Export profile to JSON file: " << options.exportProfile          << std::endl;
 // clang-format on
 
@@ -760,6 +948,7 @@ void BuildOptions::help(std::ostream& os)
           "                                    provided and assuming that opt will be equal to max unless they are both specified;"   << std::endl <<           
           "                                    partially specified shapes are applied starting from the batch size;"                  << std::endl <<           
           "                                    dynamic shapes imply explicit batch"                                                   << std::endl <<           
+          "                                    input names can be wrapped with single quotes (ex: 'Input:0')"                         << std::endl <<
           "                              Input shapes spec ::= Ishp[\",\"spec]"                                                       << std::endl <<
           "                                           Ishp ::= name\":\"shape"                                                        << std::endl <<
           "                                          shape ::= N[[\"x\"N]*\"*\"]"                                                     << std::endl <<
@@ -774,8 +963,8 @@ void BuildOptions::help(std::ostream& os)
                                                                                                            << defaultMinTiming << ")" << std::endl <<
           "  --avgTiming=M               Set the number of times averaged in each iteration for kernel selection (default = "
                                                                                                            << defaultAvgTiming << ")" << std::endl <<
-          "  --fp16                      Enable fp16 mode (default = disabled)"                                                       << std::endl <<
-          "  --int8                      Run in int8 mode (default = disabled)"                                                       << std::endl <<
+          "  --fp16                      Enable fp16 algorithms, in addition to fp32 (default = disabled)"                            << std::endl <<
+          "  --int8                      Enable int8 algorithms, in addition to fp32 (default = disabled)"                             << std::endl <<
           "  --calib=<file>              Read INT8 calibration cache file"                                                            << std::endl <<
           "  --safe                      Only test the functionality available in safety restricted flows"                            << std::endl <<
           "  --saveEngine=<file>         Save the serialized engine"                                                                  << std::endl <<
@@ -798,23 +987,31 @@ void SystemOptions::help(std::ostream& os)
 void InferenceOptions::help(std::ostream& os)
 {
 // clang-format off
-    os << "=== Inference Options ==="                                                                                            << std::endl <<
-          "  --batch=N                   Set batch size for implicit batch engines (default = "           << defaultBatch << ")" << std::endl <<
-          "  --shapes=spec               Set input shapes for explicit batch and dynamic shapes inputs"                          << std::endl <<
-          "                              Input shapes spec ::= Ishp[\",\"spec]"                                                  << std::endl <<
-          "                                           Ishp ::= name\":\"shape"                                                   << std::endl <<
-          "                                          shape ::= N[[\"x\"N]*\"*\"]"                                                << std::endl <<
-          "  --iterations=N              Run at least N inference iterations (default = "            << defaultIterations << ")" << std::endl <<
+    os << "=== Inference Options ==="                                                                                               << std::endl <<
+          "  --batch=N                   Set batch size for implicit batch engines (default = "              << defaultBatch << ")" << std::endl <<
+          "  --shapes=spec               Set input shapes for dynamic shapes inputs. Input names can be wrapped with single quotes"
+                                                                                                                  "(ex: 'Input:0')" << std::endl <<
+          "                              Input shapes spec ::= Ishp[\",\"spec]"                                                     << std::endl <<
+          "                                           Ishp ::= name\":\"shape"                                                      << std::endl <<
+          "                                          shape ::= N[[\"x\"N]*\"*\"]"                                                   << std::endl <<
+          "  --loadInputs=spec           Load input values from files (default = generate random inputs). Input names can be "
+                                                                                       "wrapped with single quotes (ex: 'Input:0')" << std::endl <<
+          "                              Input values spec ::= Ival[\",\"spec]"                                                     << std::endl <<
+          "                                           Ival ::= name\":\"file"                                                       << std::endl <<
+          "  --iterations=N              Run at least N inference iterations (default = "               << defaultIterations << ")" << std::endl <<
           "  --warmUp=N                  Run for N milliseconds to warmup before measuring performance (default = "
-                                                                                                         << defaultWarmUp << ")" << std::endl <<
+                                                                                                            << defaultWarmUp << ")" << std::endl <<
           "  --duration=N                Run performance measurements for at least N seconds wallclock time (default = "
-                                                                                               << defaultDuration << ")"         << std::endl <<
+                                                                                                          << defaultDuration << ")" << std::endl <<
           "  --sleepTime=N               Delay inference start with a gap of N milliseconds between launch and compute "
-                                                                                            "(default = " << defaultSleep << ")" << std::endl <<
-          "  --streams=N                 Instantiate N engines to use concurrently (default = "         << defaultStreams << ")" << std::endl <<
-          "  --threads                   Enable multithreading to drive engines with independent threads (default = disabled)"   << std::endl <<
-          "  --useCudaGraph              Use cuda graph to capture engine execution and then launch inference (default = false)" << std::endl <<
-          "  --buildOnly                 Skip inference perf measurement (default = disabled)"                                   << std::endl;
+                                                                                               "(default = " << defaultSleep << ")" << std::endl <<
+          "  --streams=N                 Instantiate N engines to use concurrently (default = "            << defaultStreams << ")" << std::endl <<
+          "  --exposeDMA                 Serialize DMA transfers to and from device. (default = disabled)"                          << std::endl <<
+          "  --useSpinWait               Actively synchronize on GPU events. This option may decrease synchronization time but "
+                                                                             "increase CPU usage and power (default = disabled)"    << std::endl <<
+          "  --threads                   Enable multithreading to drive engines with independent threads (default = disabled)"      << std::endl <<
+          "  --useCudaGraph              Use cuda graph to capture engine execution and then launch inference (default = disabled)" << std::endl <<
+          "  --buildOnly                 Skip inference perf measurement (default = disabled)"                                      << std::endl;
 // clang-format on
 }
 
@@ -832,6 +1029,7 @@ void ReportingOptions::help(std::ostream& os)
                                                                                   "(default = disabled)" << std::endl <<
           "  --dumpProfile               Print profile information per layer (default = disabled)"       << std::endl <<
           "  --exportTimes=<file>        Write the timing results in a json file (default = disabled)"   << std::endl <<
+          "  --exportOutput=<file>       Write the output tensors to a json file (default = disabled)"   << std::endl <<
           "  --exportProfile=<file>      Write the profile information per layer in a json file "
                                                                               "(default = disabled)"     << std::endl;
 // clang-format on
@@ -839,8 +1037,10 @@ void ReportingOptions::help(std::ostream& os)
 
 void helpHelp(std::ostream& os)
 {
+// clang-format off
     os << "=== Help ==="                                     << std::endl <<
           "  --help                      Print this message" << std::endl;
+// clang-format on
 }
 
 void AllOptions::help(std::ostream& os)

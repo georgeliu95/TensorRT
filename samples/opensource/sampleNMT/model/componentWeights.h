@@ -23,10 +23,10 @@
 namespace nmtSample
 {
 /** \class ComponentWeights
-    *
-    * \brief weights storage 
-    *
-    */
+ *
+ * \brief weights storage
+ *
+ */
 class ComponentWeights
 {
 public:

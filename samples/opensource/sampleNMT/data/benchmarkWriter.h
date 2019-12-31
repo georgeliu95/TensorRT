@@ -24,19 +24,16 @@
 namespace nmtSample
 {
 /** \class BenchmarkWriter
-    *
-    * \brief all it does is to measure the performance of sequence generation
-    *
-    */
+ *
+ * \brief all it does is to measure the performance of sequence generation
+ *
+ */
 class BenchmarkWriter : public DataWriter
 {
 public:
     BenchmarkWriter();
 
-    void write(
-        const int* hOutputData,
-        int actualOutputSequenceLength,
-        int actualInputSequenceLength) override;
+    void write(const int* hOutputData, int actualOutputSequenceLength, int actualInputSequenceLength) override;
 
     void initialize() override;
 

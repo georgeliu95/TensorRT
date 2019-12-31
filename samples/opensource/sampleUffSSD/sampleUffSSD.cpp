@@ -206,13 +206,14 @@ bool SampleUffSSD::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder
         imageDims = nvinfer1::DimsNCHW{mParams.calBatchSize, imageC, imageH, imageW};
         BatchStream calibrationStream(
             mParams.calBatchSize, mParams.nbCalBatches, imageDims, listFileName, mParams.dataDirs);
-        calibrator.reset(
-            new Int8EntropyCalibrator2<BatchStream>(calibrationStream, 0, "UffSSD", mParams.inputTensorNames[0].c_str()));
+        calibrator.reset(new Int8EntropyCalibrator2<BatchStream>(
+            calibrationStream, 0, "UffSSD", mParams.inputTensorNames[0].c_str()));
         config->setFlag(BuilderFlag::kINT8);
         config->setInt8Calibrator(calibrator.get());
     }
 
-    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
+    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
+        builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
     if (!mEngine)
     {
         return false;

@@ -603,7 +603,7 @@ private:
         int hw = mInputDims.d[1] * mInputDims.d[2];
         for (int j = 0; j < mInputDims.d[0]; ++j)
         {
-            std::transform(inputFP32.get() + hw * j, inputFP32.get() + hw * (j + 1),  inputFP32.get() + hw * j,
+            std::transform(inputFP32.get() + hw * j, inputFP32.get() + hw * (j + 1), inputFP32.get() + hw * j,
                 [&](float in) -> float { return in * mInHostScale; });
         }
         CHECK(cudaMalloc(&dst, inCount * elementSize(DataType::kFLOAT)));

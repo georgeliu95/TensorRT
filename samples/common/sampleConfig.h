@@ -138,6 +138,14 @@ public:
     {
         mFullTextFilename = string(fullTextFilename);
     }
+    void setLabel(int64_t label)
+    {
+        mLabel = label;
+    }//!<  set the Label
+    int64_t getLabel() const
+    {
+        return mLabel;
+    }//!<  get the Label
     bool getPrintLayerInfo() const
     {
         return mPrintLayercInfo;
@@ -147,14 +155,6 @@ public:
         mPrintLayercInfo = b;
     } //!< get the boolean variable corresponding to the Layer Info, see getPrintLayerInfo()
 
-    void setLabel(int64_t label)
-    {
-        mLabel = label;
-    } //!<  set the Label
-    int64_t getLabel() const 
-    { 
-        return mLabel; 
-    } //!<  get the Label
     void setMaxBatchSize(int64_t maxBatchSize)
     {
         mMaxBatchSize = maxBatchSize;

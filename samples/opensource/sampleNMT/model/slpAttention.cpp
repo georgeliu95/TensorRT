@@ -35,11 +35,8 @@ SLPAttention::SLPAttention(ComponentWeights::ptr weights)
     mKernelWeights.count = mInputChannelCount * mOutputChannelCount;
 }
 
-void SLPAttention::addToModel(
-    nvinfer1::INetworkDefinition* network,
-    nvinfer1::ITensor* inputFromDecoder,
-    nvinfer1::ITensor* context,
-    nvinfer1::ITensor** attentionOutput)
+void SLPAttention::addToModel(nvinfer1::INetworkDefinition* network, nvinfer1::ITensor* inputFromDecoder,
+    nvinfer1::ITensor* context, nvinfer1::ITensor** attentionOutput)
 {
     nvinfer1::ITensor* inputTensors[] = {inputFromDecoder, context};
     auto concatLayer = network->addConcatenation(inputTensors, 2);
@@ -49,18 +46,15 @@ void SLPAttention::addToModel(
     auto concatinatedTensor = concatLayer->getOutput(0);
     assert(concatinatedTensor != nullptr);
 
-    nvinfer1::Dims weightDims{2, {mInputChannelCount, mOutputChannelCount}, {nvinfer1::DimensionType::kCHANNEL, nvinfer1::DimensionType::kCHANNEL}};
+    nvinfer1::Dims weightDims{2, {mInputChannelCount, mOutputChannelCount},
+        {nvinfer1::DimensionType::kCHANNEL, nvinfer1::DimensionType::kCHANNEL}};
     auto constLayer = network->addConstant(weightDims, mKernelWeights);
     assert(constLayer != nullptr);
     constLayer->setName("Attention Matrix");
     auto weights = constLayer->getOutput(0);
     assert(weights != nullptr);
 
-    auto mmLayer = network->addMatrixMultiply(
-        *concatinatedTensor,
-        false,
-        *weights,
-        false);
+    auto mmLayer = network->addMatrixMultiply(*concatinatedTensor, false, *weights, false);
     assert(mmLayer != nullptr);
     mmLayer->setName("Attention Matrix Multiply");
 

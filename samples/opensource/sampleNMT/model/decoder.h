@@ -26,10 +26,10 @@
 namespace nmtSample
 {
 /** \class Decoder
-    *
-    * \brief encodes single input into output states
-    *
-    */
+ *
+ * \brief encodes single input into output states
+ *
+ */
 class Decoder : public Component
 {
 public:
@@ -38,19 +38,15 @@ public:
     Decoder() = default;
 
     /**
-        * \brief add the memory, cell, and hidden states to the network
-        */
-    virtual void addToModel(
-        nvinfer1::INetworkDefinition* network,
-        nvinfer1::ITensor* inputData,
-        nvinfer1::ITensor** inputStates,
-        nvinfer1::ITensor** outputData,
-        nvinfer1::ITensor** outputStates)
+     * \brief add the memory, cell, and hidden states to the network
+     */
+    virtual void addToModel(nvinfer1::INetworkDefinition* network, nvinfer1::ITensor* inputData,
+        nvinfer1::ITensor** inputStates, nvinfer1::ITensor** outputData, nvinfer1::ITensor** outputStates)
         = 0;
 
     /**
-        * \brief get the sizes (vector of them) of the hidden state vectors
-        */
+     * \brief get the sizes (vector of them) of the hidden state vectors
+     */
     virtual std::vector<nvinfer1::Dims> getStateSizes() = 0;
 
     ~Decoder() override = default;

@@ -14,24 +14,23 @@
  * limitations under the License.
  */
 #include <assert.h>
-#include <fstream>
-#include <sstream>
-#include <iostream>
 #include <cmath>
-#include <sys/stat.h>
-#include <cmath>
-#include <time.h>
-#include <cuda_runtime_api.h>
-#include <cudnn.h>
-#include <cublas_v2.h>
-#include <memory>
-#include <string.h>
 #include <cstdint>
 #include <cstring>
+#include <cublas_v2.h>
+#include <cuda_runtime_api.h>
+#include <cudnn.h>
+#include <fstream>
+#include <iostream>
+#include <memory>
+#include <sstream>
+#include <string.h>
+#include <sys/stat.h>
+#include <time.h>
 
 #include "NvInfer.h"
-#include "fp16.h"
 #include "common.h"
+#include "fp16.h"
 
 class FCPlugin : public nvinfer1::IPluginExt
 {
@@ -49,9 +48,11 @@ public:
         assert(mBiasWeights.type == nvinfer1::DataType::kFLOAT || mBiasWeights.type == nvinfer1::DataType::kHALF);
 
         mKernelWeights.values = malloc(mKernelWeights.count * type2size(mKernelWeights.type));
-        std::memcpy(const_cast<void*>(mKernelWeights.values), weights[0].values, mKernelWeights.count * type2size(mKernelWeights.type));
+        std::memcpy(const_cast<void*>(mKernelWeights.values), weights[0].values,
+            mKernelWeights.count * type2size(mKernelWeights.type));
         mBiasWeights.values = malloc(mBiasWeights.count * type2size(mBiasWeights.type));
-        std::memcpy(const_cast<void*>(mBiasWeights.values), weights[1].values, mBiasWeights.count * type2size(mBiasWeights.type));
+        std::memcpy(const_cast<void*>(mBiasWeights.values), weights[1].values,
+            mBiasWeights.count * type2size(mBiasWeights.type));
 
         mNbInputChannels = int(weights[0].count / nbOutputChannels);
     }
@@ -103,7 +104,7 @@ public:
     }
 
     bool supportsFormat(nvinfer1::DataType type, nvinfer1::PluginFormat format) const override
-    { 
+    {
         int device;
         CHECK(cudaGetDevice(&device));
         cudaDeviceProp props{};
@@ -114,9 +115,11 @@ public:
             && format == nvinfer1::PluginFormat::kNCHW;
     }
 
-    void configureWithFormat(const nvinfer1::Dims* inputDims, int nbInputs, const nvinfer1::Dims* outputDims, int nbOutputs, nvinfer1::DataType type, nvinfer1::PluginFormat format, int maxBatchSize) override
+    void configureWithFormat(const nvinfer1::Dims* inputDims, int nbInputs, const nvinfer1::Dims* outputDims,
+        int nbOutputs, nvinfer1::DataType type, nvinfer1::PluginFormat format, int maxBatchSize) override
     {
-        assert((type == nvinfer1::DataType::kFLOAT || type == nvinfer1::DataType::kHALF) && format == nvinfer1::PluginFormat::kNCHW);
+        assert((type == nvinfer1::DataType::kFLOAT || type == nvinfer1::DataType::kHALF)
+            && format == nvinfer1::PluginFormat::kNCHW);
         mDataType = type;
     }
 
@@ -124,7 +127,8 @@ public:
     {
         CHECK(cudnnCreate(&mCudnn)); // initialize cudnn and cublas
         CHECK(cublasCreate(&mCublas));
-        CHECK(cudnnCreateTensorDescriptor(&mSrcDescriptor)); // create cudnn tensor descriptors we need for bias addition
+        CHECK(
+            cudnnCreateTensorDescriptor(&mSrcDescriptor)); // create cudnn tensor descriptors we need for bias addition
         CHECK(cudnnCreateTensorDescriptor(&mDstDescriptor));
         if (mKernelWeights.values)
         {
@@ -161,7 +165,8 @@ public:
         return 0;
     }
 
-    virtual int enqueue(int batchSize, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream) override
+    virtual int enqueue(
+        int batchSize, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream) override
     {
         float onef{1.0f}, zerof{0.0f};
         __half oneh = fp16::__float2half(1.0f), zeroh = fp16::__float2half(0.0f);
@@ -172,22 +177,23 @@ public:
         if (mDataType == nvinfer1::DataType::kFLOAT)
         {
             CHECK(cublasSgemm(mCublas, CUBLAS_OP_T, CUBLAS_OP_N, mNbOutputChannels, batchSize, mNbInputChannels, &onef,
-                              reinterpret_cast<const float*>(mDeviceKernel), mNbInputChannels,
-                              reinterpret_cast<const float*>(inputs[0]), mNbInputChannels, &zerof,
-                              reinterpret_cast<float*>(outputs[0]), mNbOutputChannels));
+                reinterpret_cast<const float*>(mDeviceKernel), mNbInputChannels,
+                reinterpret_cast<const float*>(inputs[0]), mNbInputChannels, &zerof,
+                reinterpret_cast<float*>(outputs[0]), mNbOutputChannels));
         }
         else
         {
             CHECK(cublasHgemm(mCublas, CUBLAS_OP_T, CUBLAS_OP_N, mNbOutputChannels, batchSize, mNbInputChannels, &oneh,
-                              reinterpret_cast<const __half*>(mDeviceKernel), mNbInputChannels,
-                              reinterpret_cast<const __half*>(inputs[0]), mNbInputChannels, &zeroh,
-                              reinterpret_cast<__half*>(outputs[0]), mNbOutputChannels));
+                reinterpret_cast<const __half*>(mDeviceKernel), mNbInputChannels,
+                reinterpret_cast<const __half*>(inputs[0]), mNbInputChannels, &zeroh,
+                reinterpret_cast<__half*>(outputs[0]), mNbOutputChannels));
         }
         if (mBiasWeights.count)
         {
             cudnnDataType_t cudnnDT = mDataType == nvinfer1::DataType::kFLOAT ? CUDNN_DATA_FLOAT : CUDNN_DATA_HALF;
             CHECK(cudnnSetTensor4dDescriptor(mSrcDescriptor, CUDNN_TENSOR_NCHW, cudnnDT, 1, mNbOutputChannels, 1, 1));
-            CHECK(cudnnSetTensor4dDescriptor(mDstDescriptor, CUDNN_TENSOR_NCHW, cudnnDT, batchSize, mNbOutputChannels, 1, 1));
+            CHECK(cudnnSetTensor4dDescriptor(
+                mDstDescriptor, CUDNN_TENSOR_NCHW, cudnnDT, batchSize, mNbOutputChannels, 1, 1));
             CHECK(cudnnAddTensor(mCudnn, &onef, mSrcDescriptor, mDeviceBias, &onef, mDstDescriptor, outputs[0]));
         }
 
@@ -196,7 +202,8 @@ public:
 
     virtual size_t getSerializationSize() override
     {
-        return sizeof(mNbInputChannels) + sizeof(mNbOutputChannels) + sizeof(mBiasWeights.count) + sizeof(mDataType) + (mKernelWeights.count + mBiasWeights.count) * type2size(mDataType);
+        return sizeof(mNbInputChannels) + sizeof(mNbOutputChannels) + sizeof(mBiasWeights.count) + sizeof(mDataType)
+            + (mKernelWeights.count + mBiasWeights.count) * type2size(mDataType);
     }
 
     virtual void serialize(void* buffer) override
@@ -213,7 +220,10 @@ public:
     }
 
 private:
-    size_t type2size(nvinfer1::DataType type) { return type == nvinfer1::DataType::kFLOAT ? sizeof(float) : sizeof(__half); }
+    size_t type2size(nvinfer1::DataType type)
+    {
+        return type == nvinfer1::DataType::kFLOAT ? sizeof(float) : sizeof(__half);
+    }
 
     template <typename T>
     void write(char*& buffer, const T& val)
@@ -271,11 +281,13 @@ private:
             {
                 if (mDataType == nvinfer1::DataType::kFLOAT)
                 {
-                    reinterpret_cast<float*>(buffer)[v] = fp16::__half2float(static_cast<const __half*>(weights.values)[v]);
+                    reinterpret_cast<float*>(buffer)[v]
+                        = fp16::__half2float(static_cast<const __half*>(weights.values)[v]);
                 }
                 else
                 {
-                    reinterpret_cast<__half*>(buffer)[v] = fp16::__float2half(static_cast<const float*>(weights.values)[v]);
+                    reinterpret_cast<__half*>(buffer)[v]
+                        = fp16::__float2half(static_cast<const float*>(weights.values)[v]);
                 }
             }
         }
@@ -323,7 +335,8 @@ public:
     {
         try
         {
-            // there's no way to pass parameters through from the model definition, so we have to define it here explicitly
+            // there's no way to pass parameters through from the model definition, so we have to define it here
+            // explicitly
             static const int NB_OUTPUT_CHANNELS = 10;
             assert(isPlugin(layerName) && nbWeights == 2);
             assert(mPlugin.get() == nullptr);
@@ -344,8 +357,8 @@ public:
         try
         {
             assert(isPlugin(layerName));
-            //This plugin object is destroyed when engine is destroyed by calling
-            //IPluginExt::destroy()
+            // This plugin object is destroyed when engine is destroyed by calling
+            // IPluginExt::destroy()
             return new FCPlugin(serialData, serialLength);
         }
         catch (std::exception& e)

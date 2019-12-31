@@ -75,17 +75,18 @@ private:
 
     samplesCommon::OnnxSampleParams mParams; //!< The parameters for the sample.
 
-    nvinfer1::Dims mPredictionInputDims; //!< The dimensions of the input of the MNIST model.
-    nvinfer1::Dims mPredicitionOutputDims; //!< The dimensions of the output of the MNIST model.
+    nvinfer1::Dims mPredictionInputDims;   //!< The dimensions of the input of the MNIST model.
+    nvinfer1::Dims mPredictionOutputDims; //!< The dimensions of the output of the MNIST model.
 
     // Engines used for inference. The first is used for resizing inputs, the second for prediction.
     SampleUniquePtr<nvinfer1::ICudaEngine> mPreprocessorEngine{nullptr}, mPredictionEngine{nullptr};
 
     SampleUniquePtr<nvinfer1::IExecutionContext> mPreprocessorContext{nullptr}, mPredictionContext{nullptr};
 
-    samplesCommon::ManagedBuffer mInput{}; //!< Host and device buffers for the input.
-    samplesCommon::DeviceBuffer mPredictionInput{}; //!< Device buffer for the output of the preprocessor, i.e. the input to the prediction model.
-    samplesCommon::ManagedBuffer mOutput{}; //!< Host buffer for the ouptut
+    samplesCommon::ManagedBuffer mInput{};          //!< Host and device buffers for the input.
+    samplesCommon::DeviceBuffer mPredictionInput{}; //!< Device buffer for the output of the preprocessor, i.e. the
+                                                    //!< input to the prediction model.
+    samplesCommon::ManagedBuffer mOutput{};         //!< Host buffer for the ouptut
 
     template <typename T>
     SampleUniquePtr<T> makeUnique(T* t)
@@ -107,12 +108,12 @@ private:
 //!
 void SampleDynamicReshape::build()
 {
-    auto builder = this->makeUnique(nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
+    auto builder = makeUnique(nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
 
-    // This function will also set mPredictionInputDims and mPredicitionOutputDims,
+    // This function will also set mPredictionInputDims and mPredictionOutputDims,
     // so it needs to be called before building the preprocessor.
-    this->buildPredictionEngine(builder);
-    this->buildPreprocessorEngine(builder);
+    buildPredictionEngine(builder);
+    buildPreprocessorEngine(builder);
 }
 
 //!
@@ -121,46 +122,50 @@ void SampleDynamicReshape::build()
 void SampleDynamicReshape::buildPreprocessorEngine(const SampleUniquePtr<nvinfer1::IBuilder>& builder)
 {
     // Create the preprocessor engine using a network that supports full dimensions (createNetworkV2).
-    auto preprocessorNetwork = this->makeUnique(
+    auto preprocessorNetwork = makeUnique(
         builder->createNetworkV2(1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH)));
 
-    // Reshape a dynamically shaped input to the size expected by the model, (1, 28, 28).
-    auto input = preprocessorNetwork->addInput("input", nvinfer1::DataType::kFLOAT, Dims3{1, -1, -1});
+    // Reshape a dynamically shaped input to the size expected by the model, (1, 1, 28, 28).
+    auto input = preprocessorNetwork->addInput("input", nvinfer1::DataType::kFLOAT, Dims4{1, 1, -1, -1});
     auto resizeLayer = preprocessorNetwork->addResize(*input);
     resizeLayer->setOutputDimensions(mPredictionInputDims);
     preprocessorNetwork->markOutput(*resizeLayer->getOutput(0));
 
     // Finally, configure and build the preprocessor engine.
-    auto preprocessorConfig = this->makeUnique(builder->createBuilderConfig());
+    auto preprocessorConfig = makeUnique(builder->createBuilderConfig());
 
     // Create an optimization profile so that we can specify a range of input dimensions.
     auto profile = builder->createOptimizationProfile();
 
-    // This profile will be valid for all images whose size falls in the range of [(1, 1, 1), (1, 56, 56)]
-    // but the TensorRT will optimize for (1, 28, 28)
-    profile->setDimensions(input->getName(), OptProfileSelector::kMIN, Dims3{1, 1, 1});
-    profile->setDimensions(input->getName(), OptProfileSelector::kOPT, Dims3{1, 28, 28});
-    profile->setDimensions(input->getName(), OptProfileSelector::kMAX, Dims3{1, 56, 56});
+    // This profile will be valid for all images whose size falls in the range of [(1, 1, 1, 1), (1, 1, 56, 56)]
+    // but TensorRT will optimize for (1, 1, 28, 28)
+    profile->setDimensions(input->getName(), OptProfileSelector::kMIN, Dims4{1, 1, 1, 1});
+    profile->setDimensions(input->getName(), OptProfileSelector::kOPT, Dims4{1, 1, 28, 28});
+    profile->setDimensions(input->getName(), OptProfileSelector::kMAX, Dims4{1, 1, 56, 56});
     preprocessorConfig->addOptimizationProfile(profile);
-    mPreprocessorEngine = this->makeUnique(builder->buildEngineWithConfig(*preprocessorNetwork, *preprocessorConfig));
+    mPreprocessorEngine = makeUnique(builder->buildEngineWithConfig(*preprocessorNetwork, *preprocessorConfig));
     gLogInfo << "Profile dimensions in preprocessor engine:\n";
     gLogInfo << "    Minimum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kMIN) << '\n';
     gLogInfo << "    Optimum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kOPT) << '\n';
-    gLogInfo << "    Maximum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kMAX) << std::endl;
+    gLogInfo << "    Maximum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kMAX)
+             << std::endl;
 }
 
 //!
 //! \brief Builds an engine for prediction (mPredictionEngine).
 //!
-//! \details This function builds an engine for the MNIST model, and updates mPredictionInputDims and mPredicitionOutputDims
-//! according to the dimensions specified by the model. The preprocessor reshapes inputs to mPredictionInputDims.
+//! \details This function builds an engine for the MNIST model, and updates mPredictionInputDims and
+//! mPredictionOutputDims according to the dimensions specified by the model. The preprocessor reshapes inputs to
+//! mPredictionInputDims.
 //!
 void SampleDynamicReshape::buildPredictionEngine(const SampleUniquePtr<nvinfer1::IBuilder>& builder)
 {
     // Create a network using the parser.
-    auto network = this->makeUnique(builder->createNetwork());
+    const auto explicitBatch = 1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
+    auto network = makeUnique(builder->createNetworkV2(explicitBatch));
     auto parser = nvonnxparser::createParser(*network, gLogger.getTRTLogger());
-    bool parsingSuccess = parser->parseFromFile(locateFile(mParams.onnxFileName, mParams.dataDirs).c_str(), static_cast<int>(gLogger.getReportableSeverity()));
+    bool parsingSuccess = parser->parseFromFile(
+        locateFile(mParams.onnxFileName, mParams.dataDirs).c_str(), static_cast<int>(gLogger.getReportableSeverity()));
     if (!parsingSuccess)
     {
         throw std::runtime_error{"Failed to parse model"};
@@ -168,15 +173,17 @@ void SampleDynamicReshape::buildPredictionEngine(const SampleUniquePtr<nvinfer1:
 
     // Attach a softmax layer to the end of the network.
     auto softmax = network->addSoftMax(*network->getOutput(0));
+    // Set softmax axis to 1 since network output has shape [1, 10] in full dims mode
+    softmax->setAxes(1 << 1);
     network->unmarkOutput(*network->getOutput(0));
     network->markOutput(*softmax->getOutput(0));
 
     // Get information about the inputs/outputs directly from the model.
     mPredictionInputDims = network->getInput(0)->getDimensions();
-    mPredicitionOutputDims = network->getOutput(0)->getDimensions();
+    mPredictionOutputDims = network->getOutput(0)->getDimensions();
 
     // Create a builder config
-    auto config = this->makeUnique(builder->createBuilderConfig());
+    auto config = makeUnique(builder->createBuilderConfig());
     config->setMaxWorkspaceSize(16_MiB);
     if (mParams.fp16)
     {
@@ -188,23 +195,25 @@ void SampleDynamicReshape::buildPredictionEngine(const SampleUniquePtr<nvinfer1:
         samplesCommon::setAllTensorScales(network.get(), 127.0f, 127.0f);
     }
     // Build the prediciton engine.
-    mPredictionEngine = this->makeUnique(builder->buildEngineWithConfig(*network, *config));
+    mPredictionEngine = makeUnique(builder->buildEngineWithConfig(*network, *config));
 }
 
 //!
 //! \brief Prepares the model for inference by creating an execution context and allocating buffers.
 //!
-//! \details This function sets up the sample for inference. This involves allocating buffers for the inputs and outputs,
-//! as well as creating TensorRT execution contexts for both engines. This only needs to be called a single time.
+//! \details This function sets up the sample for inference. This involves allocating buffers for the inputs and
+//! outputs, as well as creating TensorRT execution contexts for both engines. This only needs to be called a single
+//! time.
 //!
 void SampleDynamicReshape::prepare()
 {
-    mPreprocessorContext = this->makeUnique(mPreprocessorEngine->createExecutionContext());
-    mPredictionContext = this->makeUnique(mPredictionEngine->createExecutionContext());
-    // Since input dimensions are not known ahead of time, we only allocate the output buffer and preprocessor output buffer.
+    mPreprocessorContext = makeUnique(mPreprocessorEngine->createExecutionContext());
+    mPredictionContext = makeUnique(mPredictionEngine->createExecutionContext());
+    // Since input dimensions are not known ahead of time, we only allocate the output buffer and preprocessor output
+    // buffer.
     mPredictionInput.resize(mPredictionInputDims);
-    mOutput.hostBuffer.resize(mPredicitionOutputDims);
-    mOutput.deviceBuffer.resize(mPredicitionOutputDims);
+    mOutput.hostBuffer.resize(mPredictionOutputDims);
+    mOutput.deviceBuffer.resize(mPredictionOutputDims);
 }
 
 //!
@@ -221,9 +230,10 @@ bool SampleDynamicReshape::infer()
     std::uniform_int_distribution<int> digitDistribution{0, 9};
     int digit = digitDistribution(generator);
 
-    Dims inputDims = this->loadPGMFile(locateFile(std::to_string(digit) + ".pgm", mParams.dataDirs));
+    Dims inputDims = loadPGMFile(locateFile(std::to_string(digit) + ".pgm", mParams.dataDirs));
     mInput.deviceBuffer.resize(inputDims);
-    CHECK(cudaMemcpy(mInput.deviceBuffer.data(), mInput.hostBuffer.data(), mInput.hostBuffer.nbBytes(), cudaMemcpyHostToDevice));
+    CHECK(cudaMemcpy(
+        mInput.deviceBuffer.data(), mInput.hostBuffer.data(), mInput.hostBuffer.nbBytes(), cudaMemcpyHostToDevice));
 
     // Set the input size for the preprocessor
     mPreprocessorContext->setBindingDimensions(0, inputDims);
@@ -244,14 +254,15 @@ bool SampleDynamicReshape::infer()
 
     // Next, run the model to generate a prediction.
     std::vector<void*> predicitonBindings = {mPredictionInput.data(), mOutput.deviceBuffer.data()};
-    status = mPredictionContext->execute(mParams.batchSize, predicitonBindings.data());
+    status = mPredictionContext->executeV2(predicitonBindings.data());
     if (!status)
     {
         return false;
     }
 
     // Copy the outputs back to the host and verify the output.
-    CHECK(cudaMemcpy(mOutput.hostBuffer.data(), mOutput.deviceBuffer.data(), mOutput.deviceBuffer.nbBytes(), cudaMemcpyDeviceToHost));
+    CHECK(cudaMemcpy(mOutput.hostBuffer.data(), mOutput.deviceBuffer.data(), mOutput.deviceBuffer.nbBytes(),
+        cudaMemcpyDeviceToHost));
     return validateOutput(digit);
 }
 
@@ -270,7 +281,7 @@ Dims SampleDynamicReshape::loadPGMFile(const std::string& fileName)
     infile >> magic >> h >> w >> max;
 
     infile.seekg(1, infile.cur);
-    Dims3 inputDims{1, h, w};
+    Dims4 inputDims{1, 1, h, w};
     size_t vol = samplesCommon::volume(inputDims);
     std::vector<uint8_t> fileData(vol);
     infile.read(reinterpret_cast<char*>(fileData.data()), vol);
@@ -286,7 +297,8 @@ Dims SampleDynamicReshape::loadPGMFile(const std::string& fileName)
     // Normalize and copy to the host buffer.
     mInput.hostBuffer.resize(inputDims);
     float* hostDataBuffer = static_cast<float*>(mInput.hostBuffer.data());
-    std::transform(fileData.begin(), fileData.end(), hostDataBuffer, [] (uint8_t x) { return 1.0 - static_cast<float>(x / 255.0); });
+    std::transform(fileData.begin(), fileData.end(), hostDataBuffer,
+        [](uint8_t x) { return 1.0 - static_cast<float>(x / 255.0); });
     return inputDims;
 }
 
@@ -339,9 +351,13 @@ samplesCommon::OnnxSampleParams initializeSampleParams(const samplesCommon::Args
 //!
 void printHelpInfo()
 {
-    std::cout << "Usage: ./sample_dynamic_reshape [-h or --help] [-d or --datadir=<path to data directory>]" << std::endl;
+    std::cout << "Usage: ./sample_dynamic_reshape [-h or --help] [-d or --datadir=<path to data directory>]"
+              << std::endl;
     std::cout << "--help          Display help information" << std::endl;
-    std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used multiple times to add multiple directories. If no data directories are given, the default is to use (data/samples/mnist/, data/mnist/)" << std::endl;
+    std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used "
+                 "multiple times to add multiple directories. If no data directories are given, the default is to use "
+                 "(data/samples/mnist/, data/mnist/)"
+              << std::endl;
     std::cout << "--int8          Run in Int8 mode." << std::endl;
     std::cout << "--fp16          Run in FP16 mode." << std::endl;
 }

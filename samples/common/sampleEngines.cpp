@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-#include <iostream>
-#include <fstream>
-#include <random>
 #include <algorithm>
+#include <fstream>
+#include <iostream>
 #include <iterator>
-#include <string>
 #include <map>
-#include <cuda.h>
+#include <random>
+#include <string>
 
 #include "NvInfer.h"
 #include "NvCaffeParser.h"
@@ -43,15 +42,21 @@ namespace
 
 struct CaffeBufferShutter
 {
-    ~CaffeBufferShutter() { nvcaffeparser1::shutdownProtobufLibrary(); }
+    ~CaffeBufferShutter()
+    {
+        nvcaffeparser1::shutdownProtobufLibrary();
+    }
 };
 
 struct UffBufferShutter
 {
-    ~UffBufferShutter() { nvuffparser::shutdownProtobufLibrary(); }
+    ~UffBufferShutter()
+    {
+        nvuffparser::shutdownProtobufLibrary();
+    }
 };
 
-}
+} // namespace
 
 Parser modelToNetwork(const ModelOptions& model, nvinfer1::INetworkDefinition& network, std::ostream& err)
 {
@@ -64,7 +69,8 @@ Parser modelToNetwork(const ModelOptions& model, nvinfer1::INetworkDefinition& n
         using namespace nvcaffeparser1;
         parser.caffeParser.reset(createCaffeParser());
         CaffeBufferShutter bufferShutter;
-        const auto blobNameToTensor = parser.caffeParser->parse(model.prototxt.c_str(), modelName.empty() ? nullptr : modelName.c_str(), network, DataType::kFLOAT);
+        const auto blobNameToTensor = parser.caffeParser->parse(
+            model.prototxt.c_str(), modelName.empty() ? nullptr : modelName.c_str(), network, DataType::kFLOAT);
         if (!blobNameToTensor)
         {
             err << "Failed to parse caffe model or prototxt, tensors blob not found" << std::endl;
@@ -91,7 +97,8 @@ Parser modelToNetwork(const ModelOptions& model, nvinfer1::INetworkDefinition& n
         UffBufferShutter bufferShutter;
         for (const auto& s : model.uffInputs.inputs)
         {
-            if (!parser.uffParser->registerInput(s.first.c_str(), s.second, model.uffInputs.NHWC ? UffInputOrder::kNHWC : UffInputOrder::kNCHW))
+            if (!parser.uffParser->registerInput(
+                    s.first.c_str(), s.second, model.uffInputs.NHWC ? UffInputOrder::kNHWC : UffInputOrder::kNCHW))
             {
                 err << "Failed to register input " << s.first << std::endl;
                 parser.uffParser.reset();
@@ -121,7 +128,8 @@ Parser modelToNetwork(const ModelOptions& model, nvinfer1::INetworkDefinition& n
     {
         using namespace nvonnxparser;
         parser.onnxParser.reset(createParser(network, gLogger.getTRTLogger()));
-        if (!parser.onnxParser->parseFromFile(model.baseModel.model.c_str(), static_cast<int>(gLogger.getReportableSeverity())))
+        if (!parser.onnxParser->parseFromFile(
+                model.baseModel.model.c_str(), static_cast<int>(gLogger.getReportableSeverity())))
         {
             err << "Failed to parse onnx file" << std::endl;
             parser.onnxParser.reset();
@@ -133,7 +141,6 @@ Parser modelToNetwork(const ModelOptions& model, nvinfer1::INetworkDefinition& n
     }
 
     return parser;
-
 }
 
 namespace
@@ -142,7 +149,8 @@ namespace
 class RndInt8Calibrator : public nvinfer1::IInt8EntropyCalibrator2
 {
 public:
-    RndInt8Calibrator(int batches, const std::string& cacheFile, const nvinfer1::INetworkDefinition& network, std::ostream& err);
+    RndInt8Calibrator(
+        int batches, const std::string& cacheFile, const nvinfer1::INetworkDefinition& network, std::ostream& err);
 
     ~RndInt8Calibrator()
     {
@@ -154,7 +162,10 @@ public:
 
     bool getBatch(void* bindings[], const char* names[], int nbBindings) override;
 
-    int getBatchSize() const override { return 1; }
+    int getBatchSize() const override
+    {
+        return 1;
+    }
 
     const void* readCalibrationCache(size_t& length) override;
 
@@ -169,8 +180,12 @@ private:
     std::ostream& mErr;
 };
 
-RndInt8Calibrator::RndInt8Calibrator(int batches, const std::string& cacheFile, const INetworkDefinition& network, std::ostream& err)
-    : mBatches(batches), mCurrentBatch(0), mCacheFile(cacheFile), mErr(err)
+RndInt8Calibrator::RndInt8Calibrator(
+    int batches, const std::string& cacheFile, const INetworkDefinition& network, std::ostream& err)
+    : mBatches(batches)
+    , mCurrentBatch(0)
+    , mCacheFile(cacheFile)
+    , mErr(err)
 {
     std::default_random_engine generator;
     std::uniform_real_distribution<float> distribution(-1.0F, 1.0F);
@@ -215,8 +230,8 @@ const void* RndInt8Calibrator::readCalibrationCache(size_t& length)
     input >> std::noskipws;
     if (input.good())
     {
-        std::copy(std::istream_iterator<char>(input), std::istream_iterator<char>(),
-            std::back_inserter(mCalibrationCache));
+        std::copy(
+            std::istream_iterator<char>(input), std::istream_iterator<char>(), std::back_inserter(mCalibrationCache));
     }
 
     return mCalibrationCache.size() ? mCalibrationCache.data() : nullptr;
@@ -257,11 +272,12 @@ void setTensorScales(const INetworkDefinition& network, float inScales = 2.0f, f
     }
 }
 
-}
+} // namespace
 
-ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys, IBuilder& builder, INetworkDefinition& network, std::ostream& err)
+ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys, IBuilder& builder,
+    INetworkDefinition& network, std::ostream& err)
 {
-    unique_ptr<IBuilderConfig> config{builder.createBuilderConfig()};
+    TrtUniquePtr<IBuilderConfig> config{builder.createBuilderConfig()};
 
     IOptimizationProfile* profile{nullptr};
     if (build.maxBatch)
@@ -270,12 +286,10 @@ ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys
     }
     else
     {
-        if (!build.shapes.empty())
-        {
-            profile = builder.createOptimizationProfile();
-        }
+        profile = builder.createOptimizationProfile();
     }
 
+    bool hasDynamicShapes{false};
     for (unsigned int i = 0, n = network.getNbInputs(); i < n; i++)
     {
         // Set formats and data types of inputs
@@ -287,38 +301,79 @@ ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys
         }
         else
         {
-            input->setType(DataType::kFLOAT);
+            switch (input->getType())
+            {
+            case DataType::kINT32:
+            case DataType::kBOOL:
+                // Leave these as is.
+                break;
+            case DataType::kFLOAT:
+            case DataType::kINT8:
+            case DataType::kHALF:
+                // User did not specify a floating-point format.  Default to kFLOAT.
+                input->setType(DataType::kFLOAT);
+                break;
+            }
             input->setAllowedFormats(1U << static_cast<int>(TensorFormat::kLINEAR));
         }
 
         if (profile)
         {
             Dims dims = input->getDimensions();
-            if (std::any_of(dims.d + 1, dims.d + dims.nbDims, [](int dim){ return dim == -1; }))
+            const bool isDynamicInput = std::any_of(dims.d, dims.d + dims.nbDims, [](int dim){ return dim == -1; }) || input->isShapeTensor();
+            if (isDynamicInput)
             {
-                err << "Only dynamic batch dimension is currently supported, other dimensions must be static" << std::endl;
-                return nullptr;
-            }
-            dims.d[0] = -1;
-            Dims profileDims = dims;
-            auto shape = build.shapes.find(input->getName());
-            if (shape == build.shapes.end())
-            {
-                err << "Dynamic dimensions required for input " << input->getName() << std::endl;
-                return nullptr;
-            }
-            profileDims.d[0] = shape->second[static_cast<size_t>(OptProfileSelector::kMIN)].d[0];
-            profile->setDimensions(input->getName(), OptProfileSelector::kMIN, profileDims);
-            profileDims.d[0] = shape->second[static_cast<size_t>(OptProfileSelector::kOPT)].d[0];
-            profile->setDimensions(input->getName(), OptProfileSelector::kOPT, profileDims);
-            profileDims.d[0] = shape->second[static_cast<size_t>(OptProfileSelector::kMAX)].d[0];
-            profile->setDimensions(input->getName(), OptProfileSelector::kMAX, profileDims);
+                hasDynamicShapes = true;
+                auto shape = build.shapes.find(input->getName());
+                ShapeRange shapes{};
 
-            input->setDimensions(dims);
+                // If no shape is provided, set dynamic dimensions to 1.
+                if (shape == build.shapes.end())
+                {
+                    constexpr int DEFAULT_DIMENSION = 1;
+                    Dims staticDims{};
+                    if (input->isShapeTensor())
+                    {
+                        staticDims.nbDims = dims.d[0];
+                        std::fill(staticDims.d, staticDims.d + staticDims.nbDims, DEFAULT_DIMENSION);
+                    }
+                    else
+                    {
+                        staticDims.nbDims = dims.nbDims;
+                        std::transform(dims.d, dims.d + dims.nbDims, staticDims.d, [&DEFAULT_DIMENSION](int dim) { return dim > 0 ? dim : DEFAULT_DIMENSION; });
+                    }
+                    gLogWarning << "Dynamic dimensions required for input: " << input->getName() << ", but no shapes were provided. Automatically overriding shape to: " << staticDims << std::endl;
+                    std::fill(shapes.begin(), shapes.end(), staticDims);
+                }
+                else
+                {
+                    shapes = shape->second;
+                }
+
+                Dims profileDims{};
+                if (input->isShapeTensor())
+                {
+                    profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMIN)];
+                    profile->setShapeValues(input->getName(), OptProfileSelector::kMIN, profileDims.d, profileDims.nbDims);
+                    profileDims = shapes[static_cast<size_t>(OptProfileSelector::kOPT)];
+                    profile->setShapeValues(input->getName(), OptProfileSelector::kOPT, profileDims.d, profileDims.nbDims);
+                    profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMAX)];
+                    profile->setShapeValues(input->getName(), OptProfileSelector::kMAX, profileDims.d, profileDims.nbDims);
+                }
+                else
+                {
+                    profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMIN)];
+                    profile->setDimensions(input->getName(), OptProfileSelector::kMIN, profileDims);
+                    profileDims = shapes[static_cast<size_t>(OptProfileSelector::kOPT)];
+                    profile->setDimensions(input->getName(), OptProfileSelector::kOPT, profileDims);
+                    profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMAX)];
+                    profile->setDimensions(input->getName(), OptProfileSelector::kMAX, profileDims);
+                }
+            }
         }
     }
 
-    if (profile)
+    if (profile && hasDynamicShapes)
     {
         if (!profile->isValid())
         {
@@ -328,7 +383,7 @@ ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys
         config->addOptimizationProfile(profile);
     }
 
-    for (unsigned int i = 0, n = network.getNbOutputs(); i < n; i++) //BUILD->NETWORK
+    for (unsigned int i = 0, n = network.getNbOutputs(); i < n; i++)
     {
         // Set formats and data types of outputs
         auto output = network.getOutput(i);
@@ -339,7 +394,6 @@ ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys
         }
         else
         {
-            output->setType(DataType::kFLOAT);
             output->setAllowedFormats(1U << static_cast<int>(TensorFormat::kLINEAR));
         }
     }
@@ -356,11 +410,11 @@ ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys
         config->setFlag(BuilderFlag::kINT8);
     }
 
-    auto isInt8 = [](const IOFormat& format){ return format.first == DataType::kINT8; };
-    auto int8IO = std::count_if(build.inputFormats.begin(), build.inputFormats.end(), isInt8) +
-                  std::count_if(build.outputFormats.begin(), build.outputFormats.end(), isInt8);
+    auto isInt8 = [](const IOFormat& format) { return format.first == DataType::kINT8; };
+    auto int8IO = std::count_if(build.inputFormats.begin(), build.inputFormats.end(), isInt8)
+        + std::count_if(build.outputFormats.begin(), build.outputFormats.end(), isInt8);
 
-    if ((build.int8 && build.calibration.empty()) || int8IO) 
+    if ((build.int8 && build.calibration.empty()) || int8IO)
     {
         // Explicitly set int8 scales if no calibrator is provided and if I/O tensors use int8,
         // because auto calibration does not support this case.
@@ -403,16 +457,19 @@ ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys
     return builder.buildEngineWithConfig(network, *config);
 }
 
-ICudaEngine* modelToEngine(const ModelOptions& model, const BuildOptions& build, const SystemOptions& sys, std::ostream& err)
+ICudaEngine* modelToEngine(
+    const ModelOptions& model, const BuildOptions& build, const SystemOptions& sys, std::ostream& err)
 {
-    unique_ptr<IBuilder> builder{createInferBuilder(gLogger.getTRTLogger())};
+    TrtUniquePtr<IBuilder> builder{createInferBuilder(gLogger.getTRTLogger())};
     if (builder == nullptr)
     {
         err << "Builder creation failed" << std::endl;
         return nullptr;
     }
-    auto batchFlag = (build.maxBatch ? 0U : 1U) << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
-    unique_ptr<INetworkDefinition> network{builder->createNetworkV2(batchFlag)};
+    const bool isOnnxModel = model.baseModel.format == ModelFormat::kONNX;
+    auto batchFlag = (build.maxBatch && !isOnnxModel) ? 0U : 1U
+        << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
+    TrtUniquePtr<INetworkDefinition> network{builder->createNetworkV2(batchFlag)};
     if (!network)
     {
         err << "Network creation failed" << std::endl;
@@ -449,7 +506,7 @@ ICudaEngine* loadEngine(const std::string& engine, int DLACore, std::ostream& er
         return nullptr;
     }
 
-    unique_ptr<IRuntime> runtime{createInferRuntime(gLogger.getTRTLogger())};
+    TrtUniquePtr<IRuntime> runtime{createInferRuntime(gLogger.getTRTLogger())};
     if (DLACore != -1)
     {
         runtime->setDLACore(DLACore);
@@ -467,7 +524,7 @@ bool saveEngine(const ICudaEngine& engine, const std::string& fileName, std::ost
         return false;
     }
 
-    unique_ptr<IHostMemory> serializedEngine{engine.serialize()};
+    TrtUniquePtr<IHostMemory> serializedEngine{engine.serialize()};
     if (serializedEngine == nullptr)
     {
         err << "Engine serialization failed" << std::endl;
@@ -476,6 +533,30 @@ bool saveEngine(const ICudaEngine& engine, const std::string& fileName, std::ost
 
     engineFile.write(static_cast<char*>(serializedEngine->data()), serializedEngine->size());
     return !engineFile.fail();
+}
+
+TrtUniquePtr<nvinfer1::ICudaEngine> getEngine(const ModelOptions& model, const BuildOptions& build, const SystemOptions& sys, std::ostream& err)
+{
+    TrtUniquePtr<nvinfer1::ICudaEngine> engine;
+    if (build.load)
+    {
+        engine.reset(loadEngine(build.engine, sys.DLACore, err));
+    }
+    else
+    {
+        engine.reset(modelToEngine(model, build, sys, err));
+    }
+    if (!engine)
+    {
+        err << "Engine creation failed" << std::endl;
+        return nullptr;
+    }
+    if (build.save && !saveEngine(*engine, build.engine, err))
+    {
+        err << "Saving engine to file failed" << std::endl;
+        return nullptr;
+    }
+    return engine;
 }
 
 } // namespace sample

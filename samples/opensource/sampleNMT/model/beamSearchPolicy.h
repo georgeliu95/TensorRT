@@ -25,39 +25,28 @@
 namespace nmtSample
 {
 /** \class BeamSearchPolicy
-    *
-    * \brief processes the results of one iteration of the generator with beam search and produces input for the next iteration
-    *
-    */
+ *
+ * \brief processes the results of one iteration of the generator with beam search and produces input for the next
+ * iteration
+ *
+ */
 class BeamSearchPolicy : public Component
 {
 public:
     typedef std::shared_ptr<BeamSearchPolicy> ptr;
 
     BeamSearchPolicy(
-        int endSequenceId,
-        LikelihoodCombinationOperator::ptr likelihoodCombinationOperator,
-        int beamWidth);
+        int endSequenceId, LikelihoodCombinationOperator::ptr likelihoodCombinationOperator, int beamWidth);
 
-    void initialize(
-        int sampleCount,
-        int* maxOutputSequenceLengths);
+    void initialize(int sampleCount, int* maxOutputSequenceLengths);
 
-    void processTimestep(
-        int validSampleCount,
-        const float* hCombinedLikelihoods,
-        const int* hVocabularyIndices,
-        const int* hRayOptionIndices,
-        int* hSourceRayIndices,
-        float* hSourceLikelihoods);
+    void processTimestep(int validSampleCount, const float* hCombinedLikelihoods, const int* hVocabularyIndices,
+        const int* hRayOptionIndices, int* hSourceRayIndices, float* hSourceLikelihoods);
 
     int getTailWithNoWorkRemaining();
 
     void readGeneratedResult(
-        int sampleCount,
-        int maxOutputSequenceLength,
-        int* hOutputData,
-        int* hActualOutputSequenceLengths);
+        int sampleCount, int maxOutputSequenceLength, int* hOutputData, int* hActualOutputSequenceLengths);
 
     std::string getInfo() override;
 
@@ -71,11 +60,7 @@ protected:
     };
 
     void backtrack(
-        int lastTimestepId,
-        int sampleId,
-        int lastTimestepRayId,
-        int* hOutputData,
-        int lastTimestepWriteId) const;
+        int lastTimestepId, int sampleId, int lastTimestepRayId, int* hOutputData, int lastTimestepWriteId) const;
 
 protected:
     int mEndSequenceId;

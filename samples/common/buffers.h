@@ -243,7 +243,8 @@ public:
     //!
     //! \brief Create a BufferManager for handling buffer interactions with engine.
     //!
-    BufferManager(std::shared_ptr<nvinfer1::ICudaEngine> engine, const int& batchSize, const nvinfer1::IExecutionContext* context = nullptr)
+    BufferManager(std::shared_ptr<nvinfer1::ICudaEngine> engine, const int& batchSize,
+        const nvinfer1::IExecutionContext* context = nullptr)
         : mEngine(engine)
         , mBatchSize(batchSize)
     {
@@ -273,7 +274,10 @@ public:
     //! \brief Returns a vector of device buffers that you can use directly as
     //!        bindings for the execute and enqueue methods of IExecutionContext.
     //!
-    std::vector<void*>& getDeviceBindings() { return mDeviceBindings; }
+    std::vector<void*>& getDeviceBindings()
+    {
+        return mDeviceBindings;
+    }
 
     //!
     //! \brief Returns a vector of device buffers.
@@ -340,6 +344,7 @@ public:
         case nvinfer1::DataType::kFLOAT: print<float>(os, buf, bufSize, rowCount); break;
         case nvinfer1::DataType::kHALF: print<half_float::half>(os, buf, bufSize, rowCount); break;
         case nvinfer1::DataType::kINT8: assert(0 && "Int8 network-level input and output is not supported"); break;
+        case nvinfer1::DataType::kBOOL: assert(0 && "Bool network-level input and output are not supported"); break;
         }
     }
 
@@ -407,7 +412,6 @@ public:
     ~BufferManager() = default;
 
 private:
-
     void* getBuffer(const bool isHost, const std::string& tensorName) const
     {
         int index = mEngine->getBindingIndex(tensorName.c_str());
@@ -439,7 +443,7 @@ private:
     std::shared_ptr<nvinfer1::ICudaEngine> mEngine;              //!< The pointer to the engine
     int mBatchSize;                                              //!< The batch size
     std::vector<std::unique_ptr<ManagedBuffer>> mManagedBuffers; //!< The vector of pointers to managed buffers
-    std::vector<void*> mDeviceBindings;                          //!< The vector of device buffers needed for engine execution
+    std::vector<void*> mDeviceBindings; //!< The vector of device buffers needed for engine execution
 };
 
 } // namespace samplesCommon

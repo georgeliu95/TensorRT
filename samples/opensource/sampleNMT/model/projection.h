@@ -25,10 +25,10 @@
 namespace nmtSample
 {
 /** \class Projection
-    *
-    * \brief calculates raw logits
-    *
-    */
+ *
+ * \brief calculates raw logits
+ *
+ */
 class Projection : public Component
 {
 public:
@@ -37,17 +37,15 @@ public:
     Projection() = default;
 
     /**
-        * \brief add raw logits to the network
-        */
+     * \brief add raw logits to the network
+     */
     virtual void addToModel(
-        nvinfer1::INetworkDefinition* network,
-        nvinfer1::ITensor* input,
-        nvinfer1::ITensor** outputLogits)
+        nvinfer1::INetworkDefinition* network, nvinfer1::ITensor* input, nvinfer1::ITensor** outputLogits)
         = 0;
 
     /**
-        * \brief get the size of raw logits vector
-        */
+     * \brief get the size of raw logits vector
+     */
     virtual int getOutputSize() = 0;
 
     ~Projection() override = default;

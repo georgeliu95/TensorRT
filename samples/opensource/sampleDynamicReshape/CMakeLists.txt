@@ -16,4 +16,5 @@
 SET(SAMPLE_SOURCES
     sampleDynamicReshape.cpp
 )
+set(SAMPLE_PARSERS "onnx")
 include(../../CMakeSamplesTemplate.txt)

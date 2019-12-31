@@ -35,12 +35,14 @@ int DebugUtil::DumpTensorPlugin::getNbOutputs() const
     return 1;
 }
 
-nvinfer1::Dims DebugUtil::DumpTensorPlugin::getOutputDimensions(int index, const nvinfer1::Dims* inputs, int nbInputDims)
+nvinfer1::Dims DebugUtil::DumpTensorPlugin::getOutputDimensions(
+    int index, const nvinfer1::Dims* inputs, int nbInputDims)
 {
     return inputs[0];
 }
 
-void DebugUtil::DumpTensorPlugin::configure(const nvinfer1::Dims* inputDims, int nbInputs, const nvinfer1::Dims* outputDims, int nbOutputs, int maxBatchSize)
+void DebugUtil::DumpTensorPlugin::configure(
+    const nvinfer1::Dims* inputDims, int nbInputs, const nvinfer1::Dims* outputDims, int nbOutputs, int maxBatchSize)
 {
     mDims = inputDims[0];
 
@@ -81,7 +83,8 @@ size_t DebugUtil::DumpTensorPlugin::getWorkspaceSize(int maxBatchSize) const
     return 0;
 }
 
-int DebugUtil::DumpTensorPlugin::enqueue(int batchSize, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream)
+int DebugUtil::DumpTensorPlugin::enqueue(
+    int batchSize, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream)
 {
     int totalElems = batchSize * mTensorVolume;
 
@@ -117,11 +120,8 @@ void DebugUtil::DumpTensorPlugin::serialize(void* buffer)
     assert(0);
 }
 
-void DebugUtil::addDumpTensorToStream(
-    nvinfer1::INetworkDefinition* network,
-    nvinfer1::ITensor* input,
-    nvinfer1::ITensor** output,
-    std::shared_ptr<std::ostream> out)
+void DebugUtil::addDumpTensorToStream(nvinfer1::INetworkDefinition* network, nvinfer1::ITensor* input,
+    nvinfer1::ITensor** output, std::shared_ptr<std::ostream> out)
 {
     assert(!input->getBroadcastAcrossBatch());
     auto plugin = std::make_shared<DumpTensorPlugin>(out);

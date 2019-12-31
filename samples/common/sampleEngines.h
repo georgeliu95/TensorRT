@@ -31,17 +31,21 @@ namespace sample
 
 struct Parser
 {
-    unique_ptr<nvcaffeparser1::ICaffeParser> caffeParser;
-    unique_ptr<nvuffparser::IUffParser> uffParser;
-    unique_ptr<nvonnxparser::IParser> onnxParser;
+    TrtUniquePtr<nvcaffeparser1::ICaffeParser> caffeParser;
+    TrtUniquePtr<nvuffparser::IUffParser> uffParser;
+    TrtUniquePtr<nvonnxparser::IParser> onnxParser;
 
-    operator bool() const { return caffeParser || uffParser || onnxParser; }
+    operator bool() const
+    {
+        return caffeParser || uffParser || onnxParser;
+    }
 };
 
 //!
 //! \brief Generate a network definition for a given model
 //!
-//! \return Parser The parser used to initialize the network and that holds the weights for the network, or an invalid parser (the returned parser converts to false if tested)
+//! \return Parser The parser used to initialize the network and that holds the weights for the network, or an invalid
+//! parser (the returned parser converts to false if tested)
 //!
 //! \see Parser::operator bool()
 //!
@@ -52,14 +56,16 @@ Parser modelToNetwork(const ModelOptions& model, nvinfer1::INetworkDefinition& n
 //!
 //! \return Pointer to the engine created or nullptr if the creation failed
 //!
-nvinfer1::ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys, nvinfer1::IBuilder& builder, nvinfer1::INetworkDefinition& network, std::ostream& err);
+nvinfer1::ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys, nvinfer1::IBuilder& builder,
+    nvinfer1::INetworkDefinition& network, std::ostream& err);
 
 //!
 //! \brief Create an engine for a given model
 //!
 //! \return Pointer to the engine created or nullptr if the creation failed
 //!
-nvinfer1::ICudaEngine* modelToEngine(const ModelOptions& model, const BuildOptions& build, const SystemOptions& sys, std::ostream& err);
+nvinfer1::ICudaEngine* modelToEngine(
+    const ModelOptions& model, const BuildOptions& build, const SystemOptions& sys, std::ostream& err);
 
 //!
 //! \brief Load a serialized engine
@@ -74,6 +80,13 @@ nvinfer1::ICudaEngine* loadEngine(const std::string& engine, int DLACore, std::o
 //! \return boolean Return true if the engine was successfully saved
 //!
 bool saveEngine(const nvinfer1::ICudaEngine& engine, const std::string& fileName, std::ostream& err);
+
+//!
+//! \brief Create an engine from model or serialized file, and optionally save engine
+//!
+//! \return Pointer to the engine created or nullptr if the creation failed
+//!
+TrtUniquePtr<nvinfer1::ICudaEngine> getEngine(const ModelOptions& model, const BuildOptions& build, const SystemOptions& sys, std::ostream& err);
 
 } // namespace sample
 

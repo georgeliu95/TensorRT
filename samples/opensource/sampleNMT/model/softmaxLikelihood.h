@@ -23,10 +23,10 @@
 namespace nmtSample
 {
 /** \class SoftmaxLikelihood
-    *
-    * \brief calculates softmax likelihood and TopK indices for the raw input logits
-    *
-    */
+ *
+ * \brief calculates softmax likelihood and TopK indices for the raw input logits
+ *
+ */
 class SoftmaxLikelihood : public Likelihood
 {
 private:
@@ -49,14 +49,9 @@ public:
 
     LikelihoodCombinationOperator::ptr getLikelihoodCombinationOperator() const override;
 
-    void addToModel(
-        nvinfer1::INetworkDefinition* network,
-        int beamWidth,
-        nvinfer1::ITensor* inputLogits,
-        nvinfer1::ITensor* inputLikelihoods,
-        nvinfer1::ITensor** newCombinedLikelihoods,
-        nvinfer1::ITensor** newRayOptionIndices,
-        nvinfer1::ITensor** newVocabularyIndices) override;
+    void addToModel(nvinfer1::INetworkDefinition* network, int beamWidth, nvinfer1::ITensor* inputLogits,
+        nvinfer1::ITensor* inputLikelihoods, nvinfer1::ITensor** newCombinedLikelihoods,
+        nvinfer1::ITensor** newRayOptionIndices, nvinfer1::ITensor** newVocabularyIndices) override;
 
     std::string getInfo() override;
 

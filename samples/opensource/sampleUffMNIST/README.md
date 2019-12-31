@@ -18,7 +18,7 @@ This sample, sampleUffMNIST, imports a TensorFlow model trained on the MNIST dat
 The MNIST TensorFlow model has been converted to UFF (Universal Framework Format) using the explanation described in [Working With TensorFlow](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#working_tf).
 
 The UFF is designed to store neural networks as a graph. The NvUffParser that we use in this sample parses the UFF file in order to create an inference engine based on that neural network.
-  
+
 With TensorRT, you can take a TensorFlow trained model, export it into a UFF protobuf file (`.uff`) using the [UFF converter](https://docs.nvidia.com/deeplearning/sdk/tensorrt-api/python_api/uff/uff.html#), and import it using the UFF parser.
 
 ## How does this sample work?

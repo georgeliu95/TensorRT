@@ -18,10 +18,10 @@
 #define TENSORRT_LOGGING_H
 
 #include "NvInferRuntimeCommon.h"
-#include <ctime>
 #include <cassert>
-#include <iostream>
+#include <ctime>
 #include <iomanip>
+#include <iostream>
 #include <ostream>
 #include <sstream>
 #include <string>
@@ -70,7 +70,7 @@ public:
         {
             // prepend timestamp
             std::time_t timestamp = std::time(nullptr);
-            tm *tm_local = std::localtime(&timestamp);
+            tm* tm_local = std::localtime(&timestamp);
             std::cout << "[";
             std::cout << std::setw(2) << std::setfill('0') << 1 + tm_local->tm_mon << "/";
             std::cout << std::setw(2) << std::setfill('0') << tm_local->tm_mday << "/";
@@ -178,24 +178,25 @@ private:
 //!
 //! \brief Class which manages logging of TensorRT tools and samples
 //!
-//! \details This class provides a common interface for TensorRT tools and samples to log information to the console, and
-//! supports logging two types of messages:
+//! \details This class provides a common interface for TensorRT tools and samples to log information to the console,
+//! and supports logging two types of messages:
 //!
 //! - Debugging messages with an associated severity (info, warning, error, or internal error/fatal)
 //! - Test pass/fail messages
 //!
-//! The advantage of having all samples use this class for logging as opposed to emitting directly to stdout/stderr is that
-//! the logic for controlling the verbosity and formatting of sample output is centralized in one location.
+//! The advantage of having all samples use this class for logging as opposed to emitting directly to stdout/stderr is
+//! that the logic for controlling the verbosity and formatting of sample output is centralized in one location.
 //!
 //! In the future, this class could be extended to support dumping test results to a file in some standard format
 //! (for example, JUnit XML), and providing additional metadata (e.g. timing the duration of a test run).
 //!
-//! TODO: For backwards compatibility with existing samples, this class inherits directly from the nvinfer1::ILogger interface,
-//! which is problematic since there isn't a clean separation between messages coming from the TensorRT library and messages coming
-//! from the sample.
+//! TODO: For backwards compatibility with existing samples, this class inherits directly from the nvinfer1::ILogger
+//! interface, which is problematic since there isn't a clean separation between messages coming from the TensorRT
+//! library and messages coming from the sample.
 //!
-//! In the future (once all samples are updated to use Logger::getTRTLogger() to access the ILogger) we can refactor the class
-//! to eliminate the inheritance and instead make the nvinfer1::ILogger implementation a member of the Logger object.
+//! In the future (once all samples are updated to use Logger::getTRTLogger() to access the ILogger) we can refactor the
+//! class to eliminate the inheritance and instead make the nvinfer1::ILogger implementation a member of the Logger
+//! object.
 
 class Logger : public nvinfer1::ILogger
 {
@@ -232,8 +233,8 @@ public:
     //!
     //! \brief Implementation of the nvinfer1::ILogger::log() virtual method
     //!
-    //! Note samples should not be calling this function directly; it will eventually go away once we eliminate the inheritance from
-    //! nvinfer1::ILogger
+    //! Note samples should not be calling this function directly; it will eventually go away once we eliminate the
+    //! inheritance from nvinfer1::ILogger
     //!
     void log(Severity severity, const char* msg) override
     {
@@ -411,9 +412,8 @@ private:
     //!
     static void reportTestResult(const TestAtom& testAtom, TestResult result)
     {
-        severityOstream(Severity::kINFO) << "&&&& " << testResultString(result)
-                                         << " " << testAtom.mName << " # " << testAtom.mCmdline
-                                         << std::endl;
+        severityOstream(Severity::kINFO) << "&&&& " << testResultString(result) << " " << testAtom.mName << " # "
+                                         << testAtom.mCmdline << std::endl;
     }
 
     //!

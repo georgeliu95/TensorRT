@@ -25,10 +25,10 @@
 namespace nmtSample
 {
 /** \class Context
-    *
-    * \brief calculates context vector from raw alignment scores and memory states
-    *
-    */
+ *
+ * \brief calculates context vector from raw alignment scores and memory states
+ *
+ */
 class Context : public Component
 {
 public:
@@ -37,14 +37,10 @@ public:
     Context() = default;
 
     /**
-        * \brief add the context vector calculation to the network
-        */
-    void addToModel(
-        nvinfer1::INetworkDefinition* network,
-        nvinfer1::ITensor* actualInputSequenceLengths,
-        nvinfer1::ITensor* memoryStates,
-        nvinfer1::ITensor* alignmentScores,
-        nvinfer1::ITensor** contextOutput);
+     * \brief add the context vector calculation to the network
+     */
+    void addToModel(nvinfer1::INetworkDefinition* network, nvinfer1::ITensor* actualInputSequenceLengths,
+        nvinfer1::ITensor* memoryStates, nvinfer1::ITensor* alignmentScores, nvinfer1::ITensor** contextOutput);
 
     std::string getInfo() override;
 

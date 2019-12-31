@@ -23,10 +23,10 @@
 namespace nmtSample
 {
 /** \class PinnedHostBuffer
-    *
-    * \brief wrapper for the pinned host memory region  
-    *
-    */
+ *
+ * \brief wrapper for the pinned host memory region
+ *
+ */
 template <typename T>
 class PinnedHostBuffer
 {

@@ -116,13 +116,9 @@ Count_t ngramCountIntersection(const Count_t& cnt0, const Count_t& cnt1)
     return overlap;
 }
 
-void accumulateBLEU(const std::vector<Segment_t>& referenceSamples,
-                    const std::vector<Segment_t>& outputSamples,
-                    int maxOrder,
-                    size_t& referenceLength,
-                    size_t& translationLength,
-                    std::vector<size_t>& matchesByOrder,
-                    std::vector<size_t>& possibleMatchesByOrder)
+void accumulateBLEU(const std::vector<Segment_t>& referenceSamples, const std::vector<Segment_t>& outputSamples,
+    int maxOrder, size_t& referenceLength, size_t& translationLength, std::vector<size_t>& matchesByOrder,
+    std::vector<size_t>& possibleMatchesByOrder)
 {
     assert(referenceSamples.size() == outputSamples.size());
     auto reference = referenceSamples.begin();
@@ -151,7 +147,8 @@ void accumulateBLEU(const std::vector<Segment_t>& referenceSamples,
     }
 }
 
-BLEUScoreWriter::BLEUScoreWriter(std::shared_ptr<std::istream> referenceTextInput, Vocabulary::ptr vocabulary, int maxOrder)
+BLEUScoreWriter::BLEUScoreWriter(
+    std::shared_ptr<std::istream> referenceTextInput, Vocabulary::ptr vocabulary, int maxOrder)
     : mReferenceInput(referenceTextInput)
     , mVocabulary(vocabulary)
     , mReferenceLength(0)
@@ -163,10 +160,7 @@ BLEUScoreWriter::BLEUScoreWriter(std::shared_ptr<std::istream> referenceTextInpu
 {
 }
 
-void BLEUScoreWriter::write(
-    const int* hOutputData,
-    int actualOutputSequenceLength,
-    int actualInputSequenceLength)
+void BLEUScoreWriter::write(const int* hOutputData, int actualOutputSequenceLength, int actualInputSequenceLength)
 {
     std::vector<Segment_t> outputSamples;
     std::vector<Segment_t> referenceSamples;
@@ -182,12 +176,11 @@ void BLEUScoreWriter::write(
     }
     outputSamples.emplace_back(segment);
 
-    accumulateBLEU(referenceSamples, outputSamples, mMaxOrder, mReferenceLength, mTranslationLength, mMatchesByOrder, mPossibleMatchesByOrder);
+    accumulateBLEU(referenceSamples, outputSamples, mMaxOrder, mReferenceLength, mTranslationLength, mMatchesByOrder,
+        mPossibleMatchesByOrder);
 }
 
-void BLEUScoreWriter::initialize()
-{
-}
+void BLEUScoreWriter::initialize() {}
 
 void BLEUScoreWriter::finalize()
 {

@@ -27,21 +27,16 @@
 namespace nmtSample
 {
 /** \class BLEUScoreWriter
-    *
-    * \brief all it does is to evaluate BLEU score
-    *
-    */
+ *
+ * \brief all it does is to evaluate BLEU score
+ *
+ */
 class BLEUScoreWriter : public DataWriter
 {
 public:
-    BLEUScoreWriter(std::shared_ptr<std::istream> referenceTextInput,
-                    Vocabulary::ptr vocabulary,
-                    int maxOrder = 4);
+    BLEUScoreWriter(std::shared_ptr<std::istream> referenceTextInput, Vocabulary::ptr vocabulary, int maxOrder = 4);
 
-    void write(
-        const int* hOutputData,
-        int actualOutputSequenceLength,
-        int actualInputSequenceLength) override;
+    void write(const int* hOutputData, int actualOutputSequenceLength, int actualInputSequenceLength) override;
 
     void initialize() override;
 
