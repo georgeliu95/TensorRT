@@ -26,19 +26,16 @@
 namespace nmtSample
 {
 /** \class TextReader
-    *
-    * \brief writes sequences of data into output stream
-    *
-    */
+ *
+ * \brief writes sequences of data into output stream
+ *
+ */
 class TextWriter : public DataWriter
 {
 public:
     TextWriter(std::shared_ptr<std::ostream> textOnput, Vocabulary::ptr vocabulary);
 
-    void write(
-        const int* hOutputData,
-        int actualOutputSequenceLength,
-        int actualInputSequenceLength) override;
+    void write(const int* hOutputData, int actualOutputSequenceLength, int actualInputSequenceLength) override;
 
     void initialize() override;
 

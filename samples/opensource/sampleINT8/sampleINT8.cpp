@@ -46,9 +46,9 @@ const std::string gSampleName = "TensorRT.sample_int8";
 //!
 struct SampleINT8Params : public samplesCommon::CaffeSampleParams
 {
-    int nbCalBatches; //!< The number of batches for calibration
-    int calBatchSize; //!< The calibration batch size
-    std::string networkName;  //!< The name of the network
+    int nbCalBatches;        //!< The number of batches for calibration
+    int calBatchSize;        //!< The calibration batch size
+    std::string networkName; //!< The name of the network
 };
 
 //! \brief  The SampleINT8 class implements the INT8 sample
@@ -252,7 +252,8 @@ bool SampleINT8::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
         }
     }
 
-    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
+    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
+        builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
     if (!mEngine)
     {
         return false;
@@ -281,7 +282,7 @@ bool SampleINT8::infer(std::pair<float, float>& score, int firstScoreBatch, int 
     }
 
     MNISTBatchStream batchStream(
-        mParams.batchSize, nbScoreBatches, "train-images-idx3-ubyte", "train-labels-idx1-ubyte", mParams.dataDirs);
+        mParams.batchSize, nbScoreBatches + firstScoreBatch, "train-images-idx3-ubyte", "train-labels-idx1-ubyte", mParams.dataDirs);
     batchStream.skip(firstScoreBatch);
 
     Dims outputDims = context->getEngine().getBindingDimensions(
@@ -339,7 +340,7 @@ bool SampleINT8::infer(std::pair<float, float>& score, int firstScoreBatch, int 
         }
     }
 
-    int imagesRead = batchStream.getBatchesRead() * mParams.batchSize;
+    int imagesRead = (batchStream.getBatchesRead() - firstScoreBatch) * mParams.batchSize;
     score.first = float(top1) / float(imagesRead);
     score.second = float(top5) / float(imagesRead);
 
@@ -453,16 +454,16 @@ void printHelpInfo()
 
 int main(int argc, char** argv)
 {
-    if (argc >= 2 && (!strncmp(argv[1], "help", 4) || !strncmp(argv[1], "--help", 6) || !strncmp(argv[1], "--h", 3)))
+    if (argc >= 2 && (!strncmp(argv[1], "help", 4) || !strncmp(argv[1], "--help", 6) || !strncmp(argv[1], "--h", 3) || !strncmp(argv[1], "-h", 2)))
     {
         printHelpInfo();
         return EXIT_FAILURE;
     }
 
-    // By default we score over 40K images starting at 3200, so we don't score those used to search calibration
+    // By default we score over 57600 images starting at 512, so we don't score those used to search calibration
     int batchSize = 32;
-    int firstScoreBatch = 100;
-    int nbScoreBatches = 400;
+    int firstScoreBatch = 16;
+    int nbScoreBatches = 1800;
 
     // Parse extra arguments
     for (int i = 1; i < argc; ++i)
@@ -487,9 +488,9 @@ int main(int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-    if ((firstScoreBatch + nbScoreBatches) * batchSize > 500000)
+    if ((firstScoreBatch + nbScoreBatches) * batchSize > 60000)
     {
-        gLogError << "Only 50000 images available" << std::endl;
+        gLogError << "Only 60000 images available" << std::endl;
         return EXIT_FAILURE;
     }
 
@@ -517,7 +518,7 @@ int main(int argc, char** argv)
             if (!sample.isSupported(dataTypes[i]))
             {
                 gLogWarning << "Skipping " << dataTypeNames[i] << " since the platform does not support this data type."
-                    << std::endl;
+                            << std::endl;
                 continue;
             }
             return gLogger.reportFail(sampleTest);
@@ -529,7 +530,7 @@ int main(int argc, char** argv)
     }
 
     auto isApproximatelyEqual = [](float a, float b, double tolerance) { return (std::abs(a - b) <= tolerance); };
-    double fp16tolerance{0.5}, int8tolerance{1.0};
+    double fp16tolerance{0.5}, int8tolerance{0.01};
 
     if (scores[1].first != 0.0f && !isApproximatelyEqual(scores[0].first, scores[1].first, fp16tolerance))
     {

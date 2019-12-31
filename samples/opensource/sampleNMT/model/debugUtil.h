@@ -28,10 +28,10 @@
 namespace nmtSample
 {
 /** \class DebugUtil
-    *
-    * \brief container for static debug utility functions
-    *
-    */
+ *
+ * \brief container for static debug utility functions
+ *
+ */
 class DebugUtil
 {
 private:
@@ -48,7 +48,8 @@ private:
 
         nvinfer1::Dims getOutputDimensions(int index, const nvinfer1::Dims* inputs, int nbInputDims) override;
 
-        void configure(const nvinfer1::Dims* inputDims, int nbInputs, const nvinfer1::Dims* outputDims, int nbOutputs, int maxBatchSize) override;
+        void configure(const nvinfer1::Dims* inputDims, int nbInputs, const nvinfer1::Dims* outputDims, int nbOutputs,
+            int maxBatchSize) override;
 
         int initialize() override;
 
@@ -56,7 +57,8 @@ private:
 
         size_t getWorkspaceSize(int maxBatchSize) const override;
 
-        int enqueue(int batchSize, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream) override;
+        int enqueue(
+            int batchSize, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream) override;
 
         size_t getSerializationSize() override;
 
@@ -71,11 +73,8 @@ private:
     };
 
 public:
-    static void addDumpTensorToStream(
-        nvinfer1::INetworkDefinition* network,
-        nvinfer1::ITensor* input,
-        nvinfer1::ITensor** output,
-        std::shared_ptr<std::ostream> out);
+    static void addDumpTensorToStream(nvinfer1::INetworkDefinition* network, nvinfer1::ITensor* input,
+        nvinfer1::ITensor** output, std::shared_ptr<std::ostream> out);
 
 private:
     static std::list<DumpTensorPlugin::ptr> mPlugins;

@@ -376,7 +376,7 @@ const PluginFieldCollection* GridAnchorPluginCreator::getFieldNames()
 
 IPluginV2Ext* GridAnchorPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
 {
-    float minScale = 0.2f, maxScale = 0.95f;
+    float minScale = 0.2F, maxScale = 0.95F;
     int numLayers = 6;
     std::vector<float> aspectRatios;
     std::vector<int> fMapShapes;
@@ -385,7 +385,6 @@ IPluginV2Ext* GridAnchorPluginCreator::createPlugin(const char* name, const Plug
     for (int i = 0; i < fc->nbFields; ++i)
     {
         const char* attrName = fields[i].name;
-
         if (!strcmp(attrName, "numLayers"))
         {
             ASSERT(fields[i].type == PluginFieldType::kINT32);
@@ -461,17 +460,14 @@ IPluginV2Ext* GridAnchorPluginCreator::createPlugin(const char* name, const Plug
         // Only the first layer is different
         if (i == 0)
         {
-            boxParams[i] = {minScale, maxScale, firstLayerAspectRatios.data(), (int) firstLayerAspectRatios.size(), fMapShapes[i], fMapShapes[i], {layerVariances[0], layerVariances[1], layerVariances[2], layerVariances[3]}};
+            boxParams[i] = {minScale, maxScale, firstLayerAspectRatios.data(), (int) firstLayerAspectRatios.size(),
+                fMapShapes[i], fMapShapes[i],
+                {layerVariances[0], layerVariances[1], layerVariances[2], layerVariances[3]}};
         }
         else
         {
-            boxParams[i] = {minScale,
-                            maxScale,
-                            aspectRatios.data(),
-                            (int) aspectRatios.size(),
-                            fMapShapes[i],
-                            fMapShapes[i],
-                            {layerVariances[0], layerVariances[1], layerVariances[2], layerVariances[3]}};
+            boxParams[i] = {minScale, maxScale, aspectRatios.data(), (int) aspectRatios.size(), fMapShapes[i],
+                fMapShapes[i], {layerVariances[0], layerVariances[1], layerVariances[2], layerVariances[3]}};
         }
     }
 

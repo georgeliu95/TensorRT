@@ -34,7 +34,8 @@ std::string DataWriter::generateText(int sequenceLength, const int* currentOutpu
         if (id != vocabulary->getEndSequenceId())
         {
             std::string token = vocabulary->getToken(id);
-            if ((token.size() >= delimiterSize) && (token.compare(token.size() - delimiterSize, delimiterSize, delimiter) == 0))
+            if ((token.size() >= delimiterSize)
+                && (token.compare(token.size() - delimiterSize, delimiterSize, delimiter) == 0))
             {
                 word = word + token.erase(token.size() - delimiterSize, delimiterSize);
             }

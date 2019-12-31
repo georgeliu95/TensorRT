@@ -25,20 +25,16 @@
 namespace nmtSample
 {
 /** \class TextReader
-    *
-    * \brief reads sequences of data from input stream
-    *
-    */
+ *
+ * \brief reads sequences of data from input stream
+ *
+ */
 class TextReader : public DataReader
 {
 public:
     TextReader(std::shared_ptr<std::istream> textInput, Vocabulary::ptr vocabulary);
 
-    int read(
-        int samplesToRead,
-        int maxInputSequenceLength,
-        int* hInputData,
-        int* hActualInputSequenceLengths) override;
+    int read(int samplesToRead, int maxInputSequenceLength, int* hInputData, int* hActualInputSequenceLengths) override;
 
     void reset() override;
 

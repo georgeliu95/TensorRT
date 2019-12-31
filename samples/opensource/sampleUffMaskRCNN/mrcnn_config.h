@@ -23,7 +23,7 @@ using namespace nvinfer1;
 
 namespace MaskRCNNConfig
 {
-static const nvinfer1::DimsCHW IMAGE_SHAPE{3, 1024, 1024};
+static const nvinfer1::Dims3 IMAGE_SHAPE{3, 1024, 1024};
 
 // Pooled ROIs
 static const int POOL_SIZE = 7;
@@ -84,21 +84,94 @@ static const int POST_NMS_ROIS_INFERENCE = 1000;
 
 // COCO Class names
 static const std::vector<std::string> CLASS_NAMES = {
-    "BG", "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
-    "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant",
-    "bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard",
-    "sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle",
-    "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli",
-    "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch", "potted plant", "bed", "dining table", "toilet",
-    "tv", "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator",
-    "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush",
+    "BG",
+    "person",
+    "bicycle",
+    "car",
+    "motorcycle",
+    "airplane",
+    "bus",
+    "train",
+    "truck",
+    "boat",
+    "traffic light",
+    "fire hydrant",
+    "stop sign",
+    "parking meter",
+    "bench",
+    "bird",
+    "cat",
+    "dog",
+    "horse",
+    "sheep",
+    "cow",
+    "elephant",
+    "bear",
+    "zebra",
+    "giraffe",
+    "backpack",
+    "umbrella",
+    "handbag",
+    "tie",
+    "suitcase",
+    "frisbee",
+    "skis",
+    "snowboard",
+    "sports ball",
+    "kite",
+    "baseball bat",
+    "baseball glove",
+    "skateboard",
+    "surfboard",
+    "tennis racket",
+    "bottle",
+    "wine glass",
+    "cup",
+    "fork",
+    "knife",
+    "spoon",
+    "bowl",
+    "banana",
+    "apple",
+    "sandwich",
+    "orange",
+    "broccoli",
+    "carrot",
+    "hot dog",
+    "pizza",
+    "donut",
+    "cake",
+    "chair",
+    "couch",
+    "potted plant",
+    "bed",
+    "dining table",
+    "toilet",
+    "tv",
+    "laptop",
+    "mouse",
+    "remote",
+    "keyboard",
+    "cell phone",
+    "microwave",
+    "oven",
+    "toaster",
+    "sink",
+    "refrigerator",
+    "book",
+    "clock",
+    "vase",
+    "scissors",
+    "teddy bear",
+    "hair drier",
+    "toothbrush",
 };
 
 static const std::string MODEL_NAME = "mrcnn_nchw.uff";
 static const std::string MODEL_INPUT = "input_image";
-static const DimsCHW MODEL_INPUT_SHAPE = IMAGE_SHAPE;
+static const Dims3 MODEL_INPUT_SHAPE = IMAGE_SHAPE;
 static const std::vector<std::string> MODEL_OUTPUTS = {"mrcnn_detection", "mrcnn_mask/Sigmoid"};
 static const Dims2 MODEL_DETECTION_SHAPE{DETECTION_MAX_INSTANCES, 6};
 static const Dims4 MODEL_MASK_SHAPE{DETECTION_MAX_INSTANCES, NUM_CLASSES, 28, 28};
-}
+} // namespace MaskRCNNConfig
 #endif

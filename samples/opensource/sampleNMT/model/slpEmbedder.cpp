@@ -30,19 +30,19 @@ SLPEmbedder::SLPEmbedder(ComponentWeights::ptr weights)
     mKernelWeights.type = static_cast<nvinfer1::DataType>(mWeights->mMetaData[0]);
     assert(mKernelWeights.type == nvinfer1::DataType::kFLOAT);
     // Resize dimensions to be multiples of gPadMultiple for performance
-    mNumInputs = samplesCommon::roundUp(mWeights->mMetaData[1], gPadMultiple); // matches projection output channels
+    mNumInputs = samplesCommon::roundUp(mWeights->mMetaData[1], gPadMultiple);  // matches projection output channels
     mNumOutputs = samplesCommon::roundUp(mWeights->mMetaData[2], gPadMultiple); // matches projection input channels
-    mResizedKernelWeights = resizeWeights(mWeights->mMetaData[1], mWeights->mMetaData[2], mNumInputs, mNumOutputs, (const float*) &mWeights->mWeights[0]);
+    mResizedKernelWeights = resizeWeights(
+        mWeights->mMetaData[1], mWeights->mMetaData[2], mNumInputs, mNumOutputs, (const float*) &mWeights->mWeights[0]);
     mKernelWeights.values = mResizedKernelWeights.data();
     mKernelWeights.count = mNumInputs * mNumOutputs;
 }
 
 void SLPEmbedder::addToModel(
-    nvinfer1::INetworkDefinition* network,
-    nvinfer1::ITensor* input,
-    nvinfer1::ITensor** output)
+    nvinfer1::INetworkDefinition* network, nvinfer1::ITensor* input, nvinfer1::ITensor** output)
 {
-    nvinfer1::Dims weightDims{2, {mNumInputs, mNumOutputs}, {nvinfer1::DimensionType::kCHANNEL, nvinfer1::DimensionType::kCHANNEL}};
+    nvinfer1::Dims weightDims{
+        2, {mNumInputs, mNumOutputs}, {nvinfer1::DimensionType::kCHANNEL, nvinfer1::DimensionType::kCHANNEL}};
     auto constLayer = network->addConstant(weightDims, mKernelWeights);
     assert(constLayer != nullptr);
     constLayer->setName("Embedding matrix");

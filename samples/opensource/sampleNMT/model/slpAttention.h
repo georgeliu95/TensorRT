@@ -24,23 +24,20 @@
 namespace nmtSample
 {
 /** \class SLPAttention
-    *
-    * \brief Linear attention calculation
-    *
-    * Calculates attention vector by concatinating input from the decoder with context vector
-    * and projecting the result into attention space by multiplying with weight matrix  
-    *
-    */
+ *
+ * \brief Linear attention calculation
+ *
+ * Calculates attention vector by concatinating input from the decoder with context vector
+ * and projecting the result into attention space by multiplying with weight matrix
+ *
+ */
 class SLPAttention : public Attention
 {
 public:
     SLPAttention(ComponentWeights::ptr weights);
 
-    void addToModel(
-        nvinfer1::INetworkDefinition* network,
-        nvinfer1::ITensor* inputFromDecoder,
-        nvinfer1::ITensor* context,
-        nvinfer1::ITensor** attentionOutput) override;
+    void addToModel(nvinfer1::INetworkDefinition* network, nvinfer1::ITensor* inputFromDecoder,
+        nvinfer1::ITensor* context, nvinfer1::ITensor** attentionOutput) override;
 
     int getAttentionSize() override;
 

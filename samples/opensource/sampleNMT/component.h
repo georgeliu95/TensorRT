@@ -23,18 +23,18 @@
 namespace nmtSample
 {
 /** \class Component
-    *
-    * \brief a functional part of the sample 
-    *
-    */
+ *
+ * \brief a functional part of the sample
+ *
+ */
 class Component
 {
 public:
     typedef std::shared_ptr<Component> ptr;
 
     /**
-        * \brief get the textual description of the component
-        */
+     * \brief get the textual description of the component
+     */
     virtual std::string getInfo() = 0;
 
 protected:

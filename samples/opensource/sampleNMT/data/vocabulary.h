@@ -27,10 +27,10 @@
 namespace nmtSample
 {
 /** \class Vocabulary
-    *
-    * \brief String<->Id bijection storage
-    *
-    */
+ *
+ * \brief String<->Id bijection storage
+ *
+ */
 class Vocabulary : public SequenceProperties
 {
 public:
@@ -41,23 +41,23 @@ public:
     friend std::istream& operator>>(std::istream& input, Vocabulary& value);
 
     /**
-        * \brief add new token to vocabulary, ID is auto-generated
-        */
+     * \brief add new token to vocabulary, ID is auto-generated
+     */
     void add(const std::string& token);
 
     /**
-        * \brief get the ID of the token
-        */
+     * \brief get the ID of the token
+     */
     int getId(const std::string& token) const;
 
     /**
-        * \brief get token by ID
-        */
+     * \brief get token by ID
+     */
     std::string getToken(int id) const;
 
     /**
-        * \brief get the number of elements in the vocabulary
-        */
+     * \brief get the number of elements in the vocabulary
+     */
     int getSize() const;
 
     int getStartSequenceId() override;

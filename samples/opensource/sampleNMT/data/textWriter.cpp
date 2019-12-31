@@ -27,22 +27,15 @@ TextWriter::TextWriter(std::shared_ptr<std::ostream> textOnput, Vocabulary::ptr 
 {
 }
 
-void TextWriter::write(
-    const int* hOutputData,
-    int actualOutputSequenceLength,
-    int actualInputSequenceLength)
+void TextWriter::write(const int* hOutputData, int actualOutputSequenceLength, int actualInputSequenceLength)
 {
     // if clean and handle BPE outputs is required
     *mOutput << DataWriter::generateText(actualOutputSequenceLength, hOutputData, mVocabulary) << "\n";
 }
 
-void TextWriter::initialize()
-{
-}
+void TextWriter::initialize() {}
 
-void TextWriter::finalize()
-{
-}
+void TextWriter::finalize() {}
 
 std::string TextWriter::getInfo()
 {

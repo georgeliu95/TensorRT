@@ -14,6 +14,11 @@
  * limitations under the License.
  */
 
+#ifndef _MSC_VER
+#include <unistd.h>
+#include <sys/time.h>
+#endif
+
 #include <assert.h>
 #include <chrono>
 #include <ctime>
@@ -23,7 +28,6 @@
 #include <sstream>
 #include <stdlib.h>
 #include <sys/stat.h>
-#include <sys/time.h>
 #include <time.h>
 #include <vector>
 
@@ -37,9 +41,6 @@
 
 // max
 #include <algorithm>
-
-// data type
-#include <unistd.h>
 
 // MaskRCNN Parameter
 #include "mrcnn_config.h"
@@ -297,7 +298,7 @@ void addBBoxPPM(PPM<uint8_t>& ppm, const BBoxInfo& box, const PPM<uint8_t>& resi
         maskPPM(ppm, resized_mask, x1, y1, color);
     }
 }
-} // end of Maskrcnnutils namespace
+} // namespace MaskRCNNUtils
 
 struct SampleMaskRCNNParams : public samplesCommon::SampleParams
 {
@@ -337,8 +338,8 @@ private:
 
     std::shared_ptr<nvinfer1::ICudaEngine> mEngine;
 
-    bool constructNetwork(SampleUniquePtr<nvuffparser::IUffParser>& parser,
-        SampleUniquePtr<nvinfer1::INetworkDefinition>& network);
+    bool constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
+        SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvuffparser::IUffParser>& parser);
 
     bool processInput(const samplesCommon::BufferManager& buffers);
 
@@ -362,39 +363,14 @@ bool SampleMaskRCNN::build()
         return false;
     }
 
-    auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
-    if (!config)
-    {
-        return false;
-    }
-
     auto parser = SampleUniquePtr<nvuffparser::IUffParser>(nvuffparser::createUffParser());
     if (!parser)
     {
         return false;
     }
 
-    auto constructed = constructNetwork(parser, network);
+    auto constructed = constructNetwork(builder, network, parser);
     if (!constructed)
-    {
-        return false;
-    }
-
-    builder->setMaxBatchSize(mParams.batchSize);
-    config->setMaxWorkspaceSize(2_GiB);
-    if (mParams.fp16)
-    {
-        config->setFlag(BuilderFlag::kFP16);
-    }
-    if (mParams.int8)
-    {
-        samplesCommon::setAllTensorScales(network.get());
-        config->setFlag(BuilderFlag::kINT8);
-    }
-
-    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
-    if (!mEngine)
     {
         return false;
     }
@@ -408,8 +384,8 @@ bool SampleMaskRCNN::build()
     return true;
 }
 
-bool SampleMaskRCNN::constructNetwork(SampleUniquePtr<nvuffparser::IUffParser>& parser,
-    SampleUniquePtr<nvinfer1::INetworkDefinition>& network)
+bool SampleMaskRCNN::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
+    SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvuffparser::IUffParser>& parser)
 {
     parser->registerInput(
         mParams.inputTensorNames[0].c_str(), MaskRCNNConfig::IMAGE_SHAPE, nvuffparser::UffInputOrder::kNCHW);
@@ -418,6 +394,23 @@ bool SampleMaskRCNN::constructNetwork(SampleUniquePtr<nvuffparser::IUffParser>& 
 
     auto parsed = parser->parse(locateFile(mParams.uffFileName, mParams.dataDirs).c_str(), *network, DataType::kFLOAT);
     if (!parsed)
+    {
+        return false;
+    }
+
+    builder->setMaxBatchSize(mParams.batchSize);
+    builder->setMaxWorkspaceSize(2_GiB);
+    builder->setFp16Mode(mParams.fp16);
+
+    // Only for speed test
+    if (mParams.int8)
+    {
+        samplesCommon::setAllTensorScales(network.get());
+        builder->setInt8Mode(true);
+    }
+
+    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(builder->buildCudaEngine(*network), samplesCommon::InferDeleter());
+    if (!mEngine)
     {
         return false;
     }
@@ -446,7 +439,16 @@ bool SampleMaskRCNN::infer()
     // Memcpy from host input buffers to device input buffers
     buffers.copyInputToDevice();
 
-    bool status = context->execute(mParams.batchSize, buffers.getDeviceBindings().data());
+    auto tStart = std::chrono::high_resolution_clock::now();
+    bool status;
+    for (int i = 0; i < 10; i++)
+    {
+        status = context->execute(mParams.batchSize, buffers.getDeviceBindings().data());
+    }
+    auto tEnd = std::chrono::high_resolution_clock::now();
+    float totalHost = std::chrono::duration<float, std::milli>(tEnd - tStart).count();
+    gLogInfo << "Run for 10 times with Batch Size " << mParams.batchSize << std::endl;
+    gLogInfo << "Average inference time is " << (totalHost / 10) / mParams.batchSize << " ms/frame" << std::endl;
 
     if (!status)
     {
@@ -482,7 +484,13 @@ bool SampleMaskRCNN::processInput(const samplesCommon::BufferManager& buffers)
     const int batchSize = mParams.batchSize;
 
     // Available images
-    std::vector<std::string> imageList = {"boeing-537006_1280.ppm", "cat-1506960_960_720.ppm"};
+    std::vector<std::string> imageListCandidates = {"001763.ppm", "004545.ppm"};
+    std::vector<std::string> imageList;
+    for (int i = 0; i < batchSize; i++)
+    {
+        imageList.push_back(imageListCandidates[i % 2]);
+    }
+
     mPPMs.resize(batchSize);
     mOriginalPPMs.resize(batchSize);
     assert(mPPMs.size() <= imageList.size());
@@ -579,12 +587,12 @@ bool SampleMaskRCNN::verifyOutput(const samplesCommon::BufferManager& buffers)
             const auto resized_mask = MaskRCNNUtils::resizeMask(binfo[roi_id], mParams.maskThreshold); // mask threshold
             MaskRCNNUtils::addBBoxPPM(mOriginalPPMs[p], binfo[roi_id], resized_mask);
 
-            gLogInfo<<"Detected "<< MaskRCNNConfig::CLASS_NAMES[binfo[roi_id].label]<<" in"
-                    <<mOriginalPPMs[p].fileName<<" with confidence "<<binfo[roi_id].prob * 100.f
-                    <<" and coordinates ("<<binfo[roi_id].box.x1<<", "<<binfo[roi_id].box.y1<<", "  
-                    <<binfo[roi_id].box.x2<<", "<<binfo[roi_id].box.y2<<")"<<std::endl;
+            gLogInfo << "Detected " << MaskRCNNConfig::CLASS_NAMES[binfo[roi_id].label] << " in"
+                     << mOriginalPPMs[p].fileName << " with confidence " << binfo[roi_id].prob * 100.f
+                     << " and coordinates (" << binfo[roi_id].box.x1 << ", " << binfo[roi_id].box.y1 << ", "
+                     << binfo[roi_id].box.x2 << ", " << binfo[roi_id].box.y2 << ")" << std::endl;
         }
-        gLogInfo<<"The results are stored in current directory: "<<std::to_string(p) + ".ppm"<<std::endl;
+        gLogInfo << "The results are stored in current directory: " << std::to_string(p) + ".ppm" << std::endl;
         MaskRCNNUtils::writePPMFile(std::to_string(p) + ".ppm", mOriginalPPMs[p]);
     }
 
@@ -607,7 +615,7 @@ SampleMaskRCNNParams initializeSampleParams(const samplesCommon::Args& args)
     }
 
     params.inputTensorNames.push_back(MaskRCNNConfig::MODEL_INPUT);
-    params.batchSize = 2;
+    params.batchSize = args.batch;
     params.outputTensorNames.push_back(MaskRCNNConfig::MODEL_OUTPUTS[0]);
     params.outputTensorNames.push_back(MaskRCNNConfig::MODEL_OUTPUTS[1]);
     params.dlaCore = args.useDLACore;
@@ -622,15 +630,14 @@ SampleMaskRCNNParams initializeSampleParams(const samplesCommon::Args& args)
 
 void printHelpInfo()
 {
-    std::cout
-        << "Usage: ./sample_maskRCNN [-h or --help] [-d or --datadir=<path to data directory>]"
-        << std::endl;
+    std::cout << "Usage: ./sample_maskRCNN [-h or --help] [-d or --datadir=<path to data directory>]" << std::endl;
     std::cout << "--help          Display help information" << std::endl;
     std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used "
                  "multiple times to add multiple directories. If no data directories are given, the default is to use "
                  "data/samples/maskrcnn/ and data/maskrcnn/"
               << std::endl;
     std::cout << "--fp16          Specify to run in fp16 mode." << std::endl;
+    std::cout << "--batch         Specify inference batch size." << std::endl;
 }
 
 int main(int argc, char** argv)

@@ -86,7 +86,8 @@ private:
 
     int mNumber{0}; //!< The number to classify
 
-    std::map<std::string, std::pair<nvinfer1::Dims, nvinfer1::Weights>> mWeightMap; //!< The weight name to weight value map
+    std::map<std::string, std::pair<nvinfer1::Dims, nvinfer1::Weights>>
+        mWeightMap; //!< The weight name to weight value map
 
     std::shared_ptr<nvinfer1::ICudaEngine> mEngine; //!< The TensorRT engine used to run the network
 
@@ -124,13 +125,8 @@ private:
     //!
     //! \brief Add an MLP layer
     //!
-    nvinfer1::ILayer* addMLPLayer(nvinfer1::INetworkDefinition* network,
-                                  nvinfer1::ITensor& inputTensor,
-                                  int32_t hiddenSize,
-                                  nvinfer1::Weights wts,
-                                  nvinfer1::Weights bias,
-                                  nvinfer1::ActivationType actType,
-                                  int idx);
+    nvinfer1::ILayer* addMLPLayer(nvinfer1::INetworkDefinition* network, nvinfer1::ITensor& inputTensor,
+        int32_t hiddenSize, nvinfer1::Weights wts, nvinfer1::Weights bias, nvinfer1::ActivationType actType, int idx);
 };
 
 //!
@@ -192,7 +188,8 @@ bool SampleMLP::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
 {
     // FC layers must still have 3 dimensions, so we create a {C, 1, 1,} matrix.
     // Currently the mnist example is only trained in FP32 mode.
-    auto input = network->addInput(mParams.inputTensorNames[0].c_str(), nvinfer1::DataType::kFLOAT, nvinfer1::Dims3{(mParams.inputH * mParams.inputW), 1, 1});
+    auto input = network->addInput(mParams.inputTensorNames[0].c_str(), nvinfer1::DataType::kFLOAT,
+        nvinfer1::Dims3{(mParams.inputH * mParams.inputW), 1, 1});
     assert(input != nullptr);
 
     for (int i = 0; i < 2; ++i)
@@ -202,13 +199,15 @@ bool SampleMLP::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
         biasStr << "hiddenBias" << i;
         // Transpose hidden layer weights
         transposeWeights(mWeightMap[weightStr.str()].second, 256);
-        auto mlpLayer = addMLPLayer(network.get(), *input, 256, mWeightMap[weightStr.str()].second, mWeightMap[biasStr.str()].second, nvinfer1::ActivationType::kSIGMOID, i);
+        auto mlpLayer = addMLPLayer(network.get(), *input, 256, mWeightMap[weightStr.str()].second,
+            mWeightMap[biasStr.str()].second, nvinfer1::ActivationType::kSIGMOID, i);
         input = mlpLayer->getOutput(0);
     }
     // Transpose output layer weights
     transposeWeights(mWeightMap["outputWeights"].second, mParams.outputSize);
 
-    auto finalLayer = addMLPLayer(network.get(), *input, mParams.outputSize, mWeightMap["outputWeights"].second, mWeightMap["outputBias"].second, nvinfer1::ActivationType::kSIGMOID, -1);
+    auto finalLayer = addMLPLayer(network.get(), *input, mParams.outputSize, mWeightMap["outputWeights"].second,
+        mWeightMap["outputBias"].second, nvinfer1::ActivationType::kSIGMOID, -1);
     assert(finalLayer != nullptr);
     // Run topK to get the final result
     auto topK = network->addTopK(*finalLayer->getOutput(0), nvinfer1::TopKOperation::kMAX, 1, 0x1);
@@ -235,7 +234,8 @@ bool SampleMLP::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
 
     samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
 
-    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
+    mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
+        builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
     if (!mEngine)
     {
         return false;
@@ -299,7 +299,8 @@ bool SampleMLP::processInput(const samplesCommon::BufferManager& buffers)
     mNumber = rand() % mParams.outputSize;
     std::vector<uint8_t> fileData(mParams.inputH * mParams.inputW);
     // read a random digit file from the data directory for use as input.
-    readPGMFile(locateFile(std::to_string(mNumber) + ".pgm", mParams.dataDirs), fileData.data(), mParams.inputH, mParams.inputW);
+    readPGMFile(locateFile(std::to_string(mNumber) + ".pgm", mParams.dataDirs), fileData.data(), mParams.inputH,
+        mParams.inputW);
 
     // print the ascii representation of the file that was loaded.
     gLogInfo << "Input:\n";
@@ -455,11 +456,8 @@ nvinfer1::Dims SampleMLP::loadShape(std::ifstream& input)
     assert(shapeDim.size() <= shape.MAX_DIMS);
     assert(shapeDim.size() > 0);
     assert(shape.nbDims == 0);
-    std::for_each(shapeDim.begin(),
-                  shapeDim.end(),
-                  [&](std::string& val) {
-                      shape.d[shape.nbDims++] = std::stoi(val);
-                  });
+    std::for_each(
+        shapeDim.begin(), shapeDim.end(), [&](std::string& val) { shape.d[shape.nbDims++] = std::stoi(val); });
     return shape;
 }
 
@@ -495,13 +493,8 @@ void SampleMLP::transposeWeights(nvinfer1::Weights& wts, int hiddenSize)
 //!     MLP layer. By replacing the implementation of this sequence with various implementations, then
 //!     then it can be shown how TensorRT optimizations those layer sequences.
 //!
-nvinfer1::ILayer* SampleMLP::addMLPLayer(nvinfer1::INetworkDefinition* network,
-                                         nvinfer1::ITensor& inputTensor,
-                                         int32_t hiddenSize,
-                                         nvinfer1::Weights wts,
-                                         nvinfer1::Weights bias,
-                                         nvinfer1::ActivationType actType,
-                                         int idx)
+nvinfer1::ILayer* SampleMLP::addMLPLayer(nvinfer1::INetworkDefinition* network, nvinfer1::ITensor& inputTensor,
+    int32_t hiddenSize, nvinfer1::Weights wts, nvinfer1::Weights bias, nvinfer1::ActivationType actType, int idx)
 {
     std::string baseName("MLP Layer" + (idx == -1 ? "Output" : std::to_string(idx)));
     auto fc = network->addFullyConnected(inputTensor, hiddenSize, wts, bias);
@@ -552,10 +545,16 @@ SampleMLPParams initializeSampleParams(const samplesCommon::Args& args)
 //!
 void printHelpInfo()
 {
-    std::cout << "Usage: ./sample_mlp [-h or --help] [-d or --datadir=<path to data directory>] [--useDLACore=<int>]" << std::endl;
+    std::cout << "Usage: ./sample_mlp [-h or --help] [-d or --datadir=<path to data directory>] [--useDLACore=<int>]"
+              << std::endl;
     std::cout << "--help          Display help information" << std::endl;
-    std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used multiple times to add multiple directories. If no data directories are given, the default is to use (data/samples/mlp/, data/mlp/)" << std::endl;
-    std::cout << "--useDLACore=N  Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, where n is the number of DLA engines on the platform." << std::endl;
+    std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used "
+                 "multiple times to add multiple directories. If no data directories are given, the default is to use "
+                 "(data/samples/mlp/, data/mlp/)"
+              << std::endl;
+    std::cout << "--useDLACore=N  Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, "
+                 "where n is the number of DLA engines on the platform."
+              << std::endl;
     std::cout << "--int8          Run in Int8 mode." << std::endl;
     std::cout << "--fp16          Run in FP16 mode." << std::endl;
 }

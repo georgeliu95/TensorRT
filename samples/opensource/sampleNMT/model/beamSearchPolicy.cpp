@@ -16,7 +16,7 @@
 
 #include "beamSearchPolicy.h"
 #ifdef _MSC_VER
-//Macro definition needed to avoid name collision with std::min/max and Windows.h min/max
+// Macro definition needed to avoid name collision with std::min/max and Windows.h min/max
 #define NOMINMAX
 #endif
 #include <algorithm>
@@ -27,18 +27,14 @@
 namespace nmtSample
 {
 BeamSearchPolicy::BeamSearchPolicy(
-    int endSequenceId,
-    LikelihoodCombinationOperator::ptr likelihoodCombinationOperator,
-    int beamWidth)
+    int endSequenceId, LikelihoodCombinationOperator::ptr likelihoodCombinationOperator, int beamWidth)
     : mEndSequenceId(endSequenceId)
     , mLikelihoodCombinationOperator(likelihoodCombinationOperator)
     , mBeamWidth(beamWidth)
 {
 }
 
-void BeamSearchPolicy::initialize(
-    int sampleCount,
-    int* maxOutputSequenceLengths)
+void BeamSearchPolicy::initialize(int sampleCount, int* maxOutputSequenceLengths)
 {
     mSampleCount = sampleCount;
     mMaxOutputSequenceLengths.resize(mSampleCount);
@@ -56,16 +52,12 @@ void BeamSearchPolicy::initialize(
 
     mCandidates.resize(mSampleCount);
     mCandidateLikelihoods.resize(mSampleCount);
-    std::fill(mCandidateLikelihoods.begin(), mCandidateLikelihoods.end(), mLikelihoodCombinationOperator->smallerThanMinimalLikelihood());
+    std::fill(mCandidateLikelihoods.begin(), mCandidateLikelihoods.end(),
+        mLikelihoodCombinationOperator->smallerThanMinimalLikelihood());
 }
 
-void BeamSearchPolicy::processTimestep(
-    int validSampleCount,
-    const float* hCombinedLikelihoods,
-    const int* hVocabularyIndices,
-    const int* hRayOptionIndices,
-    int* hSourceRayIndices,
-    float* hSourceLikelihoods)
+void BeamSearchPolicy::processTimestep(int validSampleCount, const float* hCombinedLikelihoods,
+    const int* hVocabularyIndices, const int* hRayOptionIndices, int* hSourceRayIndices, float* hSourceLikelihoods)
 {
     ++mTimestepId;
     mBeamSearchTable.resize(mTimestepId * mSampleCount * mBeamWidth);
@@ -135,18 +127,14 @@ int BeamSearchPolicy::getTailWithNoWorkRemaining()
 }
 
 void BeamSearchPolicy::readGeneratedResult(
-    int sampleCount,
-    int maxOutputSequenceLength,
-    int* hOutputData,
-    int* hActualOutputSequenceLengths)
+    int sampleCount, int maxOutputSequenceLength, int* hOutputData, int* hActualOutputSequenceLengths)
 {
     for (int sampleId = 0; sampleId < sampleCount; ++sampleId)
     {
         if (mCandidateLikelihoods[sampleId] > mLikelihoodCombinationOperator->smallerThanMinimalLikelihood())
         {
             // We have a candidate (finished sequence)
-            std::copy_n(
-                mCandidates[sampleId].begin(),
+            std::copy_n(mCandidates[sampleId].begin(),
                 std::min(static_cast<int>(mCandidates[sampleId].size()), maxOutputSequenceLength),
                 hOutputData + sampleId * maxOutputSequenceLength);
             hActualOutputSequenceLengths[sampleId] = mCandidates[sampleId].size();
@@ -155,18 +143,15 @@ void BeamSearchPolicy::readGeneratedResult(
         {
             // We don't have a finished sequence generated, will output the unfinished one with the highest likelihood
             assert(mValidSamples[sampleId]);
-            backtrack(mTimestepId - 1, sampleId, 0, hOutputData + sampleId * maxOutputSequenceLength, maxOutputSequenceLength - 1);
+            backtrack(mTimestepId - 1, sampleId, 0, hOutputData + sampleId * maxOutputSequenceLength,
+                maxOutputSequenceLength - 1);
             hActualOutputSequenceLengths[sampleId] = mTimestepId;
         }
     }
 }
 
 void BeamSearchPolicy::backtrack(
-    int lastTimestepId,
-    int sampleId,
-    int lastTimestepRayId,
-    int* hOutputData,
-    int lastTimestepWriteId) const
+    int lastTimestepId, int sampleId, int lastTimestepRayId, int* hOutputData, int lastTimestepWriteId) const
 {
     int rayId = lastTimestepRayId;
     for (int timestepId = lastTimestepId; timestepId >= 0; --timestepId)

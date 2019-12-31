@@ -29,11 +29,7 @@ TextReader::TextReader(std::shared_ptr<std::istream> textInput, Vocabulary::ptr 
 {
 }
 
-int TextReader::read(
-    int samplesToRead,
-    int maxInputSequenceLength,
-    int* hInputData,
-    int* hActualInputSequenceLengths)
+int TextReader::read(int samplesToRead, int maxInputSequenceLength, int* hInputData, int* hActualInputSequenceLengths)
 {
     std::setlocale(LC_ALL, "en_US.UTF-8");
     std::string line;
@@ -53,7 +49,8 @@ int TextReader::read(
         hActualInputSequenceLengths[lineCounter] = tokenCounter;
 
         // Fill unused values with valid vocabulary ID, it doesn't necessary have to be eos
-        std::fill(hInputData + maxInputSequenceLength * lineCounter + tokenCounter, hInputData + maxInputSequenceLength * (lineCounter + 1), mVocabulary->getEndSequenceId());
+        std::fill(hInputData + maxInputSequenceLength * lineCounter + tokenCounter,
+            hInputData + maxInputSequenceLength * (lineCounter + 1), mVocabulary->getEndSequenceId());
 
         lineCounter++;
     }

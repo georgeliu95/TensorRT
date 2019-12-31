@@ -23,7 +23,7 @@ include(../../CMakeSamplesTemplate.txt)
 set(SAMPLE_NMT_MODEL_SOURCES 
     model/beamSearchPolicy.cpp
     model/componentWeights.cpp
-    model/context.cpp
+    model/contextNMT.cpp
     model/debugUtil.cpp
     model/lstmDecoder.cpp
     model/lstmEncoder.cpp

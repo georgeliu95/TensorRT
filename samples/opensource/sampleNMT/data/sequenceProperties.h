@@ -22,10 +22,10 @@
 namespace nmtSample
 {
 /** \class SequenceProperties
-    *
-    * \brief provides encoder/decoder relevant properties of sequences
-    *
-    */
+ *
+ * \brief provides encoder/decoder relevant properties of sequences
+ *
+ */
 class SequenceProperties
 {
 public:

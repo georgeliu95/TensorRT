@@ -29,19 +29,17 @@ extern int gPadMultiple;
 namespace nmtSample
 {
 /** \class SLPEmbedder
-    *
-    * \brief selects the embedding vector from the weight matrix using index provided in the input
-    *
-    */
+ *
+ * \brief selects the embedding vector from the weight matrix using index provided in the input
+ *
+ */
 class SLPEmbedder : public Embedder
 {
 public:
     SLPEmbedder(ComponentWeights::ptr weights);
 
     void addToModel(
-        nvinfer1::INetworkDefinition* network,
-        nvinfer1::ITensor* input,
-        nvinfer1::ITensor** output) override;
+        nvinfer1::INetworkDefinition* network, nvinfer1::ITensor* input, nvinfer1::ITensor** output) override;
 
     int getInputDimensionSize() override;
 

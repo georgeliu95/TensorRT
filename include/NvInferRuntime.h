@@ -1,50 +1,17 @@
 /*
- * Copyright 1993-2019 NVIDIA Corporation.  All rights reserved.
+ * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
  *
- * NOTICE TO LICENSEE:
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- * This source code and/or documentation ("Licensed Deliverables") are
- * subject to NVIDIA intellectual property rights under U.S. and
- * international Copyright laws.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * These Licensed Deliverables contained herein is PROPRIETARY and
- * CONFIDENTIAL to NVIDIA and is being provided under the terms and
- * conditions of a form of NVIDIA software license agreement by and
- * between NVIDIA and Licensee ("License Agreement") or electronically
- * accepted by Licensee.  Notwithstanding any terms or conditions to
- * the contrary in the License Agreement, reproduction or disclosure
- * of the Licensed Deliverables to any third party without the express
- * written consent of NVIDIA is prohibited.
- *
- * NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
- * LICENSE AGREEMENT, NVIDIA MAKES NO REPRESENTATION ABOUT THE
- * SUITABILITY OF THESE LICENSED DELIVERABLES FOR ANY PURPOSE.  IT IS
- * PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND.
- * NVIDIA DISCLAIMS ALL WARRANTIES WITH REGARD TO THESE LICENSED
- * DELIVERABLES, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY,
- * NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE.
- * NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
- * LICENSE AGREEMENT, IN NO EVENT SHALL NVIDIA BE LIABLE FOR ANY
- * SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, OR ANY
- * DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
- * WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
- * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
- * OF THESE LICENSED DELIVERABLES.
- *
- * U.S. Government End Users.  These Licensed Deliverables are a
- * "commercial item" as that term is defined at 48 C.F.R. 2.101 (OCT
- * 1995), consisting of "commercial computer software" and "commercial
- * computer software documentation" as such terms are used in 48
- * C.F.R. 12.212 (SEPT 1995) and is provided to the U.S. Government
- * only as a commercial end item.  Consistent with 48 C.F.R.12.212 and
- * 48 C.F.R. 227.7202-1 through 227.7202-4 (JUNE 1995), all
- * U.S. Government End Users acquire the Licensed Deliverables with
- * only those rights set forth herein.
- *
- * Any use of the Licensed Deliverables in individual and commercial
- * software must include, in the user documentation and internal
- * comments to the code, the above Disclaimer and U.S. Government End
- * Users Notice.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 #ifndef NV_INFER_RUNTIME_H
@@ -335,6 +302,9 @@ public:
     //! If isConstant(), returns value of the constant.
     //! If !isConstant(), return std::numeric_limits<int>::min().
     virtual int getConstantValue() const = 0;
+
+protected:
+    virtual ~IDimensionExpr() {}
 };
 
 //!
@@ -491,6 +461,8 @@ public:
     //! This function is called by the builder prior to initialize().  It provides an opportunity for the layer to make
     //! algorithm choices on the basis of bounds on the input and output tensors, and the target value.
     //!
+    //! This function is also called once when the resource requirements are changed based on the optimization profiles.
+    //!
     //! \param in The input tensors attributes that are used for configuration.
     //! \param nbInputs Number of input tensors.
     //! \param out The output tensors attributes that are used for configuration.
@@ -542,9 +514,7 @@ protected:
     TRT_DEPRECATED
     Dims getOutputDimensions(int /*index*/, const Dims* /*inputs*/, int /*nbInputDims*/) _TENSORRT_FINAL TRTNOEXCEPT
     {
-        Dims result;
-        result.nbDims = -1;
-        return result;
+        return Dims{-1, {}, {}};
     }
 
     //!
@@ -766,7 +736,7 @@ public:
     virtual IErrorRecorder* getErrorRecorder() const noexcept = 0;
 
     //!
-    //! \breif Deserialize an engine from a stream when plugin factory is not used.
+    //! \brief Deserialize an engine from a stream when plugin factory is not used.
     //!
     //! \param blob The memory that holds the serialized engine.
     //! \param size The size of the memory.
@@ -849,7 +819,9 @@ public:
     //!
     //! Update dynamic range for a tensor.
     //!
-    //! \param name of an ITensor used to construct the network.
+    //! \param tensorName The name of an ITensor in the network.
+    //! \param min The minimum of the dynamic range for the tensor.
+    //! \param max The maximum of the dynamic range for the tensor.
     //!
     //! \return True if successful; false otherwise.
     //!
@@ -940,6 +912,8 @@ public:
     //! \see IPlugin::serialize()
     //!
     virtual IPlugin* createPlugin(const char* layerName, const void* serialData, size_t serialLength) TRTNOEXCEPT = 0;
+
+    virtual ~IPluginFactory() {}
 };
 
 //!
@@ -1109,7 +1083,7 @@ class ICudaEngine
 {
 public:
     //!
-    //! \brief Get the number of binding indices. 
+    //! \brief Get the number of binding indices.
     //!
     //! If the engine has been built for K profiles, the first getNbBindings() / K bindings are used by profile
     //! number 0, the following getNbBindings() / K bindings are used by profile number 1 etc.
@@ -1178,6 +1152,8 @@ public:
 
     //!
     //! \brief Get the maximum batch size which can be used for inference.
+    //!
+    //! For an engine built from an INetworkDefinition without an implicit batch dimension, this will always return 1.
     //!
     //! \return The maximum batch size for this engine.
     //!
@@ -1447,6 +1423,22 @@ public:
     //! \see setErrorRecorder
     //!
     virtual IErrorRecorder* getErrorRecorder() const noexcept = 0;
+
+    //!
+    //! \brief Query whether the engine was built with an implicit batch dimension.
+    //!
+    //! \return True if tensors have implicit batch dimension, false otherwise.
+    //!
+    //! This is an engine-wide property.  Either all tensors in the engine
+    //! have an implicit batch dimension or none of them do.
+    //!
+    //! hasImplicitBatchDimension() is true if and only if the INetworkDefinition
+    //! from which this engine was built was created with createNetwork() or
+    //! createNetworkV2() without NetworkDefinitionCreationFlag::kEXPLICIT_BATCH flag.
+    //!
+    //! \see createNetworkV2
+    //!
+    virtual bool hasImplicitBatchDimension() const TRTNOEXCEPT = 0;
 };
 
 //!
@@ -1584,21 +1576,18 @@ public:
     //!
     //! The selected profile will be used in subsequent calls to execute() or enqueue().
     //!
-    //! If the associated CUDA engine has dynamic inputs, this method must be called exactly once
+    //! If the associated CUDA engine has dynamic inputs, this method must be called at least once
     //! with a unique profileIndex before calling execute or enqueue (i.e. the profile index
-    //! may not be in use by another execution context that has not been destroyed yet). Once the
-    //! optimization profile has been set (getOptimizationProfile() != -1), it cannot be changed.
+    //! may not be in use by another execution context that has not been destroyed yet).
     //! For the first execution context that is created for an engine, setOptimizationProfile(0)
-    //! is called implicitly. This means users only ever need to call this method if they need more
-    //! than a single execution context. In this case, profileIdx must be nonzero and unique for
-    //! all execution contexts that are created after the first.
+    //! is called implicitly.
     //!
-    //! If the associated CUDA engine has not dynamic inputs, this method need not be
+    //! If the associated CUDA engine does not have inputs with dynamic shapes, this method need not be
     //! called, in which case the default profile index of 0 will be used (this is particularly
     //! the case for all safe engines).
     //!
-    //! setOptimizationProfile() must be called before calling setBindingDimensions() and 
-    //! setInputShapeBinding() for all dynamic input tensors or input shape tensors, which in 
+    //! setOptimizationProfile() must be called before calling setBindingDimensions() and
+    //! setInputShapeBinding() for all dynamic input tensors or input shape tensors, which in
     //! turn must be called before either execute() or enqueue().
     //!
     //! \return true if the call succeeded, else false (e.g. input out of range)
@@ -1773,10 +1762,17 @@ public:
     virtual bool enqueueV2(void** bindings, cudaStream_t stream, cudaEvent_t* inputConsumed) noexcept = 0;
 };
 }
+//!
+//! Internal C entry point for creating IRuntime.
+//! @private
+//!
+extern "C" TENSORRTAPI void* createInferRuntime_INTERNAL(void* logger, int version);
 
-extern "C" TENSORRTAPI void* createInferRuntime_INTERNAL(void* logger, int version); //!< Internal C entry point for creating IRuntime.
-
-extern "C" TENSORRTAPI void* createInferRefitter_INTERNAL(void* engine, void* logger, int version); //!< Internal C entry point for creating IRefitter.
+//!
+//! Internal C entry point for creating IRefitter.
+//! @private
+//!
+extern "C" TENSORRTAPI void* createInferRefitter_INTERNAL(void* engine, void* logger, int version);
 
 namespace nvinfer1
 {
@@ -1791,6 +1787,7 @@ inline IRuntime* createInferRuntime(ILogger& logger)
 {
     return static_cast<IRuntime*>(createInferRuntime_INTERNAL(&logger, NV_TENSORRT_VERSION));
 }
+
 //!
 //! \brief Create an instance of an IRefitter class.
 //!

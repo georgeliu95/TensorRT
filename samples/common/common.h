@@ -63,36 +63,35 @@ using namespace plugin;
 #define ENABLE_DLA_API 1
 #endif
 
-#define CHECK(status)                                          \
-    do                                                         \
-    {                                                          \
-        auto ret = (status);                                   \
-        if (ret != 0)                                          \
-        {                                                      \
-            std::cerr << "Cuda failure: " << ret << std::endl; \
-            abort();                                           \
-        }                                                      \
+#define CHECK(status)                                                                                                  \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        auto ret = (status);                                                                                           \
+        if (ret != 0)                                                                                                  \
+        {                                                                                                              \
+            std::cerr << "Cuda failure: " << ret << std::endl;                                                         \
+            abort();                                                                                                   \
+        }                                                                                                              \
     } while (0)
 
-#define CHECK_RETURN_W_MSG(status, val, errMsg)                \
-    do                                                         \
-    {                                                          \
-        if (!(status))                                         \
-        {                                                      \
-            std::cerr << errMsg << " Error in " << __FILE__    \
-                << ", function " << FN_NAME << "(), line "     \
-                << __LINE__ << std::endl;                      \
-            return val;                                        \
-        }                                                      \
+#define CHECK_RETURN_W_MSG(status, val, errMsg)                                                                        \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        if (!(status))                                                                                                 \
+        {                                                                                                              \
+            std::cerr << errMsg << " Error in " << __FILE__ << ", function " << FN_NAME << "(), line " << __LINE__     \
+                      << std::endl;                                                                                    \
+            return val;                                                                                                \
+        }                                                                                                              \
     } while (0)
 
-#define CHECK_RETURN(status, val)                              \
-    CHECK_RETURN_W_MSG(status, val, "")
+#define CHECK_RETURN(status, val) CHECK_RETURN_W_MSG(status, val, "")
 
 #define OBJ_GUARD(A) std::unique_ptr<A, void (*)(A * t)>
 
 template <typename T, typename T_>
-OBJ_GUARD(T) makeObjGuard(T_* t)
+OBJ_GUARD(T)
+makeObjGuard(T_* t)
 {
     CHECK(!(std::is_base_of<T, T_>::value || std::is_same<T, T_>::value));
     auto deleter = [](T* t) { t->destroy(); };
@@ -291,9 +290,19 @@ class HostMemory : public IHostMemory
 {
 public:
     HostMemory() = delete;
-    void* data() const noexcept override { return mData; }
-    std::size_t size() const noexcept override { return mSize; }
-    DataType type() const noexcept override { return mType; }
+    void* data() const noexcept override
+    {
+        return mData;
+    }
+    std::size_t size() const noexcept override
+    {
+        return mSize;
+    }
+    DataType type() const noexcept override
+    {
+        return mType;
+    }
+
 protected:
     HostMemory(std::size_t size, DataType type)
         : mSize(size)
@@ -303,7 +312,6 @@ protected:
     void* mData;
     std::size_t mSize;
     DataType mType;
-
 };
 
 template <typename ElemType, DataType dataType>
@@ -320,7 +328,10 @@ public:
         delete[](ElemType*) mData;
         delete this;
     }
-    ElemType* raw() noexcept { return static_cast<ElemType*>(data()); }
+    ElemType* raw() noexcept
+    {
+        return static_cast<ElemType*>(data());
+    }
 };
 
 using FloatMemory = TypedHostMemory<float, DataType::kFLOAT>;
@@ -402,7 +413,8 @@ inline bool readReferenceFile(const std::string& fileName, std::vector<std::stri
 }
 
 template <typename result_vector_t>
-inline std::vector<std::string> classify(const std::vector<std::string>& refVector, const result_vector_t& output, const size_t topK)
+inline std::vector<std::string> classify(
+    const std::vector<std::string>& refVector, const result_vector_t& output, const size_t topK)
 {
     auto inds = samplesCommon::argsort(output.cbegin(), output.cend(), true);
     std::vector<std::string> result;
@@ -458,11 +470,8 @@ inline bool writeASCIIFile(const std::string& fileName, const std::vector<T>& in
 
 inline void print_version()
 {
-    std::cout << "  TensorRT version: "
-              << NV_TENSORRT_MAJOR << "."
-              << NV_TENSORRT_MINOR << "."
-              << NV_TENSORRT_PATCH << "."
-              << NV_TENSORRT_BUILD << std::endl;
+    std::cout << "  TensorRT version: " << NV_TENSORRT_MAJOR << "." << NV_TENSORRT_MINOR << "." << NV_TENSORRT_PATCH
+              << "." << NV_TENSORRT_BUILD << std::endl;
 }
 
 inline std::string getFileType(const std::string& filepath)
@@ -596,6 +605,7 @@ inline unsigned int getElementSize(nvinfer1::DataType t)
     case nvinfer1::DataType::kINT32: return 4;
     case nvinfer1::DataType::kFLOAT: return 4;
     case nvinfer1::DataType::kHALF: return 2;
+    case nvinfer1::DataType::kBOOL:
     case nvinfer1::DataType::kINT8: return 1;
     }
     throw std::runtime_error("Invalid DataType.");
@@ -614,6 +624,7 @@ inline unsigned int elementSize(DataType t)
     case DataType::kINT32:
     case DataType::kFLOAT: return 4;
     case DataType::kHALF: return 2;
+    case DataType::kBOOL:
     case DataType::kINT8: return 1;
     }
     return 0;
@@ -657,7 +668,7 @@ inline void readPPMFile(const std::string& filename, samplesCommon::PPM<C, H, W>
     infile.read(reinterpret_cast<char*>(ppm.buffer), ppm.w * ppm.h * 3);
 }
 
-void readPPMFile(const std::string& filename, vPPM& ppm, std::vector<std::string>& input_dir)
+inline void readPPMFile(const std::string& filename, vPPM& ppm, std::vector<std::string>& input_dir)
 {
     ppm.fileName = filename;
     std::ifstream infile(locateFile(filename, input_dir), std::ifstream::binary);
@@ -711,7 +722,7 @@ inline void writePPMFileWithBBox(const std::string& filename, PPM<C, H, W>& ppm,
     outfile.write(reinterpret_cast<char*>(ppm.buffer), ppm.w * ppm.h * 3);
 }
 
-void writePPMFileWithBBox(const std::string& filename, vPPM ppm, std::vector<BBox>& dets)
+inline void writePPMFileWithBBox(const std::string& filename, vPPM ppm, std::vector<BBox>& dets)
 {
     std::ofstream outfile("./" + filename, std::ofstream::binary);
     assert(!outfile.fail());
@@ -878,7 +889,7 @@ inline void loadLibrary(const std::string& path)
 #ifdef _MSC_VER
         gLogError << "Could not load plugin library: " << path << std::endl;
 #else
-    gLogError << "Could not load plugin library: " << path << ", due to: " << dlerror() << std::endl;
+        gLogError << "Could not load plugin library: " << path << ", due to: " << dlerror() << std::endl;
 #endif
     }
 }

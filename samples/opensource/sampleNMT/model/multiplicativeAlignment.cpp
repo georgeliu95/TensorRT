@@ -35,17 +35,10 @@ MultiplicativeAlignment::MultiplicativeAlignment(ComponentWeights::ptr weights)
     mKernelWeights.count = mInputChannelCount * mOutputChannelCount;
 }
 
-void MultiplicativeAlignment::addToModel(
-    nvinfer1::INetworkDefinition* network,
-    nvinfer1::ITensor* attentionKeys,
-    nvinfer1::ITensor* queryStates,
-    nvinfer1::ITensor** alignmentScores)
+void MultiplicativeAlignment::addToModel(nvinfer1::INetworkDefinition* network, nvinfer1::ITensor* attentionKeys,
+    nvinfer1::ITensor* queryStates, nvinfer1::ITensor** alignmentScores)
 {
-    auto mmLayer = network->addMatrixMultiply(
-        *queryStates,
-        false,
-        *attentionKeys,
-        true);
+    auto mmLayer = network->addMatrixMultiply(*queryStates, false, *attentionKeys, true);
     assert(mmLayer != nullptr);
     mmLayer->setName("Raw Alignment Scores MM (Queries x Keys) in multiplicative attention");
     *alignmentScores = mmLayer->getOutput(0);
@@ -53,22 +46,17 @@ void MultiplicativeAlignment::addToModel(
 }
 
 void MultiplicativeAlignment::addAttentionKeys(
-    nvinfer1::INetworkDefinition* network,
-    nvinfer1::ITensor* memoryStates,
-    nvinfer1::ITensor** attentionKeys)
+    nvinfer1::INetworkDefinition* network, nvinfer1::ITensor* memoryStates, nvinfer1::ITensor** attentionKeys)
 {
-    nvinfer1::Dims weightDims{2, {mInputChannelCount, mOutputChannelCount}, {nvinfer1::DimensionType::kCHANNEL, nvinfer1::DimensionType::kCHANNEL}};
+    nvinfer1::Dims weightDims{2, {mInputChannelCount, mOutputChannelCount},
+        {nvinfer1::DimensionType::kCHANNEL, nvinfer1::DimensionType::kCHANNEL}};
     auto constLayer = network->addConstant(weightDims, mKernelWeights);
     assert(constLayer != nullptr);
     constLayer->setName("Matrix in multiplicative attention");
     auto weights = constLayer->getOutput(0);
     assert(weights != nullptr);
 
-    auto mmLayer = network->addMatrixMultiply(
-        *memoryStates,
-        false,
-        *weights,
-        false);
+    auto mmLayer = network->addMatrixMultiply(*memoryStates, false, *weights, false);
     assert(mmLayer != nullptr);
     mmLayer->setName("Attention Keys MM in multiplicative attention");
     *attentionKeys = mmLayer->getOutput(0);
@@ -88,7 +76,8 @@ int MultiplicativeAlignment::getAttentionKeySize()
 std::string MultiplicativeAlignment::getInfo()
 {
     std::stringstream ss;
-    ss << "Multiplicative Alignment, source states size = " << mInputChannelCount << ", attention keys size = " << mOutputChannelCount;
+    ss << "Multiplicative Alignment, source states size = " << mInputChannelCount
+       << ", attention keys size = " << mOutputChannelCount;
     return ss.str();
 }
 } // namespace nmtSample

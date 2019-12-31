@@ -21,20 +21,16 @@
 namespace nmtSample
 {
 /** \class LimitedSamplesDataReader
-    *
-    * \brief wraps another data reader and limits the number of samples to read
-    *
-    */
+ *
+ * \brief wraps another data reader and limits the number of samples to read
+ *
+ */
 class LimitedSamplesDataReader : public DataReader
 {
 public:
     LimitedSamplesDataReader(int maxSamplesToRead, DataReader::ptr originalDataReader);
 
-    int read(
-        int samplesToRead,
-        int maxInputSequenceLength,
-        int* hInputData,
-        int* hActualInputSequenceLengths) override;
+    int read(int samplesToRead, int maxInputSequenceLength, int* hInputData, int* hActualInputSequenceLengths) override;
 
     void reset() override;
 

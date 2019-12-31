@@ -25,10 +25,10 @@
 namespace nmtSample
 {
 /** \class DataWriter
-    *
-    * \brief writer of sequences of data
-    *
-    */
+ *
+ * \brief writer of sequences of data
+ *
+ */
 class DataWriter : public Component
 {
 public:
@@ -37,22 +37,18 @@ public:
     DataWriter() = default;
 
     /**
-        * \brief write the generated sequence
-        */
-    virtual void write(
-        const int* hOutputData,
-        int actualOutputSequenceLength,
-        int actualInputSequenceLength)
-        = 0;
+     * \brief write the generated sequence
+     */
+    virtual void write(const int* hOutputData, int actualOutputSequenceLength, int actualInputSequenceLength) = 0;
 
     /**
-        * \brief it is called right before inference starts
-        */
+     * \brief it is called right before inference starts
+     */
     virtual void initialize() = 0;
 
     /**
-        * \brief it is called right after inference ends
-        */
+     * \brief it is called right after inference ends
+     */
     virtual void finalize() = 0;
 
     ~DataWriter() override = default;

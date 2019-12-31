@@ -27,21 +27,19 @@ extern int gPadMultiple;
 namespace nmtSample
 {
 /** \class SLPProjection
-    *
-    * \brief Linear logits calculation
-    *
-    * Calculates logits vector by multiplying input vector with weight matrix  
-    *
-    */
+ *
+ * \brief Linear logits calculation
+ *
+ * Calculates logits vector by multiplying input vector with weight matrix
+ *
+ */
 class SLPProjection : public Projection
 {
 public:
     SLPProjection(ComponentWeights::ptr weights);
 
     void addToModel(
-        nvinfer1::INetworkDefinition* network,
-        nvinfer1::ITensor* input,
-        nvinfer1::ITensor** outputLogits) override;
+        nvinfer1::INetworkDefinition* network, nvinfer1::ITensor* input, nvinfer1::ITensor** outputLogits) override;
 
     int getOutputSize() override;
 

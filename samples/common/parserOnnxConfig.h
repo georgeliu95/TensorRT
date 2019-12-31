@@ -57,9 +57,7 @@ public:
 #ifdef ONNX_DEBUG
         if (isDebug())
         {
-            std::cout << " ParserOnnxConfig::ctor(): "
-                      << this << "\t"
-                      << std::endl;
+            std::cout << " ParserOnnxConfig::ctor(): " << this << "\t" << std::endl;
         }
 #endif
     }
