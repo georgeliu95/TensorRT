@@ -1,0 +1,194 @@
+from onnx_graphsurgeon.logger.logger import G_LOGGER
+from onnx_graphsurgeon.ir.tensor import Tensor, ConstantTensor
+from onnx_graphsurgeon.ir.node import Node
+from onnx_graphsurgeon.utils import misc
+
+from collections import OrderedDict, defaultdict
+from typing import Sequence, Set, Dict, Tuple
+import copy
+
+
+# Functor that returns whether a Tensor has never been seen before
+class UnseenTensor(object):
+    def __init__(self, initial_tensors=None):
+        tensors = misc.default_value(initial_tensors, [])
+        self.seen_tensors = set([tensor.name for tensor in tensors])
+
+    def __call__(self, tensor):
+        # Empty tensors are never "seen"
+        if not tensor.name or tensor.name not in self.seen_tensors:
+            self.seen_tensors.add(tensor.name)
+            return True
+        return False
+
+
+class NodeIDAdder(object):
+    def __init__(self, graph):
+        self.graph = graph
+
+    def __enter__(self):
+        # To get unique ids for each node, add an `id` attribute. This will be removed before the function returns.
+        # Using the index in the node list allows the same object to count as different nodes.
+        for index, node in enumerate(self.graph.nodes):
+            node.id = index
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        for node in self.graph.nodes:
+            del node.id
+
+
+class Graph(object):
+    def __init__(self, nodes: Sequence[Node]=None, inputs: Sequence[Tensor]=None, outputs: Sequence[Tensor]=None, name=None, doc_string=None):
+        """
+        Represents a graph containing nodes and tensors.
+
+        Optional Args:
+            nodes (Sequence[Node]): A list of the nodes in this graph.
+            inputs (Sequence[Tensor]): A list of graph input Tensors.
+            outputs (Sequence[Tensor]): A list of graph output Tensors.
+            name (str): The name of the graph. Defaults to "onnx_graphsurgeon".
+            doc_string (str): A doc_string for the graph. Defaults to "".
+        """
+        self.nodes = misc.default_value(nodes, [])
+        self.inputs = misc.default_value(inputs, [])
+        self.outputs = misc.default_value(outputs, [])
+
+        self.name = misc.default_value(name, "onnx_graphsurgeon")
+        self.doc_string = misc.default_value(doc_string, "")
+        # Printing graphs can be very expensive
+        G_LOGGER.ultra_verbose(lambda: "Created Graph: {:}".format(self))
+
+
+    def __eq__(self, other: "Graph"):
+        nodes_match = all([node == other_node for node, other_node in zip(self.nodes, other.nodes)])
+        inputs_match = all([inp == other_inp for inp, other_inp in zip(self.inputs, other.inputs)])
+        outputs_match = all([out == other_out for out, other_out in zip(self.outputs, other.outputs)])
+        return nodes_match and inputs_match and outputs_match
+
+
+    def __getitem__(self, index: int):
+        return self.nodes[index]
+
+
+    # TODO: Add docstrings for this function.
+    def node_ids(self):
+        return NodeIDAdder(self)
+
+
+    # Returns a list of node ids of used nodes, and a list of used tensors.
+    def _get_used_node_ids(self):
+        used_node_ids = set()
+        # Traverse backwards from outputs to find all used nodes.
+        ignore_seen = UnseenTensor()
+        used_tensors = list(filter(ignore_seen, self.outputs))
+
+        index = 0
+        while index < len(used_tensors):
+            used_tensor = used_tensors[index]
+            index += 1
+            for node in used_tensor.inputs:
+                used_node_ids.add(node.id)
+                used_tensors.extend(filter(ignore_seen, node.inputs))
+        return used_node_ids, used_tensors
+
+
+    def cleanup(self):
+        """
+        Removes unused nodes (any node which does not contribute to graph outputs) and unused graph inputs from the graph.
+
+        Note: This function will never modify graph output tensors.
+
+        Returns:
+            self
+        """
+        with self.node_ids():
+            used_node_ids, used_tensors = self._get_used_node_ids()
+
+            inputs = []
+            for inp in self.inputs:
+                if inp in used_tensors:
+                    inputs.append(inp)
+                else:
+                    G_LOGGER.debug("Removing unused input: {:}".format(inp))
+            self.inputs = inputs
+
+            nodes = []
+            for node in self.nodes:
+                if node.id in used_node_ids:
+                    nodes.append(node)
+                else:
+                    G_LOGGER.verbose("Removing unused node: {:}".format(node))
+            self.nodes = nodes
+            return self
+
+
+    def toposort(self):
+        """
+        Topologically sort the graph in place.
+
+        Returns:
+            self
+        """
+        # Keeps track of a node and it's level in the graph hierarchy. 0 corresponds to an input node, N corresponds to a node with N layers of inputs.
+        class HierarchyDescriptor(object):
+            def __init__(self, node=None, level=None):
+                self.node = node
+                self.level = level
+
+
+            def __lt__(self, other):
+                return self.level < other.level
+
+        hierarchy_levels = {} # Dict[int, HierarchyDescriptor]
+
+        def get_hierarchy_level(node):
+            # Return all nodes that contribute to this node.
+            def get_input_nodes(node):
+                inputs = {}
+                for tensor in node.inputs:
+                    for node in tensor.inputs:
+                        inputs[node.id] = node
+                return inputs.values()
+
+            if node.id in hierarchy_levels:
+                return hierarchy_levels[node.id].level
+
+            # The level of a node is the level of it's highest input + 1.
+            max_input_level = max([get_hierarchy_level(input_node) for input_node in get_input_nodes(node)] + [-1])
+            return max_input_level + 1
+
+        with self.node_ids():
+            for node in self.nodes:
+                hierarchy_levels[node.id] = HierarchyDescriptor(node, level=get_hierarchy_level(node))
+
+        self.nodes = [hd.node for hd in sorted(hierarchy_levels.values())]
+        return self
+
+
+    def generate_tensor_map(self):
+        """
+        Creates a tensor map of all the tensors in this graph by walking over all nodes. Empty tensors are omitted from this map.
+
+        Tensors are guaranteed to be in order of the nodes in the graph. Hence, if the graph is topologically sorted, the tensor map will be too.
+
+        Returns:
+            OrderedDict[str, Tensor]: A mapping of tensor names to tensors.
+        """
+        tensor_map = OrderedDict()
+
+        def add_to_tensor_map(tensor):
+            if not tensor.is_empty():
+                tensor_map[tensor.name] = tensor
+
+        for node in self.nodes:
+            for tensor in node.inputs + node.outputs:
+                add_to_tensor_map(tensor)
+        return tensor_map
+
+
+    def __str__(self):
+        return "Inputs: {:}\nNodes: {:}\nOutputs: {:}".format(self.inputs, self.nodes, self.outputs)
+
+
+    def __repr__(self):
+        return self.__str__()

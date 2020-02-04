@@ -1,0 +1,349 @@
+from onnx_graphsurgeon.logger.logger import G_LOGGER
+from onnx_graphsurgeon.ir.tensor import Tensor, ConstantTensor, VariableTensor
+from onnx_graphsurgeon.ir.graph import Graph
+from onnx_graphsurgeon.ir.node import Node, NodeIOList
+
+import numpy as np
+import pytest
+import onnx
+import copy
+
+G_LOGGER.severity = G_LOGGER.ULTRA_VERBOSE
+
+
+class TestVariableTensor(object):
+    def setup_method(self):
+        self.node = Node(op="Add")
+        self.tensor = VariableTensor(name="test_tensor", dtype=np.float32, shape=(1, 3, 224, 224))
+        self.node.outputs.append(self.tensor)
+
+    def test_equals(self):
+        assert self.tensor == self.tensor
+
+    def test_equals_name_mismatch(self):
+        tensor = VariableTensor(name="test_tensor0", dtype=np.float32, shape=(1, 3, 224, 224))
+        assert not self.tensor == tensor
+
+    def test_equals(self):
+        assert self.tensor == self.tensor
+
+
+class TestConstantTensor(object):
+    def setup_method(self):
+        self.tensor = ConstantTensor(name="test_tensor", values=np.ones((1, 3, 5, 5)))
+
+    def test_can_get_shape(self):
+        assert self.tensor.shape == (1, 3, 5, 5)
+
+    def test_can_get_dtype(self):
+        assert self.tensor.dtype == self.tensor.values.dtype
+
+
+class TestNode(object):
+    def setup_method(self):
+        self.input_tensor = Tensor(name="x")
+        self.output_tensor = Tensor(name="y")
+        self.node = Node(op="Add", name="Test", inputs=[self.input_tensor], outputs=[self.output_tensor])
+
+    def test_equals(self):
+        assert self.node == self.node
+
+    def test_equals_name_mismatch(self):
+        node = Node(op="Add", name="OtherTest")
+        assert not self.node == node
+
+    def test_equals_op_mismatch(self):
+        node = Node(op="Subtract", name="Test")
+        assert not self.node == node
+
+    def test_equals_num_inputs_mismatch(self):
+        node = Node(op="Subtract", name="Test")
+        assert not self.node == node
+
+    def test_equals(self):
+        assert self.node == self.node
+
+    def test_equals_inputs_mismatch(self):
+        tensor = Tensor(name="other_tensor")
+        assert not self.input_tensor == tensor
+
+        node = Node(op="Add", name="Test", inputs=[tensor])
+        assert not self.node == node
+
+    def test_set_inputs_updates_old_inputs(self):
+        dummy = Tensor(name="dummy")
+        self.node.inputs = [dummy]
+        assert len(self.input_tensor.outputs) == 0
+        assert dummy.outputs[0] == self.node
+
+    def test_set_outputs_updates_old_outputs(self):
+        dummy = Tensor(name="dummy")
+        self.node.outputs = [dummy]
+        assert len(self.output_tensor.inputs) == 0
+        assert dummy.inputs[0] == self.node
+
+    def test_can_copy_inputs_from_other_node(self):
+        node = Node(op="Subtract")
+        node.inputs = self.node.inputs
+        assert node.inputs == self.node.inputs
+
+    def test_can_copy_outputs_from_other_node(self):
+        node = Node(op="Subtract")
+        node.outputs = self.node.outputs
+        assert node.outputs == self.node.outputs
+
+
+class TestNodeIO(object):
+    def setup_method(self, field_names):
+        self.tensors = [VariableTensor(name="test_tensor_{:}".format(i), dtype=np.float32, shape=(1, 3, 224, 224)) for i in range(10)]
+        self.node = Node(op="Dummy")
+
+    def get_lists(self, field_names):
+        return getattr(self.node, field_names[0]), field_names[1]
+
+    @pytest.mark.parametrize("field_names", [("inputs", "outputs"), ("outputs", "inputs")])
+    def test_append(self, field_names):
+        nlist, tensor_field = self.get_lists(field_names)
+        nlist.append(self.tensors[0])
+        assert nlist[0] == self.tensors[0]
+        assert getattr(self.tensors[0], tensor_field)[0] == self.node
+
+    @pytest.mark.parametrize("field_names", [("inputs", "outputs"), ("outputs", "inputs")])
+    def test_extend(self, field_names):
+        nlist, tensor_field = self.get_lists(field_names)
+        nlist.extend(self.tensors)
+        for tensor in self.tensors:
+            assert tensor in nlist
+            assert getattr(tensor, tensor_field)[0] == self.node
+
+    @pytest.mark.parametrize("field_names", [("inputs", "outputs"), ("outputs", "inputs")])
+    def test_insert(self, field_names):
+        nlist, tensor_field = self.get_lists(field_names)
+        nlist.append(self.tensors[1])
+        nlist.insert(0, self.tensors[0])
+        assert nlist[0] == self.tensors[0]
+        assert getattr(self.tensors[0], tensor_field)[0] == self.node
+
+    @pytest.mark.parametrize("field_names", [("inputs", "outputs"), ("outputs", "inputs")])
+    def test_remove(self, field_names):
+        nlist, tensor_field = self.get_lists(field_names)
+        nlist.append(self.tensors[0])
+        nlist.remove(self.tensors[0])
+        assert len(nlist) == 0
+        assert len(getattr(self.tensors[0], tensor_field)) == 0
+
+    @pytest.mark.parametrize("field_names", [("inputs", "outputs"), ("outputs", "inputs")])
+    def test_pop(self, field_names):
+        nlist, tensor_field = self.get_lists(field_names)
+        nlist.append(self.tensors[0])
+        tensor = nlist.pop()
+        assert len(nlist) == 0
+        assert len(getattr(tensor, tensor_field)) == 0
+
+    @pytest.mark.parametrize("field_names", [("inputs", "outputs"), ("outputs", "inputs")])
+    def test_pop_index(self, field_names):
+        nlist, tensor_field = self.get_lists(field_names)
+        nlist.extend(self.tensors)
+        tensor = nlist.pop(1)
+        assert self.tensors[1] not in nlist
+        assert len(getattr(tensor, tensor_field)) == 0
+
+    @pytest.mark.parametrize("field_names", [("inputs", "outputs"), ("outputs", "inputs")])
+    def test_clear(self, field_names):
+        nlist, tensor_field = self.get_lists(field_names)
+        nlist.extend(self.tensors)
+        nlist.clear()
+        assert len(nlist) == 0
+        assert all([len(getattr(tensor, tensor_field)) == 0 for tensor in self.tensors])
+
+    @pytest.mark.parametrize("field_names", [("inputs", "outputs"), ("outputs", "inputs")])
+    def test_add(self, field_names):
+        nlist, tensor_field = self.get_lists(field_names)
+        nlist = nlist + self.tensors
+        for tensor in self.tensors:
+            assert tensor in nlist
+            assert getattr(tensor, tensor_field)[0] == self.node
+
+    @pytest.mark.parametrize("field_names", [("inputs", "outputs"), ("outputs", "inputs")])
+    def test_iadd(self, field_names):
+        nlist, tensor_field = self.get_lists(field_names)
+        nlist += self.tensors
+        for tensor in self.tensors:
+            assert tensor in nlist
+            assert getattr(tensor, tensor_field)[0] == self.node
+
+    @pytest.mark.parametrize("field_names", [("inputs", "outputs"), ("outputs", "inputs")])
+    def test_setitem(self, field_names):
+        nlist, tensor_field = self.get_lists(field_names)
+        nlist.append(self.tensors[0])
+        new_tensor = Tensor("new_tensor")
+        nlist[0] = new_tensor
+        assert nlist[0] == new_tensor
+        assert len(getattr(self.tensors[0], tensor_field)) == 0
+        assert getattr(new_tensor, tensor_field)[0] == self.node
+
+
+def build_basic_graph():
+    inputs = [Tensor(name="x")]
+    outputs = [Tensor(name="y")]
+    nodes = [
+        Node(op="Add", name="Test", inputs=inputs, outputs=outputs),
+    ]
+    return Graph(nodes=nodes, inputs=inputs, outputs=outputs)
+
+
+def build_two_layer_graph():
+    inputs = [Tensor(name="x")]
+    intermediate_tensor = Tensor(name="intermediate")
+    outputs = [Tensor(name="y")]
+    nodes = [
+        Node(op="Add", name="Test0", inputs=inputs, outputs=[intermediate_tensor]),
+        Node(op="Add", name="Test1", inputs=[intermediate_tensor], outputs=outputs),
+    ]
+    return Graph(nodes=nodes, inputs=inputs, outputs=outputs)
+
+
+def build_two_layer_graph_multiple_io():
+    inputs = [Tensor(name="x0"), Tensor(name="x1")]
+    intermediate_tensor = Tensor(name="intermediate")
+    outputs = [Tensor(name="y0"), Tensor(name="y1")]
+    nodes = [
+        Node(op="Add", name="Test0", inputs=inputs, outputs=[intermediate_tensor]),
+        Node(op="Add", name="Test1", inputs=[intermediate_tensor], outputs=outputs),
+    ]
+    return Graph(nodes=nodes, inputs=inputs, outputs=outputs)
+
+
+GRAPH_TEST_CASES = [
+    build_basic_graph(),
+    build_two_layer_graph(),
+    build_two_layer_graph_multiple_io(),
+]
+
+
+def toposort_linear_graph():
+    inputs = [Tensor(name="x")]
+    intermediate0 = Tensor(name="intermediate0")
+    intermediate1 = Tensor(name="intermediate1")
+    intermediate2 = Tensor(name="intermediate2")
+    outputs = [Tensor(name="y")]
+    # Nodes are NOT in topo order.
+    nodes = [
+        Node(op="Add", name="Test0", inputs=inputs, outputs=[intermediate0]),
+        Node(op="Add", name="Test2", inputs=[intermediate1], outputs=[intermediate2]),
+        Node(op="Add", name="Test3", inputs=[intermediate2], outputs=outputs),
+        Node(op="Add", name="Test1", inputs=[intermediate0], outputs=[intermediate1]),
+    ]
+    expected_node_order = [nodes[0], nodes[3], nodes[1], nodes[2]]
+    return Graph(nodes=nodes, inputs=inputs, outputs=outputs), expected_node_order
+
+
+# Graph structure:
+# x
+# |
+# Test0 -> out0 (graph output)
+# |
+# out0
+# |
+# Test1 -> out1 (graph output)
+# |
+# out1
+# |
+# Test2 -> out2 (graph_output)
+def toposort_multi_tier_output_graph():
+    inputs = [Tensor(name="x")]
+    outputs = [Tensor(name="out0"), Tensor(name="out1"), Tensor(name="out2")]
+    out0, out1, out2 = outputs
+    nodes = [
+        Node(op="Add", name="Test2", inputs=[out1], outputs=[out2]),
+        Node(op="Add", name="Test0", inputs=inputs, outputs=[out0]),
+        Node(op="Add", name="Test1", inputs=[out0], outputs=[out1]),
+    ]
+    expected_node_order = [nodes[1], nodes[2], nodes[0]]
+    return Graph(nodes=nodes, inputs=inputs, outputs=outputs), expected_node_order
+
+
+# Graph structure:
+# x2  x1
+# |   |
+# Test0
+# |
+# int0  x0
+# |    /
+# Test1
+# |
+# int1  x3
+# |    /
+# Test2 -> out (graph_output)
+def toposort_multi_tier_input_graph():
+    inputs = [Tensor(name="x0"), Tensor(name="x1"), Tensor(name="x2"), Tensor(name="x3")]
+    int0, int1 = [Tensor(name="intermediate0"), Tensor(name="intermediate1")]
+    outputs = [Tensor(name="out")]
+    x0, x1, x2, x3 = inputs
+    nodes = [
+        Node(op="Add", name="Test2", inputs=[int1, x3], outputs=outputs),
+        Node(op="Add", name="Test0", inputs=[x2, x1], outputs=[int0]),
+        Node(op="Add", name="Test1", inputs=[int0, x0], outputs=[int1]),
+    ]
+    expected_node_order = [nodes[1], nodes[2], nodes[0]]
+    return Graph(nodes=nodes, inputs=inputs, outputs=outputs), expected_node_order
+
+
+TOPOSORT_TEST_CASES = [
+    toposort_linear_graph(),
+    toposort_multi_tier_output_graph(),
+    toposort_multi_tier_input_graph(),
+]
+
+class TestGraph(object):
+    @pytest.mark.parametrize("graph", GRAPH_TEST_CASES)
+    def test_get_used_node_ids(self, graph):
+        graph_used_nodes = copy.copy(graph.nodes)
+        graph_used_tensors = copy.copy(list(graph.generate_tensor_map().values()))
+
+        unused_tensor = Tensor(name="Unused")
+        unused_node = Node(op="Unused", inputs=[graph.inputs[0]], outputs=[unused_tensor])
+        graph.nodes.append(unused_node)
+
+        with graph.node_ids():
+            used_node_ids, used_tensors = graph._get_used_node_ids()
+            assert len(used_node_ids) == len(graph.nodes) - 1
+            assert all([node.id in used_node_ids for node in graph_used_nodes])
+            assert unused_node.id not in used_node_ids
+            assert unused_tensor not in used_tensors
+            assert all([used_tensor in used_tensors for used_tensor in graph_used_tensors])
+
+
+    @pytest.mark.parametrize("toposort_test_case", TOPOSORT_TEST_CASES)
+    def test_topologically_sort(self, toposort_test_case):
+        graph, expected_node_order = toposort_test_case
+        assert graph.nodes != expected_node_order
+        graph.toposort()
+        assert graph.nodes == expected_node_order
+
+
+    def test_cleanup_multi_tier(self):
+        graph, _ = toposort_multi_tier_output_graph()
+        tensor = graph.outputs.pop()
+        graph.cleanup() # Should remove just the Test2 node as out1 is still an output.
+        assert tensor.inputs[0] not in graph.nodes
+        assert len(graph.nodes) == 2
+
+        tensor_map = graph.generate_tensor_map()
+        assert tensor.name not in tensor_map
+
+    def test_cleanup_independent_path(self):
+        graph, _ = toposort_linear_graph()
+        # Build out a path totally unrelated to rest of the graph
+        indep0 = Tensor(name="indep0")
+        indep1 = Tensor(name="indep1")
+        node = Node(op="IndepTest", inputs=[indep0], outputs=[indep1])
+        graph.inputs.append(indep0) # Unused inputs should be removed as well
+        graph.nodes.append(node)
+        graph.cleanup()
+        assert indep0 not in graph.inputs
+        assert node not in graph.nodes
+
+        tensor_map = graph.generate_tensor_map()
+        assert indep0.name not in tensor_map
+        assert indep1.name not in tensor_map
