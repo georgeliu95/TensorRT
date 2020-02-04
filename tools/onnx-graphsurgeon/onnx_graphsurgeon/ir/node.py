@@ -3,73 +3,7 @@ from onnx_graphsurgeon.ir.tensor import Tensor
 from onnx_graphsurgeon.utils import misc
 
 from collections import OrderedDict
-from typing import List, Dict, Sequence
-
-# Special type of list that appends a node to the provided field of any tensor that is appended to the
-# list (and correspondingly removes nodes) from removed tensors
-class NodeIOList(list):
-    def __init__(self, node, tensor_field, initial_list):
-        self.node = node
-        self.tensor_field = tensor_field
-        self.extend(initial_list)
-
-
-    def _add_to_tensor(self, tensor: Tensor):
-        getattr(tensor, self.tensor_field).append(self.node)
-
-
-    def _remove_from_tensor(self, tensor: Tensor):
-        getattr(tensor, self.tensor_field).remove(self.node)
-
-
-    def __setitem__(self, index, tensor: Tensor):
-        self._remove_from_tensor(self[index])
-        super().__setitem__(index, tensor)
-        self._add_to_tensor(tensor)
-
-
-    def append(self, x: Tensor):
-        super().append(x)
-        self._add_to_tensor(x)
-
-
-    def extend(self, iterable: Sequence[Tensor]):
-        super().extend(iterable)
-        for tensor in iterable:
-            self._add_to_tensor(tensor)
-
-    def insert(self, i, x):
-        super().insert(i, x)
-        self._add_to_tensor(x)
-
-
-    def remove(self, x):
-        super().remove(x)
-        self._remove_from_tensor(x)
-
-
-    def pop(self, i=-1):
-        tensor = super().pop(i)
-        self._remove_from_tensor(tensor)
-        return tensor
-
-
-    def clear(self):
-        for tensor in self:
-            self._remove_from_tensor(tensor)
-        super().clear()
-
-
-    def __add__(self, other_list: List[Tensor]):
-        new_list = NodeIOList(self.node, self.tensor_field, self)
-        new_list += other_list
-        return new_list
-
-
-    def __iadd__(self, other_list: List[Tensor]):
-        self.extend(other_list)
-        return self
-
+from typing import List, Dict
 
 class Node(object):
     def __init__(self, op: str, name: str=None, attrs: Dict[str, object]=None, inputs: List["Tensor"]=None, outputs: List["Tensor"]=None):
@@ -89,8 +23,8 @@ class Node(object):
         self.op = op
         self.name = misc.default_value(name, "")
         self.attrs = misc.default_value(attrs, OrderedDict())
-        self.inputs = NodeIOList(self, tensor_field="outputs", initial_list=misc.default_value(inputs, []))
-        self.outputs = NodeIOList(self, tensor_field="inputs", initial_list=misc.default_value(outputs, []))
+        self.inputs = misc.SynchronizedList(self, field_name="outputs", initial=misc.default_value(inputs, []))
+        self.outputs = misc.SynchronizedList(self, field_name="inputs", initial=misc.default_value(outputs, []))
 
 
     def __setattr__(self, name, value):

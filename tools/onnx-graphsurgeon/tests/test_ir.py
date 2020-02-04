@@ -1,7 +1,7 @@
 from onnx_graphsurgeon.logger.logger import G_LOGGER
 from onnx_graphsurgeon.ir.tensor import Tensor, ConstantTensor, VariableTensor
 from onnx_graphsurgeon.ir.graph import Graph
-from onnx_graphsurgeon.ir.node import Node, NodeIOList
+from onnx_graphsurgeon.ir.node import Node
 
 import numpy as np
 import pytest
@@ -9,6 +9,34 @@ import onnx
 import copy
 
 G_LOGGER.severity = G_LOGGER.ULTRA_VERBOSE
+
+class TestTensor(object):
+    def setup_method(self):
+        self.tensor = Tensor(name="test_tensor")
+        self.input_node = Node(op="Add", outputs=[self.tensor])
+        self.output_node = Node(op="Add", inputs=[self.tensor])
+
+    def test_set_inputs_updates_old_inputs(self):
+        dummy = Node(op="dummy")
+        self.tensor.inputs = [dummy]
+        assert len(self.input_node.outputs) == 0
+        assert dummy.outputs[0] == self.tensor
+
+    def test_set_outputs_updates_old_outputs(self):
+        dummy = Node(op="dummy")
+        self.tensor.outputs = [dummy]
+        assert len(self.output_node.inputs) == 0
+        assert dummy.inputs[0] == self.tensor
+
+    def test_can_copy_inputs_from_other_node(self):
+        tensor = Tensor(name="other_test_tensor")
+        tensor.inputs = self.tensor.inputs
+        assert tensor.inputs == self.tensor.inputs
+
+    def test_can_copy_outputs_from_other_node(self):
+        tensor = Tensor(name="other_test_tensor")
+        tensor.outputs = self.tensor.outputs
+        assert tensor.outputs == self.tensor.outputs
 
 
 class TestVariableTensor(object):

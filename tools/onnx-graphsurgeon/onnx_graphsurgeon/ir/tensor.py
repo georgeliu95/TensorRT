@@ -15,8 +15,15 @@ class Tensor(object):
             name (str): The name of the tensor. Tensor names must be unique per graph, and must not be modified after being set.
         """
         self.name = name
-        self.inputs = []
-        self.outputs = []
+        self.inputs = misc.SynchronizedList(self, field_name="outputs", initial=[])
+        self.outputs = misc.SynchronizedList(self, field_name="inputs", initial=[])
+
+    def __setattr__(self, name, value):
+        if name in ["inputs", "outputs"] and hasattr(self, name):
+            getattr(self, name).clear()
+            getattr(self, name).extend(value)
+        else:
+            super().__setattr__(name, value)
 
     @staticmethod
     def empty():
