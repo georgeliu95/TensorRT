@@ -353,12 +353,30 @@ class TestGraph(object):
     def test_cleanup_multi_tier(self):
         graph, _ = toposort_multi_tier_output_graph()
         tensor = graph.outputs.pop()
+        unused_node = tensor.inputs[0]
         graph.cleanup() # Should remove just the Test2 node as out1 is still an output.
-        assert tensor.inputs[0] not in graph.nodes
+        assert unused_node not in graph.nodes
         assert len(graph.nodes) == 2
+        assert len(graph.outputs) == 2
 
         tensor_map = graph.generate_tensor_map()
         assert tensor.name not in tensor_map
+
+
+    def test_cleanup_intermediate_tensors(self):
+        graph, _  = toposort_linear_graph()
+        graph.toposort()
+        graph_output = graph.outputs[0]
+
+        dummy = Tensor("dummy")
+        # Add unused tensor to a node in the middle of the graph.
+        # Since it does not contribute to graph outputs, it should be removed.
+        graph.nodes[1].outputs.append(dummy)
+
+        graph.cleanup()
+        assert dummy not in graph.nodes[1].outputs
+        assert graph.outputs[0] == graph_output # Graoh outputs will never be removed
+
 
     def test_cleanup_independent_path(self):
         graph, _ = toposort_linear_graph()

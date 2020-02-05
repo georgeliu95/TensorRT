@@ -94,7 +94,7 @@ class Graph(object):
 
     def cleanup(self):
         """
-        Removes unused nodes (any node which does not contribute to graph outputs) and unused graph inputs from the graph.
+        Removes unused nodes (any node which does not contribute to graph outputs) and tensors from the graph.
 
         Note: This function will never modify graph output tensors.
 
@@ -117,7 +117,20 @@ class Graph(object):
                 if node.id in used_node_ids:
                     nodes.append(node)
                 else:
+                    node.inputs.clear()
+                    node.outputs.clear()
                     G_LOGGER.verbose("Removing unused node: {:}".format(node))
+
+            # Last pass to remove any hanging tensors - tensors without outputs
+            graph_output_names = set([tensor.name for tensor in self.outputs])
+
+            for node in nodes:
+                def is_hanging_tensor(tensor):
+                    return len(tensor.outputs) == 0 and tensor.name not in graph_output_names
+
+                hanging_tensors = [out for out in node.outputs if is_hanging_tensor(out)]
+                [node.outputs.remove(tensor) for tensor in hanging_tensors]
+
             self.nodes = nodes
             return self
 
