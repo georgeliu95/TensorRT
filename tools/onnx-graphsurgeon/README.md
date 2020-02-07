@@ -46,6 +46,25 @@ graph = gs.Graph(nodes=[node], inputs=[inp], outputs=[out])
 onnx.save(gs.export_onnx(graph), "test_globallppool.onnx")
 ```
 
+### Creating An ONNX Model With Initializer
+
+The following code creates an ONNX model containing a single Convolution node, with weights:
+```python
+import onnx_graphsurgeon as gs
+import numpy as np
+import onnx
+
+inp = gs.VariableTensor(name="X", dtype=np.float32, shape=(1, 3, 224, 224))
+filter = gs.ConstantTensor(name="W", values=np.ones(shape=(5, 3, 3, 3), dtype=np.float32))
+out = gs.VariableTensor(name="Y", dtype=np.float32, shape=(1, 5, 222, 222))
+node = gs.Node(op="Conv", inputs=[inp, filter], outputs=[out])
+
+# Note that initializers do not necessarily have to be graph inputs
+graph = gs.Graph(nodes=[node], inputs=[inp], outputs=[out])
+onnx.save(gs.export_onnx(graph), "test_conv.onnx")
+```
+
+
 ### Isolating A Failing Node From A Model
 
 Assume that `model.onnx` is some ONNX model where a node named `failing_node` is failing.

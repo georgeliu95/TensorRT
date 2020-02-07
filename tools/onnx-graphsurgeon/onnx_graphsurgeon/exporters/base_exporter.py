@@ -4,7 +4,7 @@ class BaseExporter(object):
     @staticmethod
     def export_graph(graph: Graph):
         """
-        Export a graph from some destination graph.
+        Export a graph to some destination graph.
 
         Args:
             graph (Graph): The source graph to export.

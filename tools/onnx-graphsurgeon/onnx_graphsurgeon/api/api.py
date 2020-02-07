@@ -19,7 +19,7 @@ def import_onnx(onnx_model: "onnx.ModelProto") -> Graph:
 
 def export_onnx(graph: Graph, **kwargs) -> "onnx.ModelProto":
     """
-    Export's an onnx-graphsurgeon Graph to an ONNX model.
+    Exports an onnx-graphsurgeon Graph to an ONNX model.
 
     Args:
         graph (Graph): The graph to export

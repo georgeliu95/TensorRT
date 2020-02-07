@@ -21,7 +21,7 @@ def main():
         version=onnx_graphsurgeon.__version__,
         description="ONNX GraphSurgeon",
         long_description=open("README.md", "r", encoding="utf-8").read(),
-        url="https://gitlab-master.nvidia.com/pranavm/onnx-graphsurgeon",
+        url="https://github.com/nvidia/tensorrt/tools/onnx-graphsurgeon",
         author="Pranav Marathe",
         author_email="pranavm@nvidia.com",
         classifiers=[
