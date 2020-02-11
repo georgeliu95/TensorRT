@@ -111,6 +111,7 @@ aten_nodes = [node for node in graph if node.op == "ATen" and node.attrs["operat
 for node in aten_nodes:
     node.op = "Gather"
     node.inputs = node.inputs[0:2]
+    node.attrs = {"axis": 0}
 
 onnx.save(gs.export_onnx(graph.cleanup()), "model_with_gather.onnx")
 ```
