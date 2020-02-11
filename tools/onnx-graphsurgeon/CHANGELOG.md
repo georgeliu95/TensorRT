@@ -2,7 +2,7 @@
 
 Dates are in YYYY-MM-DD format.
 
-## vNext ()
+## v0.1.0 (2020-02-11)
 - Adds `Node`, `Tensor` and `Graph` classes.
 - Adds `BaseImporter` and `OnnxImporter` classes.
 - Adds support for importing initializers in the `OnnxImporter`

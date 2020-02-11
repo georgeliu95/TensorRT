@@ -12,3 +12,6 @@ install_venv: build
 
 install: build
 	python3 -m pip install --force-reinstall $(CURDIR)/dist/*.whl --user
+
+upload: build
+	twine upload --repository-url https://sc-hw-artf.nvidia.com/api/pypi/sw-dl-tensorrt-pypi/ dist/onnx_graphsurgeon*.whl
