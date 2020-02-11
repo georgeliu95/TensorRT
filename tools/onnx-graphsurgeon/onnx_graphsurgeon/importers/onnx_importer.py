@@ -151,19 +151,19 @@ class OnnxImporter(BaseImporter):
 
         # Import graph inputs and outputs.
         G_LOGGER.debug("Importing graph inputs")
-        graph_inputs: List[Tensor] = []
+        graph_inputs = [] # List[Tensor]
         for inp in onnx_graph.input:
             tensor = get_tensor(inp)
             graph_inputs.append(tensor)
 
         G_LOGGER.debug("Importing graph outputs")
-        graph_outputs: List[Tensor] = []
+        graph_outputs = [] # List[Tensor]
         for out in onnx_graph.output:
             tensor = get_tensor(out)
             graph_outputs.append(tensor)
 
         G_LOGGER.debug("Importing nodes")
-        nodes: List[Node] = []
+        nodes = [] # List[Node]
         for onnx_node in onnx_graph.node:
             node = OnnxImporter.import_node(onnx_node, tensor_map)
             nodes.append(node)
