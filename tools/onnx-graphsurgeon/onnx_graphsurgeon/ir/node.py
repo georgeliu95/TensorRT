@@ -27,6 +27,31 @@ class Node(object):
         self.outputs = misc.SynchronizedList(self, field_name="inputs", initial=misc.default_value(outputs, []))
 
 
+    def i(self, tensor_idx=0, producer_idx=0):
+        """
+        Convenience function to get a producer node of one of this node's inputs.
+
+        Args:
+            tensor_idx (int): The index of the input tensor of this node. Defaults to 0.
+            producer_idx (int): The index of the producer of the input tensor, if the tensor has multiple producers. Defaults to 0
+
+        Returns:
+            Node: The specified producer (input) node.
+        """
+        return self.inputs[tensor_idx].inputs[producer_idx]
+
+
+    def o(self, consumer_idx=0, tensor_idx=0):
+        """
+        Convenience function to get a consumer node of one of this node's outputs.
+
+        Args:
+            consumer_idx (int): The index of the consumer of the input tensor. Defaults to 0.
+            tensor_idx (int): The index of the output tensor of this node, if the node has multiple outputs. Defaults to 0.
+        """
+        return self.outputs[tensor_idx].outputs[consumer_idx]
+
+
     def __setattr__(self, name, value):
         if name in ["inputs", "outputs"] and hasattr(self, name):
             getattr(self, name).clear()

@@ -2,6 +2,9 @@
 
 Dates are in YYYY-MM-DD format.
 
+## vNext ()
+- Adds `i()` and `o()` convenience functions for retrieveing input/output nodes to `Node`
+
 ## v0.1.1 (2020-02-11)
 - Removes some type annotations to allow compatibility with Python 3.5
 
