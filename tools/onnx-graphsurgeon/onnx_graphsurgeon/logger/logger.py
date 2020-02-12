@@ -95,7 +95,7 @@ class Logger(object):
     # Like error, but immediately exits.
     def critical(self, message):
         self.log(lambda: self.assemble_message(message, stack_depth=4, prefix="C"), Logger.CRITICAL)
-        raise Exception(full_msg)
+        raise Exception("Error encountered - see logging output for details") from None # Erase exception chain
 
 global G_LOGGER
 G_LOGGER = Logger()

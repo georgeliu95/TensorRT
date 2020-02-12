@@ -75,6 +75,13 @@ class Graph(object):
         return NodeIDAdder(self)
 
 
+    def _get_node_id(self, node):
+        try:
+            return node.id
+        except AttributeError:
+            G_LOGGER.critical("Encountered a node not in the graph:\n{:}.\n\nTo fix this, please append the node to this graph's `nodes` attribute.".format(node))
+
+
     # Returns a list of node ids of used nodes, and a list of used tensors.
     def _get_used_node_ids(self):
         used_node_ids = set()
@@ -87,7 +94,7 @@ class Graph(object):
             used_tensor = used_tensors[index]
             index += 1
             for node in used_tensor.inputs:
-                used_node_ids.add(node.id)
+                used_node_ids.add(self._get_node_id(node))
                 used_tensors.extend(filter(ignore_seen, node.inputs))
         return used_node_ids, used_tensors
 
@@ -99,7 +106,7 @@ class Graph(object):
         Note: This function will never modify graph output tensors.
 
         Optional Args:
-            remove_unused_node_outputs (bool): Whether to remove unused outputs of nodes. This will never remove empty tensor outputs. 
+            remove_unused_node_outputs (bool): Whether to remove unused output tensors of nodes. This will never remove empty tensor outputs.
 
         Returns:
             self
@@ -117,7 +124,7 @@ class Graph(object):
 
             nodes = []
             for node in self.nodes:
-                if node.id in used_node_ids:
+                if self._get_node_id(node) in used_node_ids:
                     nodes.append(node)
                 else:
                     node.inputs.clear()
@@ -164,11 +171,11 @@ class Graph(object):
                 inputs = {}
                 for tensor in node.inputs:
                     for node in tensor.inputs:
-                        inputs[node.id] = node
+                        inputs[self._get_node_id(node)] = node
                 return inputs.values()
 
-            if node.id in hierarchy_levels:
-                return hierarchy_levels[node.id].level
+            if self._get_node_id(node) in hierarchy_levels:
+                return hierarchy_levels[self._get_node_id(node)].level
 
             # The level of a node is the level of it's highest input + 1.
             max_input_level = max([get_hierarchy_level(input_node) for input_node in get_input_nodes(node)] + [-1])
@@ -176,7 +183,7 @@ class Graph(object):
 
         with self.node_ids():
             for node in self.nodes:
-                hierarchy_levels[node.id] = HierarchyDescriptor(node, level=get_hierarchy_level(node))
+                hierarchy_levels[self._get_node_id(node)] = HierarchyDescriptor(node, level=get_hierarchy_level(node))
 
         self.nodes = [hd.node for hd in sorted(hierarchy_levels.values())]
         return self
