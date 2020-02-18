@@ -8,7 +8,7 @@ from typing import List, Dict
 class Node(object):
     def __init__(self, op: str, name: str=None, attrs: Dict[str, object]=None, inputs: List["Tensor"]=None, outputs: List["Tensor"]=None):
         """
-        A node consumes zero or more Tensors, and produces zero or more Tensors.
+        A node represents an operation in a graph, and consumes zero or more Tensors, and produces zero or more Tensors.
 
         Args:
             op (str): The operation this node performs.
@@ -30,10 +30,15 @@ class Node(object):
     def i(self, tensor_idx=0, producer_idx=0):
         """
         Convenience function to get a producer node of one of this node's inputs.
+        Note that the parameters are swapped compared to the o() function; this is because tensors are likely to have only a single producer
 
         Args:
             tensor_idx (int): The index of the input tensor of this node. Defaults to 0.
             producer_idx (int): The index of the producer of the input tensor, if the tensor has multiple producers. Defaults to 0
+
+        Example:
+            assert node.i() == node.inputs[0].inputs[0]
+            assert node.i(1, 2) == node.inputs[1].inputs[2]
 
         Returns:
             Node: The specified producer (input) node.
@@ -48,6 +53,13 @@ class Node(object):
         Args:
             consumer_idx (int): The index of the consumer of the input tensor. Defaults to 0.
             tensor_idx (int): The index of the output tensor of this node, if the node has multiple outputs. Defaults to 0.
+
+        Example:
+            assert node.o() == node.outputs[0].outputs[0]
+            assert node.o(2, 1) == node.outputs[1].outputs[2]
+
+        Returns:
+            Node: The specified consumer (output) node
         """
         return self.outputs[tensor_idx].outputs[consumer_idx]
 
@@ -61,7 +73,7 @@ class Node(object):
 
 
     def __str__(self):
-        return "{:} ({:}).\n\tInputs: {:}\n\tOutputs: {:}\nAttributes: {:}".format(self.name, self.op, self.inputs, self.outputs, self.attrs)
+        return "{:} ({:})\n\tInputs: {:}\n\tOutputs: {:}\nAttributes: {:}".format(self.name, self.op, self.inputs, self.outputs, self.attrs)
 
 
     def __repr__(self):

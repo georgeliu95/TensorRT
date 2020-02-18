@@ -70,8 +70,17 @@ class Graph(object):
         return self.nodes[index]
 
 
-    # TODO: Add docstrings for this function.
     def node_ids(self):
+        """
+        Returns a context manager that supplies unique integer IDs for Nodes in the Graph.
+
+        Example:
+            with graph.node_ids():
+                assert graph.nodes[0].id != graph.nodes[1].id
+
+        Returns:
+            NodeIDAdder: A context manager that supplies unique integer IDs for Nodes.
+        """
         return NodeIDAdder(self)
 
 
@@ -106,7 +115,7 @@ class Graph(object):
         Note: This function will never modify graph output tensors.
 
         Optional Args:
-            remove_unused_node_outputs (bool): Whether to remove unused output tensors of nodes. This will never remove empty tensor outputs.
+            remove_unused_node_outputs (bool): Whether to remove unused output tensors of nodes. This will never remove empty tensor outputs. If this is set to False, outputs of nodes kept in the graph will not be modified.
 
         Returns:
             self

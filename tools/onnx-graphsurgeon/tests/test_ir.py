@@ -177,6 +177,15 @@ class TestNodeIO(object):
         assert len(getattr(tensor, tensor_field)) == 0
 
     @pytest.mark.parametrize("field_names", [("inputs", "outputs"), ("outputs", "inputs")])
+    def test_del_index(self, field_names):
+        nlist, tensor_field = self.get_lists(field_names)
+        nlist.extend(self.tensors)
+        tensor = nlist[1]
+        del nlist[1]
+        assert self.tensors[1] not in nlist
+        assert len(getattr(tensor, tensor_field)) == 0
+
+    @pytest.mark.parametrize("field_names", [("inputs", "outputs"), ("outputs", "inputs")])
     def test_clear(self, field_names):
         nlist, tensor_field = self.get_lists(field_names)
         nlist.extend(self.tensors)

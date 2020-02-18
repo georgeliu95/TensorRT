@@ -33,6 +33,12 @@ class Tensor(object):
         return Tensor("")
 
     def is_empty(self):
+        """
+        Returns whether this Tensor is empty.
+
+        Returns:
+            bool: Whether the Tensor is empty.
+        """
         return not self.name
 
     def __str__(self):
@@ -54,7 +60,7 @@ class VariableTensor(Tensor):
         Represents a Tensor whose value is not known until inference-time.
 
         Args:
-            name (str): The name of the tensor. Tensor names must be unique per graph, and must not be modified after being set.
+            name (str): The name of the tensor.
             dtype (np.dtype): The data type of the tensor.
             shape (Sequence[int]): The shape of the tensor.
         """
@@ -73,8 +79,10 @@ class ConstantTensor(Tensor):
         Represents a Tensor whose value is known.
 
         Args:
-            name (str): The name of the tensor. Tensor names must be unique per graph, and must not be modified after being set.
+            name (str): The name of the tensor.
             values (np.ndarray): The values in this tensor.
+            dtype (np.dtype): The data type of the tensor.
+            shape (Sequence[int]): The shape of the tensor.
         """
         super().__init__(name)
         self.values = values
@@ -89,5 +97,5 @@ class ConstantTensor(Tensor):
 
     def __repr__(self):
         ret = self.__str__()
-        ret += "\tContents:\n{:}".format(self.values)
+        ret += "\n{:}".format(self.values)
         return ret

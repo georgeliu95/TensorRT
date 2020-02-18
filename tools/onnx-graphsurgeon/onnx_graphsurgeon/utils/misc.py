@@ -8,14 +8,6 @@ def default_value(value, default):
     return value if value is not None else default
 
 
-def remove_from_end(container, obj):
-    if obj not in container:
-        return None
-
-    idx = reversed(container).index(obj)
-    return container.pop(idx)
-
-
 # Special type of list that synchronizes contents with another list.
 # Concrete example: Assume some node, n, contains an input tensor, t. If we remove t from n.inputs,
 # we also need to remove n from t.outputs. To avoid having to do this manually, we use SynchronizedList,
@@ -37,6 +29,11 @@ class SynchronizedList(list):
     def _remove_from_elem(self, elem):
         # Explicitly avoid SynchronizedList overrides to prevent infinite recursion
         list.remove(getattr(elem, self.field_name), self.parent_obj)
+
+
+    def __delitem__(self, index):
+        self._remove_from_elem(self[index])
+        super().__delitem__(index)
 
 
     def __setitem__(self, index, elem):
