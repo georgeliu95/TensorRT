@@ -2,7 +2,7 @@
 
 Dates are in YYYY-MM-DD format.
 
-## vNext ()
+## v0.1.2 (2020-02-19)
 - Adds `i()` and `o()` convenience functions to `Node` for retrieving input/output nodes.
 
 ## v0.1.1 (2020-02-11)
