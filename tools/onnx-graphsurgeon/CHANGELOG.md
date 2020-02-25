@@ -4,6 +4,9 @@ Dates are in YYYY-MM-DD format.
 
 ## v0.1.2 (2020-02-19)
 - Adds `i()` and `o()` convenience functions to `Node` for retrieving input/output nodes.
+- Adds `fold_constants()` to `Graph` to allow for folding constants in the graph.
+- Adds `__deepcopy__()` to `Graph`.
+- Adds `make_constant()` and `make_variable()` functions to `VariableTensor` and `ConstantTensor` respectively to transmute them in-place.
 
 ## v0.1.1 (2020-02-11)
 - Removes some type annotations to allow compatibility with Python 3.5.

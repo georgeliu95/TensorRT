@@ -55,16 +55,36 @@ class TestVariableTensor(object):
     def test_equals(self):
         assert self.tensor == self.tensor
 
+    def test_can_convert_in_place_to_constant(self):
+        self.tensor.make_constant(values=np.ones((1, 3, 5, 5), dtype=np.float64))
+        assert isinstance(self.tensor, ConstantTensor)
+        assert isinstance(self.node.outputs[0], ConstantTensor)
+        assert self.tensor.shape == (1, 3, 5, 5)
+        assert self.tensor.dtype == np.float64
+        assert np.all(self.node.outputs[0].values == self.tensor.values)
+
 
 class TestConstantTensor(object):
     def setup_method(self):
-        self.tensor = ConstantTensor(name="test_tensor", values=np.ones((1, 3, 5, 5)))
+        self.node = Node(op="Add")
+        self.tensor = ConstantTensor(name="test_tensor", values=np.ones((1, 3, 5, 5), dtype=np.float64))
+        self.node.outputs.append(self.tensor)
 
     def test_can_get_shape(self):
         assert self.tensor.shape == (1, 3, 5, 5)
 
     def test_can_get_dtype(self):
-        assert self.tensor.dtype == self.tensor.values.dtype
+        assert self.tensor.dtype == np.float64
+
+    def test_can_convert_in_place_to_variable(self):
+        self.tensor.make_variable(dtype=np.float32, shape=(1, 3, 224, 224))
+        assert isinstance(self.tensor, VariableTensor)
+        assert isinstance(self.node.outputs[0], VariableTensor)
+        assert self.tensor.dtype == np.float32
+        assert self.tensor.shape == (1, 3, 224, 224)
+        assert self.node.outputs[0].dtype == self.tensor.dtype
+        assert self.node.outputs[0].shape == self.tensor.shape
+
 
 
 class TestNode(object):
@@ -402,3 +422,80 @@ class TestGraph(object):
         tensor_map = graph.generate_tensor_map()
         assert indep0.name not in tensor_map
         assert indep1.name not in tensor_map
+
+
+    def test_deep_copy(self):
+        def make_graph():
+            graph, _ = toposort_multi_tier_output_graph()
+            graph.outputs.pop()
+            return graph
+
+        graph = make_graph()
+        new_graph = copy.deepcopy(graph)
+        assert graph == new_graph
+
+        # Running cleanup on the first graph should not affect the copy
+        graph.cleanup()
+        assert graph != new_graph
+        assert new_graph == make_graph()
+
+
+    def test_fold_constants(self):
+        # Graph:
+        # c = (a + b)
+        # output = input + c
+        # Should fold to:
+        # output = input + c
+        inp = VariableTensor("input", shape=(1, 3), dtype=np.float32)
+        a = ConstantTensor("a", values=np.ones(shape=(1, 3), dtype=np.float32))
+        b = ConstantTensor("b", values=np.ones(shape=(1, 3), dtype=np.float32))
+        c = VariableTensor("c", shape=(1, 3), dtype=np.float32)
+        out = VariableTensor("output", shape=(1, 3), dtype=np.float32)
+
+        nodes = [
+            Node("Add", inputs=[a, b], outputs=[c]),
+            Node("Add", inputs=[inp, c], outputs=[out]),
+        ]
+        graph = Graph(nodes=nodes, inputs=[inp], outputs=[out])
+
+        graph.fold_constants().cleanup()
+
+        # Extra node should be removed
+        assert len(graph.nodes) == 1
+        assert graph.nodes[0].inputs[0] == inp
+        assert graph.nodes[0].inputs[1] == c
+        # Value should be computed correctly
+        assert np.all(graph.nodes[0].inputs[1].values == np.ones(shape=(1, 3), dtype=np.float32) * 2)
+
+
+    def test_fold_constants_one_hop(self):
+        # Graph:
+        # c = (a + b)
+        # e = (c + d)
+        # output = input + e
+        # Should fold to:
+        # output = input + e
+        inp = VariableTensor("input", shape=(1, 3), dtype=np.float32)
+        a = ConstantTensor("a", values=np.ones(shape=(1, 3), dtype=np.float32))
+        b = ConstantTensor("b", values=np.ones(shape=(1, 3), dtype=np.float32))
+        c = VariableTensor("c", shape=(1, 3), dtype=np.float32)
+        d = ConstantTensor("d", values=np.ones(shape=(1, 3), dtype=np.float32))
+        e = VariableTensor("e", shape=(1, 3), dtype=np.float32)
+        out = VariableTensor("output", shape=(1, 3), dtype=np.float32)
+
+        nodes = [
+            Node("Add", inputs=[a, b], outputs=[c]),
+            Node("Add", inputs=[c, d], outputs=[e]),
+            Node("Add", inputs=[inp, e], outputs=[out]),
+        ]
+
+        graph = Graph(nodes=nodes, inputs=[inp], outputs=[out])
+
+        graph.fold_constants().cleanup()
+
+        # Extra nodes should be removed
+        assert len(graph.nodes) == 1
+        assert graph.nodes[0].inputs[0] == inp
+        assert graph.nodes[0].inputs[1] == e
+        # Value should be computed correctly
+        assert np.all(graph.nodes[0].inputs[1].values == np.ones(shape=(1, 3), dtype=np.float32) * 3)

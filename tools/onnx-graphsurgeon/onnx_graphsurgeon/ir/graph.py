@@ -1,5 +1,5 @@
 from onnx_graphsurgeon.logger.logger import G_LOGGER
-from onnx_graphsurgeon.ir.tensor import Tensor, ConstantTensor
+from onnx_graphsurgeon.ir.tensor import Tensor, ConstantTensor, VariableTensor
 from onnx_graphsurgeon.ir.node import Node
 from onnx_graphsurgeon.utils import misc
 
@@ -16,7 +16,9 @@ class UnseenTensor(object):
 
     def __call__(self, tensor):
         # Empty tensors are never "seen"
-        if not tensor.name or tensor.name not in self.seen_tensors:
+        if tensor.is_empty():
+            return True
+        elif tensor.name not in self.seen_tensors:
             self.seen_tensors.add(tensor.name)
             return True
         return False
@@ -60,9 +62,9 @@ class Graph(object):
 
 
     def __eq__(self, other: "Graph"):
-        nodes_match = all([node == other_node for node, other_node in zip(self.nodes, other.nodes)])
-        inputs_match = all([inp == other_inp for inp, other_inp in zip(self.inputs, other.inputs)])
-        outputs_match = all([out == other_out for out, other_out in zip(self.outputs, other.outputs)])
+        nodes_match = len(self.nodes) == len(other.nodes) and all([node == other_node for node, other_node in zip(self.nodes, other.nodes)])
+        inputs_match = len(self.inputs) == len(other.inputs) and all([inp == other_inp for inp, other_inp in zip(self.inputs, other.inputs)])
+        outputs_match = len(self.outputs) == len(other.outputs) and all([out == other_out for out, other_out in zip(self.outputs, other.outputs)])
         return nodes_match and inputs_match and outputs_match
 
 
@@ -141,15 +143,13 @@ class Graph(object):
                     G_LOGGER.verbose("Removing unused node: {:}".format(node))
 
             # Last pass to remove any hanging tensors - tensors without outputs
-            graph_output_names = set([tensor.name for tensor in self.outputs])
-
             if remove_unused_node_outputs:
+                graph_output_names = set([tensor.name for tensor in self.outputs])
                 for node in nodes:
                     def is_hanging_tensor(tensor):
                         return not tensor.is_empty() and len(tensor.outputs) == 0 and tensor.name not in graph_output_names
 
-                    hanging_tensors = [out for out in node.outputs if is_hanging_tensor(out)]
-                    [node.outputs.remove(tensor) for tensor in hanging_tensors]
+                    [node.outputs.remove(out) for out in node.outputs if is_hanging_tensor(out)]
 
             self.nodes = nodes
             return self
@@ -187,7 +187,11 @@ class Graph(object):
                 return hierarchy_levels[self._get_node_id(node)].level
 
             # The level of a node is the level of it's highest input + 1.
-            max_input_level = max([get_hierarchy_level(input_node) for input_node in get_input_nodes(node)] + [-1])
+            try:
+                max_input_level = max([get_hierarchy_level(input_node) for input_node in get_input_nodes(node)] + [-1])
+            except RecursionError:
+                G_LOGGER.critical("Cycle detected in graph! Are there tensors with duplicate names in the graph?")
+
             return max_input_level + 1
 
         with self.node_ids():
@@ -219,8 +223,70 @@ class Graph(object):
         return tensor_map
 
 
+    def fold_constants(self):
+        """
+        Folds constants in-place in the graph. The graph must be topologically sorted prior to calling this function (see `toposort()`).
+
+        NOTE: This function will not remove constants after folding them. In order to get rid of these hanging nodes, you can run the `cleanup()` function.
+
+        NOTE: Due to how this is implemented, the graph must be exportable to ONNX, and evaluable in ONNX Runtime.
+
+        Returns:
+            self
+        """
+        from onnx_graphsurgeon.api.api import export_onnx
+        import onnxruntime
+        import onnx
+
+        temp_graph = copy.deepcopy(self)
+
+        # Since the graph is topologically sorted, this should find all constant nodes in the graph.
+        graph_constants = {tensor.name: tensor for tensor in temp_graph.generate_tensor_map().values() if isinstance(tensor, ConstantTensor)}
+        for node in temp_graph:
+            if all([inp.name in graph_constants for inp in node.inputs]):
+                graph_constants.update({out.name: out for out in node.outputs})
+
+        # Next build a graph with just the constants, and evaluate - no need to evaluate constants
+        outputs_to_evaluate = [tensor for tensor in graph_constants.values() if isinstance(tensor, VariableTensor)]
+        output_names = [out.name for out in outputs_to_evaluate]
+
+        temp_graph.outputs = outputs_to_evaluate
+        temp_graph.cleanup()
+
+        sess = onnxruntime.InferenceSession(export_onnx(temp_graph).SerializeToString())
+        constant_values = sess.run(output_names, {})
+
+        # Finally, replace the VariableTensors in the original graph with constants.
+        graph_tensors = self.generate_tensor_map()
+        for name, values in zip(output_names, constant_values):
+            graph_tensors[name].make_constant(values)
+            graph_tensors[name].inputs.clear() # Constants do not need inputs
+
+        return self
+
+
+    def __deepcopy__(self, memo):
+        """
+        Makes a deep copy of this graph.
+        """
+        # First, reconstruct each tensor in the graph, but with no inputs or outputs
+        tensor_map = self.generate_tensor_map()
+        new_tensors = {name: tensor.copy() for name, tensor in tensor_map.items()}
+
+        # Next, copy nodes, and update inputs/outputs
+        new_nodes = []
+        for node in self:
+            new_node = node.copy(inputs=[new_tensors[inp.name] for inp in node.inputs], outputs=[new_tensors[out.name] for out in node.outputs])
+            new_nodes.append(new_node)
+
+        new_graph_inputs = [new_tensors[inp.name] for inp in self.inputs]
+        new_graph_outputs = [new_tensors[out.name] for out in self.outputs]
+        return Graph(nodes=new_nodes, inputs=new_graph_inputs, outputs=new_graph_outputs, name=copy.deepcopy(self.name, memo), doc_string=copy.deepcopy(self.doc_string, memo))
+
+
     def __str__(self):
-        return "Inputs: {:}\nNodes: {:}\nOutputs: {:}".format(self.inputs, self.nodes, self.outputs)
+        nodes_str = "\n".join([str(node) for node in self.nodes])
+        return "Inputs: {:}\nNodes: {:}\nOutputs: {:}".format(self.inputs, nodes_str, self.outputs)
 
 
     def __repr__(self):
