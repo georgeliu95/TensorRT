@@ -18,6 +18,7 @@ class Tensor(object):
         self.inputs = misc.SynchronizedList(self, field_name="outputs", initial=[])
         self.outputs = misc.SynchronizedList(self, field_name="inputs", initial=[])
 
+
     def __setattr__(self, name, value):
         if name in ["inputs", "outputs"] and hasattr(self, name):
             getattr(self, name).clear()
@@ -25,12 +26,14 @@ class Tensor(object):
         else:
             super().__setattr__(name, value)
 
+
     @staticmethod
     def empty():
         """
         Creates an empty tensor.
         """
         return Tensor("")
+
 
     def is_empty(self):
         """
@@ -41,11 +44,22 @@ class Tensor(object):
         """
         return not self.name
 
+
+    def copy(self):
+        """
+        Makes a shallow copy of this tensor, omitting input and output information.
+
+        Note: Generally, you should only ever make a deep copy of a Graph.
+        """
+        return Tensor(self.name)
+
+
     def __str__(self):
         return "{:} ({:})".format(type(self).__name__, self.name)
 
     def __repr__(self):
         return self.__str__()
+
 
     def __eq__(self, other):
         """
@@ -69,6 +83,32 @@ class VariableTensor(Tensor):
         self.shape = list(misc.default_value(shape, []))
 
 
+    def make_constant(self, values: np.ndarray):
+        """
+        Modifies this tensor in-place to convert it to a ConstantTensor. This means that all consumers/producers of the tensor will see the update.
+
+        Args:
+            values (np.ndarray): The values in this tensor
+
+        Returns:
+            self
+        """
+        del self.dtype
+        del self.shape
+        self.__class__ = ConstantTensor
+        self.values = values
+        return self
+
+
+    def copy(self):
+        """
+        Makes a shallow copy of this tensor, omitting input and output information.
+
+        Note: Generally, you should only ever make a deep copy of a Graph.
+        """
+        return VariableTensor(self.name, self.dtype, self.shape)
+
+
     def __str__(self):
         return "{:}: (shape={:}, dtype={:})".format(super().__str__(), self.shape, self.dtype)
 
@@ -87,13 +127,41 @@ class ConstantTensor(Tensor):
         super().__init__(name)
         self.values = values
 
+
+    def make_variable(self, dtype: np.dtype, shape: Sequence[int]=[]):
+        """
+        Modifies this tensor in-place to convert it to a VariableTensor. This means that all consumers/producers of the tensor will see the update.
+
+        Args:
+            dtype (np.dtype): The data type of the tensor.
+            shape (Sequence[int]): The shape of the tensor.
+
+        Returns:
+            self
+        """
+        del self.values
+        self.__class__ = VariableTensor
+        self.dtype = dtype
+        self.shape = shape
+        return self
+
+
+    def copy(self):
+        """
+        Makes a shallow copy of this tensor, omitting input and output information.
+
+        Note: Generally, you should only ever make a deep copy of a Graph.
+        """
+        return ConstantTensor(self.name, self.values)
+
+
     @property
     def shape(self):
         return self.values.shape
 
     @property
     def dtype(self):
-        return self.values.dtype
+        return self.values.dtype.type
 
     def __repr__(self):
         ret = self.__str__()

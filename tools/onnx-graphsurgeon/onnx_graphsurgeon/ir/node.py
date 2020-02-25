@@ -72,9 +72,20 @@ class Node(object):
             super().__setattr__(name, value)
 
 
-    def __str__(self):
-        return "{:} ({:})\n\tInputs: {:}\n\tOutputs: {:}\nAttributes: {:}".format(self.name, self.op, self.inputs, self.outputs, self.attrs)
+    def copy(self, inputs: List["Tensor"]=None, outputs: List["Tensor"]=None):
+        """
+        Makes a shallow copy of this node, overriding input and output information.
 
+        Note: Generally, you should only ever make a deep copy of a Graph.
+        """
+        return Node(self.op, self.name, self.attrs, inputs=inputs, outputs=outputs)
+
+
+    def __str__(self):
+        ret = "{:} ({:})\n\tInputs: {:}\n\tOutputs: {:}".format(self.name, self.op, self.inputs, self.outputs)
+        if self.attrs:
+            ret += "\nAttributes: {:}".format(self.attrs)
+        return ret
 
     def __repr__(self):
         return self.__str__()
