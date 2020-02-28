@@ -40,7 +40,7 @@ class NodeIDAdder(object):
 
 
 class Graph(object):
-    def __init__(self, nodes: Sequence[Node]=None, inputs: Sequence[Tensor]=None, outputs: Sequence[Tensor]=None, name=None, doc_string=None):
+    def __init__(self, nodes: Sequence[Node]=None, inputs: Sequence[Tensor]=None, outputs: Sequence[Tensor]=None, name=None, doc_string=None, opset=None):
         """
         Represents a graph containing nodes and tensors.
 
@@ -57,6 +57,7 @@ class Graph(object):
 
         self.name = misc.default_value(name, "onnx_graphsurgeon")
         self.doc_string = misc.default_value(doc_string, "")
+        self.opset = misc.default_value(opset, 11)
         # Printing graphs can be very expensive
         G_LOGGER.ultra_verbose(lambda: "Created Graph: {:}".format(self))
 
@@ -286,7 +287,7 @@ class Graph(object):
 
     def __str__(self):
         nodes_str = "\n".join([str(node) for node in self.nodes])
-        return "Inputs: {:}\nNodes: {:}\nOutputs: {:}".format(self.inputs, nodes_str, self.outputs)
+        return "Graph {:} (Opset: {:})\nInputs: {:}\nNodes: {:}\nOutputs: {:}".format(self.name, self.opset, self.inputs, nodes_str, self.outputs)
 
 
     def __repr__(self):

@@ -1,7 +1,7 @@
 from onnx_graphsurgeon.logger.logger import G_LOGGER
 from onnx_graphsurgeon.utils import misc
 
-from typing import Set, Sequence
+from typing import Set, Sequence, Union
 import numpy as np
 
 class Tensor(object):
@@ -20,9 +20,12 @@ class Tensor(object):
 
 
     def __setattr__(self, name, value):
-        if name in ["inputs", "outputs"] and hasattr(self, name):
-            getattr(self, name).clear()
-            getattr(self, name).extend(value)
+        if name in ["inputs", "outputs"]:
+            try:
+                getattr(self, name).clear()
+                getattr(self, name).extend(value)
+            except AttributeError:
+                super().__setattr__(name, value)
         else:
             super().__setattr__(name, value)
 
@@ -69,14 +72,14 @@ class Tensor(object):
 
 
 class VariableTensor(Tensor):
-    def __init__(self, name: str, dtype: np.dtype, shape: Sequence[int]=[]):
+    def __init__(self, name: str, dtype: np.dtype, shape: Sequence[Union[int, str]]=[]):
         """
         Represents a Tensor whose value is not known until inference-time.
 
         Args:
             name (str): The name of the tensor.
             dtype (np.dtype): The data type of the tensor.
-            shape (Sequence[int]): The shape of the tensor.
+            shape (Sequence[Union[int, str]]): The shape of the tensor.
         """
         super().__init__(name)
         self.dtype = dtype
@@ -122,13 +125,13 @@ class ConstantTensor(Tensor):
             name (str): The name of the tensor.
             values (np.ndarray): The values in this tensor.
             dtype (np.dtype): The data type of the tensor.
-            shape (Sequence[int]): The shape of the tensor.
+            shape (Sequence[Union[int, str]]): The shape of the tensor.
         """
         super().__init__(name)
         self.values = values
 
 
-    def make_variable(self, dtype: np.dtype, shape: Sequence[int]=[]):
+    def make_variable(self, dtype: np.dtype, shape: Sequence[Union[int, str]]=[]):
         """
         Modifies this tensor in-place to convert it to a VariableTensor. This means that all consumers/producers of the tensor will see the update.
 

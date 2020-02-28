@@ -75,7 +75,8 @@ Nearly all of the members of each component can be freely modified.
 
 Tensors are divided into two subclasses: `VariableTensor` and `ConstantTensor`.
 
-A `ConstantTensor` is a tensor whose values are known upfront, and can be retrieved as a NumPy array and modified, whereas the values of a `VariableTensor` are unknown until inference-time.
+A `ConstantTensor` is a tensor whose values are known upfront, and can be retrieved as a NumPy array and modified.
+A `VariableTensor` is a tensor whose values are unknown until inference-time.
 
 The inputs and outputs of Tensors are always Nodes.
 
@@ -105,7 +106,7 @@ VariableTensor (gpu_0/data_0): (shape=[1, 3, 224, 224], dtype=float32)
 
 #### Node
 
-A `Node` defines an operation in the graph, and can have zero or more attributes. Attribute values can be any Python primitive types, as well as ONNX GraphSurgeon `Graph`s or `Tensor`s
+A `Node` defines an operation in the graph. A node may specify attributes; attribute values can be any Python primitive types, as well as ONNX GraphSurgeon `Graph`s or `Tensor`s
 
 The inputs and outputs of Nodes are always Tensors
 
@@ -115,8 +116,9 @@ The inputs and outputs of Nodes are always Tensors
  (Relu)
     Inputs: [Tensor (gpu_0/res_conv1_bn_1)]
     Outputs: [Tensor (gpu_0/res_conv1_bn_2)]
-Attributes: OrderedDict()
 ```
+
+In this case, the node has no attributes. Otherwise, attributes are displayed as an `OrderedDict`.
 
 
 #### A Note On Modifying Inputs And Outputs
@@ -130,7 +132,6 @@ Consider the following node:
  (Relu).
     Inputs: [Tensor (gpu_0/res_conv1_bn_1)]
     Outputs: [Tensor (gpu_0/res_conv1_bn_2)]
-Attributes: OrderedDict()
 ```
 
 The input tensor can be accessed like so:
@@ -142,7 +143,6 @@ Tensor (gpu_0/res_conv1_bn_1)
 [ (Relu).
 	Inputs: [Tensor (gpu_0/res_conv1_bn_1)]
 	Outputs: [Tensor (gpu_0/res_conv1_bn_2)]
-Attributes: OrderedDict()]
 ```
 
 If we remove the node from the outputs of the tensor, this is reflected in the node inputs as well:
@@ -154,7 +154,6 @@ If we remove the node from the outputs of the tensor, this is reflected in the n
  (Relu).
     Inputs: []
     Outputs: [Tensor (gpu_0/res_conv1_bn_2)]
-Attributes: OrderedDict()
 ```
 
 
