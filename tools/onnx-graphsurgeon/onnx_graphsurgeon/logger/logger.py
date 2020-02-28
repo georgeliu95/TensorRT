@@ -4,9 +4,25 @@ import time
 import sys
 import os
 
+
+class LoggerIndent(object):
+    def __init__(self, logger, indent):
+        self.logger = logger
+        self.old_indent = self.logger.logging_indent
+        self.indent = indent
+
+    def __enter__(self):
+        self.logger.logging_indent = self.indent
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.logger.logging_indent = self.old_indent
+
+
 class LogMode(enum.IntEnum):
     EACH = 0 # Log the message each time
     ONCE = 1 # Log the message only once. The same message will not be logged again.
+
 
 class Logger(object):
     ULTRA_VERBOSE = -10
@@ -17,7 +33,7 @@ class Logger(object):
     ERROR = 40
     CRITICAL = 50
 
-    def __init__(self, severity=INFO):
+    def __init__(self, severity=INFO, colors=True):
         """
         Logger.
 
@@ -27,25 +43,30 @@ class Logger(object):
         self.severity = severity
         self.root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir,  os.pardir))
         self.once_logged = set()
+        self.colors = colors
+        self.logging_indent = 0
+
+    def indent(self, level=1):
+        """
+        Returns a context manager that indents all strings logged by the specified amount.
+        """
+        return LoggerIndent(self, level + self.logging_indent)
 
     @staticmethod
-    def severity_color_prefix(sev):
-        prefix = "\033[1;"
-        color = {
-            Logger.ULTRA_VERBOSE: "90m",
-            Logger.VERBOSE: "90m",
-            Logger.DEBUG: "90m",
-            Logger.INFO: "92m",
-            Logger.WARNING: "33m",
-            Logger.ERROR: "31m",
-            Logger.CRITICAL: "31m",
+    def severity_logging_prefix(sev):
+        default = "\033[1;"
+        prefix = {
+            Logger.ULTRA_VERBOSE: "90mUV",
+            Logger.VERBOSE: "90mV",
+            Logger.DEBUG: "90mD",
+            Logger.INFO: "92mI",
+            Logger.WARNING: "33mW",
+            Logger.ERROR: "31mE",
+            Logger.CRITICAL: "31mC",
         }[sev]
-        return prefix + color
+        return default + prefix
 
-    def assemble_message(self, message, stack_depth, prefix):
-        if callable(message):
-            message = message()
-
+    def add_metadata(self, message, stack_depth):
         module = inspect.getmodule(sys._getframe(stack_depth))
         # Handle logging from the top-level of a module.
         if not module:
@@ -55,11 +76,14 @@ class Logger(object):
         # If the file is not located in trt_smeagol, use its basename instead.
         if os.pardir in filename:
             filename = os.path.basename(filename)
-        return "{:} ({:}) [{:}:{:}] {:}".format(prefix, time.strftime("%H:%M:%S"), filename, sys._getframe(stack_depth).f_lineno, message)
+
+        message_lines = message.splitlines()
+        message = "\n".join(["\t" * self.logging_indent + line for line in message_lines])
+        return "({:}) [{:}:{:}] {:}".format(time.strftime("%H:%M:%S"), filename, sys._getframe(stack_depth).f_lineno, message)
 
     # If once is True, the logger will only log this message a single time. Useful in loops.
     # message may be a callable which returns a message. This way, only if the message needs to be logged is it ever generated.
-    def log(self, message, severity, mode=False):
+    def log(self, message, severity, mode=LogMode.EACH):
         if severity < self.severity:
             return
 
@@ -72,29 +96,29 @@ class Logger(object):
                 return
             self.once_logged.add(message[PREFIX_LEN:])
 
-        print("{:}{:}\033[0m".format(Logger.severity_color_prefix(severity), message))
+        print("{:} {:}\033[0m".format(Logger.severity_logging_prefix(severity), self.add_metadata(message, stack_depth=3)))
 
     def ultra_verbose(self, message, mode=LogMode.EACH):
-        self.log(lambda: self.assemble_message(message, stack_depth=4, prefix="UV"), Logger.ULTRA_VERBOSE, mode=mode)
+        self.log(message, Logger.ULTRA_VERBOSE, mode=mode)
 
     def verbose(self, message, mode=LogMode.EACH):
-        self.log(lambda: self.assemble_message(message, stack_depth=4, prefix="V"), Logger.VERBOSE, mode=mode)
+        self.log(message, Logger.VERBOSE, mode=mode)
 
     def debug(self, message, mode=LogMode.EACH):
-        self.log(lambda: self.assemble_message(message, stack_depth=4, prefix="D"), Logger.DEBUG, mode=mode)
+        self.log(message, Logger.DEBUG, mode=mode)
 
     def info(self, message, mode=LogMode.EACH):
-        self.log(lambda: self.assemble_message(message, stack_depth=4, prefix="I"), Logger.INFO, mode=mode)
+        self.log(message, Logger.INFO, mode=mode)
 
     def warning(self, message, mode=LogMode.EACH):
-        self.log(lambda: self.assemble_message(message, stack_depth=4, prefix="W"), Logger.WARNING, mode=mode)
+        self.log(message, Logger.WARNING, mode=mode)
 
     def error(self, message, mode=LogMode.EACH):
-        self.log(lambda: self.assemble_message(message, stack_depth=4, prefix="E"), Logger.ERROR, mode=mode)
+        self.log(message, Logger.ERROR, mode=mode)
 
     # Like error, but immediately exits.
     def critical(self, message):
-        self.log(lambda: self.assemble_message(message, stack_depth=4, prefix="C"), Logger.CRITICAL)
+        self.log(message, Logger.CRITICAL)
         raise Exception("Error encountered - see logging output for details") from None # Erase exception chain
 
 global G_LOGGER

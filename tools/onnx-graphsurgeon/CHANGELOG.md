@@ -2,6 +2,9 @@
 
 Dates are in YYYY-MM-DD format.
 
+## v0.1.3 (2020-02-26)
+- The `import_onnx` and `export_onnx` functions will now preserve opset information and `dim_param` values in shapes.
+
 ## v0.1.2 (2020-02-19)
 - Adds `i()` and `o()` convenience functions to `Node` for retrieving input/output nodes.
 - Adds `fold_constants()` to `Graph` to allow for folding constants in the graph.

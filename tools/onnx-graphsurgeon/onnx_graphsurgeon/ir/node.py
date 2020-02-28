@@ -65,9 +65,12 @@ class Node(object):
 
 
     def __setattr__(self, name, value):
-        if name in ["inputs", "outputs"] and hasattr(self, name):
-            getattr(self, name).clear()
-            getattr(self, name).extend(value)
+        if name in ["inputs", "outputs"]:
+            try:
+                getattr(self, name).clear()
+                getattr(self, name).extend(value)
+            except AttributeError:
+                super().__setattr__(name, value)
         else:
             super().__setattr__(name, value)
 

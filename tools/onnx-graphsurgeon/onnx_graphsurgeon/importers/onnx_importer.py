@@ -27,7 +27,6 @@ ONNX_PYTHON_ATTR_MAPPING = {
     "STRINGS": "strings",
 }
 
-
 def get_onnx_tensor_shape(onnx_tensor: Union[onnx.ValueInfoProto, onnx.TensorProto]) -> List[int]:
     shape = []
     if isinstance(onnx_tensor, onnx.TensorProto):
@@ -35,7 +34,7 @@ def get_onnx_tensor_shape(onnx_tensor: Union[onnx.ValueInfoProto, onnx.TensorPro
     else:
         for dim in onnx_tensor.type.tensor_type.shape.dim:
             if dim.dim_param:
-                shape.append(-1)
+                shape.append(dim.dim_param)
             else:
                 shape.append(dim.dim_value)
     return shape
@@ -52,6 +51,15 @@ def get_onnx_tensor_dtype(onnx_tensor: Union[onnx.ValueInfoProto, onnx.TensorPro
 
 
 class OnnxImporter(BaseImporter):
+    @staticmethod
+    def get_opset(model: onnx.ModelProto):
+        try:
+            return model.opset_import[0].version
+        except:
+            G_LOGGER.warning("Model does not contain opset information! Using default opset.")
+            return None
+
+
     @staticmethod
     def import_tensor(onnx_tensor: Union[onnx.ValueInfoProto, onnx.TensorProto]) -> Tensor:
         try:
@@ -120,7 +128,7 @@ class OnnxImporter(BaseImporter):
 
 
     @staticmethod
-    def import_graph(onnx_graph: onnx.GraphProto, tensor_map: "OrderedDict[str, Tensor]"=None) -> Graph:
+    def import_graph(onnx_graph: onnx.GraphProto, tensor_map: "OrderedDict[str, Tensor]"=None, opset=None) -> Graph:
         """
         Imports a Graph from an ONNX Graph.
 
@@ -129,6 +137,7 @@ class OnnxImporter(BaseImporter):
 
         Optional Args:
             tensor_map (OrderedDict[str, Tensor]): A mapping of tensor names to Tensors. This is generally only useful for subgraph import.
+            opset (int): The ONNX opset to use for this graph.
         """
         # Tensor map should not be modified - may be from outer graph
         tensor_map = copy.copy(misc.default_value(tensor_map, OrderedDict()))
@@ -168,4 +177,4 @@ class OnnxImporter(BaseImporter):
             node = OnnxImporter.import_node(onnx_node, tensor_map)
             nodes.append(node)
 
-        return Graph(nodes=nodes, inputs=graph_inputs, outputs=graph_outputs, name=onnx_graph.name, doc_string=onnx_graph.doc_string)
+        return Graph(nodes=nodes, inputs=graph_inputs, outputs=graph_outputs, name=onnx_graph.name, doc_string=onnx_graph.doc_string, opset=opset)

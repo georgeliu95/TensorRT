@@ -2,7 +2,7 @@ from onnx_graphsurgeon.exporters.onnx_exporter import OnnxExporter
 from onnx_graphsurgeon.importers.onnx_importer import OnnxImporter
 from onnx_graphsurgeon.logger.logger import G_LOGGER
 
-from onnx_models import identity_model, lstm_model, scan_model
+from onnx_models import identity_model, lstm_model, scan_model, dim_param_model
 
 from onnx_graphsurgeon.ir.tensor import Tensor, ConstantTensor, VariableTensor
 from onnx_graphsurgeon.ir.graph import Graph
@@ -113,9 +113,16 @@ class TestOnnxExporter(object):
 
 
     # See test_importers for import correctness checks
-    @pytest.mark.parametrize("model", [identity_model(), lstm_model(), scan_model()])
+    # This function first imports an ONNX graph, and then re-exports it with no changes.
+    # The exported ONNX graph should exactly match the original.
+    @pytest.mark.parametrize("model", [identity_model(), lstm_model(), scan_model(), dim_param_model()])
     def test_export_graph(self, model):
-        graph = OnnxImporter.import_graph(model.load().graph)
+        onnx_graph = model.load().graph
+        graph = OnnxImporter.import_graph(onnx_graph)
         exported_onnx_graph = OnnxExporter.export_graph(graph)
         imported_graph = OnnxImporter.import_graph(exported_onnx_graph)
         assert graph == imported_graph
+        assert graph.opset == imported_graph.opset
+        # ONNX exports the initializers in this model differently after importing - ONNX GS can't do much about this.
+        if model.path != lstm_model().path:
+            assert onnx_graph == exported_onnx_graph

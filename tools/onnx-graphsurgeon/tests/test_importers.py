@@ -1,7 +1,7 @@
 from onnx_graphsurgeon.importers.onnx_importer import OnnxImporter
 from onnx_graphsurgeon.logger.logger import G_LOGGER
 
-from onnx_models import identity_model, lstm_model, scan_model
+from onnx_models import identity_model, lstm_model, scan_model, dim_param_model
 
 from collections import OrderedDict
 import onnx.numpy_helper
@@ -63,5 +63,11 @@ class TestOnnxImporter(object):
 
     def test_import_graph_with_initializer(self):
         model = lstm_model()
+        graph = OnnxImporter.import_graph(model.load().graph)
+        model.assert_equal(graph)
+
+
+    def test_import_graph_with_dim_param(self):
+        model = dim_param_model()
         graph = OnnxImporter.import_graph(model.load().graph)
         model.assert_equal(graph)

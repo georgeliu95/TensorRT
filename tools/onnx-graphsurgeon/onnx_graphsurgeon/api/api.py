@@ -14,7 +14,8 @@ def import_onnx(onnx_model: "onnx.ModelProto") -> Graph:
         Graph: A corresponding onnx-graphsurgeon Graph.
     """
     from onnx_graphsurgeon.importers.onnx_importer import OnnxImporter
-    return OnnxImporter.import_graph(onnx_model.graph)
+
+    return OnnxImporter.import_graph(onnx_model.graph, opset=OnnxImporter.get_opset(onnx_model))
 
 
 def export_onnx(graph: Graph, **kwargs) -> "onnx.ModelProto":
@@ -24,6 +25,9 @@ def export_onnx(graph: Graph, **kwargs) -> "onnx.ModelProto":
     Args:
         graph (Graph): The graph to export
 
+    Optional Args:
+        **kwargs: Additional arguments to onnx.helper.make_model
+
     Returns:
         onnx.ModelProto: A corresponding ONNX model.
     """
@@ -31,4 +35,8 @@ def export_onnx(graph: Graph, **kwargs) -> "onnx.ModelProto":
     import onnx
 
     onnx_graph = OnnxExporter.export_graph(graph)
+
+    if "opset_imports" not in kwargs:
+        kwargs["opset_imports"] = [onnx.helper.make_opsetid("", graph.opset)]
+
     return onnx.helper.make_model(onnx_graph, **kwargs)
