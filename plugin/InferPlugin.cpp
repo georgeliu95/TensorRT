@@ -44,6 +44,7 @@ using namespace nvinfer1::plugin;
 #include "generateDetectionPlugin/generateDetectionPlugin.h"
 #include "multilevelProposeROI/multilevelProposeROIPlugin.h"
 #include "multilevelCropAndResizePlugin/multilevelCropAndResizePlugin.h"
+#include "coordConvACPlugin/coordConvACPlugin.h"
 
 using nvinfer1::plugin::RPROIParams;
 
@@ -124,6 +125,7 @@ bool initLibNvInferPlugins(void* logger, const char* libNamespace)
     initializePlugin<nvinfer1::plugin::GenerateDetectionPluginCreator>(logger, libNamespace);
     initializePlugin<nvinfer1::plugin::MultilevelProposeROIPluginCreator>(logger, libNamespace);
     initializePlugin<nvinfer1::plugin::MultilevelCropAndResizePluginCreator>(logger, libNamespace);
+    initializePlugin<nvinfer1::plugin::CoordConvACPluginCreator>(logger, libNamespace);
     return true;
 }
 } // extern "C"
