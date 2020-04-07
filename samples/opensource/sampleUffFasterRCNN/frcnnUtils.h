@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -192,7 +192,7 @@ class BatchStream
 {
 public:
     BatchStream(
-        int batchSize, int maxBatches, std::string prefix, std::string suffix, std::vector<std::string> directories)
+        int batchSize, int maxBatches, const std::string& prefix, const std::string& suffix, const std::vector<std::string>& directories)
         : mBatchSize(batchSize)
         , mMaxBatches(maxBatches)
         , mPrefix(prefix)
@@ -219,13 +219,13 @@ public:
         reset(0);
     }
 
-    BatchStream(int batchSize, int maxBatches, std::string prefix, std::vector<std::string> directories)
+    BatchStream(int batchSize, int maxBatches, const std::string& prefix, const std::vector<std::string>& directories)
         : BatchStream(batchSize, maxBatches, prefix, ".batch", directories)
     {
     }
 
     BatchStream(
-        int batchSize, int maxBatches, nvinfer1::Dims dims, std::string listFile, std::vector<std::string> directories)
+        int batchSize, int maxBatches, const nvinfer1::Dims& dims, const std::string& listFile, const std::vector<std::string>& directories)
         : mBatchSize(batchSize)
         , mMaxBatches(maxBatches)
         , mDims(dims)
@@ -432,7 +432,7 @@ class EntropyCalibratorImpl
 {
 public:
     EntropyCalibratorImpl(
-        BatchStream& stream, int firstBatch, std::string networkName, const char* inputBlobName, bool readCache = true)
+        BatchStream& stream, int firstBatch, const std::string& networkName, const char* inputBlobName, bool readCache = true)
         : mStream(stream)
         , mCalibrationTableName("CalibrationTable" + networkName)
         , mInputBlobName(inputBlobName)

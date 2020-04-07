@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -454,7 +454,7 @@ bool printInferenceOutput(
     return pass;
 }
 
-void submitWork(Batch& b, const Args& args)
+bool submitWork(Batch& b, const Args& args)
 {
     int userInputIndex = b.mEngine->getBindingIndex(USER_BLOB_NAME);
     int itemInputIndex = b.mEngine->getBindingIndex(ITEM_BLOB_NAME);
@@ -468,7 +468,10 @@ void submitWork(Batch& b, const Args& args)
     CHECK(cudaMemcpyAsync(b.mDeviceMemory[itemInputIndex], b.mHostMemory[itemInputIndex], b.mMemSizes[itemInputIndex],
         cudaMemcpyHostToDevice, b.mStream));
 
-    b.mContext->enqueue(args.numUsers, b.mDeviceMemory, b.mStream, nullptr);
+    if (!b.mContext->enqueue(args.numUsers, b.mDeviceMemory, b.mStream, nullptr))
+    {
+        return false;
+    }
 
     // copy output from device to host
     CHECK(cudaMemcpyAsync(b.mHostMemory[outputPredictionIndex], b.mDeviceMemory[outputPredictionIndex],
@@ -477,6 +480,8 @@ void submitWork(Batch& b, const Args& args)
         b.mMemSizes[outputItemProbIndex], cudaMemcpyDeviceToHost, b.mStream));
     CHECK(cudaMemcpyAsync(b.mHostMemory[outputItemNameIndex], b.mDeviceMemory[outputItemNameIndex],
         b.mMemSizes[outputItemNameIndex], cudaMemcpyDeviceToHost, b.mStream));
+
+    return true;
 }
 
 std::shared_ptr<ICudaEngine> loadModelAndCreateEngine(const char* uffFile, IUffParser* parser, const Args& args)
@@ -586,7 +591,11 @@ bool doInference(void* modelStreamData, int modelStreamSize, void* userInputPtr,
         samplesCommon::GpuTimer timer{b.mStream};
         timer.start();
         // Run inference for all the nbProcesses
-        submitWork(b, args);
+        if (!submitWork(b, args))
+        {
+            gLogError << "Error in submit work." << std::endl;
+            return false;
+        }
         cudaStreamSynchronize(b.mStream);
         timer.stop();
         gLogInfo << "Done execution in process: " << getpid() << " . Duration : " << timer.microseconds()

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -118,8 +118,8 @@ struct SampleCharRNNParams : samplesCommon::SampleParams
     SampleCharRNNWeightNames weightNames;
     SampleCharRNNBindingNames bindingNames;
 
-    vector<std::string> inputSentences;
-    vector<std::string> outputSentences;
+    std::vector<std::string> inputSentences;
+    std::vector<std::string> outputSentences;
     bool useILoop;
 };
 
@@ -271,13 +271,18 @@ private:
 //!
 bool SampleCharRNNBase::build()
 {
-    NetworkDefinitionCreationFlags flags{
-        mParams.useILoop ? 1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH) : 0};
     auto builder = SampleUniquePtr<nvinfer1::IBuilder>(
         nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
     if (!builder)
     {
         return false;
+    }
+    NetworkDefinitionCreationFlags flags{
+        1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH)};
+    if (!mParams.useILoop)
+    {
+        flags = 0;
+        builder->setMaxBatchSize(mParams.batchSize);
     }
     auto network = SampleUniquePtr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(flags));
     if (!network)
@@ -292,8 +297,6 @@ bool SampleCharRNNBase::build()
 
     mWeightMap = SampleCharRNNBase::loadWeights(mParams.weightFileName);
 
-    builder->setMaxBatchSize(
-        flags & static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH) ? 0 : mParams.batchSize);
     config->setMaxWorkspaceSize(32_MiB);
     config->setFlag(BuilderFlag::kGPU_FALLBACK);
 
@@ -413,8 +416,8 @@ nvinfer1::Weights SampleCharRNNBase::convertRNNWeights(nvinfer1::Weights orig, i
     int dimsW[2]{dataSize, 4 * mParams.hiddenSize};
     int dimsR[2]{mParams.hiddenSize, 4 * mParams.hiddenSize};
     std::copy(data, data + input.count, ptr);
-    utils::transposeSubBuffers(ptr, DataType::kFLOAT, 1, dimsW[0], dimsW[1]);
-    utils::transposeSubBuffers(&ptr[dimsW[0] * dimsW[1]], DataType::kFLOAT, 1, dimsR[0], dimsR[1]);
+    assert(utils::transposeSubBuffers(ptr, DataType::kFLOAT, 1, dimsW[0], dimsW[1]));
+    assert(utils::transposeSubBuffers(&ptr[dimsW[0] * dimsW[1]], DataType::kFLOAT, 1, dimsR[0], dimsR[1]));
     return nvinfer1::Weights{input.type, ptr, input.count};
 }
 
@@ -725,7 +728,8 @@ void SampleCharRNNBase::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& bu
     auto rnn = addLSTMLayers(network);
 
     // Transpose FC weights since TensorFlow's weights are transposed when compared to TensorRT
-    utils::transposeSubBuffers((void*) mWeightMap[mParams.weightNames.FCW_NAME].values, nvinfer1::DataType::kFLOAT, 1, mParams.hiddenSize, mParams.vocabSize);
+    assert(utils::transposeSubBuffers((void*) mWeightMap[mParams.weightNames.FCW_NAME].values,
+        nvinfer1::DataType::kFLOAT, 1, mParams.hiddenSize, mParams.vocabSize));
 
     // add Constant layers for fully connected weights
     auto fcwts = network->addConstant(nvinfer1::Dims2(mParams.vocabSize, mParams.hiddenSize), mWeightMap[mParams.weightNames.FCW_NAME]);
@@ -766,7 +770,7 @@ void SampleCharRNNBase::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& bu
 bool SampleCharRNNBase::infer()
 {
     // Create RAII buffer manager object
-    samplesCommon::BufferManager buffers(mEngine, mParams.batchSize);
+    samplesCommon::BufferManager buffers(mEngine, mParams.useILoop ? 0 : mParams.batchSize);
 
     auto context = SampleUniquePtr<nvinfer1::IExecutionContext>(
         mEngine->createExecutionContext());
@@ -791,7 +795,9 @@ bool SampleCharRNNBase::infer()
     CHECK(cudaStreamCreate(&stream));
 
     // Set sequence lengths to maximum
-    std::fill_n(reinterpret_cast<int32_t*>(buffers.getHostBuffer(mParams.bindingNames.SEQ_LEN_IN_BLOB_NAME)), mParams.batchSize, mParams.seqSize);
+    int* sequenceLengthIn = reinterpret_cast<int32_t*>(buffers.getHostBuffer(mParams.bindingNames.SEQ_LEN_IN_BLOB_NAME));
+    auto sequenceLengthTensorSize = buffers.size(mParams.bindingNames.SEQ_LEN_IN_BLOB_NAME);
+    std::fill_n(sequenceLengthIn, sequenceLengthTensorSize / sizeof(mParams.seqSize), mParams.seqSize);
 
     // Initialize hiddenIn and cellIn tensors to zero before seeding
     void* hiddenIn = buffers.getHostBuffer(mParams.bindingNames.HIDDEN_IN_BLOB_NAME);

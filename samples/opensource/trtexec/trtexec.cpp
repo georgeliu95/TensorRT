@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@
 #include "buffers.h"
 #include "common.h"
 #include "logger.h"
+#include "sampleDevice.h"
 #include "sampleOptions.h"
 #include "sampleEngines.h"
 #include "sampleInference.h"
@@ -47,7 +48,7 @@ using namespace sample;
 int main(int argc, char** argv)
 {
     const std::string sampleName = "TensorRT.trtexec";
-    const std::string supportNote{"Note: CUDA graphs is not supported in this version."};
+    const std::string supportNote{"Note: CUDA graphs and actual data IO are not supported in this version."};
 
     auto sampleTest = gLogger.defineTest(sampleName, argc, argv);
 
@@ -55,6 +56,12 @@ int main(int argc, char** argv)
 
     Arguments args = argsToArgumentsMap(argc, argv);
     AllOptions options;
+
+    if (parseHelp(args))
+    {
+        AllOptions::help(std::cout);
+        return EXIT_SUCCESS;
+    }
 
     if (!args.empty())
     {
@@ -103,7 +110,7 @@ int main(int argc, char** argv)
         setReportableSeverity(Severity::kVERBOSE);
     }
 
-    cudaSetDevice(options.system.device);
+    cudaCheck(cudaSetDevice(options.system.device));
 
     initLibNvInferPlugins(&gLogger.getTRTLogger(), "");
 
@@ -138,9 +145,14 @@ int main(int argc, char** argv)
         iEnv.profiler.reset(new Profiler);
     }
 
-    setUpInference(iEnv, options.inference);
+    if (!setUpInference(iEnv, options.inference))
+    {
+        gLogError << "Inference set up failed" << std::endl;
+        return gLogger.reportFail(sampleTest);
+    }
     std::vector<InferenceTrace> trace;
-    runInference(options.inference, iEnv, trace);
+    gLogInfo << "Starting inference threads" << std::endl;
+    runInference(options.inference, iEnv, options.system.device, trace);
 
     printPerformanceReport(trace, options.reporting, static_cast<float>(options.inference.warmup), options.inference.batch, gLogInfo);
 

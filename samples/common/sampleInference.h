@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -41,12 +41,12 @@ struct InferenceEnvironment
 //!
 //! \brief Set up contexts and bindings for inference
 //!
-void setUpInference(InferenceEnvironment& iEnv, const InferenceOptions& inference);
+bool setUpInference(InferenceEnvironment& iEnv, const InferenceOptions& inference);
 
 //!
 //! \brief Run inference and collect timing
 //!
-void runInference(const InferenceOptions& inference, InferenceEnvironment& iEnv, std::vector<InferenceTrace>& trace);
+void runInference(const InferenceOptions& inference, InferenceEnvironment& iEnv, int device, std::vector<InferenceTrace>& trace);
 
 } // namespace sample
 

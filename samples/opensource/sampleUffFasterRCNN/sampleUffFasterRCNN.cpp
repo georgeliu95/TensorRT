@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -188,7 +188,7 @@ bool SampleUffFasterRcnn::build()
             infer->deserializeCudaEngine(trtModelStream.data(), size, nullptr), samplesCommon::InferDeleter());
 
         infer->destroy();
-        gLogInfo << "TRT Engine loaded from: " << mParams.loadEngine << endl;
+        gLogInfo << "TRT Engine loaded from: " << mParams.loadEngine << std::endl;
         if (!mEngine)
         {
             return false;
@@ -271,7 +271,12 @@ bool SampleUffFasterRcnn::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& 
         const int imageC = 3;
         const int imageH = mParams.inputHeight;
         const int imageW = mParams.inputWidth;
-        const nvinfer1::DimsNCHW imageDims{mParams.calBatchSize, imageC, imageH, imageW};
+        nvinfer1::DimsNCHW imageDims{mParams.calBatchSize, imageC, imageH, imageW};
+        // To prevent compiler initialization warning with some versions of gcc
+        for (int i=imageDims.nbDims; i < Dims::MAX_DIMS; ++i){
+            imageDims.d[i] = 0;
+            imageDims.type[i] = DimensionType::kSPATIAL;
+        }
         BatchStream calibrationStream(
             mParams.calBatchSize, mParams.nbCalBatches, imageDims, listFileName, mParams.dataDirs);
         calibrator.reset(
@@ -301,7 +306,7 @@ bool SampleUffFasterRcnn::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& 
         p.write(reinterpret_cast<const char*>(ptr->data()), ptr->size());
         ptr->destroy();
         p.close();
-        gLogInfo << "TRT Engine file saved to: " << mParams.saveEngine << endl;
+        gLogInfo << "TRT Engine file saved to: " << mParams.saveEngine << std::endl;
     }
 
     return true;
@@ -337,11 +342,10 @@ bool SampleUffFasterRcnn::infer()
     for (int i = 0; i < mParams.repeat; ++i)
     {
         status = context->execute(mParams.batchSize, buffers.getDeviceBindings().data());
-    }
-
-    if (!status)
-    {
-        return false;
+        if (!status)
+        {
+            return false;
+        }
     }
 
     if (mParams.profile)

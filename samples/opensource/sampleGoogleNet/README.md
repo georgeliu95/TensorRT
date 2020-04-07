@@ -5,7 +5,7 @@
 - [How does this sample work?](#how-does-this-sample-work)
     * [TensorRT API layers and ops](#tensorrt-api-layers-and-ops)
 - [Running the sample](#running-the-sample)
-    * [Sample `--help` options](#sample---help-options)
+    * [Sample `--help` options](#sample-help-options)
 - [Additional resources](#additional-resources)
 - [License](#license)
 - [Changelog](#changelog)
@@ -21,7 +21,7 @@ This sample constructs a network based on a saved Caffe model and network descri
 
 - `googlenet.prototxt` - The prototxt file that contains the network design.    
 - `googlenet.caffemodel` - The model file which contains the trained weights for the network.
-    
+
 For more information, see [Importing A Caffe Model Using The C++ Parser API](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#import_caffe_c).
 
 The sample then builds the TensorRT engine using the constructed network. See [Building an Engine in C++](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#build_engine_c) for more information on this. Finally, the sample runs the engine with the test input (all zeroes) and reports if the sample ran as expected.
@@ -59,12 +59,12 @@ The SoftMax layer applies the SoftMax function on the input tensor along an inpu
 	make
 	```
 	Where `<TensorRT root directory>` is where you installed TensorRT.
-	
+
 2. Run the sample to build and run a GPU inference engine for GoogleNet.
 	`./sample_googlenet --datadir=<path_to_data_directory> --useDLACore=N`
 	Where `<path_to_data_directory>` is the path to your `data` directory.
 	**Note:** By default, this sample assumes both `googlenet.prototxt` and `googlenet.caffemodel` files are located in either the `data/samples/googlenet/` or `data/googlenet/` directories. The default directory can be changed by supplying the `--datadir=<new_path/>` path as a command line argument.
-	
+
 3.  Verify that the sample ran successfully. If the sample runs successfully you should see output similar to the following:
 	```
 	&&&& RUNNING TensorRT.sample_googlenet # ./sample_googlenet
@@ -101,14 +101,14 @@ The following resources provide a deeper understanding about GoogleNet:
 
 # License
 
-For terms and conditions for use, reproduction, and distribution, see the [TensorRT Software License Agreement](https://docs.nvidia.com/deeplearning/sdk/tensorrt-sla/index.html) 
+For terms and conditions for use, reproduction, and distribution, see the [TensorRT Software License Agreement](https://docs.nvidia.com/deeplearning/sdk/tensorrt-sla/index.html)
 documentation.
- 
+
 # Changelog
 
 February 2019
 This `README.md` file was recreated, updated and reviewed.
- 
+
 # Known issues
 
 There are no known issues in this sample.

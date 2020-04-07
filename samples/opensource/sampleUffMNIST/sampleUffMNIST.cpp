@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -245,7 +245,7 @@ bool SampleUffMNIST::verifyOutput(
     // Print output values for each index
     for (int j = 0; j < kDIGITS; j++)
     {
-        gLogInfo << j << "=> " << setw(10) << prob[j] << "\t : ";
+        gLogInfo << j << "=> " << std::setw(10) << prob[j] << "\t : ";
 
         // Emphasize index with highest output value
         if (j == idx)

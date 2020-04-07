@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -1172,7 +1172,11 @@ int main(int argc, char** argv)
                 *inputOriginalSequenceLengthsHostBuffer);
         });
 
-        encoderContext->enqueue(inputSamplesRead, &encoderBindings[0], stream, nullptr);
+        if (!encoderContext->enqueue(inputSamplesRead, &encoderBindings[0], stream, nullptr))
+        {
+            gLogError << "Error in encoder context enqueue" << std::endl;
+            return gLogger.reportTest(sampleTest, false);
+        }
 
         // Limit output sequences length to input_sequence_length * 2
         std::transform((const int*) *inputSequenceLengthsHostBuffer,
@@ -1196,12 +1200,24 @@ int main(int argc, char** argv)
             // Generator initialization and beam shuffling
             if (outputTimestep == 0)
             {
-                generatorContext->enqueue(validSampleCount, &generatorBindingsFirstStep[0], stream, nullptr);
+                if (!generatorContext->enqueue(validSampleCount, &generatorBindingsFirstStep[0], stream, nullptr))
+                {
+                    gLogError << "Error in generator context enqueue step" << outputTimestep << std::endl;
+                    return gLogger.reportTest(sampleTest, false);
+                }
             }
             else
             {
-                generatorShuffleContext->enqueue(validSampleCount, &generatorShuffleBindings[0], stream, nullptr);
-                generatorContext->enqueue(validSampleCount, &generatorBindings[0], stream, nullptr);
+                if (!generatorShuffleContext->enqueue(validSampleCount, &generatorShuffleBindings[0], stream, nullptr))
+                {
+                    gLogError << "Error in generator shuffle context enqueue step " << outputTimestep << std::endl;
+                    return gLogger.reportTest(sampleTest, false);
+                }
+                if (!generatorContext->enqueue(validSampleCount, &generatorBindings[0], stream, nullptr))
+                {
+                    gLogError << "Error in generator context enqueue step" << outputTimestep << std::endl;
+                    return gLogger.reportTest(sampleTest, false);
+                }
             }
 
             CUDA_CHECK(cudaMemcpyAsync(*outputCombinedLikelihoodHostBuffer, *outputCombinedLikelihoodDeviceBuffer,
