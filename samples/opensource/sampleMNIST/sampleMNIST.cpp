@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ private:
     //! \brief uses a Caffe parser to create the MNIST Network and marks the
     //!        output layers
     //!
-    void constructNetwork(
+    bool constructNetwork(
         SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser, SampleUniquePtr<nvinfer1::INetworkDefinition>& network);
 
     //!
@@ -135,7 +135,11 @@ bool SampleMNIST::build()
         return false;
     }
 
-    constructNetwork(parser, network);
+    if (!constructNetwork(parser, network))
+    {
+        return false;
+    }
+
     builder->setMaxBatchSize(mParams.batchSize);
     config->setMaxWorkspaceSize(16_MiB);
     config->setFlag(BuilderFlag::kGPU_FALLBACK);
@@ -233,7 +237,7 @@ bool SampleMNIST::verifyOutput(
 //!
 //! \param builder Pointer to the engine builder
 //!
-void SampleMNIST::constructNetwork(
+bool SampleMNIST::constructNetwork(
     SampleUniquePtr<nvcaffeparser1::ICaffeParser>& parser, SampleUniquePtr<nvinfer1::INetworkDefinition>& network)
 {
     const nvcaffeparser1::IBlobNameToTensor* blobNameToTensor = parser->parse(
@@ -259,12 +263,23 @@ void SampleMNIST::constructNetwork(
         = samplesCommon::getMaxValue(static_cast<const float*>(meanWeights.values), samplesCommon::volume(inputDims));
 
     auto mean = network->addConstant(nvinfer1::Dims3(1, inputDims.d[1], inputDims.d[2]), meanWeights);
-    mean->getOutput(0)->setDynamicRange(-maxMean, maxMean);
-    network->getInput(0)->setDynamicRange(-maxMean, maxMean);
+    if (!mean->getOutput(0)->setDynamicRange(-maxMean, maxMean))
+    {
+        return false;
+    }
+    if (!network->getInput(0)->setDynamicRange(-maxMean, maxMean))
+    {
+        return false;
+    }
     auto meanSub = network->addElementWise(*network->getInput(0), *mean->getOutput(0), ElementWiseOperation::kSUB);
-    meanSub->getOutput(0)->setDynamicRange(-maxMean, maxMean);
+    if (!meanSub->getOutput(0)->setDynamicRange(-maxMean, maxMean))
+    {
+        return false;
+    }
     network->getLayer(0)->setInput(0, *meanSub->getOutput(0));
     samplesCommon::setAllTensorScales(network.get(), 127.0f, 127.0f);
+
+    return true;
 }
 
 //!

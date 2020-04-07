@@ -10,7 +10,7 @@
 	* [TensorRT API layers and ops](#tensorrt-api-layers-and-ops)
 - [Prerequisites](#prerequisites)
 - [Running the sample](#running-the-sample)
-	* [Sample `--help` options](#sample---help-options)
+	* [Sample `--help` options](#sample-help-options)
 - [Additional resources](#additional-resources)
 - [License](#license)
 - [Changelog](#changelog)
@@ -124,22 +124,25 @@ Now that you have trained weights, downloaded the text and vocabulary data, and 
 
 To see the full list of available options and their descriptions, use the `-h` or `--help` command line option.  For example:
 ```
-data_dir: /workspace/tensorrt/samples/sampleNMT/data/deen
-data_writer: text
-Component Info:
-– Data Reader: Text Reader, vocabulary size = 36548
-– Input Embedder: SLP Embedder, num inputs = 36548, num outputs = 512
-– Output Embedder: SLP Embedder, num inputs = 36548, num outputs = 512
-– Encoder: LSTM Encoder, num layers = 2, num units = 512
-– Decoder: LSTM Decoder, num layers = 2, num units = 512
-– Alignment: Multiplicative Alignment, source states size = 512, attention keys size = 512
-– Context: Ragged softmax + Batch GEMM
-– Attention: SLP Attention, num inputs = 1024, num outputs = 512
-– Projection: SLP Projection, num inputs = 512, num outputs = 36548
-– Likelihood: Softmax Likelihood
-– Search Policy: Beam Search Policy, beam = 5
-– Data Writer: Text Writer, vocabulary size = 36548
-End of Component Info
+
+Optional params:
+  --help, -h                           Output help message and exit
+  --data_writer=bleu/text/benchmark    Type of the output the app generates (default = bleu)
+  --output_file=<path_to_file>         Path to the output file when data_writer=text (default = translation_output.txt)
+  --batch=<N>                          Batch size (default = 128)
+  --beam=<N>                           Beam width (default = 5)
+  --max_input_sequence_length=<N>      Maximum length for input sequences (default = 150)
+  --max_output_sequence_length=<N>     Maximum length for output sequences (default = -1), negative value indicates no limit
+  --max_inference_samples=<N>          Maximum sample count to run inference for, negative values indicates no limit is set (default = -1)
+  --verbose                            Output verbose-level messages by TensorRT
+  --max_workspace_size=<N>             Maximum workspace size (default = 268435456)
+  --data_dir=<path_to_data_directory>  Path to the directory where data and weights are located (default = data/samples/nmt/deen)
+  --profile                            Profile TensorRT execution layer by layer. Use benchmark data_writer when profiling on, disregard benchmark results
+  --aggregate_profile                  Merge profiles from multiple TensorRT engines
+  --fp16                               Switch on fp16 math
+  --int8                               Switch on int8 math
+  --useDLACore=N                       Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, where n is the number of DLA engines on the platform.
+  --padMultiple=N                      Specify multiple to pad out matrix dimensions to test performance
 ```
 
 ## Additional resources
@@ -156,7 +159,7 @@ The following resources provide a deeper understanding about Neural Machine Tran
 - [NMT (seq2seq) Tutorial](https://github.com/tensorflow/nmt)
 
 **Blogs**
-- [Neural Machine Translation Inference in TensorRT](https://devblogs.nvidia.com/neural-machine-translation-inference-tensorrt-4/)
+- [Neural Machine Translation Inference in TensorRT](https://news.developer.nvidia.com/neural-machine-translation-now-available-with-tensorrt/)
 - [Introduction to NMT](https://devblogs.nvidia.com/introduction-neural-machine-translation-with-gpus/)
 
 **Videos**

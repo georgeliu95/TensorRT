@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -170,7 +170,6 @@ bool SampleOnnxMNIST::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& buil
         return false;
     }
 
-    builder->setMaxBatchSize(mParams.batchSize);
     config->setMaxWorkspaceSize(16_MiB);
     if (mParams.fp16)
     {
@@ -196,7 +195,7 @@ bool SampleOnnxMNIST::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& buil
 bool SampleOnnxMNIST::infer()
 {
     // Create RAII buffer manager object
-    samplesCommon::BufferManager buffers(mEngine, mParams.batchSize);
+    samplesCommon::BufferManager buffers(mEngine);
 
     auto context = SampleUniquePtr<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
     if (!context)
@@ -318,7 +317,6 @@ samplesCommon::OnnxSampleParams initializeSampleParams(const samplesCommon::Args
     }
     params.onnxFileName = "mnist.onnx";
     params.inputTensorNames.push_back("Input3");
-    params.batchSize = 1;
     params.outputTensorNames.push_back("Plus214_Output_0");
     params.dlaCore = args.useDLACore;
     params.int8 = args.runInInt8;

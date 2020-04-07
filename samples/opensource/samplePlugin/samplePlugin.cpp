@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,6 +63,12 @@ public:
     {
     }
 
+    ~SamplePlugin()
+    {
+        // Release the engine first before the plugin released.
+        mEngine.reset();
+    }
+
     //!
     //! \brief Builds the network engine
     //!
@@ -106,6 +112,8 @@ private:
         mMeanBlob; //!< The mean blob, which need to keep around until build time
 
     nvinfer1::Dims mInputDims; //!< The dimensions of the input to the network.
+
+    PluginFactory runtimePluginFactory;
 };
 
 //!
@@ -166,8 +174,8 @@ bool SamplePlugin::build()
     // serialize it to mModelStream object (which can be written to a file), then
     // deserialize mModelStream with a IRuntime object to recreate the original engine.
     // Note for this sample we could have simply used the original engine produced by builder->buildEngineWithConfig()
-    auto modelStream
-        = SampleUniquePtr<nvinfer1::IHostMemory>(builder->buildEngineWithConfig(*network, *config)->serialize());
+    auto builtEngine = SampleUniquePtr<nvinfer1::ICudaEngine>(builder->buildEngineWithConfig(*network, *config));
+    auto modelStream = SampleUniquePtr<nvinfer1::IHostMemory>(builtEngine->serialize());
     assert(modelStream != nullptr);
 
     auto runtime = SampleUniquePtr<nvinfer1::IRuntime>(nvinfer1::createInferRuntime(gLogger.getTRTLogger()));
@@ -176,11 +184,8 @@ bool SamplePlugin::build()
         runtime->setDLACore(mParams.dlaCore);
     }
 
-    // The PluginFactory object also contains the methods needed to deserialize
-    // our engine that was built with the FC plugin layer
-    PluginFactory pluginFactory;
     mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        runtime->deserializeCudaEngine(modelStream->data(), modelStream->size(), &pluginFactory),
+        runtime->deserializeCudaEngine(modelStream->data(), modelStream->size(), &runtimePluginFactory),
         samplesCommon::InferDeleter());
 
     gLogInfo << "Done preparing engine..." << std::endl;

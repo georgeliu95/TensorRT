@@ -10,7 +10,7 @@
     * [TensorRT API layers and ops](#tensorrt-api-layers-and-ops)
 - [Training an NCF network](#training-an-ncf-network)
 - [Running the sample](#running-the-sample)
-    * [Sample `--help` options](#sample---help-options)
+    * [Sample `--help` options](#sample-help-options)
 - [Additional resources](#additional-resources)
 - [License](#license)
 - [Changelog](#changelog)

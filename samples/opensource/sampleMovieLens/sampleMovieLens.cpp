@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -423,7 +423,7 @@ void SampleMovieLens::readInputSample(std::ifstream& file, OutputParams& outPara
 void SampleMovieLens::parseMovieLensData()
 {
     std::ifstream file;
-    file.open(mParams.ratingInputFile, ios::binary);
+    file.open(mParams.ratingInputFile, std::ios::binary);
     std::string line;
     int userIdx = 0;
     while (std::getline(file, line) && userIdx < mParams.batchSize)

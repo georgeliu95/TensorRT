@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@
 namespace sample
 {
 
-void setUpInference(InferenceEnvironment& iEnv, const InferenceOptions& inference)
+bool setUpInference(InferenceEnvironment& iEnv, const InferenceOptions& inference)
 {
     for (int s = 0; s < inference.streams; ++s)
     {
@@ -48,32 +48,51 @@ void setUpInference(InferenceEnvironment& iEnv, const InferenceOptions& inferenc
     {
         iEnv.context.front()->setProfiler(iEnv.profiler.get());
     }
+      
+    const int nOptProfiles = iEnv.engine->getNbOptimizationProfiles();
+    const int nBindings = iEnv.engine->getNbBindings();
+    const int bindingsInProfile = nOptProfiles > 0 ? nBindings / nOptProfiles : 0;
+    const int endBindingIndex = bindingsInProfile ? bindingsInProfile : iEnv.engine->getNbBindings();
+
+    if (nOptProfiles > 1)
+    {
+        gLogWarning << "Multiple profiles are currently not supported. Running with one profile." <<  std::endl;
+    }
 
     // Set all input dimensions before all bindings can be allocated
-    for (int b = 0; b < iEnv.engine->getNbBindings(); ++b)
+    for (int b = 0; b < endBindingIndex; ++b) 
     {
         if (iEnv.engine->bindingIsInput(b))
         {
             auto dims = iEnv.context.front()->getBindingDimensions(b);
+            const bool isScalar = dims.nbDims == 0;
             const bool isDynamicInput = std::any_of(dims.d, dims.d + dims.nbDims, [](int dim){ return dim == -1; }) || iEnv.engine->isShapeBinding(b);
             if (isDynamicInput)
             {
                 auto shape = inference.shapes.find(iEnv.engine->getBindingName(b));
 
                 // If no shape is provided, set dynamic dimensions to 1.
-                nvinfer1::Dims staticDims{};
+                std::vector<int> staticDims;
                 if (shape == inference.shapes.end())
                 {
                     constexpr int DEFAULT_DIMENSION = 1;
                     if (iEnv.engine->isShapeBinding(b))
                     {
-                        staticDims.nbDims = dims.d[0];
-                        std::fill(staticDims.d, staticDims.d + staticDims.nbDims, DEFAULT_DIMENSION);
+                        if (isScalar)
+                        {
+                            staticDims.push_back(1);
+                        }
+                        else
+                        {
+                            staticDims.resize(dims.d[0]);
+                            std::fill(staticDims.begin(), staticDims.end(), DEFAULT_DIMENSION);
+                        }
                     }
                     else
                     {
-                        staticDims.nbDims = dims.nbDims;
-                        std::transform(dims.d, dims.d + dims.nbDims, staticDims.d, [&](int dim) { return dim > 0 ? dim : DEFAULT_DIMENSION; });
+                        staticDims.resize(dims.nbDims);
+                        std::transform(dims.d, dims.d + dims.nbDims, staticDims.begin(),
+                            [&](int dim) { return dim >= 0 ? dim : DEFAULT_DIMENSION; });
                     }
                     gLogWarning << "Dynamic dimensions required for input: " << iEnv.engine->getBindingName(b) << ", but no shapes were provided. Automatically overriding shape to: " << staticDims << std::endl;
                 }
@@ -86,18 +105,24 @@ void setUpInference(InferenceEnvironment& iEnv, const InferenceOptions& inferenc
                 {
                     if (iEnv.engine->isShapeBinding(b))
                     {
-                        c->setInputShapeBinding(b, staticDims.d);
+                        if (!c->setInputShapeBinding(b, staticDims.data()))
+                        {
+                            return false;
+                        }
                     }
                     else
                     {
-                        c->setBindingDimensions(b, staticDims);
+                        if (!c->setBindingDimensions(b, toDims(staticDims)))
+                        {
+                            return false;
+                        }
                     }
                 }
             }
         }
     }
 
-    for (int b = 0; b < iEnv.engine->getNbBindings(); ++b)
+    for (int b = 0; b < endBindingIndex; ++b)
     {
         const auto dims = iEnv.context.front()->getBindingDimensions(b);
         const auto vecDim = iEnv.engine->getBindingVectorizedDim(b);
@@ -119,6 +144,8 @@ void setUpInference(InferenceEnvironment& iEnv, const InferenceOptions& inferenc
             }
         }
     }
+
+    return true;
 }
 
 namespace {
@@ -349,12 +376,13 @@ void inferenceLoop(IterationStreams& iStreams, const TrtCudaEvent& mainStart, in
     }
 }
 
-void inferenceExecution(const InferenceOptions& inference, InferenceEnvironment& iEnv, SyncStruct& sync, int offset, int streams, std::vector<InferenceTrace>& trace)
+void inferenceExecution(const InferenceOptions& inference, InferenceEnvironment& iEnv, SyncStruct& sync, int offset, int streams, int device, std::vector<InferenceTrace>& trace)
 {
     float warmupMs = static_cast<float>(inference.warmup);
     float durationMs = static_cast<float>(inference.duration) * 1000 + warmupMs;
 
     auto enqueue = inference.batch ? EnqueueFunction(EnqueueImplicit(inference.batch)) : EnqueueFunction(EnqueueExplicit());
+    cudaCheck(cudaSetDevice(device));
 
     IterationStreams iStreams;
     for (int s = 0; s < streams; ++s)
@@ -376,14 +404,14 @@ void inferenceExecution(const InferenceOptions& inference, InferenceEnvironment&
 }
 
 inline
-std::thread makeThread(const InferenceOptions& inference, InferenceEnvironment& iEnv, SyncStruct& sync, int thread, int streamsPerThread, std::vector<InferenceTrace>& trace)
+std::thread makeThread(const InferenceOptions& inference, InferenceEnvironment& iEnv, SyncStruct& sync, int thread, int streamsPerThread, int device, std::vector<InferenceTrace>& trace)
 {
-    return std::thread(inferenceExecution, std::cref(inference), std::ref(iEnv), std::ref(sync), thread, streamsPerThread, std::ref(trace));
+    return std::thread(inferenceExecution, std::cref(inference), std::ref(iEnv), std::ref(sync), thread, streamsPerThread, device, std::ref(trace));
 }
 
 } // namespace
 
-void runInference(const InferenceOptions& inference, InferenceEnvironment& iEnv, std::vector<InferenceTrace>& trace)
+void runInference(const InferenceOptions& inference, InferenceEnvironment& iEnv, int device, std::vector<InferenceTrace>& trace)
 {
     trace.resize(0);
 
@@ -398,7 +426,7 @@ void runInference(const InferenceOptions& inference, InferenceEnvironment& iEnv,
     std::vector<std::thread> threads;
     for (int t = 0; t < threadsNum; ++t)
     {
-        threads.emplace_back(makeThread(inference, iEnv, sync, t, streamsPerThread, trace));
+        threads.emplace_back(makeThread(inference, iEnv, sync, t, streamsPerThread, device, trace));
     }
     for (auto& th : threads)
     {

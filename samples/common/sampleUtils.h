@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@
 #include "NvInfer.h"
 
 #include "sampleDevice.h"
+#include "logger.h"
 
 namespace sample
 {
@@ -62,6 +63,30 @@ std::ostream& operator<<(std::ostream& os, const nvinfer1::Dims& dims)
         os << (i ? "x" : "") << dims.d[i];
     }
     return os;
+}
+
+inline
+std::ostream& operator<<(std::ostream& os, const std::vector<int>& vec)
+{
+    for (int i = 0, e = static_cast<int>(vec.size()); i < e; ++i)
+    {
+        os << (i ? "x" : "") << vec[i];
+    }
+    return os;
+}
+
+inline 
+nvinfer1::Dims toDims(const std::vector<int>& vec)
+{
+    int limit = static_cast<int>(nvinfer1::Dims::MAX_DIMS);
+    if (static_cast<int>(vec.size()) > limit)
+    {
+        gLogWarning << "Vector too long, only first 8 elements are used in dimension." << std::endl;
+    }
+    // Pick first nvinfer1::Dims::MAX_DIMS elements
+    nvinfer1::Dims dims{std::min(static_cast<int>(vec.size()), limit), {}, {}};
+    std::copy_n(vec.begin(), dims.nbDims, std::begin(dims.d));
+    return dims;
 }
 
 inline int dataTypeSize(nvinfer1::DataType dataType)
@@ -286,7 +311,7 @@ public:
     void dumpBindingDimensions(int binding, const nvinfer1::IExecutionContext& context, std::ostream& os) const
     {
         const auto dims = context.getBindingDimensions(binding);
-        os << dims;
+        os << dims << std::endl;
     }
 
     void dumpBindingValues(int binding, std::ostream& os, const std::string& separator = " ") const

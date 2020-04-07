@@ -9,7 +9,7 @@
 	* [Running inference](#running-inference)
 	* [TensorRT API layers and ops](#tensorrt-api-layers-and-ops)
 - [Running the sample](#running-the-sample)
-	* [Sample `--help` options](#sample---help-options)
+	* [Sample `--help` options](#sample-help-options)
 - [Additional resources](#additional-resources)
 - [License](#license)
 - [Changelog](#changelog)
@@ -17,7 +17,7 @@
 
 ## Description
 
-This sample, sampleOnnxMNIST, converts a model trained on the [MNIST dataset](https://github.com/onnx/models/tree/master/mnist) in Open Neural Network Exchange (ONNX) format to a TensorRT network and runs inference on the network.
+This sample, sampleOnnxMNIST, converts a model trained on the [MNIST dataset](https://github.com/onnx/models/tree/master/vision/classification/mnist) in Open Neural Network Exchange (ONNX) format to a TensorRT network and runs inference on the network.
 
 ONNX is a standard for representing deep learning models that enables models to be transferred between frameworks.
 

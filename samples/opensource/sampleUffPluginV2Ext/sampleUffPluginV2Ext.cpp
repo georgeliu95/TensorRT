@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -227,7 +227,7 @@ public:
 
         if (gArgs.runInInt8)
         {
-            samplesCommon::setAllTensorScales(network.get(), 5.0f, 5.0f);
+            samplesCommon::setAllTensorScales(network.get(), 25.0f, 25.0f);
         }
 
         SampleUniquePtr<IBuilderConfig> networkConfig{builder->createBuilderConfig()};
@@ -290,7 +290,7 @@ public:
             {
                 buffers[bindingIdxInput] = createMnistCudaBuffer(bufferSizesInput.first, bufferSizesInput.second, num);
                 auto t_start = std::chrono::high_resolution_clock::now();
-                context->execute(batchSize, &buffers[0]);
+                assert(context->execute(batchSize, &buffers[0]));
                 auto t_end = std::chrono::high_resolution_clock::now();
                 ms = std::chrono::duration<float, std::milli>(t_end - t_start).count();
                 total += ms;
@@ -728,7 +728,6 @@ int main(int argc, char** argv)
     {
         gArgs.dataDirs = std::vector<std::string>{"data/samples/mnist/", "data/mnist/"};
     }
-
     auto sampleTest = gLogger.defineTest(gSampleName, argc, argv);
 
     gLogger.reportTestStart(sampleTest);

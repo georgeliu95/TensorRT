@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -203,6 +203,7 @@ PPM<uint8_t> resizeMask(const BBoxInfo& box, const float mask_threshold)
     raw_mask.h = MaskRCNNConfig::MASK_POOL_SIZE * 2;
     raw_mask.w = MaskRCNNConfig::MASK_POOL_SIZE * 2;
     raw_mask.buffer.resize(raw_mask.h * raw_mask.w, 0);
+    raw_mask.max = std::numeric_limits<int>::lowest();
     for (int i = 0; i < raw_mask.h * raw_mask.w; i++)
         raw_mask.buffer[i] = box.mask->raw[i];
 
@@ -345,7 +346,7 @@ private:
 
     bool verifyOutput(const samplesCommon::BufferManager& buffers);
 
-    vector<MaskRCNNUtils::BBoxInfo> decodeOutput(const int imageIdx, void* detectionsHost, void* masksHost);
+    std::vector<MaskRCNNUtils::BBoxInfo> decodeOutput(const int imageIdx, void* detectionsHost, void* masksHost);
 };
 
 bool SampleMaskRCNN::build()
@@ -518,7 +519,8 @@ bool SampleMaskRCNN::processInput(const samplesCommon::BufferManager& buffers)
     return true;
 }
 
-vector<MaskRCNNUtils::BBoxInfo> SampleMaskRCNN::decodeOutput(const int imageIdx, void* detectionsHost, void* masksHost)
+std::vector<MaskRCNNUtils::BBoxInfo> SampleMaskRCNN::decodeOutput(
+    const int imageIdx, void* detectionsHost, void* masksHost)
 {
     int input_dim_h = MaskRCNNConfig::IMAGE_SHAPE.d[1], input_dim_w = MaskRCNNConfig::IMAGE_SHAPE.d[2];
     assert(input_dim_h == input_dim_w);
@@ -581,7 +583,7 @@ bool SampleMaskRCNN::verifyOutput(const samplesCommon::BufferManager& buffers)
 
     for (int p = 0; p < mParams.batchSize; ++p)
     {
-        vector<MaskRCNNUtils::BBoxInfo> binfo = decodeOutput(p, detectionsHost, masksHost);
+        std::vector<MaskRCNNUtils::BBoxInfo> binfo = decodeOutput(p, detectionsHost, masksHost);
         for (size_t roi_id = 0; roi_id < binfo.size(); roi_id++)
         {
             const auto resized_mask = MaskRCNNUtils::resizeMask(binfo[roi_id], mParams.maskThreshold); // mask threshold

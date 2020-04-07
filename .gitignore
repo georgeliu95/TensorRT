@@ -1,2 +1,6 @@
 build/
 docker/jetpack_files/*
+Makefile*
+*.nvmk
+*.sln
+*.vcxproj
