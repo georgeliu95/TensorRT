@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include <vector>
 
 using namespace nvinfer1;
+const int NUM_COORDCONV_CHANNELS = 2;
 
 namespace
 {
@@ -61,7 +62,7 @@ Dims CoordConvACPlugin::getOutputDimensions(int index, const Dims* inputs, int n
     // CHW
     nvinfer1::Dims dimsOutput;
     dimsOutput.nbDims = inputs->nbDims;
-    dimsOutput.d[0] = inputs->d[0] + 2;
+    dimsOutput.d[0] = inputs->d[0] + NUM_COORDCONV_CHANNELS;
     dimsOutput.d[1] = inputs->d[1];
     dimsOutput.d[2] = inputs->d[2];
     dimsOutput.d[3] = inputs->d[3];

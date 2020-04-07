@@ -19,7 +19,7 @@
 //! This file contains the implementation of the ONNX MNIST sample. It creates the network using
 //! the MNIST onnx model.
 //! It can be run with the following command line:
-//! Command: ./sample_onnx_mnist [-h or --help] [-d=/path/to/data/dir or --datadir=/path/to/data/dir]
+//! Command: ./sample_onnx_mnist_coord_conv_ac [-h or --help] [-d=/path/to/data/dir or --datadir=/path/to/data/dir]
 //! [--useDLACore=<int>]
 //!
 
@@ -37,19 +37,26 @@
 #include <iostream>
 #include <sstream>
 
-const std::string gSampleName = "TensorRT.sample_coord_conv_ac_onnx_mnist";
+const std::string gSampleName = "TensorRT.sample_onnx_mnist_coord_conv_ac";
 
-//! \brief  The SampleOnnxMNIST class implements the ONNX MNIST sample
+// Normalization constants from Pytorch transform.Normalize(). 
+// They are needed to preprocess the data: 
+// https://discuss.pytorch.org/t/understanding-transform-normalize/21730 
+const float PYTORCH_NORMALIZE_MEAN = 0.1307;
+const float PYTORCH_NORMALIZE_STD = 0.3081;
+
+
+//! \brief  The SampleOnnxMnistCoordConvAC class implements the ONNX MNIST sample
 //!
 //! \details It creates the network using an ONNX model
 //!
-class SampleOnnxMNIST
+class SampleOnnxMnistCoordConvAC
 {
     template <typename T>
     using SampleUniquePtr = std::unique_ptr<T, samplesCommon::InferDeleter>;
 
 public:
-    SampleOnnxMNIST(const samplesCommon::OnnxSampleParams& params)
+    SampleOnnxMnistCoordConvAC(const samplesCommon::OnnxSampleParams& params)
         : mParams(params)
         , mEngine(nullptr)
     {
@@ -100,7 +107,7 @@ private:
 //!
 //! \return Returns true if the engine was created successfully and false otherwise
 //!
-bool SampleOnnxMNIST::build()
+bool SampleOnnxMnistCoordConvAC::build()
 {
 
     initLibNvInferPlugins(&gLogger, "ONNXTRT_NAMESPACE");
@@ -161,7 +168,7 @@ bool SampleOnnxMNIST::build()
 //!
 //! \param builder Pointer to the engine builder
 //!
-bool SampleOnnxMNIST::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
+bool SampleOnnxMnistCoordConvAC::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
     SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config,
     SampleUniquePtr<nvonnxparser::IParser>& parser)
 {
@@ -195,7 +202,7 @@ bool SampleOnnxMNIST::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& buil
 //! \details This function is the main execution function of the sample. It allocates the buffer,
 //!          sets inputs and executes the engine.
 //!
-bool SampleOnnxMNIST::infer()
+bool SampleOnnxMnistCoordConvAC::infer()
 {
     // Create RAII buffer manager object
     samplesCommon::BufferManager buffers(mEngine, mParams.batchSize);
@@ -237,7 +244,7 @@ bool SampleOnnxMNIST::infer()
 //!
 //! \brief Reads the input and stores the result in a managed buffer
 //!
-bool SampleOnnxMNIST::processInput(const samplesCommon::BufferManager& buffers)
+bool SampleOnnxMnistCoordConvAC::processInput(const samplesCommon::BufferManager& buffers)
 {
     const int inputH = mInputDims.d[2];
     const int inputW = mInputDims.d[3];
@@ -259,8 +266,7 @@ bool SampleOnnxMNIST::processInput(const samplesCommon::BufferManager& buffers)
     float* hostDataBuffer = static_cast<float*>(buffers.getHostBuffer(mParams.inputTensorNames[0]));
     for (int i = 0; i < inputH * inputW; i++)
     {
-        // https://discuss.pytorch.org/t/understanding-transform-normalize/21730 
-        hostDataBuffer[i] = ((1.0 - float(fileData[i] / 255.0)) - 0.1307) / 0.3081;
+        hostDataBuffer[i] = ((1.0 - float(fileData[i] / 255.0)) - PYTORCH_NORMALIZE_MEAN) / PYTORCH_NORMALIZE_STD;
     }
 
     return true;
@@ -271,7 +277,7 @@ bool SampleOnnxMNIST::processInput(const samplesCommon::BufferManager& buffers)
 //!
 //! \return whether the classification output matches expectations
 //!
-bool SampleOnnxMNIST::verifyOutput(const samplesCommon::BufferManager& buffers)
+bool SampleOnnxMnistCoordConvAC::verifyOutput(const samplesCommon::BufferManager& buffers)
 {
     const int outputSize = mOutputDims.d[1];
     float* output = static_cast<float*>(buffers.getHostBuffer(mParams.outputTensorNames[0]));
@@ -370,7 +376,7 @@ int main(int argc, char** argv)
 
     gLogger.reportTestStart(sampleTest);
 
-    SampleOnnxMNIST sample(initializeSampleParams(args));
+    SampleOnnxMnistCoordConvAC sample(initializeSampleParams(args));
 
     gLogInfo << "Building and running a GPU inference engine for Onnx MNIST" << std::endl;
 

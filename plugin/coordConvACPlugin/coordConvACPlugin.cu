@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,9 +44,11 @@
          )
  {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
-    if (index < N/2){
+    int channelLength = N/2;
+
+    if (index < channelLength){
          outputs[index] = -1.0 + (float)(index / iW) * stepACw;
-         outputs[index + N/2] = -1.0 + (float)((index + N/2) % iH) * stepACh;
+         outputs[index + channelLength] = -1.0 + (float)((index + channelLength) % iH) * stepACh;
     }
     __syncthreads();
  }
@@ -64,16 +66,17 @@
      T* outputs, 
      cudaStream_t stream){
          // NCHW
-         int nThreads = 512;
+         const float coordsRange = 2.0;
+         const int nThreads = 512;
          int lenCopy = iC * iH * iW;
          int lenAC = (oC * oH * oW) - lenCopy;
          
          int nBlocksCopy = (int)((float)lenCopy / nThreads) + 1;
          int nBlocksAC = (int)((float)lenAC / nThreads) + 1; 
  
-         float stepACh = 2.0 / (float)(iH - 1);
-         float stepACw = 2.0 / (float)(iW - 1); 
- 
+         float stepACh = coordsRange / (float)(iH - 1);
+         float stepACw = coordsRange / (float)(iW - 1); 
+        
          for(int i=0; i<batchSize; ++i){
              // NOTE: kernelCopy kernel can be replaced with cudaMemcpy function 
              kernelCopy<<<nBlocksCopy, nThreads, 0, stream>>>(lenCopy, inputs, outputs);
