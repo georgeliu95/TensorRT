@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,7 +93,6 @@ InstanceNormalizationPlugin::InstanceNormalizationPlugin(
     , _nchan(scale.size())
     , _h_scale(scale)
     , _h_bias(bias)
-    , _initialized(false)
 {
     ASSERT(scale.size() == bias.size());
 }
@@ -102,7 +101,6 @@ InstanceNormalizationPlugin::InstanceNormalizationPlugin(
     float epsilon, nvinfer1::Weights const& scale, nvinfer1::Weights const& bias)
     : _epsilon(epsilon)
     , _nchan(scale.count)
-    , _initialized(false)
 {
     ASSERT(scale.count == bias.count);
     if (scale.type == nvinfer1::DataType::kFLOAT)
@@ -141,7 +139,7 @@ InstanceNormalizationPlugin::InstanceNormalizationPlugin(
     }
 }
 
-InstanceNormalizationPlugin::InstanceNormalizationPlugin(void const* serialData, size_t serialLength) : _initialized(false)
+InstanceNormalizationPlugin::InstanceNormalizationPlugin(void const* serialData, size_t serialLength)
 {
     deserialize_value(&serialData, &serialLength, &_epsilon);
     deserialize_value(&serialData, &serialLength, &_nchan);
@@ -169,25 +167,11 @@ DimsExprs InstanceNormalizationPlugin::getOutputDimensions(
 
 int InstanceNormalizationPlugin::initialize()
 {
-    _initialized = true;
-    CHECK_CUDNN(cudnnCreate(&_cudnn_handle));
-    CHECK_CUDNN(cudnnCreateTensorDescriptor(&_b_desc));
-    CHECK_CUDNN(cudnnCreateTensorDescriptor(&_x_desc));
-    CHECK_CUDNN(cudnnCreateTensorDescriptor(&_y_desc));
     return 0;
 }
 
 void InstanceNormalizationPlugin::terminate()
 {
-    if (!_initialized)
-    {
-        return;
-    }
-    cudnnDestroyTensorDescriptor(_y_desc);
-    cudnnDestroyTensorDescriptor(_x_desc);
-    cudnnDestroyTensorDescriptor(_b_desc);
-    cudnnDestroy(_cudnn_handle);
-    _initialized = false;
 }
 
 size_t InstanceNormalizationPlugin::getWorkspaceSize(const nvinfer1::PluginTensorDesc* inputs, int nbInputs, const nvinfer1::PluginTensorDesc* outputs, int nbOutputs) const 
@@ -259,7 +243,7 @@ bool InstanceNormalizationPlugin::supportsFormatCombination(
 {
     ASSERT(inOut && pos < (nbInputs + nbOutputs));
     return ((inOut[pos].type == nvinfer1::DataType::kFLOAT || inOut[pos].type == nvinfer1::DataType::kHALF)
-        && inOut[pos].format == nvinfer1::PluginFormat::kNCHW);
+        && inOut[pos].format == nvinfer1::PluginFormat::kNCHW && inOut[pos].type == inOut[0].type);
 }
 
 const char* InstanceNormalizationPlugin::getPluginType() const
@@ -279,7 +263,9 @@ void InstanceNormalizationPlugin::destroy()
 
 IPluginV2DynamicExt* InstanceNormalizationPlugin::clone() const
 { 
-    return new InstanceNormalizationPlugin{_epsilon, _h_scale, _h_bias};
+    auto* plugin = new InstanceNormalizationPlugin{_epsilon, _h_scale, _h_bias};
+    plugin->setPluginNamespace(mPluginNamespace.c_str());
+    return plugin;
 }
 
 // Set plugin namespace
@@ -290,7 +276,7 @@ void InstanceNormalizationPlugin::setPluginNamespace(const char* pluginNamespace
 
 const char* InstanceNormalizationPlugin::getPluginNamespace() const
 {
-    return mPluginNamespace;
+    return mPluginNamespace.c_str();
 }
 
 nvinfer1::DataType InstanceNormalizationPlugin::getOutputDataType(
@@ -303,10 +289,19 @@ nvinfer1::DataType InstanceNormalizationPlugin::getOutputDataType(
 // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
 void InstanceNormalizationPlugin::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
 {
+    _cudnn_handle = cudnnContext;
+    cudnnCreateTensorDescriptor(&_b_desc);
+    cudnnCreateTensorDescriptor(&_x_desc);
+    cudnnCreateTensorDescriptor(&_y_desc);
 }
 
 // Detach the plugin object from its execution context.
-void InstanceNormalizationPlugin::detachFromContext() {}
+void InstanceNormalizationPlugin::detachFromContext()
+{
+    cudnnDestroyTensorDescriptor(_y_desc);
+    cudnnDestroyTensorDescriptor(_x_desc);
+    cudnnDestroyTensorDescriptor(_b_desc);
+}
 
 void InstanceNormalizationPlugin::configurePlugin(const nvinfer1::DynamicPluginTensorDesc* in, int nbInputs,
     const nvinfer1::DynamicPluginTensorDesc* out, int nbOutputs)

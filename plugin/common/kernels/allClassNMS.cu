@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 #include "kernel.h"
 #include "bboxUtils.h"
-#include <vector>
+#include <array>
 
 template <typename T_BBOX>
 __device__ T_BBOX bboxSize(
@@ -317,17 +317,8 @@ struct nmsLaunchConfigSSD
     }
 };
 
-static std::vector<nmsLaunchConfigSSD> nmsFuncVec;
-
-bool nmsInit()
-{
-    nmsFuncVec.push_back(nmsLaunchConfigSSD(DataType::kFLOAT, DataType::kFLOAT,
-                                            allClassNMS_gpu<float, float>));
-    return true;
-}
-
-static bool initialized = nmsInit();
-
+static std::array<nmsLaunchConfigSSD, 1> nmsSsdLCOptions = {
+    nmsLaunchConfigSSD(DataType::kFLOAT, DataType::kFLOAT, allClassNMS_gpu<float, float>)};
 
 pluginStatus_t allClassNMS(cudaStream_t stream,
                         const int num,
@@ -347,12 +338,12 @@ pluginStatus_t allClassNMS(cudaStream_t stream,
                         bool flipXY)
 {
     nmsLaunchConfigSSD lc = nmsLaunchConfigSSD(DT_SCORE, DT_BBOX, allClassNMS_gpu<float, float>);
-    for (unsigned i = 0; i < nmsFuncVec.size(); ++i)
+    for (unsigned i = 0; i < nmsSsdLCOptions.size(); ++i)
     {
-        if (lc == nmsFuncVec[i])
+        if (lc == nmsSsdLCOptions[i])
         {
             DEBUG_PRINTF("all class nms kernel %d\n", i);
-            return nmsFuncVec[i].function(stream,
+            return nmsSsdLCOptions[i].function(stream,
                                           num,
                                           num_classes,
                                           num_preds_per_class,

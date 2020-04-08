@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 #define CUDA_DRIVER_WRAPPER_H
 
 #ifdef __linux__
-#ifdef __x86_64__
+#if (defined(__x86_64__) || defined(__PPC__))
 #include <cstdio>
 #include <cuda.h>
 #include <dlfcn.h>
@@ -76,6 +76,6 @@ private:
         unsigned int, unsigned int, unsigned int, CUstream, void**);
 };
 } // namespace nvinfer1
-#endif // __x86_64__
+#endif // (defined(__x86_64__) || defined(__PPC__))
 #endif //__linux__
 #endif // CUDA_DRIVER_WRAPPER_H

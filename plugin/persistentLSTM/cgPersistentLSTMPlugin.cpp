@@ -1,5 +1,20 @@
+/*
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #ifdef __linux__
-#ifdef __x86_64__
+#if (defined(__x86_64__) || defined(__PPC__))
 
 #include "cgPersistentLSTMPlugin.h"
 #include "checkMacros.h"
@@ -28,6 +43,16 @@ namespace
 const char* CG_PERSISTENT_LSTM_PLUGIN_VERSION{"1"};
 const char* CG_PERSISTENT_LSTM_PLUGIN_NAME{"CgPersistentLSTMPlugin_TRT"};
 } // namespace
+
+namespace
+{
+int getNvrtcMajorVersion()
+{
+    int majorVersion, minorVersion;
+    ASSERT(nvrtcVersion(&majorVersion, &minorVersion) == NVRTC_SUCCESS);
+    return majorVersion;
+}
+} //namespace
 
 CgPersistentLSTMPlugin::CgPersistentLSTMPlugin(CgPLSTMParameters params)
     : param(params)
@@ -358,8 +383,13 @@ IPluginV2Ext* CgPersistentLSTMPlugin::clone() const
         plugin->initialize();
     }
     plugin->setPluginNamespace(mNamespace.c_str());
-
+    
     return plugin;
+}
+
+void CgPersistentLSTMPlugin::detachFromContext()
+{
+    terminate();
 }
 
 // configurePlugin -> initialize -> getWorkspaceSize
@@ -444,6 +474,11 @@ const PluginFieldCollection* CgPersistentLSTMPluginCreator::getFieldNames() { re
 
 IPluginV2* CgPersistentLSTMPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
 {
+    if (getNvrtcMajorVersion() == 0)
+    {
+        gLogError << "CgPersistentLSTMPlugin is not supported on requested platform due to incompatible version of libnvrtc." << std::endl;
+        return nullptr;
+    }
     const PluginField* fields = fc->fields;
     int hiddenSize = 0;
     int numLayers = 0;
@@ -476,8 +511,13 @@ IPluginV2* CgPersistentLSTMPluginCreator::createPlugin(const char* name, const P
 IPluginV2* CgPersistentLSTMPluginCreator::deserializePlugin(
     const char* name, const void* serialData, size_t serialLength)
 {
+    if (getNvrtcMajorVersion() == 0)
+    {
+        gLogError << "CgPersistentLSTMPlugin is not supported on requested platform due to incompatible version of libnvrtc." << std::endl;
+        return nullptr;
+    }
     return new CgPersistentLSTMPlugin(serialData, serialLength);
 }
 
-#endif// __x86_64__
+#endif // (defined(__x86_64__) || defined(__PPC__))
 #endif //__linux__

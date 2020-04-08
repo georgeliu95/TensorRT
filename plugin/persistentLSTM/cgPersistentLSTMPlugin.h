@@ -1,13 +1,28 @@
+/*
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #ifndef CG_PERSISTENT_LSTM_PLUGIN_H
 #define CG_PERSISTENT_LSTM_PLUGIN_H
 
 #ifdef __linux__
-#ifdef __x86_64__
+#if (defined(__x86_64__) || defined(__PPC__))
 
 #include "NvInferPlugin.h"
+#include "legacy_plugin.h"
 #include "cgPersistentLSTM.h"
 #include "cudaDriverWrapper.h"
-#include "plugin.h"
 #include <cassert>
 #include <string>
 #include <vector>
@@ -69,6 +84,8 @@ public:
 
     void serialize(void* buffer) const override;
 
+    void detachFromContext() override;
+
 private:
     std::string mNamespace;
     int maxBatchSize{0}, seqLength{0}, dataSize{0}, inputSize{0};
@@ -117,6 +134,6 @@ private:
 } // namespace plugin
 } // namespace nvinfer1
 
-#endif // __x86_64__
+#endif // (defined(__x86_64__) || defined(__PPC__))
 #endif //__linux__
 #endif // CG_PERSISTENT_LSTM_PLUGIN_H
