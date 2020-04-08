@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -396,7 +396,7 @@ IPluginV2Ext* Region::clone() const
 {
     RegionParameters params{num, coords, classes, smTree};
     IPluginV2Ext* plugin = new Region(params, C, H, W);
-    plugin->setPluginNamespace(mPluginNamespace);
+    plugin->setPluginNamespace(mPluginNamespace.c_str());
     return plugin;
 }
 
@@ -408,7 +408,7 @@ void Region::setPluginNamespace(const char* pluginNamespace)
 
 const char* Region::getPluginNamespace() const
 {
-    return mPluginNamespace;
+    return mPluginNamespace.c_str();
 }
 
 // Return the DataType of the plugin output at the requested index

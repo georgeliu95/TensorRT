@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -291,7 +291,7 @@ void PriorBox::destroy()
 IPluginV2Ext* PriorBox::clone() const
 {
     IPluginV2Ext* plugin = new PriorBox(mParam, H, W);
-    plugin->setPluginNamespace(mPluginNamespace);
+    plugin->setPluginNamespace(mPluginNamespace.c_str());
     return plugin;
 }
 
@@ -303,7 +303,7 @@ void PriorBox::setPluginNamespace(const char* pluginNamespace)
 
 const char* PriorBox::getPluginNamespace() const
 {
-    return mPluginNamespace;
+    return mPluginNamespace.c_str();
 }
 
 // Return the DataType of the plugin output at the requested index.

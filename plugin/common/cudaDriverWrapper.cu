@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,23 +15,23 @@
  */
 
 #ifdef __linux__
-#ifdef __x86_64__
+#if (defined(__x86_64__) || defined(__PPC__))
 #include <cuda.h>
 #include <stdio.h>
 #include <dlfcn.h>
 #include "cudaDriverWrapper.h"
-#include <assert.h>
+#include "plugin.h"
 
 using namespace nvinfer1;
 
 CUDADriverWrapper::CUDADriverWrapper()
 {
     handle = dlopen("libcuda.so.1", RTLD_LAZY);
-    assert(handle != nullptr);
+    ASSERT(handle != nullptr);
 
     auto load_sym = [](void *handle, const char *name) {
         void *ret = dlsym(handle, name);
-        assert(ret != nullptr);
+        ASSERT(ret != nullptr);
         return ret;
     };
 
@@ -110,5 +110,5 @@ CUresult CUDADriverWrapper::cuLaunchCooperativeKernel (CUfunction f, unsigned in
         blockDimX, blockDimY, blockDimZ, sharedMemBytes, hStream, kernelParams);
 }
 
-#endif // __x86_64__
+#endif // (defined(__x86_64__) || defined(__PPC__))
 #endif //__linux__

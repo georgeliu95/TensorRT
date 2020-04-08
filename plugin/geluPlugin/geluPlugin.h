@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 
+#include <cuda.h>
+#if CUDA_VERSION >= 10010
+
 #ifndef TRT_GELU_PLUGIN_H
 #define TRT_GELU_PLUGIN_H
 
+#include "bertCommon.h"
 #include "NvInferPlugin.h"
 #include <string>
 #include <vector>
@@ -24,15 +28,20 @@
 namespace bert
 {
 
-// One of the preferred ways of making TensorRT to be able to see
-// our custom layer requires extending IPluginV2 and IPluginCreator classes.
-// For requirements for overriden functions, check TensorRT API docs.
+int computeGelu(cudaStream_t stream, int n, const float* input, float* output);
+
+int computeGelu(cudaStream_t stream, int n, const half* input, half* output);
+
+void computeGeluBias(
+    float* output, const float* input, const float* bias, const int ld, const int cols, cudaStream_t stream);
+
+void computeGeluBias(
+    half* output, const half* input, const half* bias, const int ld, const int cols, cudaStream_t stream);
 
 class GeluPluginDynamic : public nvinfer1::IPluginV2DynamicExt
 {
 public:
-    GeluPluginDynamic(const std::string name, const nvinfer1::DataType type);
-    GeluPluginDynamic(const std::string name, const nvinfer1::DataType type, const nvinfer1::Weights B);
+    GeluPluginDynamic(const std::string name, const nvinfer1::DataType type, const nvinfer1::Weights& bias);
 
     GeluPluginDynamic(const std::string name, const void* data, size_t length);
 
@@ -74,8 +83,7 @@ private:
 
     nvinfer1::DataType mType;
     bool mHasBias;
-    nvinfer1::Weights mBias;
-    char* mBiasDev;
+    bert::cuda_shared_ptr<void> mBiasDev;
     size_t mLd;
 
 protected:
@@ -113,5 +121,7 @@ private:
     static std::vector<nvinfer1::PluginField> mPluginAttributes;
     std::string mNamespace;
 };
-}
+} // namespace bert
 #endif // TRT_GELU_PLUGIN_H
+
+#endif // CUDA_VERSION >= 10010

@@ -1,5 +1,20 @@
+/*
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 #ifdef __linux__
-#ifdef __x86_64__
+#if (defined(__x86_64__) || defined(__PPC__))
 
 #include <string>
 #include <sstream>
@@ -636,7 +651,7 @@ void CgPersistentLSTM::execute(const void* x, void* y, const void* init_h, const
     }
 
     // Output transpose
-    doOutputTranspose(y, final_h, final_c, this->maxBatchSize, stream);
+    doOutputTranspose(y, final_h, final_c, batchSize, stream);
 }
 
 // helper function called within configurePlugin()
@@ -853,7 +868,7 @@ void CgPersistentLSTMPlugin::_createCubin()
 
     // Trying to find the cuda path
     Dl_info info;
-    if (dladdr((void*)cudaGetDevice, &info) != 0)
+    if (dladdr((void*)nvrtcCreateProgram, &info) != 0)
     {
         //the path should be -> /path/to/cuda/lib64/libcudart.so.10.1
         std::string s = std::string(info.dli_fname);
@@ -976,5 +991,5 @@ CgPersistentLSTM::~CgPersistentLSTM()
     CUBLASERRORMSG(cublasDestroy(handle));
 }
 
-#endif // __x86_64__
+#endif // (defined(__x86_64__) || defined(__PPC__))
 #endif //__linux__
