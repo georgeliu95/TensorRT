@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
+// cublasLT was introduced in CUDA 10.1
+#include <cuda.h>
+#if CUDA_VERSION >= 10010
+
 #include "NvInfer.h"
 #include "fcPlugin.h"
-#include "bertCommon.h"
-#include "common.h"
 #include "serialize.hpp"
 
 #include <algorithm>
@@ -29,7 +31,6 @@
 #include <vector>
 
 using namespace nvinfer1;
-using bert::operator+;
 
 namespace bert
 {
@@ -130,7 +131,12 @@ static cublasStatus_t customMatmulRun(cublasLtHandle_t ltHandle, // to get the c
 void LtGemmSearch(cublasLtHandle_t ltHandle, cublasOperation_t transa, cublasOperation_t transb, int const& m,
     int const& n, int const& k, void const* alpha,                                  /* host pointer */
     void const* A, int const& lda, void const* B, int const& ldb, void const* beta, /* host pointer */
-    void* C, int const& ldc, void* workSpace, size_t workSpaceSize, cudaDataType_t computeType,
+    void* C, int const& ldc, void* workSpace, size_t workSpaceSize,
+#if CUBLAS_VER_MAJOR < 11
+    cudaDataType_t computeType,
+#else
+    cublasComputeType_t computeType,
+#endif
     cudaDataType_t scaleType, cudaDataType_t Atype, cudaDataType_t Btype, cudaDataType_t Ctype,
     std::vector<customMatmulPerf_t>& perfResults)
 {
@@ -154,27 +160,31 @@ void LtGemmSearch(cublasLtHandle_t ltHandle, cublasOperation_t transa, cublasOpe
     int algoIdA[algoIds];
     // customMatmulPerf_t perfResults[algoCombinations];
 
-    CHECK(cublasLtMatmulPreferenceCreate(&preference));
-    CHECK(cublasLtMatmulPreferenceSetAttribute(
+    CHECK_CUBLAS(cublasLtMatmulPreferenceCreate(&preference));
+    CHECK_CUBLAS(cublasLtMatmulPreferenceSetAttribute(
         preference, CUBLASLT_MATMUL_PREF_MAX_WORKSPACE_BYTES, &workSpaceSize, sizeof(workSpaceSize)));
 
     const int mathMode = Ctype == CUDA_R_16F ? 1 : 0;
     cublasLtMatmulPreferenceSetAttribute(preference, CUBLASLT_MATMUL_PREF_MATH_MODE_MASK, &mathMode, sizeof(mathMode));
     // Create operation descriptor; see cublasLtMatmulDescAttributes_t for details
     // about defaults; here we just need to set the transforms for A and B
-    CHECK(cublasLtMatmulDescCreate(&operationDesc, computeType));
-    CHECK(cublasLtMatmulDescSetAttribute(operationDesc, CUBLASLT_MATMUL_DESC_TRANSA, &transa, sizeof(transa)));
-    CHECK(cublasLtMatmulDescSetAttribute(operationDesc, CUBLASLT_MATMUL_DESC_TRANSB, &transb, sizeof(transa)));
+#if CUBLAS_VER_MAJOR < 11
+    CHECK_CUBLAS(cublasLtMatmulDescCreate(&operationDesc, computeType));
+#else
+    CHECK_CUBLAS(cublasLtMatmulDescCreate(&operationDesc, computeType, scaleType));
+#endif
+    CHECK_CUBLAS(cublasLtMatmulDescSetAttribute(operationDesc, CUBLASLT_MATMUL_DESC_TRANSA, &transa, sizeof(transa)));
+    CHECK_CUBLAS(cublasLtMatmulDescSetAttribute(operationDesc, CUBLASLT_MATMUL_DESC_TRANSB, &transb, sizeof(transa)));
 
     // Create matrix descriptors. We are good with the details here so no need to
     // set any extra attributes
-    CHECK(cublasLtMatrixLayoutCreate(&Adesc, Atype, transa == CUBLAS_OP_N ? m : k, transa == CUBLAS_OP_N ? k : m, lda));
-    CHECK(cublasLtMatrixLayoutCreate(&Bdesc, Btype, transb == CUBLAS_OP_N ? k : n, transb == CUBLAS_OP_N ? n : k, ldb));
-    CHECK(cublasLtMatrixLayoutCreate(&Cdesc, Ctype, m, n, ldc));
+    CHECK_CUBLAS(cublasLtMatrixLayoutCreate(&Adesc, Atype, transa == CUBLAS_OP_N ? m : k, transa == CUBLAS_OP_N ? k : m, lda));
+    CHECK_CUBLAS(cublasLtMatrixLayoutCreate(&Bdesc, Btype, transb == CUBLAS_OP_N ? k : n, transb == CUBLAS_OP_N ? n : k, ldb));
+    CHECK_CUBLAS(cublasLtMatrixLayoutCreate(&Cdesc, Ctype, m, n, ldc));
 
     // Request the 4 first AlgoId available for SGEMM ( computeType = scaleType =
     // Atype = Btype = Ctype = Dtype = CUDA_R_32F)
-    CHECK(cublasLtMatmulAlgoGetIds(
+    CHECK_CUBLAS(cublasLtMatmulAlgoGetIds(
         ltHandle, computeType, scaleType, Atype, Btype, Ctype, Ctype, algoIds, algoIdA, &nbAlgoIds));
 
     gLogVerbose << "Number of algos" <<  nbAlgoIds << std::endl;
@@ -206,7 +216,7 @@ void LtGemmSearch(cublasLtHandle_t ltHandle, cublasOperation_t transa, cublasOpe
         }
 
         // Query the tiles enums supported by that algo
-        CHECK(cublasLtMatmulAlgoCapGetAttribute(&algo, CUBLASLT_ALGO_CAP_TILE_IDS, nullptr, 0, &sizeWritten));
+        CHECK_CUBLAS(cublasLtMatmulAlgoCapGetAttribute(&algo, CUBLASLT_ALGO_CAP_TILE_IDS, nullptr, 0, &sizeWritten));
         int nbTiles = int(sizeWritten / sizeof(int));
         int* tileA = new int[nbTiles == 0 ? 1 : nbTiles];
         if (nbTiles == 0)
@@ -218,18 +228,18 @@ void LtGemmSearch(cublasLtHandle_t ltHandle, cublasOperation_t transa, cublasOpe
         int splitkSupport, redMask, swizzlingMax, customOptionMax, epilogueMask;
         // Retrieve Algo Capabilities attributes to be able to setup loop over the
         // different combinations
-        CHECK(cublasLtMatmulAlgoCapGetAttribute(
+        CHECK_CUBLAS(cublasLtMatmulAlgoCapGetAttribute(
             &algo, CUBLASLT_ALGO_CAP_TILE_IDS, tileA, sizeof(int) * nbTiles, &sizeWritten));
-        CHECK(cublasLtMatmulAlgoCapGetAttribute(
+        CHECK_CUBLAS(cublasLtMatmulAlgoCapGetAttribute(
             &algo, CUBLASLT_ALGO_CAP_SPLITK_SUPPORT, &splitkSupport, sizeof(splitkSupport), &sizeWritten));
-        CHECK(cublasLtMatmulAlgoCapGetAttribute(
+        CHECK_CUBLAS(cublasLtMatmulAlgoCapGetAttribute(
             &algo, CUBLASLT_ALGO_CAP_REDUCTION_SCHEME_MASK, &redMask, sizeof(redMask), &sizeWritten));
-        CHECK(cublasLtMatmulAlgoCapGetAttribute(
+        CHECK_CUBLAS(cublasLtMatmulAlgoCapGetAttribute(
             &algo, CUBLASLT_ALGO_CAP_CTA_SWIZZLING_SUPPORT, &swizzlingMax, sizeof(swizzlingMax), &sizeWritten));
-        CHECK(cublasLtMatmulAlgoCapGetAttribute(
+        CHECK_CUBLAS(cublasLtMatmulAlgoCapGetAttribute(
             &algo, CUBLASLT_ALGO_CAP_CUSTOM_OPTION_MAX, &customOptionMax, sizeof(customOptionMax), &sizeWritten));
 
-        CHECK(cublasLtMatmulAlgoCapGetAttribute(
+        CHECK_CUBLAS(cublasLtMatmulAlgoCapGetAttribute(
             &algo, CUBLASLT_ALGO_CAP_EPILOGUE_MASK, &epilogueMask, sizeof(epilogueMask), &sizeWritten));
 
         /* Loop over the different tiles */
@@ -238,7 +248,7 @@ void LtGemmSearch(cublasLtHandle_t ltHandle, cublasOperation_t transa, cublasOpe
             /* Loop over the different custom option if any */
             for (int customOption = 0; customOption <= customOptionMax; customOption++)
             {
-                CHECK(cublasLtMatmulAlgoConfigSetAttribute(
+                CHECK_CUBLAS(cublasLtMatmulAlgoConfigSetAttribute(
                     &algo, CUBLASLT_ALGO_CONFIG_CUSTOM_OPTION, &customOption, sizeof(customOption)));
                 /* Loop over the CTAs swizzling support */
                 for (int k = 0; k <= swizzlingMax; k++)
@@ -253,21 +263,21 @@ void LtGemmSearch(cublasLtHandle_t ltHandle, cublasOperation_t transa, cublasOpe
                     for (int l = 0; (l < (1 + splitK_trial)) && (algoCount < algoCombinations); l++)
                     {
                         /* Setup attribute of the algo to run */
-                        CHECK(cublasLtMatmulAlgoConfigSetAttribute(
+                        CHECK_CUBLAS(cublasLtMatmulAlgoConfigSetAttribute(
                             &algo, CUBLASLT_ALGO_CONFIG_TILE_ID, &tileA[tileIdx], sizeof(tileA[tileIdx])));
                         int splitK_val = 0;
                         int redScheme = CUBLASLT_REDUCTION_SCHEME_NONE;
-                        CHECK(cublasLtMatmulAlgoConfigSetAttribute(
+                        CHECK_CUBLAS(cublasLtMatmulAlgoConfigSetAttribute(
                             &algo, CUBLASLT_ALGO_CONFIG_SPLITK_NUM, &splitK_val, sizeof(splitK_val)));
-                        CHECK(cublasLtMatmulAlgoConfigSetAttribute(
+                        CHECK_CUBLAS(cublasLtMatmulAlgoConfigSetAttribute(
                             &algo, CUBLASLT_ALGO_CONFIG_CTA_SWIZZLING, &k, sizeof(k)));
-                        CHECK(cublasLtMatmulAlgoConfigSetAttribute(
+                        CHECK_CUBLAS(cublasLtMatmulAlgoConfigSetAttribute(
                             &algo, CUBLASLT_ALGO_CONFIG_REDUCTION_SCHEME, &redScheme, sizeof(int)));
 
                         if (l > 0)
                         { // Split-K case
                             splitK_val = splitKSequenceA[l - 1];
-                            CHECK(cublasLtMatmulAlgoConfigSetAttribute(&algo, CUBLASLT_ALGO_CONFIG_SPLITK_NUM,
+                            CHECK_CUBLAS(cublasLtMatmulAlgoConfigSetAttribute(&algo, CUBLASLT_ALGO_CONFIG_SPLITK_NUM,
                                 &splitKSequenceA[l - 1], sizeof(splitKSequenceA[l - 1])));
                             /* Going over all the reduction scheme  */
                             for (redScheme = 1; redScheme < static_cast<int>(CUBLASLT_REDUCTION_SCHEME_MASK)
@@ -276,7 +286,7 @@ void LtGemmSearch(cublasLtHandle_t ltHandle, cublasOperation_t transa, cublasOpe
                             {
                                 if (redScheme & redMask)
                                 {
-                                    CHECK(cublasLtMatmulAlgoConfigSetAttribute(
+                                    CHECK_CUBLAS(cublasLtMatmulAlgoConfigSetAttribute(
                                         &algo, CUBLASLT_ALGO_CONFIG_REDUCTION_SCHEME, &redScheme, sizeof(redScheme)));
 
                                     status
@@ -326,31 +336,36 @@ void LtGemmSearch(cublasLtHandle_t ltHandle, cublasOperation_t transa, cublasOpe
     }
 
     // Descriptors are no longer needed as all GPU work was already enqueued
-    CHECK(cublasLtMatmulPreferenceDestroy(preference));
-    CHECK(cublasLtMatrixLayoutDestroy(Cdesc));
-    CHECK(cublasLtMatrixLayoutDestroy(Bdesc));
-    CHECK(cublasLtMatrixLayoutDestroy(Adesc));
-    CHECK(cublasLtMatmulDescDestroy(operationDesc));
+    CHECK_CUBLAS(cublasLtMatmulPreferenceDestroy(preference));
+    CHECK_CUBLAS(cublasLtMatrixLayoutDestroy(Cdesc));
+    CHECK_CUBLAS(cublasLtMatrixLayoutDestroy(Bdesc));
+    CHECK_CUBLAS(cublasLtMatrixLayoutDestroy(Adesc));
+    CHECK_CUBLAS(cublasLtMatmulDescDestroy(operationDesc));
     CHECK(cudaEventDestroy(startEvent));
     CHECK(cudaEventDestroy(stopEvent));
 }
 
 FCPluginDynamic::FCPluginDynamic(const std::string name, const DataType type, const int outDim, const Weights& W)
     : mLayerName(name)
-    , mOutDim(outDim)
-    , mW(W)
-    , mNumParams(W.count)
     , mType(type)
+    , mOutDim(outDim)
+    , mNumParams(W.count)
+    , mNmax(0)
+    , mK(0)
+    , mWdev(nullptr)
 {
-    mB.count = 0;
-    mB.values = nullptr;
     memset(mAlgo.data, 0, sizeof(mAlgo.data));
+
+    mW.convertAndCopy(W, mType);
+    copyToDevice(mW, getWeightsSize(mW, mType), mWdev);
 }
 
 FCPluginDynamic::FCPluginDynamic(const std::string name, const void* data, size_t length)
     : mLayerName(name)
+    , mWdev(nullptr)
 {
-    gLogVerbose << "FC Deser start\n";
+    gLogVerbose << "FCPluginDynamic deserialize\n";
+
     // Deserialize in the same order as serialization
     deserialize_value(&data, &length, &mType);
     deserialize_value(&data, &length, &mOutDim);
@@ -359,22 +374,33 @@ FCPluginDynamic::FCPluginDynamic(const std::string name, const void* data, size_
     deserialize_value(&data, &length, &mK);
     deserialize_value(&data, &length, &mAlgo);
 
-    // reading this back as bytes, therefore need the element size
     const char* d = static_cast<const char*>(data);
-    size_t wordSize = samplesCommon::getElementSize(mType);
-    mWdev = deserToDev<char>(d, mNumParams * wordSize);
 
-    // this signals init not to allocate/copy
-    mW.count = mNumParams;
-    mW.values = nullptr;
-
-    gLogVerbose << "FC Deser done\n";
+    mW.convertAndCopy(d, mNumParams, mType);
+    copyToDevice(mW, getWeightsSize(mW, mType), mWdev);
 }
 
 // IPluginV2DynamicExt Methods
 IPluginV2DynamicExt* FCPluginDynamic::clone() const
 {
-    return new FCPluginDynamic(mLayerName, mType, mOutDim, mW);
+    gLogVerbose << "FCPluginDynamic clone\n";
+
+    auto p = new FCPluginDynamic(mLayerName, mType, mOutDim, mW);
+    memcpy(p->mAlgo.data, mAlgo.data, sizeof(mAlgo.data));
+    p->setPluginNamespace(mNamespace.c_str());
+
+    return p;
+}
+
+void FCPluginDynamic::attachToContext(
+    cudnnContext* cudnnContext, cublasContext* cublasContext, nvinfer1::IGpuAllocator* gpuAllocator)
+{
+    mLtContext.attach();
+}
+
+void FCPluginDynamic::detachFromContext()
+{
+    mLtContext.detach();
 }
 
 DimsExprs FCPluginDynamic::getOutputDimensions(
@@ -423,28 +449,43 @@ void FCPluginDynamic::configurePlugin(
     assert(inDims0.d[3] == 1);
     assert(inDims0.d[4] == 1);
 
-    // m and k  are mOutDim
+    // m and k are mOutDim
     // n is B*S
     const int S = inputs->max.d[SDIM];
     const int B = inputs->max.d[BDIM];
 
     mNmax = S * B;
 
-    // max workspace size allowed for search
-    size_t actualWorkspace = 0;
+    if (mType == DataType::kFLOAT)
+    {
+        Gemm<float> g(mOutDim, mNmax, mK, false, false);
+        mLtContext.create(g, maxWorkspaceBytes);
+    }
+    else if (mType == DataType::kHALF)
+    {
+        Gemm<half> g(mOutDim, mNmax, mK, false, false);
+        mLtContext.create(g, maxWorkspaceBytes);
+    }
+    else
+    {
+        gLogError << "Unsupported type error, expected [kHALF,kFLOAT], but received " << static_cast<int>(mType) << std::endl;
+        assert(false);
+    }
 
+    gLogVerbose << "FCPluginDynamic configurePlugin m=" << mOutDim << ", n=" << mNmax << ", k=" << mK << std::endl;
+
+    size_t actualWorkspace = 0;
     if (mAlgo.data[0] == 0 && memcmp(mAlgo.data, mAlgo.data+1, sizeof(mAlgo.data)-sizeof(mAlgo.data[0])) == 0)
     {
-        gLogVerbose << "Start cuBLAS GEMM search" << std::endl;
+        gLogVerbose << "FCPluginDynamic gemmSearch\n";
         if (mType == DataType::kFLOAT)
         {
             mAlgo = gemmSearch<float>(mOutDim, mNmax, mK, maxWorkspaceBytes, actualWorkspace);
         }
-        else
+        else if (mType == DataType::kHALF)
         {
             mAlgo = gemmSearch<half>(mOutDim, mNmax, mK, maxWorkspaceBytes, actualWorkspace);
         }
-        gLogVerbose << "Done cuBLAS GEMM search" << std::endl;
     }
 
     AlgoProps p;
@@ -460,7 +501,7 @@ void FCPluginDynamic::configurePlugin(
         gLogWarning << "TensorCore support was not selected" << std::endl;
     }
 
-    gLogVerbose << "Algo=" << p.algoId << " Tile=" << p.tile << " (" << matmulTileName[p.tile] << ") K=" << p.numSplitsK << " Red.Sch.=" << p.reductionScheme << " Swiz=" << p.swizzle << " Cust=" << p.customOption << " mathMode=" << p.mathMode << " ws=" << actualWorkspace << std::endl;
+    gLogVerbose << "FCPluginDynamic configuration Algo=" << p.algoId << " Tile=" << p.tile << " (" << matmulTileName[p.tile] << ") K=" << p.numSplitsK << " Red.Sch.=" << p.reductionScheme << " Swiz=" << p.swizzle << " Cust=" << p.customOption << " mathMode=" << p.mathMode << " ws=" << actualWorkspace << std::endl;
 }
 
 size_t FCPluginDynamic::getWorkspaceSize(
@@ -483,31 +524,32 @@ int FCPluginDynamic::enqueue(const PluginTensorDesc* inputDesc, const PluginTens
 
     if (mType == DataType::kFLOAT)
     {
-        const float* input = static_cast<const float*>(inputs[0]);
-        float* output = static_cast<float*>(outputs[0]);
+        const auto input = static_cast<const float*>(inputs[0]);
+        auto output = static_cast<float*>(outputs[0]);
 
         Gemm<float> g(mOutDim, n, mK, false, false);
-        g.A = const_cast<float*>(reinterpret_cast<const float*>(mWdev));
-        g.B = const_cast<float*>(reinterpret_cast<const float*>(input));
+        assert(mWdev != nullptr);
+        g.A = static_cast<float*>(mWdev.get());
+        g.B = const_cast<float*>(input);
         g.C = output;
 
-        CHECK(cublasLtMatmul(mLtContext, g, mAlgo, workSpace, workspaceSize, stream));
+        CHECK_CUBLAS(cublasLtMatmul(mLtContext, g, mAlgo, workSpace, workspaceSize, stream));
     }
     else if (mType == DataType::kHALF)
     {
-        const half* input = static_cast<const half*>(inputs[0]);
-        half* output = static_cast<half*>(outputs[0]);
+        const auto input = static_cast<const half*>(inputs[0]);
+        auto output = static_cast<half*>(outputs[0]);
 
         Gemm<half> g(mOutDim, n, mK, false, false);
-
-        g.A = const_cast<half*>(reinterpret_cast<const half*>(mWdev));
-        g.B = const_cast<half*>(reinterpret_cast<const half*>(input));
+        assert(mWdev != nullptr);
+        g.A = static_cast<half*>(mWdev.get());
+        g.B = const_cast<half*>(input);
         g.C = output;
-        CHECK(cublasLtMatmul(mLtContext, g, mAlgo, workSpace, workspaceSize, stream));
+        CHECK_CUBLAS(cublasLtMatmul(mLtContext, g, mAlgo, workSpace, workspaceSize, stream));
     }
     else
     {
-        gLogError << "Unsupported Type\n";
+        gLogError << "Unsupported type error, expected [kHALF,kFLOAT], but received " << static_cast<int>(mType) << std::endl;
         assert(false);
     }
 
@@ -520,7 +562,6 @@ DataType FCPluginDynamic::getOutputDataType(int index, const DataType* inputType
     assert(index == 0);
     assert(nbInputs == 1);
     assert(inputTypes[0] == DataType::kFLOAT || inputTypes[0] == DataType::kHALF);
-    // assert(inputTypes[0] == DataType::kHALF);
     return inputTypes[0];
 }
 
@@ -542,52 +583,19 @@ int FCPluginDynamic::getNbOutputs() const
 
 int FCPluginDynamic::initialize()
 {
-
-    gLogVerbose << "Initializing FC Plugin with m=" << mOutDim << "n=" << mNmax << "k=" << mK << std::endl;
-    if (mType == DataType::kHALF)
-    {
-        Gemm<half> g(mOutDim, mNmax, mK, false, false);
-        mLtContext.create(g, 4096000);
-    }
-    else
-    {
-        Gemm<float> g(mOutDim, mNmax, mK, false, false);
-        mLtContext.create(g, 4096000);
-    }
-
-    if (mW.values)
-    {
-        // target size
-        size_t wordSize = samplesCommon::getElementSize(mType);
-        size_t nbBytes = mW.count * wordSize;
-        CHECK(cudaMalloc(&mWdev, nbBytes));
-
-        if (mType == DataType::kFLOAT)
-        {
-            convertAndCopyToDevice(mW, reinterpret_cast<float*>(mWdev));
-        }
-        else
-        {
-            convertAndCopyToDevice(mW, reinterpret_cast<half*>(mWdev));
-        }
-    }
-
+    gLogVerbose << "FCPluginDynamic initialize\n";
     return 0;
 }
 
 void FCPluginDynamic::terminate()
 {
-
-    gLogVerbose << "FC Plugin terminate start" << std::endl;
-    cudaFree(mWdev);
-    mLtContext.destroy();
-    gLogVerbose << "FC Plugin terminate done" << std::endl;
+    gLogVerbose << "FCPluginDynamic terminate\n";
 }
 
 size_t FCPluginDynamic::getSerializationSize() const
 {
 
-    size_t wordSize = samplesCommon::getElementSize(mType);
+    size_t wordSize = getElementSize(mType);
     return wordSize * mNumParams + sizeof(mType) + sizeof(mOutDim) + sizeof(mNumParams) + sizeof(mAlgo) + sizeof(mNmax)
         + sizeof(mK);
 }
@@ -601,14 +609,17 @@ void FCPluginDynamic::serialize(void* buffer) const
     serialize_value(&buffer, mK);
     serialize_value(&buffer, mAlgo);
 
-    size_t wordSize = samplesCommon::getElementSize(mType);
+    size_t wordSize = getElementSize(mType);
     char* d = static_cast<char*>(buffer);
-    serFromDev(d, mWdev, mNumParams * wordSize); // in bytes
+    serFromDev(d, static_cast<char*>(mWdev.get()), mNumParams * wordSize);
 }
 
 void FCPluginDynamic::destroy()
 {
+    gLogVerbose << "FCPluginDynamic destroy\n";
     // This gets called when the network containing plugin is destroyed
+    mLtContext.destroy();
+    mWdev.release();
     delete this;
 }
 
@@ -685,7 +696,6 @@ IPluginV2* FCPluginDynamicCreator::createPlugin(const char* name, const PluginFi
     {
         gLogError << "Invalid output dimension" << std::endl;
     }
-
     if (typeId < 0 || typeId > 3)
     {
         gLogError << "Invalid type id" << typeId << std::endl;
@@ -715,4 +725,7 @@ const char* FCPluginDynamicCreator::getPluginNamespace() const
 {
     return mNamespace.c_str();
 }
-}
+
+} // namespace bert
+
+#endif // #if CUDA_VERSION >= 10010
