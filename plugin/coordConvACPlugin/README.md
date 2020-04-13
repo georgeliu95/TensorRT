@@ -65,8 +65,7 @@ The following resources provide a deeper understanding of the `coordConvACPlugin
 **Networks**  
 - Paper about Coord Conv layer ["An Intriguing Failing of Convolutional Neural Networks and the CoordConv Solution"](https://arxiv.org/abs/1807.03247)    
 - Blog post by Uber AI Labs about [CoordConv layer](https://eng.uber.com/coordconv/)
-- Open=source implementation of the layer in PyTorch #1 [link](https://github.com/walsvid/CoordConv)
-- Open-source implementation of the layer in PyTorch #2 [link](https://github.com/mkocabas/CoordConv-pytorch)
+- Open-source implementations of the layer in Pytorch [source1](https://github.com/walsvid/CoordConv), [source2](https://github.com/mkocabas/CoordConv-pytorch)
 
 ## License
 
