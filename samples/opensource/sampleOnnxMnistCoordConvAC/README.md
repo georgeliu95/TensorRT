@@ -23,11 +23,11 @@ This model was trained in PyTorch and it contains custom CoordConv layers instea
 Model with CoordConvAC layers training script and code of CoordConv layers in PyTorch: [link](https://github.com/denti/mnist-coordconv-pytorch/blob/master/main_coord_conv.py)<br/>
 Original model with usual Conv layers: [link](https://github.com/pytorch/examples/tree/master/mnist)
 
-[CoordConv](https://arxiv.org/abs/1807.03247) layer is a layer proposed by Uber AI Labs at 2018.
-It improves quality of Conv layers by adding additional channels with relative coordinates to the input data.
-Layer uses in classification, detection, segmentation and other NN architectures.
-CoordConv layer maps to the `CoordConvAC_TRT` custom plugin implemented in TensorRT for fast inference.
-Plugin can be found at `TensorRT/plugin/coordConvACPlugin`. Additional information about layer and plugin implementation can be found at `TensorRT/plugin/coordConvACPlugin/README.md`
+[CoordConv](https://arxiv.org/abs/1807.03247)  layer is a layer proposed by Uber AI Labs at 2018.
+It improves the quality of regular Conv layers by adding additional channels with relative coordinates to the input data.
+This layer is used in classification, detection, segmentation and other NN architectures.
+The CoordConv layer maps to the `CoordConvAC_TRT` custom plugin implemented in TensorRT for fast inference.
+This plugin can be found at `TensorRT/plugin/coordConvACPlugin`. Additional information about the layer and plugin implementation can be found at `TensorRT/plugin/coordConvACPlugin/README.md`
 
 ONNX is a standard for representing deep learning models that enables models to be transferred between frameworks.
 
