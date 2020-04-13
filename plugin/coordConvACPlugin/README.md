@@ -27,7 +27,7 @@ Formula for calculating constant step value is:
 
 Below are examples of 1st and 2nd channels for input data with `H=5, W=5, STEP_VALUE_H=0.5, and STEP_VALUE_W=0.5`
 
-1st channel with Y relative coordinates
+First channel with Y relative coordinates
 
 | | | | | | 
 | ------------- |:-------------:| -----|-------------| -----:|
@@ -37,7 +37,7 @@ Below are examples of 1st and 2nd channels for input data with `H=5, W=5, STEP_V
 | 0.5 | 	0.5 | 	0.5 | 	0.5 | 	0.5 | 
 | 1 | 	1 | 	1 | 	1 | 	1 | 
 
-2nd channel with X relative coordinates
+Second channel with X relative coordinates
 
 |     |     |     |     |     | 
 | ------------- |:-------------:| -----|-------------| -----:|
@@ -47,7 +47,7 @@ Below are examples of 1st and 2nd channels for input data with `H=5, W=5, STEP_V
 |  -1 | 	-0.5 | 	0 | 	0.5 | 	1 | 
 |  -1 | 	-0.5 | 	0 | 	0.5 | 	1 | 
 
-This two matrices will be concatenated with input data by the formula `CONCAT([INPUT_DATA, 1ST_CHANNEL, 2ND_CHANNEL])` in channel dimension.
+These two matrices will be concatenated with the input data with the formula `CONCAT([INPUT_DATA, 1ST_CHANNEL, 2ND_CHANNEL])` on the channel dimension.
 
   
 ### Structure
