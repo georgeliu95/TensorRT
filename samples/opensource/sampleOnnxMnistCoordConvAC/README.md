@@ -1,8 +1,8 @@
-# “Hello World” For TensorRT From ONNX with custom CoordConv layer
+# Implementing CoordConv in TensorRT with a custom plugin
 
 
 **Table Of Contents**
-- [“Hello World” For TensorRT From ONNX with custom CoordConv layer](#hello-world-for-tensorrt-from-onnx-with-custom-coordconv-layer)
+- [Implementing CoordConv in TensorRT with a custom plugin](#implementing-coordconv-in-tensorrt-with-a-custom-plugin)
 	- [Description](#description)
 	- [How does this sample work?](#how-does-this-sample-work)
 		- [Converting the ONNX model to a TensorRT network](#converting-the-onnx-model-to-a-tensorrt-network)
@@ -19,11 +19,9 @@
 ## Description
 
 This sample, sampleOnnxMnistCoordConvAC, converts a model trained on the `MNIST dataset` in Open Neural Network Exchange (ONNX) format to a TensorRT network and runs inference on the network.
-Model was trained in PyTorch and it contains custom CoordConv layer instead of Conv layers.
-Model with CoordConvAC layers training script and code of CoordConv layers in PyTorch:
-https://github.com/denti/mnist-coordconv-pytorch/blob/master/main_coord_conv.py
-Original model with usual Conv layers:
-https://github.com/pytorch/examples/tree/master/mnist
+This model was trained in PyTorch and it contains custom CoordConv layers instead of Conv layers.
+Model with CoordConvAC layers training script and code of CoordConv layers in PyTorch: [link](https://github.com/denti/mnist-coordconv-pytorch/blob/master/main_coord_conv.py)
+Original model with usual Conv layers: [link](https://github.com/pytorch/examples/tree/master/mnist)
 
 [CoordConv](https://arxiv.org/abs/1807.03247) layer is a layer proposed by Uber AI Labs at 2018.
 It improves quality of Conv layers by adding additional channels with relative coordinates to the input data.
