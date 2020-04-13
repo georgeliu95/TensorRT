@@ -33,7 +33,7 @@ ONNX is a standard for representing deep learning models that enables models to 
 
 ## How does this sample work?
 
-This sample creates and runs the TensorRT engine from an ONNX model with CoordConv layer of the MNIST network. It demonstrates how TensorRT can consume an ONNX model as input to create a network and how to use custom plugins in your NN.
+This sample creates and runs a TensorRT engine on an ONNX model of MNIST trained with CoordConv layers. It demonstrates how TensorRT can parse and import ONNX models, as well as use plugins to run custom layers in neural networks.
 
 Specifically, this sample:
 - [Converts the ONNX model with custom layer to a TensorRT network](#converting-the-onnx-model-to-a-tensorrt-network)
@@ -98,7 +98,7 @@ hostDataBuffer[i] = ((1.0 - float(fileData[i] / 255.0)) - PYTORCH_NORMALIZE_MEAN
 In this sample, the following layers and plugins are used. For more information about these layers, see the [TensorRT Developer Guide: Layers](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#layers) documentation.
 
 [CoordConvAC layer](https://github.com/NVIDIA/TensorRT/tree/master/plugin/coordConvACPlugin)
-Custom layer implemented with CUDA API that implementing operation AddChannels. This layer expanding input data by adding additional channels with relative coordinates.
+Custom layer implemented with CUDA API that implements operation AddChannels. This layer expands the input data by adding additional channels with relative coordinates.
 
 [Activation layer](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#activation-layer)
 The Activation layer implements element-wise activation functions. Specifically, this sample uses the Activation layer with the type `kRELU`.
@@ -137,16 +137,16 @@ The Shuffle layer implements a reshape and transpose operator for tensors.
 
 3.  Verify that the sample ran successfully. If the sample runs successfully you should see output similar to the following:
 	```
-	&&&& RUNNING TensorRT.sample_onnx_mnist # ./sample_onnx_mnist
+	&&&& RUNNING TensorRT.sample_coord_conv_ac_onnx_mnist # ./sample_onnx_mnist_coord_conv_ac
 	----------------------------------------------------------------
-	Input filename: ../../../../../../data/samples/mnist/mnist.onnx
-	ONNX IR version: 0.0.3
-	Opset version: 1
-	Producer name: CNTK
-	Producer version: 2.4
-	Domain:
-	Model version: 1
-	Doc string:
+	Input filename:   data/mnist/mnist_with_coordconv.onnx
+    ONNX IR version:  0.0.6
+    Opset version:    11
+    Producer name:
+    Producer version:
+    Domain:
+    Model version:    0
+    Doc string:
 	----------------------------------------------------------------
 	[I] Input:
 	@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -179,18 +179,18 @@ The Shuffle layer implements a reshape and transpose operator for tensors.
 	@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 	[I] Output:
-	Prob 0 0.0000 Class 0:
-	Prob 1 0.0000 Class 1:
-	Prob 2 1.0000 Class 2: **********
-	Prob 3 0.0000 Class 3:
-	Prob 4 0.0000 Class 4:
-	Prob 5 0.0000 Class 5:
-	Prob 6 0.0000 Class 6:
-	Prob 7 0.0000 Class 7:
-	Prob 8 0.0000 Class 8:
-	Prob 9 0.0000 Class 9:
+    Prob 0  0.0001 Class 0:
+    Prob 1  0.0003 Class 1:
+    Prob 2  0.9975 Class 2: **********
+    Prob 3  0.0009 Class 3:
+    Prob 4  0.0000 Class 4:
+    Prob 5  0.0001 Class 5:
+    Prob 6  0.0001 Class 6:
+    Prob 7  0.0000 Class 7:
+    Prob 8  0.0009 Class 8:
+    Prob 9  0.0000 Class 9:
 
-	&&&& PASSED TensorRT.sample_onnx_mnist # ./sample_onnx_mnist
+    &&&& PASSED TensorRT.sample_coord_conv_ac_onnx_mnist # ./sample_onnx_mnist_coord_conv_ac
 	```
 
 	This output shows that the sample ran successfully; PASSED.
@@ -212,7 +212,7 @@ Usage: ./sample_onnx_mnist_coord_conv_ac [-h or --help] [-d or --datadir=<path t
 The following resources provide a deeper understanding about the ONNX project and MNIST model:
 
 **CoordConv Layer**
-- [Arxiv papber by Uber AI Labs](https://arxiv.org/abs/1807.03247)
+- [Arxiv paper by Uber AI Labs](https://arxiv.org/abs/1807.03247)
 - [Blog post about the CoordConv layer](https://eng.uber.com/coordconv/)
 - [Path to the layer's plugin in repository](https://github.com/NVIDIA/TensorRT/tree/master/plugin/coordConvACPlugin)
 
@@ -236,7 +236,7 @@ For terms and conditions for use, reproduction, and distribution, see the [Tenso
 
 # Changelog
 
-March 2019
+April 2020
 This `README.md` file was recreated, updated and reviewed.
 
 
