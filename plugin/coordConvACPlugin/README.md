@@ -15,7 +15,7 @@ The coordConvACPlugin implements the CoordConv layer. This layer was first intro
 
 Each node with the op name `CoordConvAC` in `ONNX` graph will be mapped to that plugin. `Conv` node should follow after each `CoordConvAC` node into `ONNX` graph. 
 
-If input data for Conv layer is `X` with shape of `[N, C, H, W]`, where `N` is the batch size, `C` is the number of channels, `H` is the height, `W` is the width. Then in CoordConv layer for each `N`(image/matrix in batch) input data concatenates with 2 addictional channels with shapes `[1, C, H, 1]` at the end. First channel contains relative coordinates along the Y axis and the second channel contains coordinates along the X axis. As a result we are getting new input data with shapes `[N, C+2, H, W]` and applying regular Conv operation over new data.
+For example, say we have an input tensor for a Conv layer named X with shape [N, C, H, W], where N is the batch size, C is the number of channels, H is the height, and W is the width. In the CoordConv layer for each input the plugin will concatenate two additional channels with shape [1, C, 1, 1] at the end. The first extra channel contains relative coordinates along the Y axis and the second extra channel contains coordinates along the X axis. As a result we will get a new input tensor with shape [N, C+2, H, W] before applying regular convolution.
 
 Relative coordinates it's values in range `[-1; 1]` where `-1` - this is the values of the top row for 1st channel (Y axis) and values for the left column of 2nd channel (X axis). `1` - this is values for bottom row for 1st channel (Y axis) and values for the right column of 2nd channel (X axis). All other (middle) values of the matrices fill in by adding constant value that allow to came from -1 to 1.
 
