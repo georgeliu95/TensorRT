@@ -52,7 +52,7 @@ These two matrices will be concatenated with the input data with the formula `CO
   
 ### Structure
 
-This plugin takes one input and generates one output. It has a shape of `[N, C + 2, H, W]`, where `N` is the batch size, `C + 2` is the number of channels + 2 additional channels, `H` is the height, `W` is the width. 
+This plugin takes one input and generates one output. Input shape is `[N, C, H, W]` and the output shape is `[N, C + 2, H, W]`.
 
 ## Additional resources
 
