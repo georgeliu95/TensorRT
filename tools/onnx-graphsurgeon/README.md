@@ -17,10 +17,6 @@
         - [Graph](#graph)
     - [Exporters](#exporters)
 - [Examples](#examples)
-    - [Creating An ONNX Model By Hand](#creating-an-onnx-model-by-hand)
-    - [Creating An ONNX Model With An Initializer](#creating-an-onnx-model-with-an-initializer)
-    - [Isolating A Failing Node From A Model](#isolating-a-failing-node-from-a-model)
-    - [Modifying A Graph In-Place](#modifying-a-graph-in-place)
 
 ## Introduction
 
@@ -67,23 +63,29 @@ ONNX GraphSurgeon also provides [high-level importer APIs](./onnx_graphsurgeon/a
 
 ### IR
 
-The Intermediate Representation (IR) is where all modifications to the graph are made. It can also be used to create new graphs from scratch.
-The IR involves three components: [Tensor](./onnx_graphsurgeon/ir/tensor.py)s, [Node](./onnx_graphsurgeon/ir/node.py)s, and [Graph](./onnx_graphsurgeon/ir/graph.py)s.
-Nearly all of the members of each component can be freely modified.
+The Intermediate Representation (IR) is where all modifications to the graph are made. It can also be used to
+create new graphs from scratch. The IR involves three components: [Tensor](./onnx_graphsurgeon/ir/tensor.py)s,
+[Node](./onnx_graphsurgeon/ir/node.py)s, and [Graph](./onnx_graphsurgeon/ir/graph.py)s.
+
+Nearly all of the member variables of each component can be freely modified. For details on the various
+attributes of these classes, you can view the help output using `help(<class_or_instance>)` in an
+interactive shell, or using `print(help(<class_or_instance>))` in a script, where `<class_or_instance>`
+is an ONNX GraphSurgeon type, or an instance of that type.
 
 #### Tensor
 
-Tensors are divided into two subclasses: `VariableTensor` and `ConstantTensor`.
+Tensors are divided into two subclasses: `Variable` and `Constant`.
 
-A `ConstantTensor` is a tensor whose values are known upfront, and can be retrieved as a NumPy array and modified.
-A `VariableTensor` is a tensor whose values are unknown until inference-time.
+- A `Constant` is a tensor whose values are known upfront, and can be retrieved as a NumPy array and modified.
+- A `Variable` is a tensor whose values are unknown until inference-time. `Variable`s include a `has_metadata()`
+    function, which returns `True` if the tensor contains information about data type and shape.
 
 The inputs and outputs of Tensors are always Nodes.
 
 **An example constant tensor from ResNet50:**
 ```
 >>> print(tensor)
-ConstantTensor (gpu_0/res_conv1_bn_s_0)
+Constant (gpu_0/res_conv1_bn_s_0)
 [0.85369843 1.1515082  0.9152944  0.9577646  1.0663182  0.55629414
  1.2009839  1.1912311  2.2619808  0.62263143 1.1149117  1.4921428
  0.89566356 1.0358194  1.431092   1.5360111  1.25086    0.8706703
@@ -100,13 +102,14 @@ ConstantTensor (gpu_0/res_conv1_bn_s_0)
 **An example variable tensor from ResNet50:**
 ```
 >>> print(tensor)
-VariableTensor (gpu_0/data_0): (shape=[1, 3, 224, 224], dtype=float32)
+Variable (gpu_0/data_0): (shape=[1, 3, 224, 224], dtype=float32)
 ```
 
 
 #### Node
 
-A `Node` defines an operation in the graph. A node may specify attributes; attribute values can be any Python primitive types, as well as ONNX GraphSurgeon `Graph`s or `Tensor`s
+A `Node` defines an operation in the graph. A node may specify attributes; attribute values can be any
+Python primitive types, as well as ONNX GraphSurgeon `Graph`s or `Tensor`s
 
 The inputs and outputs of Nodes are always Tensors
 
@@ -123,8 +126,9 @@ In this case, the node has no attributes. Otherwise, attributes are displayed as
 
 #### A Note On Modifying Inputs And Outputs
 
-The `inputs`/`outputs` members of nodes and tensors have special logic that will update the inputs/outputs of all affected nodes/tensors when you make a change.
-This means, for example, that you do **not** need to update the `inputs` of a Node when you make a change to the `outputs` of its input tensor.
+The `inputs`/`outputs` members of nodes and tensors have special logic that will update the inputs/outputs of all
+affected nodes/tensors when you make a change. This means, for example, that you do **not** need to update the `inputs`
+of a Node when you make a change to the `outputs` of its input tensor.
 
 Consider the following node:
 ```
@@ -163,6 +167,14 @@ A `Graph` contains zero or more `Node`s and input/output `Tensor`s.
 
 Intermediate tensors are not explicitly tracked, but are instead retrieved from the nodes contained within the graph.
 
+The `Graph` class exposes several functions. A small subset is listed here:
+
+- `cleanup()`: Removes unused nodes and tensors in the graph
+- `toposort()`: Topologically sorts the graph.
+- `tensors()`: Returns a `Dict[str, Tensor]` mapping tensor names to tensors, by walking over all the tensors in the graph.
+    This is an `O(N)` operation, and so may be slow for large graphs.
+
+To see the full Graph API, you can see `help(onnx_graphsurgeon.Graph)` in an interactive Python shell.
 
 ### Exporters
 
@@ -174,92 +186,6 @@ ONNX GraphSurgeon also provides [high-level exporter APIs](./onnx_graphsurgeon/a
 
 ## Examples
 
-### Creating An ONNX Model By Hand
+The [examples](./examples) directory contains several examples of common use-cases of ONNX GraphSurgeon.
 
-The following code creates an ONNX model containing a single GlobalLpPool node:
-```python
-import onnx_graphsurgeon as gs
-import numpy as np
-import onnx
-
-inp = gs.VariableTensor(name="X", dtype=np.float32, shape=(1, 3, 5, 5))
-out = gs.VariableTensor(name="Y", dtype=np.float32, shape=(1, 3, 1, 1))
-node = gs.Node(op="GlobalLpPool", attrs={"p": 2}, inputs=[inp], outputs=[out])
-
-graph = gs.Graph(nodes=[node], inputs=[inp], outputs=[out])
-onnx.save(gs.export_onnx(graph), "test_globallppool.onnx")
-```
-
-### Creating An ONNX Model With An Initializer
-
-The following code creates an ONNX model containing a single Convolution node, with weights:
-```python
-import onnx_graphsurgeon as gs
-import numpy as np
-import onnx
-
-inp = gs.VariableTensor(name="X", dtype=np.float32, shape=(1, 3, 224, 224))
-# Since filter is a ConstantTensor, it will automatically be exported as an initializer
-filter = gs.ConstantTensor(name="W", values=np.ones(shape=(5, 3, 3, 3), dtype=np.float32))
-
-out = gs.VariableTensor(name="Y", dtype=np.float32, shape=(1, 5, 222, 222))
-
-node = gs.Node(op="Conv", inputs=[inp, filter], outputs=[out])
-
-# Note that initializers do not necessarily have to be graph inputs
-graph = gs.Graph(nodes=[node], inputs=[inp], outputs=[out])
-onnx.save(gs.export_onnx(graph), "test_conv.onnx")
-```
-
-
-### Isolating A Failing Node From A Model
-
-Assume that `model.onnx` is an ONNX model where a node named `failing_node` is failing.
-
-To figure out why, we can isolate the node into a separate ONNX graph, and use that as a unit test:
-```python
-import onnx_graphsurgeon as gs
-import numpy as np
-import onnx
-
-graph = gs.import_onnx(onnx.load("model.onnx"))
-
-# Isolate the failing node, then detach it from the graph by swapping out the inputs and outputs we care about.
-failing_node = [node for node in graph if node.name == "failing_node"][0]
-# ONNX requires I/O tensors to have dtype and shape information. Here we hard-code it,
-# but it can also be derived automatically by running shape inference over the graph prior to importing.
-# In that case, we would not need to replace the inputs and outputs of the node.
-# See onnx.shape_inference.infer_shapes().
-failing_node.inputs[0] = gs.VariableTensor(name="input", dtype=np.float32, shape=(-1, 128, 14, 14))
-failing_node.outputs[0] = gs.VariableTensor(name="output", dtype=np.float32, shape=(-1, 128, 28, 28))
-
-new_graph = gs.Graph(nodes=[failing_node], inputs=failing_node.inputs, outputs=failing_node.outputs)
-
-onnx.save(gs.export_onnx(new_graph), "failing.onnx")
-```
-
-This will generate a new ONNX model called `failing.onnx` containing the
-failing node, as well as any parameters or initializers (e.g. weights) associated
-with the node (these do **not** need to be copied into the new graph manually!)
-
-
-### Modifying A Graph In-Place
-
-Assume that `model.onnx` is an ONNX model using an old opset containing `ATen` ops which are used to
-perform a `Gather` operation.
-
-We can modify the graph to replace the nodes and remove any extra inputs they might have:
-```python
-import onnx_graphsurgeon as gs
-import onnx
-
-graph = gs.import_onnx(onnx.load("model.onnx"))
-
-aten_nodes = [node for node in graph if node.op == "ATen" and node.attrs["operator"] == "embedding_bag"]
-for node in aten_nodes:
-   node.op = "Gather"
-   node.inputs = node.inputs[0:2]
-   node.attrs = {"axis": 0}
-
-onnx.save(gs.export_onnx(graph.cleanup()), "model_with_gather.onnx")
-```
+The visualizations provided were generated using [Netron](https://github.com/lutzroeder/netron).

@@ -1,9 +1,9 @@
-from onnx_graphsurgeon.ir.tensor import Tensor, ConstantTensor, VariableTensor
+from onnx_graphsurgeon.ir.tensor import Tensor, Constant, Variable
 from onnx_graphsurgeon.importers.base_importer import BaseImporter
 from onnx_graphsurgeon.logger.logger import G_LOGGER
 from onnx_graphsurgeon.ir.graph import Graph
 from onnx_graphsurgeon.ir.node import Node
-from onnx_graphsurgeon.utils import misc
+from onnx_graphsurgeon.util import misc
 
 from typing import List, Union
 from collections import OrderedDict
@@ -64,9 +64,9 @@ class OnnxImporter(BaseImporter):
     def import_tensor(onnx_tensor: Union[onnx.ValueInfoProto, onnx.TensorProto]) -> Tensor:
         try:
             values = onnx.numpy_helper.to_array(onnx_tensor)
-            return ConstantTensor(name=onnx_tensor.name, values=values)
+            return Constant(name=onnx_tensor.name, values=values)
         except ValueError:
-            return VariableTensor(name=onnx_tensor.name, dtype=get_onnx_tensor_dtype(onnx_tensor), shape=get_onnx_tensor_shape(onnx_tensor))
+            return Variable(name=onnx_tensor.name, dtype=get_onnx_tensor_dtype(onnx_tensor), shape=get_onnx_tensor_shape(onnx_tensor))
 
 
     @staticmethod
@@ -104,11 +104,11 @@ class OnnxImporter(BaseImporter):
             if name not in tensor_map:
                 if name:
                     G_LOGGER.debug("Tensor: {:} was not generated during shape inference, or shape inference was not run on this model. Creating a new Tensor.".format(name))
-                    tensor_map[name] = Tensor(name)
+                    tensor_map[name] = Variable(name)
                 else:
                     # Empty tensors are not tracked by the graph, as these represent optional inputs/outputs that have been omitted.
                     G_LOGGER.verbose("Generating empty tensor")
-                    return Tensor.empty()
+                    return Variable.empty()
             return tensor_map[name]
 
         # Retrieve Tensors for node inputs/outputs. Only empty tensors should need to be newly added.
@@ -143,27 +143,38 @@ class OnnxImporter(BaseImporter):
         tensor_map = copy.copy(misc.default_value(tensor_map, OrderedDict()))
 
         # Retrieves a Tensor from tensor_map if present, otherwise imports the tensor
-        def get_tensor(onnx_tensor: Union[onnx.ValueInfoProto, onnx.TensorProto]) -> Tensor:
+        # If overwrite=True, this function will overwrite previously imported tensors
+        # if the new tensor has more information available.
+        def get_tensor(onnx_tensor: Union[onnx.ValueInfoProto, onnx.TensorProto], overwrite=False) -> Tensor:
             if onnx_tensor.name not in tensor_map:
                 tensor_map[onnx_tensor.name] = OnnxImporter.import_tensor(onnx_tensor)
+            elif overwrite:
+                tensor = OnnxImporter.import_tensor(onnx_tensor)
+                if isinstance(tensor_map[onnx_tensor.name], Variable):
+                    tensor_map[onnx_tensor.name].dtype = tensor_map[onnx_tensor.name].dtype or tensor.dtype
+                    tensor_map[onnx_tensor.name].shape = tensor_map[onnx_tensor.name].shape or tensor.shape
             return tensor_map[onnx_tensor.name]
 
-        # Import initializers contents into ConstantTensors.
+        # Import initializers contents into Constants.
         G_LOGGER.debug("Importing initializers")
         for initializer in onnx_graph.initializer:
             get_tensor(initializer)
 
-        # Import all tensors whose shapes are known
+        # Import all tensors whose shapes are known. Tensors may be repeated, and some of these
+        # duplicates may not include shape/dtype information, so overwrite is set to True
+        # so that we can capture all the information available about the tensor
         G_LOGGER.debug("Importing tensors with known shapes")
         for tensor in onnx_graph.value_info:
-            get_tensor(tensor)
+            get_tensor(tensor, overwrite=True)
 
-        # Import graph inputs and outputs.
+        # Import graph inputs and outputs. Initializers are not considered to be inputs.
+        initializer_names = set([tensor.name for tensor in onnx_graph.initializer])
         G_LOGGER.debug("Importing graph inputs")
         graph_inputs = [] # List[Tensor]
         for inp in onnx_graph.input:
-            tensor = get_tensor(inp)
-            graph_inputs.append(tensor)
+            if inp.name not in initializer_names:
+                tensor = get_tensor(inp)
+                graph_inputs.append(tensor)
 
         G_LOGGER.debug("Importing graph outputs")
         graph_outputs = [] # List[Tensor]

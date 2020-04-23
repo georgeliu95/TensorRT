@@ -1,5 +1,5 @@
 test:
-	python3 -m pytest tests/ -v
+	python3 -m pytest tests/ -v -x
 
 clean:
 	rm -rf dist/ build/ onnx_graphsurgeon.egg-info/

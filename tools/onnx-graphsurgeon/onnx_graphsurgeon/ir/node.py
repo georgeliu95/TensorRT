@@ -1,6 +1,6 @@
 from onnx_graphsurgeon.logger.logger import G_LOGGER
 from onnx_graphsurgeon.ir.tensor import Tensor
-from onnx_graphsurgeon.utils import misc
+from onnx_graphsurgeon.util import misc
 
 from collections import OrderedDict
 from typing import List, Dict

@@ -1,10 +1,12 @@
+from onnx_graphsurgeon.util.exception import OnnxGraphSurgeonException
+
 import inspect
 import enum
 import time
 import sys
 import os
 
-
+# Context manager to apply indentation to messages
 class LoggerIndent(object):
     def __init__(self, logger, indent):
         self.logger = logger
@@ -17,6 +19,21 @@ class LoggerIndent(object):
 
     def __exit__(self, exc_type, exc_value, traceback):
         self.logger.logging_indent = self.old_indent
+
+
+# Context manager to suppress messages
+class LoggerSuppress(object):
+    def __init__(self, logger, severity):
+        self.logger = logger
+        self.old_severity = self.logger.severity
+        self.severity = severity
+
+    def __enter__(self):
+        self.logger.severity = self.severity
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.logger.severity = self.old_severity
 
 
 class LogMode(enum.IntEnum):
@@ -33,18 +50,71 @@ class Logger(object):
     ERROR = 40
     CRITICAL = 50
 
-    def __init__(self, severity=INFO, colors=True):
+    SEVERITY_LETTER_MAPPING = {
+        ULTRA_VERBOSE: "[UV]",
+        VERBOSE: "[V]",
+        DEBUG: "[D]",
+        INFO: "[I]",
+        WARNING: "[W]",
+        ERROR: "[E]",
+        CRITICAL: "[C]",
+    }
+
+    SEVERITY_COLOR_MAPPING = {
+        ULTRA_VERBOSE: "cyan",
+        VERBOSE: "dark_gray",
+        DEBUG: "light_gray",
+        INFO: "light_green",
+        WARNING: "light_yellow",
+        ERROR: "red_1",
+        CRITICAL: "red_1",
+    }
+
+    def __init__(self, severity=INFO, colors=True, letter=True, timestamp=False, line_info=False):
         """
         Logger.
 
         Optional Args:
             severity (Logger.Severity): Messages below this severity are ignored.
+            colors (bool): Whether to use colored output.
+            letter (bool): Whether to prepend each logging message with a letter indicating it's severity. Defaults to True.
+            timestamp (bool): Whether to include a timestamp in the logging output. Defaults to False.
+            line_info (bool): Whether to include file and line number information in the logging output. Defaults to False.
         """
-        self.severity = severity
+        self._severity = severity
+        self.logging_indent = 0
         self.root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir,  os.pardir))
         self.once_logged = set()
         self.colors = colors
-        self.logging_indent = 0
+        self.letter = letter
+        self.timestamp = timestamp
+        self.line_info = line_info
+        self.logger_callbacks = []
+
+
+    @property
+    def severity(self):
+        return self._severity
+
+
+    @severity.setter
+    def severity(self, value):
+        self._severity = value
+        for callback in self.logger_callbacks:
+            callback(self._severity)
+
+
+    def register_callback(self, callback):
+        """
+        Registers a callback with the logger, which will be invoked when the logging severity is modified.
+        The callback is guaranteed to be called at least once in the register_callback function.
+
+        Args:
+            callback (Callable(Logger.Severity)): A callback that accepts the current logger severity.
+        """
+        callback(self._severity)
+        self.logger_callbacks.append(callback)
+
 
     def indent(self, level=1):
         """
@@ -52,74 +122,113 @@ class Logger(object):
         """
         return LoggerIndent(self, level + self.logging_indent)
 
-    @staticmethod
-    def severity_logging_prefix(sev):
-        default = "\033[1;"
-        prefix = {
-            Logger.ULTRA_VERBOSE: "90mUV",
-            Logger.VERBOSE: "90mV",
-            Logger.DEBUG: "90mD",
-            Logger.INFO: "92mI",
-            Logger.WARNING: "33mW",
-            Logger.ERROR: "31mE",
-            Logger.CRITICAL: "31mC",
-        }[sev]
-        return default + prefix
 
-    def add_metadata(self, message, stack_depth):
-        module = inspect.getmodule(sys._getframe(stack_depth))
-        # Handle logging from the top-level of a module.
-        if not module:
-            module = inspect.getmodule(sys._getframe(stack_depth - 1))
-        filename = module.__file__
-        filename = os.path.relpath(filename, self.root_dir)
-        # If the file is not located in trt_smeagol, use its basename instead.
-        if os.pardir in filename:
-            filename = os.path.basename(filename)
+    def suppress(self, severity=CRITICAL):
+        """
+        Returns a context manager that temporarily changes the severity of the logger for its duration.
 
-        message_lines = message.splitlines()
-        message = "\n".join(["\t" * self.logging_indent + line for line in message_lines])
-        return "({:}) [{:}:{:}] {:}".format(time.strftime("%H:%M:%S"), filename, sys._getframe(stack_depth).f_lineno, message)
+        Args:
+            severity (Logger.Severity): The severity to set the logger to. Defaults to Logger.CRITICAL, which will suppress all messages.
+        """
+        return LoggerSuppress(self, severity)
+
+
 
     # If once is True, the logger will only log this message a single time. Useful in loops.
     # message may be a callable which returns a message. This way, only if the message needs to be logged is it ever generated.
-    def log(self, message, severity, mode=LogMode.EACH):
-        if severity < self.severity:
+    def log(self, message, severity, mode=LogMode.EACH, stack_depth=2):
+        def process_message(message, stack_depth):
+            def get_prefix():
+                def get_line_info():
+                    module = inspect.getmodule(sys._getframe(stack_depth + 3))
+                    # Handle logging from the top-level of a module.
+                    if not module:
+                        module = inspect.getmodule(sys._getframe(stack_depth + 2))
+                    filename = module.__file__
+                    filename = os.path.relpath(filename, self.root_dir)
+                    # If the file is not located in trt_smeagol, use its basename instead.
+                    if os.pardir in filename:
+                        filename = os.path.basename(filename)
+                    return "[{:}:{:}] ".format(filename, sys._getframe(stack_depth).f_lineno)
+
+                prefix = ""
+                if self.letter:
+                    prefix += Logger.SEVERITY_LETTER_MAPPING[severity] + " "
+                if self.timestamp:
+                    prefix += "({:}) ".format(time.strftime("%X"))
+                if self.line_info:
+                    prefix += get_line_info()
+                return prefix
+
+            def apply_indentation(message):
+                message_lines = str(message).splitlines()
+                return "\n".join(["\t" * self.logging_indent + line for line in message_lines])
+
+            def apply_color(message):
+                if self.colors:
+                    try:
+                        import colored
+                        color = Logger.SEVERITY_COLOR_MAPPING[severity]
+                        return colored.stylize(message, [colored.fg(color)])
+                    except (ImportError, ModuleNotFoundError):
+                        self.colors = False
+                        self.warning("colored module is not installed, will not use colors when logging. To enable colors, please install the colored module: python3 -m pip install colored")
+                        self.colors = True
+                return message
+
+
+            prefix = get_prefix()
+            message = apply_indentation(message)
+            return apply_color("{:}{:}".format(prefix, message))
+
+
+        def should_log(message):
+            should = severity >= self._severity
+            if mode == LogMode.ONCE:
+                message_hash = hash(message)
+                should &= message_hash not in self.once_logged
+                self.once_logged.add(message_hash)
+            return should
+
+
+        if not should_log(message):
             return
 
         if callable(message):
             message = message()
+        message = str(message)
+        print(process_message(message, stack_depth=stack_depth))
 
-        PREFIX_LEN = 12
-        if mode == LogMode.ONCE:
-            if message[PREFIX_LEN:] in self.once_logged:
-                return
-            self.once_logged.add(message[PREFIX_LEN:])
-
-        print("{:} {:}\033[0m".format(Logger.severity_logging_prefix(severity), self.add_metadata(message, stack_depth=3)))
 
     def ultra_verbose(self, message, mode=LogMode.EACH):
-        self.log(message, Logger.ULTRA_VERBOSE, mode=mode)
+        self.log(message, Logger.ULTRA_VERBOSE, mode=mode, stack_depth=3)
+
 
     def verbose(self, message, mode=LogMode.EACH):
-        self.log(message, Logger.VERBOSE, mode=mode)
+        self.log(message, Logger.VERBOSE, mode=mode, stack_depth=3)
+
 
     def debug(self, message, mode=LogMode.EACH):
-        self.log(message, Logger.DEBUG, mode=mode)
+        self.log(message, Logger.DEBUG, mode=mode, stack_depth=3)
+
 
     def info(self, message, mode=LogMode.EACH):
-        self.log(message, Logger.INFO, mode=mode)
+        self.log(message, Logger.INFO, mode=mode, stack_depth=3)
+
 
     def warning(self, message, mode=LogMode.EACH):
-        self.log(message, Logger.WARNING, mode=mode)
+        self.log(message, Logger.WARNING, mode=mode, stack_depth=3)
+
 
     def error(self, message, mode=LogMode.EACH):
-        self.log(message, Logger.ERROR, mode=mode)
+        self.log(message, Logger.ERROR, mode=mode, stack_depth=3)
+
 
     # Like error, but immediately exits.
     def critical(self, message):
-        self.log(message, Logger.CRITICAL)
-        raise Exception("Error encountered - see logging output for details") from None # Erase exception chain
+        self.log(message, Logger.CRITICAL, stack_depth=3)
+        raise OnnxGraphSurgeonException("Error encountered - see logging output for details") from None # Erase exception chain
+
 
 global G_LOGGER
 G_LOGGER = Logger()

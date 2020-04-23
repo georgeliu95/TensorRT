@@ -1,7 +1,7 @@
 from onnx_graphsurgeon.logger.logger import G_LOGGER
-from onnx_graphsurgeon.ir.tensor import Tensor, ConstantTensor, VariableTensor
+from onnx_graphsurgeon.ir.tensor import Tensor, Constant, Variable
 from onnx_graphsurgeon.ir.node import Node
-from onnx_graphsurgeon.utils import misc
+from onnx_graphsurgeon.util import misc
 
 from collections import OrderedDict, defaultdict
 from typing import Sequence, Set, Dict, Tuple
@@ -69,10 +69,6 @@ class Graph(object):
         return nodes_match and inputs_match and outputs_match
 
 
-    def __getitem__(self, index: int):
-        return self.nodes[index]
-
-
     def node_ids(self):
         """
         Returns a context manager that supplies unique integer IDs for Nodes in the Graph.
@@ -113,12 +109,14 @@ class Graph(object):
 
     def cleanup(self, remove_unused_node_outputs=True):
         """
-        Removes unused nodes (any node which does not contribute to graph outputs) and tensors from the graph.
+        Removes unused nodes and tensors from the graph.
+        A node or tensor is considered unused if it does not contribute to any of the graph outputs.
 
         Note: This function will never modify graph output tensors.
 
         Optional Args:
-            remove_unused_node_outputs (bool): Whether to remove unused output tensors of nodes. This will never remove empty tensor outputs. If this is set to False, outputs of nodes kept in the graph will not be modified.
+            remove_unused_node_outputs (bool): Whether to remove unused output tensors of nodes. This will never remove
+                empty tensor outputs. If this is set to False, outputs of nodes kept in the graph will not be modified.
 
         Returns:
             self
@@ -203,11 +201,17 @@ class Graph(object):
         return self
 
 
-    def generate_tensor_map(self):
+    def tensors(self, check_duplicates=False):
         """
-        Creates a tensor map of all the tensors in this graph by walking over all nodes. Empty tensors are omitted from this map.
+        Creates a tensor map of all the tensors in this graph by walking over all nodes. Empty tensors are omitted from this map. The graph must not contain tensors with duplicate names.
 
         Tensors are guaranteed to be in order of the nodes in the graph. Hence, if the graph is topologically sorted, the tensor map will be too.
+
+        Optional Args:
+            check_duplicates (bool): Whether to fail if multiple tensors with the same name are encountered.
+
+        Raises:
+            OnnxGraphSurgeonException: If check_duplicates is True, and multiple distinct tensors in the graph share the same name.
 
         Returns:
             OrderedDict[str, Tensor]: A mapping of tensor names to tensors.
@@ -216,6 +220,9 @@ class Graph(object):
 
         def add_to_tensor_map(tensor):
             if not tensor.is_empty():
+                if check_duplicates and tensor.name in tensor_map and not (tensor_map[tensor.name] is tensor):
+                    G_LOGGER.critical("Found distinct tensors that share the same name:\n[id: {:}] {:}\n[id: {:}] {:}"
+                        .format(id(tensor_map[tensor.name]), tensor_map[tensor.name], id(tensor), tensor))
                 tensor_map[tensor.name] = tensor
 
         for node in self.nodes:
@@ -242,13 +249,13 @@ class Graph(object):
         temp_graph = copy.deepcopy(self)
 
         # Since the graph is topologically sorted, this should find all constant nodes in the graph.
-        graph_constants = {tensor.name: tensor for tensor in temp_graph.generate_tensor_map().values() if isinstance(tensor, ConstantTensor)}
-        for node in temp_graph:
+        graph_constants = {tensor.name: tensor for tensor in temp_graph.tensors().values() if isinstance(tensor, Constant)}
+        for node in temp_graph.nodes:
             if all([inp.name in graph_constants for inp in node.inputs]):
                 graph_constants.update({out.name: out for out in node.outputs})
 
         # Next build a graph with just the constants, and evaluate - no need to evaluate constants
-        outputs_to_evaluate = [tensor for tensor in graph_constants.values() if isinstance(tensor, VariableTensor)]
+        outputs_to_evaluate = [tensor for tensor in graph_constants.values() if isinstance(tensor, Variable)]
         output_names = [out.name for out in outputs_to_evaluate]
 
         temp_graph.outputs = outputs_to_evaluate
@@ -257,10 +264,10 @@ class Graph(object):
         sess = onnxruntime.InferenceSession(export_onnx(temp_graph).SerializeToString())
         constant_values = sess.run(output_names, {})
 
-        # Finally, replace the VariableTensors in the original graph with constants.
-        graph_tensors = self.generate_tensor_map()
+        # Finally, replace the Variables in the original graph with constants.
+        graph_tensors = self.tensors()
         for name, values in zip(output_names, constant_values):
-            graph_tensors[name].make_constant(values)
+            graph_tensors[name].to_constant(values)
             graph_tensors[name].inputs.clear() # Constants do not need inputs
 
         return self
@@ -271,12 +278,12 @@ class Graph(object):
         Makes a deep copy of this graph.
         """
         # First, reconstruct each tensor in the graph, but with no inputs or outputs
-        tensor_map = self.generate_tensor_map()
+        tensor_map = self.tensors()
         new_tensors = {name: tensor.copy() for name, tensor in tensor_map.items()}
 
         # Next, copy nodes, and update inputs/outputs
         new_nodes = []
-        for node in self:
+        for node in self.nodes:
             new_node = node.copy(inputs=[new_tensors[inp.name] for inp in node.inputs], outputs=[new_tensors[out.name] for out in node.outputs])
             new_nodes.append(new_node)
 
