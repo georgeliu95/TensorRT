@@ -1,6 +1,6 @@
 from onnx_graphsurgeon.exporters.base_exporter import BaseExporter
 from onnx_graphsurgeon.logger.logger import G_LOGGER
-from onnx_graphsurgeon.ir.tensor import Tensor, ConstantTensor, VariableTensor
+from onnx_graphsurgeon.ir.tensor import Tensor, Constant, Variable
 from onnx_graphsurgeon.ir.graph import Graph
 from onnx_graphsurgeon.ir.node import Node
 
@@ -17,7 +17,7 @@ def dtype_to_onnx(dtype: np.dtype) -> int:
 
 class OnnxExporter(BaseExporter):
     @staticmethod
-    def export_tensor_proto(tensor: ConstantTensor) -> onnx.TensorProto:
+    def export_tensor_proto(tensor: Constant) -> onnx.TensorProto:
         onnx_tensor = onnx.numpy_helper.from_array(tensor.values)
         onnx_tensor.name = tensor.name
         return onnx_tensor
@@ -25,12 +25,13 @@ class OnnxExporter(BaseExporter):
 
     @staticmethod
     def export_value_info_proto(tensor: Tensor) -> onnx.ValueInfoProto:
-        if isinstance(tensor, ConstantTensor):
+        if isinstance(tensor, Constant):
             onnx_tensor = onnx.helper.make_tensor_value_info(tensor.name, dtype_to_onnx(tensor.values.dtype), tensor.values.shape)
-        elif isinstance(tensor, VariableTensor):
-            onnx_tensor = onnx.helper.make_tensor_value_info(tensor.name, dtype_to_onnx(tensor.dtype), tensor.shape)
-        elif isinstance(tensor, Tensor):
-            onnx_tensor = onnx.helper.make_empty_tensor_value_info(tensor.name)
+        elif isinstance(tensor, Variable):
+            if tensor.has_metadata():
+                onnx_tensor = onnx.helper.make_tensor_value_info(tensor.name, dtype_to_onnx(tensor.dtype), tensor.shape)
+            else:
+                onnx_tensor = onnx.helper.make_empty_tensor_value_info(tensor.name)
         return onnx_tensor
 
 
@@ -59,13 +60,14 @@ class OnnxExporter(BaseExporter):
         nodes = [OnnxExporter.export_node(node) for node in graph.nodes]
         inputs = [OnnxExporter.export_value_info_proto(inp) for inp in graph.inputs]
         outputs = [OnnxExporter.export_value_info_proto(out) for out in graph.outputs]
-        tensor_map = graph.generate_tensor_map()
-        initializer = [OnnxExporter.export_tensor_proto(tensor) for tensor in tensor_map.values() if isinstance(tensor, ConstantTensor)]
+        tensor_map = graph.tensors()
+        initializer = [OnnxExporter.export_tensor_proto(tensor) for tensor in tensor_map.values() if isinstance(tensor, Constant)]
 
         # Remove inputs and outputs to export ValueInfoProtos
         for tensor in graph.inputs + graph.outputs:
             if tensor.name in tensor_map:
                 del tensor_map[tensor.name]
 
-        value_info = [OnnxExporter.export_value_info_proto(tensor) for tensor in tensor_map.values()]
+        # Omit tensors if we don't know their shape/type
+        value_info = [OnnxExporter.export_value_info_proto(tensor) for tensor in tensor_map.values() if isinstance(tensor, Variable) and tensor.has_metadata()]
         return onnx.helper.make_graph(nodes=nodes, name=graph.name, inputs=inputs, outputs=outputs, initializer=initializer, doc_string=graph.doc_string, value_info=value_info)

@@ -1,9 +1,11 @@
 from onnx_graphsurgeon.importers.onnx_importer import OnnxImporter
 from onnx_graphsurgeon.logger.logger import G_LOGGER
+from onnx_graphsurgeon.ir.tensor import Tensor, Variable, Constant
 
 from onnx_models import identity_model, lstm_model, scan_model, dim_param_model
 
 from collections import OrderedDict
+import onnx.shape_inference
 import onnx.numpy_helper
 import numpy as np
 import pytest
@@ -12,14 +14,35 @@ import onnx
 G_LOGGER.severity = G_LOGGER.ULTRA_VERBOSE
 
 class TestOnnxImporter(object):
-    def test_import_tensor(self):
+    def test_import_variable_tensor(self):
         name = "test0"
         shape = [1, 2, 3, 4]
         onnx_tensor = onnx.helper.make_tensor_value_info(name, onnx.TensorProto.FLOAT, shape)
         tensor = OnnxImporter.import_tensor(onnx_tensor)
+        assert type(tensor) == Variable
         assert tensor.name == name
         assert tensor.dtype == np.float32
         assert tensor.shape == shape
+
+
+    def test_import_constant_tensor(self):
+        shape = (3, 3, 3)
+        dtype = np.float32
+        onnx_tensor = onnx.numpy_helper.from_array(np.ones(shape=shape, dtype=dtype))
+        tensor = OnnxImporter.import_tensor(onnx_tensor)
+        assert type(tensor) == Constant
+        assert tensor.dtype == dtype
+        assert tensor.shape == shape
+
+
+    def test_import_tensor_unknown_metadata(self):
+        name = "test0"
+        onnx_tensor = onnx.helper.make_empty_tensor_value_info(name)
+        tensor = OnnxImporter.import_tensor(onnx_tensor)
+        assert type(tensor) == Variable
+        assert tensor.name == name
+        assert not tensor.has_metadata()
+
 
     # TODO: Test all attribute types - missing graph
     def test_import_node(self):
@@ -41,7 +64,7 @@ class TestOnnxImporter(object):
         assert node.attrs["float_attr"] == float_attr
         assert node.attrs["int_attr"] == int_attr
         assert node.attrs["str_attr"] == str_attr
-        # Tensor should turn into a ConstantTensor
+        # Tensor should turn into a Constant
         assert np.all(node.attrs["tensor_attr"].values == tensor_vals)
         assert node.attrs["floats_attr"] == floats_attr
         assert node.attrs["ints_attr"] == ints_attr
@@ -54,12 +77,20 @@ class TestOnnxImporter(object):
         model.assert_equal(graph)
 
 
+    def test_import_graph_value_info(self):
+        model = onnx.shape_inference.infer_shapes(identity_model().load())
+        graph = OnnxImporter.import_graph(model.graph)
+        tensors = graph.tensors()
+        assert all([type(tensor) == Variable and tensor.dtype is not None and tensor.shape for tensor in tensors.values()])
+
+
     def test_import_graph_tensor_map_preserved(self):
         model = identity_model()
         tensor_map = OrderedDict()
         graph = OnnxImporter.import_graph(model.load().graph, tensor_map=tensor_map)
         assert len(tensor_map) == 0
         model.assert_equal(graph)
+
 
     def test_import_graph_with_initializer(self):
         model = lstm_model()

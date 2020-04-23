@@ -1,22 +1,15 @@
 from onnx_graphsurgeon.logger.logger import G_LOGGER
-from onnx_graphsurgeon.utils import misc
+from onnx_graphsurgeon.util import misc
 
 from typing import Set, Sequence, Union
 import numpy as np
 
+
 class Tensor(object):
     DYNAMIC = -1
 
-    def __init__(self, name: str):
-        """
-        A tensor is produced by at most one Node, and can be consumed by zero or more nodes.
-
-        Args:
-            name (str): The name of the tensor. Tensor names must be unique per graph, and must not be modified after being set.
-        """
-        self.name = name
-        self.inputs = misc.SynchronizedList(self, field_name="outputs", initial=[])
-        self.outputs = misc.SynchronizedList(self, field_name="inputs", initial=[])
+    def __init__(self):
+        raise NotImplementedError("Tensor is an abstract class")
 
 
     def __setattr__(self, name, value):
@@ -30,35 +23,51 @@ class Tensor(object):
             super().__setattr__(name, value)
 
 
-    @staticmethod
-    def empty():
-        """
-        Creates an empty tensor.
-        """
-        return Tensor("")
-
-
     def is_empty(self):
         """
-        Returns whether this Tensor is empty.
+        Returns whether this tensor is empty.
 
         Returns:
-            bool: Whether the Tensor is empty.
+            bool: Whether the tensor is empty.
         """
-        return not self.name
+        return self.name == ""
 
 
-    def copy(self):
+    def to_constant(self, values: np.ndarray):
         """
-        Makes a shallow copy of this tensor, omitting input and output information.
+        Modifies this tensor in-place to convert it to a Constant. This means that all consumers/producers of the tensor will see the update.
 
-        Note: Generally, you should only ever make a deep copy of a Graph.
+        Args:
+            values (np.ndarray): The values in this tensor
+
+        Returns:
+            self
         """
-        return Tensor(self.name)
+        self.__class__ = Constant
+        self.values = values
+        return self
+
+
+    def to_variable(self, dtype: np.dtype=None, shape: Sequence[Union[int, str]]=[]):
+        """
+        Modifies this tensor in-place to convert it to a Variable. This means that all consumers/producers of the tensor will see the update.
+
+        Optional Args:
+            dtype (np.dtype): The data type of the tensor.
+            shape (Sequence[int]): The shape of the tensor.
+
+        Returns:
+            self
+        """
+        self.__class__ = Variable
+        self.dtype = dtype
+        self.shape = shape
+        return self
 
 
     def __str__(self):
         return "{:} ({:})".format(type(self).__name__, self.name)
+
 
     def __repr__(self):
         return self.__str__()
@@ -67,40 +76,48 @@ class Tensor(object):
     def __eq__(self, other):
         """
         Perform a check to see if two tensors are equal.
+
+        Tensors are considered equal if they share the same name. A Graph must not include Tensors with duplicate names.
         """
         return self.name == other.name
 
 
-class VariableTensor(Tensor):
-    def __init__(self, name: str, dtype: np.dtype, shape: Sequence[Union[int, str]]=[]):
+class Variable(Tensor):
+    @staticmethod
+    def empty():
+        return Variable(name="")
+
+
+    def __init__(self, name: str, dtype: np.dtype=None, shape: Sequence[Union[int, str]]=None):
         """
         Represents a Tensor whose value is not known until inference-time.
 
         Args:
             name (str): The name of the tensor.
             dtype (np.dtype): The data type of the tensor.
-            shape (Sequence[Union[int, str]]): The shape of the tensor.
+            shape (Sequence[Union[int, str]]): The shape of the tensor. This may contain strings if the model uses dimension parameters.
         """
-        super().__init__(name)
+        self.name = name
+        self.inputs = misc.SynchronizedList(self, field_name="outputs", initial=[])
+        self.outputs = misc.SynchronizedList(self, field_name="inputs", initial=[])
         self.dtype = dtype
-        self.shape = list(misc.default_value(shape, []))
+        self.shape = misc.default_value(shape, None)
 
 
-    def make_constant(self, values: np.ndarray):
+    def has_metadata(self):
         """
-        Modifies this tensor in-place to convert it to a ConstantTensor. This means that all consumers/producers of the tensor will see the update.
-
-        Args:
-            values (np.ndarray): The values in this tensor
+        Whether this tensor includes metadata about its data type and shape.
 
         Returns:
-            self
+            bool
         """
+        return self.dtype is not None and self.shape is not None
+
+
+    def to_constant(self, values: np.ndarray):
         del self.dtype
         del self.shape
-        self.__class__ = ConstantTensor
-        self.values = values
-        return self
+        return super().to_constant(values)
 
 
     def copy(self):
@@ -109,14 +126,14 @@ class VariableTensor(Tensor):
 
         Note: Generally, you should only ever make a deep copy of a Graph.
         """
-        return VariableTensor(self.name, self.dtype, self.shape)
+        return Variable(self.name, self.dtype, self.shape)
 
 
     def __str__(self):
         return "{:}: (shape={:}, dtype={:})".format(super().__str__(), self.shape, self.dtype)
 
 
-class ConstantTensor(Tensor):
+class Constant(Tensor):
     def __init__(self, name: str, values: np.ndarray):
         """
         Represents a Tensor whose value is known.
@@ -127,26 +144,19 @@ class ConstantTensor(Tensor):
             dtype (np.dtype): The data type of the tensor.
             shape (Sequence[Union[int, str]]): The shape of the tensor.
         """
-        super().__init__(name)
+        self.name = name
+        self.inputs = misc.SynchronizedList(self, field_name="outputs", initial=[])
+        self.outputs = misc.SynchronizedList(self, field_name="inputs", initial=[])
         self.values = values
 
 
-    def make_variable(self, dtype: np.dtype, shape: Sequence[Union[int, str]]=[]):
-        """
-        Modifies this tensor in-place to convert it to a VariableTensor. This means that all consumers/producers of the tensor will see the update.
+    def has_metadata(self):
+        return True
 
-        Args:
-            dtype (np.dtype): The data type of the tensor.
-            shape (Sequence[int]): The shape of the tensor.
 
-        Returns:
-            self
-        """
+    def to_variable(self, dtype: np.dtype=None, shape: Sequence[Union[int, str]]=[]):
         del self.values
-        self.__class__ = VariableTensor
-        self.dtype = dtype
-        self.shape = shape
-        return self
+        return super().to_variable(dtype, shape)
 
 
     def copy(self):
@@ -155,7 +165,7 @@ class ConstantTensor(Tensor):
 
         Note: Generally, you should only ever make a deep copy of a Graph.
         """
-        return ConstantTensor(self.name, self.values)
+        return Constant(self.name, self.values)
 
 
     @property

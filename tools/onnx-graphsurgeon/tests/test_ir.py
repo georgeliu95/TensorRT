@@ -1,5 +1,6 @@
+from onnx_graphsurgeon.util.exception import OnnxGraphSurgeonException
+from onnx_graphsurgeon.ir.tensor import Constant, Variable
 from onnx_graphsurgeon.logger.logger import G_LOGGER
-from onnx_graphsurgeon.ir.tensor import Tensor, ConstantTensor, VariableTensor
 from onnx_graphsurgeon.ir.graph import Graph
 from onnx_graphsurgeon.ir.node import Node
 
@@ -10,11 +11,30 @@ import copy
 
 G_LOGGER.severity = G_LOGGER.ULTRA_VERBOSE
 
-class TestTensor(object):
-    def setup_method(self):
-        self.tensor = Tensor(name="test_tensor")
-        self.input_node = Node(op="Add", outputs=[self.tensor])
-        self.output_node = Node(op="Add", inputs=[self.tensor])
+class TensorBaseTests(object):
+    def test_can_convert_in_place_to_constant(self):
+        tensor = self.tensor.to_constant(values=np.ones((1, 3, 5, 5), dtype=np.float64))
+        assert tensor is self.tensor
+        assert isinstance(tensor, Constant)
+        assert isinstance(self.input_node.outputs[0], Constant)
+        assert isinstance(self.output_node.inputs[0], Constant)
+        assert tensor.shape == (1, 3, 5, 5)
+        assert tensor.dtype == np.float64
+        assert np.all(self.input_node.outputs[0].values == tensor.values)
+        assert np.all(self.output_node.inputs[0].values == tensor.values)
+
+    def test_can_convert_in_place_to_variable(self):
+        tensor = self.tensor.to_variable(dtype=np.float32, shape=(1, 3, 224, 224))
+        assert tensor is self.tensor
+        assert isinstance(tensor, Variable)
+        assert isinstance(self.input_node.outputs[0], Variable)
+        assert tensor.dtype == np.float32
+        assert tensor.shape == (1, 3, 224, 224)
+        assert self.input_node.outputs[0].dtype == tensor.dtype
+        assert self.input_node.outputs[0].shape == tensor.shape
+
+    def test_equals(self):
+        assert self.tensor == self.tensor
 
     def test_set_inputs_updates_old_inputs(self):
         dummy = Node(op="dummy")
@@ -29,46 +49,39 @@ class TestTensor(object):
         assert dummy.inputs[0] == self.tensor
 
     def test_can_copy_inputs_from_other_node(self):
-        tensor = Tensor(name="other_test_tensor")
+        tensor = Variable(name="other_test_tensor")
         tensor.inputs = self.tensor.inputs
         assert tensor.inputs == self.tensor.inputs
 
     def test_can_copy_outputs_from_other_node(self):
-        tensor = Tensor(name="other_test_tensor")
+        tensor = Variable(name="other_test_tensor")
         tensor.outputs = self.tensor.outputs
         assert tensor.outputs == self.tensor.outputs
 
 
-class TestVariableTensor(object):
+class TestVariable(TensorBaseTests):
     def setup_method(self):
-        self.node = Node(op="Add")
-        self.tensor = VariableTensor(name="test_tensor", dtype=np.float32, shape=(1, 3, 224, 224))
-        self.node.outputs.append(self.tensor)
-
-    def test_equals(self):
-        assert self.tensor == self.tensor
+        self.tensor = Variable(name="test_tensor", dtype=np.float32, shape=(1, 3, 224, 224))
+        self.input_node = Node(op="Add", outputs=[self.tensor])
+        self.output_node = Node(op="Add", inputs=[self.tensor])
 
     def test_equals_name_mismatch(self):
-        tensor = VariableTensor(name="test_tensor0", dtype=np.float32, shape=(1, 3, 224, 224))
+        tensor = Variable(name="test_tensor0", dtype=np.float32, shape=(1, 3, 224, 224))
         assert not self.tensor == tensor
 
-    def test_equals(self):
-        assert self.tensor == self.tensor
+    def test_has_metadata_true(self):
+        assert self.tensor.has_metadata()
 
-    def test_can_convert_in_place_to_constant(self):
-        self.tensor.make_constant(values=np.ones((1, 3, 5, 5), dtype=np.float64))
-        assert isinstance(self.tensor, ConstantTensor)
-        assert isinstance(self.node.outputs[0], ConstantTensor)
-        assert self.tensor.shape == (1, 3, 5, 5)
-        assert self.tensor.dtype == np.float64
-        assert np.all(self.node.outputs[0].values == self.tensor.values)
+    def test_has_metadata_false(self):
+        tensor = Variable(name="other_test_tensor")
+        assert not tensor.has_metadata()
 
 
-class TestConstantTensor(object):
+class TestConstant(TensorBaseTests):
     def setup_method(self):
-        self.node = Node(op="Add")
-        self.tensor = ConstantTensor(name="test_tensor", values=np.ones((1, 3, 5, 5), dtype=np.float64))
-        self.node.outputs.append(self.tensor)
+        self.tensor = Constant(name="test_tensor", values=np.ones((1, 3, 5, 5), dtype=np.float64))
+        self.input_node = Node(op="Add", outputs=[self.tensor]) # Doesn't make sense for Constants, but needed to make base tests happy.
+        self.output_node = Node(op="Add", inputs=[self.tensor])
 
     def test_can_get_shape(self):
         assert self.tensor.shape == (1, 3, 5, 5)
@@ -76,21 +89,14 @@ class TestConstantTensor(object):
     def test_can_get_dtype(self):
         assert self.tensor.dtype == np.float64
 
-    def test_can_convert_in_place_to_variable(self):
-        self.tensor.make_variable(dtype=np.float32, shape=(1, 3, 224, 224))
-        assert isinstance(self.tensor, VariableTensor)
-        assert isinstance(self.node.outputs[0], VariableTensor)
-        assert self.tensor.dtype == np.float32
-        assert self.tensor.shape == (1, 3, 224, 224)
-        assert self.node.outputs[0].dtype == self.tensor.dtype
-        assert self.node.outputs[0].shape == self.tensor.shape
-
+    def test_has_metadata_true(self):
+        assert self.tensor.has_metadata()
 
 
 class TestNode(object):
     def setup_method(self):
-        self.input_tensor = Tensor(name="x")
-        self.output_tensor = Tensor(name="y")
+        self.input_tensor = Variable(name="x")
+        self.output_tensor = Variable(name="y")
         self.node = Node(op="Add", name="Test", inputs=[self.input_tensor], outputs=[self.output_tensor])
 
     def test_equals(self):
@@ -112,20 +118,20 @@ class TestNode(object):
         assert self.node == self.node
 
     def test_equals_inputs_mismatch(self):
-        tensor = Tensor(name="other_tensor")
+        tensor = Variable(name="other_tensor")
         assert not self.input_tensor == tensor
 
         node = Node(op="Add", name="Test", inputs=[tensor])
         assert not self.node == node
 
     def test_set_inputs_updates_old_inputs(self):
-        dummy = Tensor(name="dummy")
+        dummy = Variable(name="dummy")
         self.node.inputs = [dummy]
         assert len(self.input_tensor.outputs) == 0
         assert dummy.outputs[0] == self.node
 
     def test_set_outputs_updates_old_outputs(self):
-        dummy = Tensor(name="dummy")
+        dummy = Variable(name="dummy")
         self.node.outputs = [dummy]
         assert len(self.output_tensor.inputs) == 0
         assert dummy.inputs[0] == self.node
@@ -143,7 +149,7 @@ class TestNode(object):
 
 class TestNodeIO(object):
     def setup_method(self, field_names):
-        self.tensors = [VariableTensor(name="test_tensor_{:}".format(i), dtype=np.float32, shape=(1, 3, 224, 224)) for i in range(10)]
+        self.tensors = [Variable(name="test_tensor_{:}".format(i), dtype=np.float32, shape=(1, 3, 224, 224)) for i in range(10)]
         self.node = Node(op="Dummy")
 
     def get_lists(self, field_names):
@@ -233,16 +239,35 @@ class TestNodeIO(object):
     def test_setitem(self, field_names):
         nlist, tensor_field = self.get_lists(field_names)
         nlist.append(self.tensors[0])
-        new_tensor = Tensor("new_tensor")
+        new_tensor = Variable("new_tensor")
         nlist[0] = new_tensor
         assert nlist[0] == new_tensor
         assert len(getattr(self.tensors[0], tensor_field)) == 0
         assert getattr(new_tensor, tensor_field)[0] == self.node
 
 
+def tensors_linear_graph():
+    inputs = [Variable(name="x")]
+    intermediate0 = Variable(name="intermediate0")
+    intermediate1 = Variable(name="intermediate1")
+    intermediate2 = Variable(name="intermediate2")
+    outputs = [Variable(name="y")]
+
+    tensors = inputs + [intermediate0, intermediate1, intermediate2] + outputs
+    tensors = {tensor.name: tensor for tensor in tensors}
+    # Nodes are NOT in topo order.
+    nodes = [
+        Node(op="Add", name="Test0", inputs=inputs, outputs=[intermediate0]),
+        Node(op="Add", name="Test1", inputs=[intermediate0], outputs=[intermediate1]),
+        Node(op="Add", name="Test2", inputs=[intermediate1], outputs=[intermediate2]),
+        Node(op="Add", name="Test3", inputs=[intermediate2], outputs=outputs),
+    ]
+    return Graph(nodes=nodes, inputs=inputs, outputs=outputs), nodes, tensors
+
+
 def build_basic_graph():
-    inputs = [Tensor(name="x")]
-    outputs = [Tensor(name="y")]
+    inputs = [Variable(name="x")]
+    outputs = [Variable(name="y")]
     nodes = [
         Node(op="Add", name="Test", inputs=inputs, outputs=outputs),
     ]
@@ -250,9 +275,9 @@ def build_basic_graph():
 
 
 def build_two_layer_graph():
-    inputs = [Tensor(name="x")]
-    intermediate_tensor = Tensor(name="intermediate")
-    outputs = [Tensor(name="y")]
+    inputs = [Variable(name="x")]
+    intermediate_tensor = Variable(name="intermediate")
+    outputs = [Variable(name="y")]
     nodes = [
         Node(op="Add", name="Test0", inputs=inputs, outputs=[intermediate_tensor]),
         Node(op="Add", name="Test1", inputs=[intermediate_tensor], outputs=outputs),
@@ -261,9 +286,9 @@ def build_two_layer_graph():
 
 
 def build_two_layer_graph_multiple_io():
-    inputs = [Tensor(name="x0"), Tensor(name="x1")]
-    intermediate_tensor = Tensor(name="intermediate")
-    outputs = [Tensor(name="y0"), Tensor(name="y1")]
+    inputs = [Variable(name="x0"), Variable(name="x1")]
+    intermediate_tensor = Variable(name="intermediate")
+    outputs = [Variable(name="y0"), Variable(name="y1")]
     nodes = [
         Node(op="Add", name="Test0", inputs=inputs, outputs=[intermediate_tensor]),
         Node(op="Add", name="Test1", inputs=[intermediate_tensor], outputs=outputs),
@@ -279,11 +304,11 @@ GRAPH_TEST_CASES = [
 
 
 def toposort_linear_graph():
-    inputs = [Tensor(name="x")]
-    intermediate0 = Tensor(name="intermediate0")
-    intermediate1 = Tensor(name="intermediate1")
-    intermediate2 = Tensor(name="intermediate2")
-    outputs = [Tensor(name="y")]
+    inputs = [Variable(name="x")]
+    intermediate0 = Variable(name="intermediate0")
+    intermediate1 = Variable(name="intermediate1")
+    intermediate2 = Variable(name="intermediate2")
+    outputs = [Variable(name="y")]
     # Nodes are NOT in topo order.
     nodes = [
         Node(op="Add", name="Test0", inputs=inputs, outputs=[intermediate0]),
@@ -308,8 +333,8 @@ def toposort_linear_graph():
 # |
 # Test2 -> out2 (graph_output)
 def toposort_multi_tier_output_graph():
-    inputs = [Tensor(name="x")]
-    outputs = [Tensor(name="out0"), Tensor(name="out1"), Tensor(name="out2")]
+    inputs = [Variable(name="x")]
+    outputs = [Variable(name="out0"), Variable(name="out1"), Variable(name="out2")]
     out0, out1, out2 = outputs
     nodes = [
         Node(op="Add", name="Test2", inputs=[out1], outputs=[out2]),
@@ -333,9 +358,9 @@ def toposort_multi_tier_output_graph():
 # |    /
 # Test2 -> out (graph_output)
 def toposort_multi_tier_input_graph():
-    inputs = [Tensor(name="x0"), Tensor(name="x1"), Tensor(name="x2"), Tensor(name="x3")]
-    int0, int1 = [Tensor(name="intermediate0"), Tensor(name="intermediate1")]
-    outputs = [Tensor(name="out")]
+    inputs = [Variable(name="x0"), Variable(name="x1"), Variable(name="x2"), Variable(name="x3")]
+    int0, int1 = [Variable(name="intermediate0"), Variable(name="intermediate1")]
+    outputs = [Variable(name="out")]
     x0, x1, x2, x3 = inputs
     nodes = [
         Node(op="Add", name="Test2", inputs=[int1, x3], outputs=outputs),
@@ -353,12 +378,36 @@ TOPOSORT_TEST_CASES = [
 ]
 
 class TestGraph(object):
+    def test_tensors(self):
+        graph, nodes, tensors = tensors_linear_graph()
+        graph_tensors = graph.tensors()
+        for name, tensor in tensors.items():
+            assert name in graph_tensors
+            assert tensor is graph_tensors[name]
+
+        for name, tensor in graph_tensors.items():
+            assert name in tensors
+            assert tensor is tensors[name]
+
+
+    def test_tensors_check_duplicates(self):
+        inputs = [Variable(name="x")]
+        outputs = [Variable(name="x")] # Distinct tensors with the same name
+        nodes = [
+            Node(op="Add", name="Test", inputs=inputs, outputs=outputs),
+        ]
+        graph = Graph(nodes=nodes, inputs=inputs, outputs=outputs)
+
+        with pytest.raises(OnnxGraphSurgeonException):
+            graph.tensors(check_duplicates=True)
+
+
     @pytest.mark.parametrize("graph", GRAPH_TEST_CASES)
     def test_get_used_node_ids(self, graph):
         graph_used_nodes = copy.copy(graph.nodes)
-        graph_used_tensors = copy.copy(list(graph.generate_tensor_map().values()))
+        graph_used_tensors = copy.copy(list(graph.tensors().values()))
 
-        unused_tensor = Tensor(name="Unused")
+        unused_tensor = Variable(name="Unused")
         unused_node = Node(op="Unused", inputs=[graph.inputs[0]], outputs=[unused_tensor])
         graph.nodes.append(unused_node)
 
@@ -388,7 +437,7 @@ class TestGraph(object):
         assert len(graph.nodes) == 2
         assert len(graph.outputs) == 2
 
-        tensor_map = graph.generate_tensor_map()
+        tensor_map = graph.tensors()
         assert tensor.name not in tensor_map
 
 
@@ -397,7 +446,7 @@ class TestGraph(object):
         graph.toposort()
         graph_output = graph.outputs[0]
 
-        dummy = Tensor("dummy")
+        dummy = Variable("dummy")
         # Add unused tensor to a node in the middle of the graph.
         # Since it does not contribute to graph outputs, it should be removed.
         graph.nodes[1].outputs.append(dummy)
@@ -410,8 +459,8 @@ class TestGraph(object):
     def test_cleanup_independent_path(self):
         graph, _ = toposort_linear_graph()
         # Build out a path totally unrelated to rest of the graph
-        indep0 = Tensor(name="indep0")
-        indep1 = Tensor(name="indep1")
+        indep0 = Variable(name="indep0")
+        indep1 = Variable(name="indep1")
         node = Node(op="IndepTest", inputs=[indep0], outputs=[indep1])
         graph.inputs.append(indep0) # Unused inputs should be removed as well
         graph.nodes.append(node)
@@ -419,7 +468,7 @@ class TestGraph(object):
         assert indep0 not in graph.inputs
         assert node not in graph.nodes
 
-        tensor_map = graph.generate_tensor_map()
+        tensor_map = graph.tensors()
         assert indep0.name not in tensor_map
         assert indep1.name not in tensor_map
 
@@ -446,11 +495,11 @@ class TestGraph(object):
         # output = input + c
         # Should fold to:
         # output = input + c
-        inp = VariableTensor("input", shape=(1, 3), dtype=np.float32)
-        a = ConstantTensor("a", values=np.ones(shape=(1, 3), dtype=np.float32))
-        b = ConstantTensor("b", values=np.ones(shape=(1, 3), dtype=np.float32))
-        c = VariableTensor("c", shape=(1, 3), dtype=np.float32)
-        out = VariableTensor("output", shape=(1, 3), dtype=np.float32)
+        inp = Variable("input", shape=(1, 3), dtype=np.float32)
+        a = Constant("a", values=np.ones(shape=(1, 3), dtype=np.float32))
+        b = Constant("b", values=np.ones(shape=(1, 3), dtype=np.float32))
+        c = Variable("c", shape=(1, 3), dtype=np.float32)
+        out = Variable("output", shape=(1, 3), dtype=np.float32)
 
         nodes = [
             Node("Add", inputs=[a, b], outputs=[c]),
@@ -475,13 +524,13 @@ class TestGraph(object):
         # output = input + e
         # Should fold to:
         # output = input + e
-        inp = VariableTensor("input", shape=(1, 3), dtype=np.float32)
-        a = ConstantTensor("a", values=np.ones(shape=(1, 3), dtype=np.float32))
-        b = ConstantTensor("b", values=np.ones(shape=(1, 3), dtype=np.float32))
-        c = VariableTensor("c", shape=(1, 3), dtype=np.float32)
-        d = ConstantTensor("d", values=np.ones(shape=(1, 3), dtype=np.float32))
-        e = VariableTensor("e", shape=(1, 3), dtype=np.float32)
-        out = VariableTensor("output", shape=(1, 3), dtype=np.float32)
+        inp = Variable("input", shape=(1, 3), dtype=np.float32)
+        a = Constant("a", values=np.ones(shape=(1, 3), dtype=np.float32))
+        b = Constant("b", values=np.ones(shape=(1, 3), dtype=np.float32))
+        c = Variable("c", shape=(1, 3), dtype=np.float32)
+        d = Constant("d", values=np.ones(shape=(1, 3), dtype=np.float32))
+        e = Variable("e", shape=(1, 3), dtype=np.float32)
+        out = Variable("output", shape=(1, 3), dtype=np.float32)
 
         nodes = [
             Node("Add", inputs=[a, b], outputs=[c]),
