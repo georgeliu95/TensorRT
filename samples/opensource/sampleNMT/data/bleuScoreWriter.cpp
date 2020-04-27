@@ -184,7 +184,7 @@ void BLEUScoreWriter::initialize() {}
 
 void BLEUScoreWriter::finalize()
 {
-    gLogInfo << "BLEU score = " << getScore() << std::endl;
+    sample::gLogInfo << "BLEU score = " << getScore() << std::endl;
 }
 
 float BLEUScoreWriter::getScore() const

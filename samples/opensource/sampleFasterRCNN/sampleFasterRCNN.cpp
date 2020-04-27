@@ -131,7 +131,7 @@ private:
 //!
 bool SampleFasterRCNN::build()
 {
-    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
+    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(sample::gLogger.getTRTLogger()));
     if (!builder)
     {
         return false;
@@ -364,7 +364,7 @@ bool SampleFasterRCNN::verifyOutput(const samplesCommon::BufferManager& buffers)
                 const int idx = indices[k];
                 const std::string storeName
                     = classes[c] + "-" + std::to_string(scores[idx * outputClsSize + c]) + ".ppm";
-                gLogInfo << "Detected " << classes[c] << " in " << mPPMs[i].fileName << " with confidence "
+                sample::gLogInfo << "Detected " << classes[c] << " in " << mPPMs[i].fileName << " with confidence "
                          << scores[idx * outputClsSize + c] * 100.0f << "% "
                          << " (Result stored in " << storeName << ")." << std::endl;
 
@@ -521,7 +521,7 @@ int main(int argc, char** argv)
     bool argsOK = samplesCommon::parseArgs(args, argc, argv);
     if (!argsOK)
     {
-        gLogError << "Invalid arguments" << std::endl;
+        sample::gLogError << "Invalid arguments" << std::endl;
         printHelpInfo();
         return EXIT_FAILURE;
     }
@@ -531,28 +531,28 @@ int main(int argc, char** argv)
         return EXIT_SUCCESS;
     }
 
-    initLibNvInferPlugins(&gLogger, "");
+    initLibNvInferPlugins(&sample::gLogger, "");
 
-    auto sampleTest = gLogger.defineTest(gSampleName, argc, argv);
+    auto sampleTest = sample::gLogger.defineTest(gSampleName, argc, argv);
 
-    gLogger.reportTestStart(sampleTest);
+    sample::gLogger.reportTestStart(sampleTest);
 
     SampleFasterRCNN sample(initializeSampleParams(args));
 
-    gLogInfo << "Building and running a GPU inference engine for FasterRCNN" << std::endl;
+    sample::gLogInfo << "Building and running a GPU inference engine for FasterRCNN" << std::endl;
 
     if (!sample.build())
     {
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
     if (!sample.infer())
     {
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
     if (!sample.teardown())
     {
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
 
-    return gLogger.reportPass(sampleTest);
+    return sample::gLogger.reportPass(sampleTest);
 }

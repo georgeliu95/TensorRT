@@ -33,7 +33,7 @@ namespace sample
 //!
 struct InferenceTime
 {
-    InferenceTime(float i, float c, float o, float e): in(i), compute(c), out(o), e2e(e) {}
+    InferenceTime(float q, float i, float c, float o, float e): enq(q), in(i), compute(c), out(o), e2e(e) {}
 
     InferenceTime() = default;
     InferenceTime(const InferenceTime&) = default;
@@ -42,6 +42,7 @@ struct InferenceTime
     InferenceTime& operator=(InferenceTime&&) = default;
     ~InferenceTime() = default;
 
+    float enq{0};     // Enqueue
     float in{0};      // Host to Device
     float compute{0}; // Compute
     float out{0};     // Device to Host
@@ -60,8 +61,9 @@ struct InferenceTime
 //!
 struct InferenceTrace
 {
-    InferenceTrace(int s, float is, float ie, float cs, float ce, float os, float oe):
-        stream(s), inStart(is), inEnd(ie), computeStart(cs), computeEnd(ce), outStart(os), outEnd(oe) {}
+    InferenceTrace(int s, float es, float ee, float is, float ie, float cs, float ce, float os, float oe):
+        stream(s), enqStart(es), enqEnd(ee), inStart(is), inEnd(ie),
+        computeStart(cs), computeEnd(ce), outStart(os), outEnd(oe) {}
 
     InferenceTrace() = default;
     InferenceTrace(const InferenceTrace&) = default;
@@ -71,6 +73,8 @@ struct InferenceTrace
     ~InferenceTrace() = default;
 
     int stream{0};
+    float enqStart{0};
+    float enqEnd{0};
     float inStart{0};
     float inEnd{0};
     float computeStart{0};
@@ -81,7 +85,7 @@ struct InferenceTrace
 
 inline InferenceTime operator+(const InferenceTime& a, const InferenceTime& b)
 {
-    return InferenceTime(a.in + b.in, a.compute + b.compute, a.out + b.out, a.e2e + b.e2e);
+    return InferenceTime(a.enq + b.enq, a.in + b.in, a.compute + b.compute, a.out + b.out, a.e2e + b.e2e);
 }
 
 inline InferenceTime operator+=(InferenceTime& a, const InferenceTime& b)

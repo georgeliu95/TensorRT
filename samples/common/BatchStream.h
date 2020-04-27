@@ -322,7 +322,7 @@ private:
                 return false;
             }
 
-            gLogInfo << "Batch #" << mFileCount << std::endl;
+            sample::gLogInfo << "Batch #" << mFileCount << std::endl;
             file.seekg(((mBatchCount * mBatchSize)) * 7);
 
             for (int i = 1; i <= mBatchSize; i++)
@@ -330,7 +330,7 @@ private:
                 std::string sName;
                 std::getline(file, sName);
                 sName = sName + ".ppm";
-                gLogInfo << "Calibrating with file " << sName << std::endl;
+                sample::gLogInfo << "Calibrating with file " << sName << std::endl;
                 fNames.emplace_back(sName);
             }
 

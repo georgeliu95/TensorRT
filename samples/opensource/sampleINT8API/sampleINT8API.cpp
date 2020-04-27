@@ -87,17 +87,17 @@ public:
     //!
     //! \brief Builds the network engine
     //!
-    Logger::TestResult build();
+    sample::Logger::TestResult build();
 
     //!
     //! \brief Runs the TensorRT inference engine for this sample
     //!
-    Logger::TestResult infer();
+    sample::Logger::TestResult infer();
 
     //!
     //! \brief Used to clean up any state created in the sample class
     //!
-    Logger::TestResult teardown();
+    sample::Logger::TestResult teardown();
 
     SampleINT8APIParams mParams; //!< Stores Sample Parameter
 
@@ -160,7 +160,7 @@ void SampleINT8API::getInputOutputNames()
         {
             if (mParams.verbose)
             {
-                gLogInfo << "Found input: " << mEngine.get()->getBindingName(b) << " shape=" << dims
+                sample::gLogInfo << "Found input: " << mEngine.get()->getBindingName(b) << " shape=" << dims
                          << " dtype=" << (int) mEngine.get()->getBindingDataType(b) << std::endl;
             }
             mInOut["input"] = mEngine.get()->getBindingName(b);
@@ -169,7 +169,7 @@ void SampleINT8API::getInputOutputNames()
         {
             if (mParams.verbose)
             {
-                gLogInfo << "Found output: " << mEngine.get()->getBindingName(b) << " shape=" << dims
+                sample::gLogInfo << "Found output: " << mEngine.get()->getBindingName(b) << " shape=" << dims
                          << " dtype=" << (int) mEngine.get()->getBindingDataType(b) << std::endl;
             }
             mInOut["output"] = mEngine.get()->getBindingName(b);
@@ -185,7 +185,7 @@ bool SampleINT8API::readPerTensorDynamicRangeValues()
     std::ifstream iDynamicRangeStream(mParams.dynamicRangeFileName);
     if (!iDynamicRangeStream)
     {
-        gLogError << "Could not find per tensor scales file: " << mParams.dynamicRangeFileName << std::endl;
+        sample::gLogError << "Could not find per tensor scales file: " << mParams.dynamicRangeFileName << std::endl;
         return false;
     }
 
@@ -209,14 +209,14 @@ bool SampleINT8API::readPerTensorDynamicRangeValues()
 //!
 void SampleINT8API::setLayerPrecision(SampleUniquePtr<nvinfer1::INetworkDefinition>& network)
 {
-    gLogInfo << "Setting Per Layer Computation Precision" << std::endl;
+    sample::gLogInfo << "Setting Per Layer Computation Precision" << std::endl;
     for (int i = 0; i < network->getNbLayers(); ++i)
     {
         auto layer = network->getLayer(i);
         if (mParams.verbose)
         {
             std::string layerName = layer->getName();
-            gLogInfo << "Layer: " << layerName << ". Precision: INT8" << std::endl;
+            sample::gLogInfo << "Layer: " << layerName << ". Precision: INT8" << std::endl;
         }
 
         // Don't set the precision on non-computation layers as they don't support
@@ -235,7 +235,7 @@ void SampleINT8API::setLayerPrecision(SampleUniquePtr<nvinfer1::INetworkDefiniti
             if (mParams.verbose)
             {
                 std::string tensorName = layer->getOutput(j)->getName();
-                gLogInfo << "Tensor: " << tensorName << ". OutputType: INT8" << std::endl;
+                sample::gLogInfo << "Tensor: " << tensorName << ". OutputType: INT8" << std::endl;
             }
             // set output type of execution tensors and not shape tensors.
             if (layer->getOutput(j)->isExecutionTensor())
@@ -251,8 +251,8 @@ void SampleINT8API::setLayerPrecision(SampleUniquePtr<nvinfer1::INetworkDefiniti
 //!
 void SampleINT8API::writeNetworkTensorNames(const SampleUniquePtr<nvinfer1::INetworkDefinition>& network)
 {
-    gLogInfo << "Sample requires to run with per tensor dynamic range." << std::endl;
-    gLogInfo << "In order to run Int8 inference without calibration, user will need to provide dynamic range for all "
+    sample::gLogInfo << "Sample requires to run with per tensor dynamic range." << std::endl;
+    sample::gLogInfo << "In order to run Int8 inference without calibration, user will need to provide dynamic range for all "
                 "the network tensors."
              << std::endl;
 
@@ -265,7 +265,7 @@ void SampleINT8API::writeNetworkTensorNames(const SampleUniquePtr<nvinfer1::INet
         tensorsFile << "TensorName: " << tName << std::endl;
         if (mParams.verbose)
         {
-            gLogInfo << "TensorName: " << tName << std::endl;
+            sample::gLogInfo << "TensorName: " << tName << std::endl;
         }
     }
 
@@ -279,13 +279,13 @@ void SampleINT8API::writeNetworkTensorNames(const SampleUniquePtr<nvinfer1::INet
             tensorsFile << "TensorName: " << tName << std::endl;
             if (mParams.verbose)
             {
-                gLogInfo << "TensorName: " << tName << std::endl;
+                sample::gLogInfo << "TensorName: " << tName << std::endl;
             }
         }
     }
     tensorsFile.close();
-    gLogInfo << "Successfully generated network tensor names. Writing: " << mParams.networkTensorsFileName << std::endl;
-    gLogInfo << "Use the generated tensor names file to create dynamic range file for Int8 inference. Follow README.md "
+    sample::gLogInfo << "Successfully generated network tensor names. Writing: " << mParams.networkTensorsFileName << std::endl;
+    sample::gLogInfo << "Use the generated tensor names file to create dynamic range file for Int8 inference. Follow README.md "
                 "for instructions to generate dynamic_ranges.txt file."
              << std::endl;
 }
@@ -301,13 +301,13 @@ bool SampleINT8API::setDynamicRange(SampleUniquePtr<nvinfer1::INetworkDefinition
         return false;
     }
 
-    gLogInfo << "Setting Per Tensor Dynamic Range" << std::endl;
+    sample::gLogInfo << "Setting Per Tensor Dynamic Range" << std::endl;
     if (mParams.verbose)
     {
-        gLogInfo << "If dynamic range for a tensor is missing, TensorRT will run inference assuming dynamic range for "
+        sample::gLogInfo << "If dynamic range for a tensor is missing, TensorRT will run inference assuming dynamic range for "
                     "the tensor as optional."
                  << std::endl;
-        gLogInfo << "If dynamic range for a tensor is required then inference will fail. Follow README.md to generate "
+        sample::gLogInfo << "If dynamic range for a tensor is required then inference will fail. Follow README.md to generate "
                     "missing per tensor dynamic range."
                  << std::endl;
     }
@@ -327,7 +327,7 @@ bool SampleINT8API::setDynamicRange(SampleUniquePtr<nvinfer1::INetworkDefinition
         {
             if (mParams.verbose)
             {
-                gLogWarning << "Missing dynamic range for tensor: " << tName << std::endl;
+                sample::gLogWarning << "Missing dynamic range for tensor: " << tName << std::endl;
             }
         }
     }
@@ -353,7 +353,7 @@ bool SampleINT8API::setDynamicRange(SampleUniquePtr<nvinfer1::INetworkDefinition
                 IConstantLayer* cLyr = static_cast<IConstantLayer*>(lyr);
                 if (mParams.verbose)
                 {
-                    gLogWarning << "Computing missing dynamic range for tensor, " << tName << ", from weights."
+                    sample::gLogWarning << "Computing missing dynamic range for tensor, " << tName << ", from weights."
                                 << std::endl;
                 }
                 auto wts = cLyr->getWeights();
@@ -381,7 +381,7 @@ bool SampleINT8API::setDynamicRange(SampleUniquePtr<nvinfer1::INetworkDefinition
             {
                 if (mParams.verbose)
                 {
-                    gLogWarning << "Missing dynamic range for tensor: " << tName << std::endl;
+                    sample::gLogWarning << "Missing dynamic range for tensor: " << tName << std::endl;
                 }
             }
         }
@@ -406,7 +406,7 @@ bool SampleINT8API::setDynamicRange(SampleUniquePtr<nvinfer1::INetworkDefinition
             {
                 if (mParams.verbose)
                 {
-                    gLogWarning << "Missing dynamic range for tensor: " << tName << std::endl;
+                    sample::gLogWarning << "Missing dynamic range for tensor: " << tName << std::endl;
                 }
             }
         }
@@ -414,9 +414,9 @@ bool SampleINT8API::setDynamicRange(SampleUniquePtr<nvinfer1::INetworkDefinition
 
     if (mParams.verbose)
     {
-        gLogInfo << "Per Tensor Dynamic Range Values for the Network:" << std::endl;
+        sample::gLogInfo << "Per Tensor Dynamic Range Values for the Network:" << std::endl;
         for (auto iter = mPerTensorDynamicRangeMap.begin(); iter != mPerTensorDynamicRangeMap.end(); ++iter)
-            gLogInfo << "Tensor: " << iter->first << ". Max Absolute Dynamic Range: " << iter->second << std::endl;
+            sample::gLogInfo << "Tensor: " << iter->first << ". Max Absolute Dynamic Range: " << iter->second << std::endl;
     }
     return true;
 }
@@ -428,7 +428,7 @@ bool SampleINT8API::prepareInput(const samplesCommon::BufferManager& buffers)
 {
     if (samplesCommon::toLower(samplesCommon::getFileType(mParams.imageFileName)).compare("ppm") != 0)
     {
-        gLogError << "Wrong format: " << mParams.imageFileName << " is not a ppm file." << std::endl;
+        sample::gLogError << "Wrong format: " << mParams.imageFileName << " is not a ppm file." << std::endl;
         return false;
     }
 
@@ -486,16 +486,16 @@ bool SampleINT8API::verifyOutput(const samplesCommon::BufferManager& buffers) co
     std::vector<std::string> referenceVector;
     if (!samplesCommon::readReferenceFile(mParams.referenceFileName, referenceVector))
     {
-        gLogError << "Unable to read reference file: " << mParams.referenceFileName << std::endl;
+        sample::gLogError << "Unable to read reference file: " << mParams.referenceFileName << std::endl;
         return false;
     }
 
     std::vector<std::string> top5Result = samplesCommon::classify(referenceVector, output, 5);
 
-    gLogInfo << "SampleINT8API result: Detected:" << std::endl;
+    sample::gLogInfo << "SampleINT8API result: Detected:" << std::endl;
     for (int i = 1; i <= 5; ++i)
     {
-        gLogInfo << "[" << i << "]  " << top5Result[i - 1] << std::endl;
+        sample::gLogInfo << "[" << i << "]  " << top5Result[i - 1] << std::endl;
     }
 
     return true;
@@ -509,55 +509,55 @@ bool SampleINT8API::verifyOutput(const samplesCommon::BufferManager& buffers) co
 //!
 //! \return Returns true if the engine was created successfully and false otherwise
 //!
-Logger::TestResult SampleINT8API::build()
+sample::Logger::TestResult SampleINT8API::build()
 {
-    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
+    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(sample::gLogger.getTRTLogger()));
     if (!builder)
     {
-        gLogError << "Unable to create builder object." << std::endl;
-        return Logger::TestResult::kFAILED;
+        sample::gLogError << "Unable to create builder object." << std::endl;
+        return sample::Logger::TestResult::kFAILED;
     }
 
     const auto explicitBatch = 1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
     auto network = SampleUniquePtr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicitBatch));
     if (!network)
     {
-        gLogError << "Unable to create network object." << mParams.referenceFileName << std::endl;
-        return Logger::TestResult::kFAILED;
+        sample::gLogError << "Unable to create network object." << mParams.referenceFileName << std::endl;
+        return sample::Logger::TestResult::kFAILED;
     }
 
     auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
     if (!config)
     {
-        gLogError << "Unable to create config object." << mParams.referenceFileName << std::endl;
-        return Logger::TestResult::kFAILED;
+        sample::gLogError << "Unable to create config object." << mParams.referenceFileName << std::endl;
+        return sample::Logger::TestResult::kFAILED;
     }
 
-    auto parser = SampleUniquePtr<nvonnxparser::IParser>(nvonnxparser::createParser(*network, gLogger.getTRTLogger()));
+    auto parser = SampleUniquePtr<nvonnxparser::IParser>(nvonnxparser::createParser(*network, sample::gLogger.getTRTLogger()));
     if (!parser)
     {
-        gLogError << "Unable to create parser object." << mParams.referenceFileName << std::endl;
-        return Logger::TestResult::kFAILED;
+        sample::gLogError << "Unable to create parser object." << mParams.referenceFileName << std::endl;
+        return sample::Logger::TestResult::kFAILED;
     }
 
     // Parse ONNX model file to populate TensorRT INetwork
     int verbosity = (int) nvinfer1::ILogger::Severity::kERROR;
     if (!parser->parseFromFile(mParams.modelFileName.c_str(), verbosity))
     {
-        gLogError << "Unable to parse ONNX model file: " << mParams.modelFileName << std::endl;
-        return Logger::TestResult::kFAILED;
+        sample::gLogError << "Unable to parse ONNX model file: " << mParams.modelFileName << std::endl;
+        return sample::Logger::TestResult::kFAILED;
     }
 
     if (mParams.writeNetworkTensors)
     {
         writeNetworkTensorNames(network);
-        return Logger::TestResult::kWAIVED;
+        return sample::Logger::TestResult::kWAIVED;
     }
 
     if (!builder->platformHasFastInt8())
     {
-        gLogError << "Platform does not support INT8 inference. sampleINT8API can only run in INT8 Mode." << std::endl;
-        return Logger::TestResult::kWAIVED;
+        sample::gLogError << "Platform does not support INT8 inference. sampleINT8API can only run in INT8 Mode." << std::endl;
+        return sample::Logger::TestResult::kWAIVED;
     }
 
     // Configure buider
@@ -577,8 +577,8 @@ Logger::TestResult SampleINT8API::build()
     // set INT8 Per Tensor Dynamic range
     if (!setDynamicRange(network))
     {
-        gLogError << "Unable to set per tensor dynamic range." << std::endl;
-        return Logger::TestResult::kFAILED;
+        sample::gLogError << "Unable to set per tensor dynamic range." << std::endl;
+        return sample::Logger::TestResult::kFAILED;
     }
 
     // build TRT engine
@@ -586,8 +586,8 @@ Logger::TestResult SampleINT8API::build()
         builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
     if (!mEngine)
     {
-        gLogError << "Unable to build cuda engine." << std::endl;
-        return Logger::TestResult::kFAILED;
+        sample::gLogError << "Unable to build cuda engine." << std::endl;
+        return sample::Logger::TestResult::kFAILED;
     }
 
     // populates input output map structure
@@ -600,7 +600,7 @@ Logger::TestResult SampleINT8API::build()
     const int outputIndex = mEngine.get()->getBindingIndex(mInOut["output"].c_str());
     mOutputDims = mEngine.get()->getBindingDimensions(outputIndex);
 
-    return Logger::TestResult::kRUNNING;
+    return sample::Logger::TestResult::kRUNNING;
 }
 
 //!
@@ -609,7 +609,7 @@ Logger::TestResult SampleINT8API::build()
 //! \details This function is the main execution function of the sample. It allocates
 //!          the buffer, sets inputs, executes the engine, and verifies the output
 //!
-Logger::TestResult SampleINT8API::infer()
+sample::Logger::TestResult SampleINT8API::infer()
 {
     // Create RAII buffer manager object
     samplesCommon::BufferManager buffers(mEngine);
@@ -617,7 +617,7 @@ Logger::TestResult SampleINT8API::infer()
     auto context = SampleUniquePtr<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
     if (!context)
     {
-        return Logger::TestResult::kFAILED;
+        return sample::Logger::TestResult::kFAILED;
     }
 
     // Read the input data into the managed buffers
@@ -625,7 +625,7 @@ Logger::TestResult SampleINT8API::infer()
 
     if (!prepareInput(buffers))
     {
-        return Logger::TestResult::kFAILED;
+        return sample::Logger::TestResult::kFAILED;
     }
 
     // Create CUDA stream for the execution of this inference
@@ -638,7 +638,7 @@ Logger::TestResult SampleINT8API::infer()
     // Asynchronously enqueue the inference work
     if (!context->enqueueV2(buffers.getDeviceBindings().data(), stream, nullptr))
     {
-        return Logger::TestResult::kFAILED;
+        return sample::Logger::TestResult::kFAILED;
     }
 
     // Asynchronously copy data from device output buffers to host output buffers
@@ -651,15 +651,15 @@ Logger::TestResult SampleINT8API::infer()
     cudaStreamDestroy(stream);
 
     // Check and print the output of the inference
-    return verifyOutput(buffers) ? Logger::TestResult::kRUNNING : Logger::TestResult::kFAILED;
+    return verifyOutput(buffers) ? sample::Logger::TestResult::kRUNNING : sample::Logger::TestResult::kFAILED;
 }
 
 //!
 //! \brief Used to clean up any state created in the sample class
 //!
-Logger::TestResult SampleINT8API::teardown()
+sample::Logger::TestResult SampleINT8API::teardown()
 {
-    return Logger::TestResult::kRUNNING;
+    return sample::Logger::TestResult::kRUNNING;
 }
 
 //!
@@ -738,7 +738,7 @@ bool parseSampleINT8APIArgs(SampleINT8APIArgs& args, int argc, char* argv[])
         }
         else
         {
-            gLogError << "Invalid Argument: " << argv[i] << std::endl;
+            sample::gLogError << "Invalid Argument: " << argv[i] << std::endl;
             return false;
         }
     }
@@ -747,21 +747,21 @@ bool parseSampleINT8APIArgs(SampleINT8APIArgs& args, int argc, char* argv[])
 
 void validateInputParams(SampleINT8APIParams& params)
 {
-    gLogInfo << "Please follow README.md to generate missing input files." << std::endl;
-    gLogInfo << "Validating input parameters. Using following input files for inference." << std::endl;
+    sample::gLogInfo << "Please follow README.md to generate missing input files." << std::endl;
+    sample::gLogInfo << "Validating input parameters. Using following input files for inference." << std::endl;
     params.modelFileName = locateFile(params.modelFileName, params.dataDirs);
-    gLogInfo << "    Model File: " << params.modelFileName << std::endl;
+    sample::gLogInfo << "    Model File: " << params.modelFileName << std::endl;
     if (params.writeNetworkTensors)
     {
-        gLogInfo << "    Writing Network Tensors File to: " << params.networkTensorsFileName << std::endl;
+        sample::gLogInfo << "    Writing Network Tensors File to: " << params.networkTensorsFileName << std::endl;
         return;
     }
     params.imageFileName = locateFile(params.imageFileName, params.dataDirs);
-    gLogInfo << "    Image File: " << params.imageFileName << std::endl;
+    sample::gLogInfo << "    Image File: " << params.imageFileName << std::endl;
     params.referenceFileName = locateFile(params.referenceFileName, params.dataDirs);
-    gLogInfo << "    Reference File: " << params.referenceFileName << std::endl;
+    sample::gLogInfo << "    Reference File: " << params.referenceFileName << std::endl;
     params.dynamicRangeFileName = locateFile(params.dynamicRangeFileName, params.dataDirs);
-    gLogInfo << "    Dynamic Range File: " << params.dynamicRangeFileName << std::endl;
+    sample::gLogInfo << "    Dynamic Range File: " << params.dynamicRangeFileName << std::endl;
     return;
 }
 
@@ -839,7 +839,7 @@ int main(int argc, char** argv)
 
     if (!argsOK)
     {
-        gLogError << "Invalid arguments" << std::endl;
+        sample::gLogError << "Invalid arguments" << std::endl;
         printHelpInfo();
         return EXIT_FAILURE;
     }
@@ -851,38 +851,38 @@ int main(int argc, char** argv)
     }
     if (args.verbose)
     {
-        gLogger.setReportableSeverity(nvinfer1::ILogger::Severity::kVERBOSE);
+        sample::gLogger.setReportableSeverity(nvinfer1::ILogger::Severity::kVERBOSE);
     }
 
-    auto sampleTest = gLogger.defineTest(gSampleName, argc, argv);
+    auto sampleTest = sample::gLogger.defineTest(gSampleName, argc, argv);
 
-    gLogger.reportTestStart(sampleTest);
+    sample::gLogger.reportTestStart(sampleTest);
 
     SampleINT8APIParams params;
     params = initializeSampleParams(args);
 
     SampleINT8API sample(params);
-    gLogInfo << "Building and running a INT8 GPU inference engine for " << params.modelFileName << std::endl;
+    sample::gLogInfo << "Building and running a INT8 GPU inference engine for " << params.modelFileName << std::endl;
 
     auto buildStatus = sample.build();
-    if (buildStatus == Logger::TestResult::kWAIVED)
+    if (buildStatus == sample::Logger::TestResult::kWAIVED)
     {
-        return gLogger.reportWaive(sampleTest);
+        return sample::gLogger.reportWaive(sampleTest);
     }
-    else if (buildStatus == Logger::TestResult::kFAILED)
+    else if (buildStatus == sample::Logger::TestResult::kFAILED)
     {
-        return gLogger.reportFail(sampleTest);
-    }
-
-    if (sample.infer() != Logger::TestResult::kRUNNING)
-    {
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
 
-    if (sample.teardown() != Logger::TestResult::kRUNNING)
+    if (sample.infer() != sample::Logger::TestResult::kRUNNING)
     {
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
 
-    return gLogger.reportPass(sampleTest);
+    if (sample.teardown() != sample::Logger::TestResult::kRUNNING)
+    {
+        return sample::gLogger.reportFail(sampleTest);
+    }
+
+    return sample::gLogger.reportPass(sampleTest);
 }

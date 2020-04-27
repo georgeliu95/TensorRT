@@ -81,7 +81,7 @@ nvinfer1::Dims toDims(const std::vector<int>& vec)
     int limit = static_cast<int>(nvinfer1::Dims::MAX_DIMS);
     if (static_cast<int>(vec.size()) > limit)
     {
-        gLogWarning << "Vector too long, only first 8 elements are used in dimension." << std::endl;
+        sample::gLogWarning << "Vector too long, only first 8 elements are used in dimension." << std::endl;
     }
     // Pick first nvinfer1::Dims::MAX_DIMS elements
     nvinfer1::Dims dims{std::min(static_cast<int>(vec.size()), limit), {}, {}};
@@ -311,7 +311,8 @@ public:
     void dumpBindingDimensions(int binding, const nvinfer1::IExecutionContext& context, std::ostream& os) const
     {
         const auto dims = context.getBindingDimensions(binding);
-        os << dims << std::endl;
+        // Do not add a newline terminator, because the caller may be outputting a JSON string.
+        os << dims;
     }
 
     void dumpBindingValues(int binding, std::ostream& os, const std::string& separator = " ") const

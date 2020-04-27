@@ -50,9 +50,9 @@ int main(int argc, char** argv)
     const std::string sampleName = "TensorRT.trtexec";
     const std::string supportNote{"Note: CUDA graphs and actual data IO are not supported in this version."};
 
-    auto sampleTest = gLogger.defineTest(sampleName, argc, argv);
+    auto sampleTest = sample::gLogger.defineTest(sampleName, argc, argv);
 
-    gLogger.reportTestStart(sampleTest);
+    sample::gLogger.reportTestStart(sampleTest);
 
     Arguments args = argsToArgumentsMap(argc, argv);
     AllOptions options;
@@ -74,14 +74,14 @@ int main(int argc, char** argv)
             {
                 for (const auto& arg : args)
                 {
-                    gLogError << "Unknown option: " << arg.first << " " << arg.second << std::endl;
+                    sample::gLogError << "Unknown option: " << arg.first << " " << arg.second << std::endl;
                 }
                 failed = true;
             }
         }
         catch (const std::invalid_argument& arg)
         {
-            gLogError << arg.what() << std::endl;
+            sample::gLogError << arg.what() << std::endl;
             failed = true;
         }
 
@@ -89,7 +89,7 @@ int main(int argc, char** argv)
         {
             AllOptions::help(std::cout);
             std::cout << supportNote << std::endl;
-            return gLogger.reportFail(sampleTest);
+            return sample::gLogger.reportFail(sampleTest);
         }
     }
     else
@@ -101,43 +101,43 @@ int main(int argc, char** argv)
     {
         AllOptions::help(std::cout);
         std::cout << supportNote << std::endl;
-        return gLogger.reportPass(sampleTest);
+        return sample::gLogger.reportPass(sampleTest);
     }
 
-    gLogInfo << options;
+    sample::gLogInfo << options;
     if (options.reporting.verbose)
     {
-        setReportableSeverity(Severity::kVERBOSE);
+        sample::setReportableSeverity(ILogger::Severity::kVERBOSE);
     }
 
     cudaCheck(cudaSetDevice(options.system.device));
 
-    initLibNvInferPlugins(&gLogger.getTRTLogger(), "");
+    initLibNvInferPlugins(&sample::gLogger.getTRTLogger(), "");
 
     for (const auto& pluginPath : options.system.plugins)
     {
-        gLogInfo << "Loading supplied plugin library: " << pluginPath << std::endl;
+        sample::gLogInfo << "Loading supplied plugin library: " << pluginPath << std::endl;
         samplesCommon::loadLibrary(pluginPath);
     }
 
     InferenceEnvironment iEnv;
-    iEnv.engine = getEngine(options.model, options.build, options.system, gLogError);
+    iEnv.engine = getEngine(options.model, options.build, options.system, sample::gLogError);
     if (!iEnv.engine)
     {
-        gLogError << "Engine set up failed" << std::endl;
-        return gLogger.reportFail(sampleTest);
+        sample::gLogError << "Engine set up failed" << std::endl;
+        return sample::gLogger.reportFail(sampleTest);
     }
     if (options.inference.skip)
     {
-        return gLogger.reportPass(sampleTest);
+        return sample::gLogger.reportPass(sampleTest);
     }
 
     if (options.build.safe && options.system.DLACore >= 0)
     {
-        gLogInfo << "Safe DLA capability is detected. Please save DLA loadable with --saveEngine option, "
+        sample::gLogInfo << "Safe DLA capability is detected. Please save DLA loadable with --saveEngine option, "
                     "then use dla_safety_runtime to run inference with saved DLA loadable, "
                     "or alternatively run with your own application" << std::endl;
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
 
     if (options.reporting.profile || !options.reporting.exportTimes.empty())
@@ -147,18 +147,18 @@ int main(int argc, char** argv)
 
     if (!setUpInference(iEnv, options.inference))
     {
-        gLogError << "Inference set up failed" << std::endl;
-        return gLogger.reportFail(sampleTest);
+        sample::gLogError << "Inference set up failed" << std::endl;
+        return sample::gLogger.reportFail(sampleTest);
     }
     std::vector<InferenceTrace> trace;
-    gLogInfo << "Starting inference threads" << std::endl;
+    sample::gLogInfo << "Starting inference threads" << std::endl;
     runInference(options.inference, iEnv, options.system.device, trace);
 
-    printPerformanceReport(trace, options.reporting, static_cast<float>(options.inference.warmup), options.inference.batch, gLogInfo);
+    printPerformanceReport(trace, options.reporting, static_cast<float>(options.inference.warmup), options.inference.batch, sample::gLogInfo);
 
     if (options.reporting.output)
     {
-        dumpOutputs(*iEnv.context.front(), *iEnv.bindings.front(), gLogInfo);
+        dumpOutputs(*iEnv.context.front(), *iEnv.bindings.front(), sample::gLogInfo);
     }
     if (!options.reporting.exportOutput.empty())
     {
@@ -170,12 +170,12 @@ int main(int argc, char** argv)
     }
     if (options.reporting.profile)
     {
-        iEnv.profiler->print(gLogInfo);
+        iEnv.profiler->print(sample::gLogInfo);
     }
     if (!options.reporting.exportProfile.empty())
     {
         iEnv.profiler->exportJSONProfile(options.reporting.exportProfile);
     }
 
-    return gLogger.reportPass(sampleTest);
+    return sample::gLogger.reportPass(sampleTest);
 }

@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Copyright 2017 Google Inc.
 # Modifications Copyright (c) 2020 Nvidia
 #

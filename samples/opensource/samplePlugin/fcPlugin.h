@@ -345,7 +345,7 @@ public:
         }
         catch (std::exception& e)
         {
-            gLogError << e.what() << std::endl;
+            sample::gLogError << e.what() << std::endl;
         }
 
         return nullptr;
@@ -364,7 +364,7 @@ public:
         }
         catch (std::exception& e)
         {
-            gLogError << e.what() << std::endl;
+            sample::gLogError << e.what() << std::endl;
         }
 
         return nullptr;

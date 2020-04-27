@@ -351,8 +351,8 @@ private:
 
 bool SampleMaskRCNN::build()
 {
-    initLibNvInferPlugins(&gLogger.getTRTLogger(), "");
-    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
+    initLibNvInferPlugins(&sample::gLogger.getTRTLogger(), "");
+    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(sample::gLogger.getTRTLogger()));
     if (!builder)
     {
         return false;
@@ -448,8 +448,8 @@ bool SampleMaskRCNN::infer()
     }
     auto tEnd = std::chrono::high_resolution_clock::now();
     float totalHost = std::chrono::duration<float, std::milli>(tEnd - tStart).count();
-    gLogInfo << "Run for 10 times with Batch Size " << mParams.batchSize << std::endl;
-    gLogInfo << "Average inference time is " << (totalHost / 10) / mParams.batchSize << " ms/frame" << std::endl;
+    sample::gLogInfo << "Run for 10 times with Batch Size " << mParams.batchSize << std::endl;
+    sample::gLogInfo << "Average inference time is " << (totalHost / 10) / mParams.batchSize << " ms/frame" << std::endl;
 
     if (!status)
     {
@@ -589,12 +589,12 @@ bool SampleMaskRCNN::verifyOutput(const samplesCommon::BufferManager& buffers)
             const auto resized_mask = MaskRCNNUtils::resizeMask(binfo[roi_id], mParams.maskThreshold); // mask threshold
             MaskRCNNUtils::addBBoxPPM(mOriginalPPMs[p], binfo[roi_id], resized_mask);
 
-            gLogInfo << "Detected " << MaskRCNNConfig::CLASS_NAMES[binfo[roi_id].label] << " in"
+            sample::gLogInfo << "Detected " << MaskRCNNConfig::CLASS_NAMES[binfo[roi_id].label] << " in"
                      << mOriginalPPMs[p].fileName << " with confidence " << binfo[roi_id].prob * 100.f
                      << " and coordinates (" << binfo[roi_id].box.x1 << ", " << binfo[roi_id].box.y1 << ", "
                      << binfo[roi_id].box.x2 << ", " << binfo[roi_id].box.y2 << ")" << std::endl;
         }
-        gLogInfo << "The results are stored in current directory: " << std::to_string(p) + ".ppm" << std::endl;
+        sample::gLogInfo << "The results are stored in current directory: " << std::to_string(p) + ".ppm" << std::endl;
         MaskRCNNUtils::writePPMFile(std::to_string(p) + ".ppm", mOriginalPPMs[p]);
     }
 
@@ -648,7 +648,7 @@ int main(int argc, char** argv)
     bool argsOK = samplesCommon::parseArgs(args, argc, argv);
     if (!argsOK)
     {
-        gLogError << "Invalid arguments" << std::endl;
+        sample::gLogError << "Invalid arguments" << std::endl;
         printHelpInfo();
         return EXIT_FAILURE;
     }
@@ -658,26 +658,26 @@ int main(int argc, char** argv)
         return EXIT_SUCCESS;
     }
 
-    auto sampleTest = gLogger.defineTest(gSampleName, argc, argv);
+    auto sampleTest = sample::gLogger.defineTest(gSampleName, argc, argv);
 
-    gLogger.reportTestStart(sampleTest);
+    sample::gLogger.reportTestStart(sampleTest);
 
     SampleMaskRCNN sample(initializeSampleParams(args));
 
-    gLogInfo << "Building and running a GPU inference engine for Mask RCNN" << std::endl;
+    sample::gLogInfo << "Building and running a GPU inference engine for Mask RCNN" << std::endl;
 
     if (!sample.build())
     {
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
     if (!sample.infer())
     {
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
     if (!sample.teardown())
     {
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
 
-    return gLogger.reportPass(sampleTest);
+    return sample::gLogger.reportPass(sampleTest);
 }

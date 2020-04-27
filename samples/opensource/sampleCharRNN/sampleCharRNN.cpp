@@ -43,6 +43,7 @@
 #include "argsParser.h"
 #include "buffers.h"
 #include "common.h"
+#include "sampleEngines.h"
 #include "cuda_runtime_api.h"
 #include "logger.h"
 
@@ -113,6 +114,9 @@ struct SampleCharRNNParams : samplesCommon::SampleParams
     int vocabSize;
     int outputSize;
     std::string weightFileName;
+
+    std::string saveEngine;
+    std::string loadEngine;
 
     SampleCharRNNMaps charMaps;
     SampleCharRNNWeightNames weightNames;
@@ -271,40 +275,55 @@ private:
 //!
 bool SampleCharRNNBase::build()
 {
-    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(
-        nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
-    if (!builder)
+    if (mParams.loadEngine.empty())
     {
-        return false;
+        auto builder = SampleUniquePtr<nvinfer1::IBuilder>(
+            nvinfer1::createInferBuilder(sample::gLogger.getTRTLogger()));
+        if (!builder)
+        {
+            return false;
+        }
+        NetworkDefinitionCreationFlags flags{
+            1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH)};
+        if (!mParams.useILoop)
+        {
+            flags = 0;
+            builder->setMaxBatchSize(mParams.batchSize);
+        }
+        auto network = SampleUniquePtr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(flags));
+        if (!network)
+        {
+            return false;
+        }
+        auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
+        if (!config)
+        {
+            return false;
+        }
+
+        mWeightMap = SampleCharRNNBase::loadWeights(mParams.weightFileName);
+
+        config->setMaxWorkspaceSize(32_MiB);
+        config->setFlag(BuilderFlag::kGPU_FALLBACK);
+
+        constructNetwork(builder, network, config);
     }
-    NetworkDefinitionCreationFlags flags{
-        1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH)};
-    if (!mParams.useILoop)
+    else
     {
-        flags = 0;
-        builder->setMaxBatchSize(mParams.batchSize);
-    }
-    auto network = SampleUniquePtr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(flags));
-    if (!network)
-    {
-        return false;
-    }
-    auto config = SampleUniquePtr<nvinfer1::IBuilderConfig>(builder->createBuilderConfig());
-    if (!config)
-    {
-        return false;
+        sample::gLogInfo << "Loading engine from: " << mParams.loadEngine << std::endl;
+        mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(sample::loadEngine(mParams.loadEngine, -1, std::cerr), samplesCommon::InferDeleter());
     }
 
-    mWeightMap = SampleCharRNNBase::loadWeights(mParams.weightFileName);
-
-    config->setMaxWorkspaceSize(32_MiB);
-    config->setFlag(BuilderFlag::kGPU_FALLBACK);
-
-    constructNetwork(builder, network, config);
 
     if (!mEngine)
     {
         return false;
+    }
+
+    if (!mParams.saveEngine.empty())
+    {
+        sample::gLogInfo << "Saving engine to: " << mParams.saveEngine << std::endl;
+        sample::saveEngine(*mEngine, mParams.saveEngine, std::cerr);
     }
 
     return true;
@@ -329,11 +348,11 @@ std::map<std::string, nvinfer1::Weights> SampleCharRNNBase::loadWeights(const st
     std::map<std::string, nvinfer1::Weights> weightMap;
 
     std::ifstream input(file, std::ios_base::binary);
-    assert(input.is_open() && "Unable to load weight file.");
+    ASSERT(input.is_open() && "Unable to load weight file.");
 
     int32_t count;
     input >> count;
-    assert(count > 0 && "Invalid weight map file.");
+    ASSERT(count > 0 && "Invalid weight map file.");
 
     while (count--)
     {
@@ -383,7 +402,7 @@ std::map<std::string, nvinfer1::Weights> SampleCharRNNBase::loadWeights(const st
     }
 
     input.close();
-    gLogInfo << "Done reading weights from file..." << std::endl;
+    sample::gLogInfo << "Done reading weights from file..." << std::endl;
     return weightMap;
 }
 
@@ -416,8 +435,8 @@ nvinfer1::Weights SampleCharRNNBase::convertRNNWeights(nvinfer1::Weights orig, i
     int dimsW[2]{dataSize, 4 * mParams.hiddenSize};
     int dimsR[2]{mParams.hiddenSize, 4 * mParams.hiddenSize};
     std::copy(data, data + input.count, ptr);
-    assert(utils::transposeSubBuffers(ptr, DataType::kFLOAT, 1, dimsW[0], dimsW[1]));
-    assert(utils::transposeSubBuffers(&ptr[dimsW[0] * dimsW[1]], DataType::kFLOAT, 1, dimsR[0], dimsR[1]));
+    ASSERT(utils::transposeSubBuffers(ptr, DataType::kFLOAT, 1, dimsW[0], dimsW[1]));
+    ASSERT(utils::transposeSubBuffers(&ptr[dimsW[0] * dimsW[1]], DataType::kFLOAT, 1, dimsR[0], dimsR[1]));
     return nvinfer1::Weights{input.type, ptr, input.count};
 }
 
@@ -441,7 +460,7 @@ nvinfer1::Weights SampleCharRNNBase::convertRNNBias(nvinfer1::Weights input)
     float* ptr = new float[input.count * 2];
     const float* iptr = static_cast<const float*>(input.values);
     int64_t count = 4 * mParams.hiddenSize;
-    assert(input.count == count);
+    ASSERT(input.count == count);
     std::copy(iptr, iptr + count, ptr);
     float* shiftedPtr = ptr + count;
     std::fill(shiftedPtr, shiftedPtr + count, 0.0);
@@ -535,19 +554,19 @@ nvinfer1::ILayer* SampleCharRNNLoop::addLSTMLayers(SampleUniquePtr<nvinfer1::INe
 
     nvinfer1::ITensor* data = network->addInput(mParams.bindingNames.INPUT_BLOB_NAME, nvinfer1::DataType::kFLOAT,
         nvinfer1::Dims2(mParams.seqSize, mParams.dataSize));
-    assert(data != nullptr);
+    ASSERT(data != nullptr);
 
     nvinfer1::ITensor* hiddenLayers = network->addInput(mParams.bindingNames.HIDDEN_IN_BLOB_NAME,
         nvinfer1::DataType::kFLOAT, nvinfer1::Dims2(mParams.layerCount, mParams.hiddenSize));
-    assert(hiddenLayers != nullptr);
+    ASSERT(hiddenLayers != nullptr);
 
     nvinfer1::ITensor* cellLayers = network->addInput(mParams.bindingNames.CELL_IN_BLOB_NAME,
         nvinfer1::DataType::kFLOAT, nvinfer1::Dims2(mParams.layerCount, mParams.hiddenSize));
-    assert(cellLayers != nullptr);
+    ASSERT(cellLayers != nullptr);
 
     nvinfer1::ITensor* sequenceSize
         = network->addInput(mParams.bindingNames.SEQ_LEN_IN_BLOB_NAME, nvinfer1::DataType::kINT32, nvinfer1::Dims{});
-    assert(sequenceSize != nullptr);
+    ASSERT(sequenceSize != nullptr);
 
     // convert tensorflow weight format to trt weight format
     std::array<nvinfer1::Weights, 2> rnnw{
@@ -565,7 +584,7 @@ nvinfer1::ILayer* SampleCharRNNLoop::addLSTMLayers(SampleUniquePtr<nvinfer1::INe
 
     nvinfer1::ITensor* maxSequenceSize
         = network->addConstant(nvinfer1::Dims{}, Weights{DataType::kINT32, &mParams.seqSize, 1})->getOutput(0);
-    assert(static_cast<size_t>(mParams.layerCount) <= INDICES.size());
+    ASSERT(static_cast<size_t>(mParams.layerCount) <= INDICES.size());
     LstmIO lstmNext{data, nullptr, nullptr};
     std::vector<nvinfer1::ITensor*> hiddenOutputs;
     std::vector<nvinfer1::ITensor*> cellOutputs;
@@ -578,7 +597,7 @@ nvinfer1::ILayer* SampleCharRNNLoop::addLSTMLayers(SampleUniquePtr<nvinfer1::INe
         int64_t shift = samplesCommon::volume(start);
         const int sizeOfElement = samplesCommon::getElementSize(weights.type);
         int64_t count = samplesCommon::volume(size);
-        assert(shift + count <= weights.count);
+        ASSERT(shift + count <= weights.count);
         return nvinfer1::Weights{weights.type, data + shift * sizeOfElement, count};
     };
     for (int i = 0; i < mParams.layerCount; ++i)
@@ -629,20 +648,20 @@ nvinfer1::ILayer* SampleCharRNNv2::addLSTMLayers(SampleUniquePtr<nvinfer1::INetw
 {
     // Initialize data, hiddenIn, cellIn, and seqLenIn inputs into RNN Layer
     nvinfer1::ITensor* data = network->addInput(mParams.bindingNames.INPUT_BLOB_NAME, nvinfer1::DataType::kFLOAT, nvinfer1::Dims2(mParams.seqSize, mParams.dataSize));
-    assert(data != nullptr);
+    ASSERT(data != nullptr);
 
     nvinfer1::ITensor* hiddenIn = network->addInput(mParams.bindingNames.HIDDEN_IN_BLOB_NAME, nvinfer1::DataType::kFLOAT, nvinfer1::Dims2(mParams.layerCount, mParams.hiddenSize));
-    assert(hiddenIn != nullptr);
+    ASSERT(hiddenIn != nullptr);
 
     nvinfer1::ITensor* cellIn = network->addInput(mParams.bindingNames.CELL_IN_BLOB_NAME, nvinfer1::DataType::kFLOAT, nvinfer1::Dims2(mParams.layerCount, mParams.hiddenSize));
-    assert(cellIn != nullptr);
+    ASSERT(cellIn != nullptr);
 
     nvinfer1::ITensor* seqLenIn = network->addInput(mParams.bindingNames.SEQ_LEN_IN_BLOB_NAME, nvinfer1::DataType::kINT32, nvinfer1::Dims{});
-    assert(seqLenIn != nullptr);
+    ASSERT(seqLenIn != nullptr);
 
     // create an RNN layer w/ 2 layers and 512 hidden states
     nvinfer1::IRNNv2Layer* rnn = network->addRNNv2(*data, mParams.layerCount, mParams.hiddenSize, mParams.seqSize, nvinfer1::RNNOperation::kLSTM);
-    assert(rnn != nullptr);
+    ASSERT(rnn != nullptr);
 
     // Set RNNv2 optional inputs
     rnn->getOutput(0)->setName("RNN output");
@@ -728,7 +747,7 @@ void SampleCharRNNBase::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& bu
     auto rnn = addLSTMLayers(network);
 
     // Transpose FC weights since TensorFlow's weights are transposed when compared to TensorRT
-    assert(utils::transposeSubBuffers((void*) mWeightMap[mParams.weightNames.FCW_NAME].values,
+    ASSERT(utils::transposeSubBuffers((void*) mWeightMap[mParams.weightNames.FCW_NAME].values,
         nvinfer1::DataType::kFLOAT, 1, mParams.hiddenSize, mParams.vocabSize));
 
     // add Constant layers for fully connected weights
@@ -736,26 +755,26 @@ void SampleCharRNNBase::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& bu
 
     // Add matrix multiplication layer for multiplying rnn output with FC weights
     auto matrixMultLayer = network->addMatrixMultiply(*fcwts->getOutput(0), false, *rnn->getOutput(0), true);
-    assert(matrixMultLayer != nullptr);
+    ASSERT(matrixMultLayer != nullptr);
     matrixMultLayer->getOutput(0)->setName("Matrix Multiplicaton output");
 
     // Add elementwise layer for adding bias
     auto fcbias = network->addConstant(nvinfer1::Dims2(mParams.vocabSize, 1), mWeightMap[mParams.weightNames.FCB_NAME]);
     auto addBiasLayer = network->addElementWise(*matrixMultLayer->getOutput(0), *fcbias->getOutput(0), nvinfer1::ElementWiseOperation::kSUM);
-    assert(addBiasLayer != nullptr);
+    ASSERT(addBiasLayer != nullptr);
     addBiasLayer->getOutput(0)->setName("Add Bias output");
 
     // Add TopK layer to determine which character has highest probability.
     int reduceAxis = 0x1; // reduce across vocab axis
     auto pred = network->addTopK(*addBiasLayer->getOutput(0), nvinfer1::TopKOperation::kMAX, 1, reduceAxis);
-    assert(pred != nullptr);
+    ASSERT(pred != nullptr);
     pred->getOutput(1)->setName(mParams.bindingNames.OUTPUT_BLOB_NAME);
 
     // Mark the outputs for the network
     network->markOutput(*pred->getOutput(1));
     pred->getOutput(1)->setType(nvinfer1::DataType::kINT32);
 
-    gLogInfo << "Done constructing network..." << std::endl;
+    sample::gLogInfo << "Done constructing network..." << std::endl;
 
     mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
         builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
@@ -787,8 +806,8 @@ bool SampleCharRNNBase::infer()
     std::string expected = mParams.outputSentences[sentenceIndex];
     std::string genstr;
 
-    gLogInfo << "RNN warmup sentence: " << inputSentence << std::endl;
-    gLogInfo << "Expected output: " << expected << std::endl;
+    sample::gLogInfo << "RNN warmup sentence: " << inputSentence << std::endl;
+    sample::gLogInfo << "Expected output: " << expected << std::endl;
 
     // create stream for trt execution
     cudaStream_t stream;
@@ -842,7 +861,7 @@ bool SampleCharRNNBase::infer()
         genstr.push_back(mParams.charMaps.idToChar.at(predIdx));
     }
 
-    gLogInfo << "Received: " << genstr.substr(inputSentence.size()) << std::endl;
+    sample::gLogInfo << "Received: " << genstr.substr(inputSentence.size()) << std::endl;
 
     // release the stream
     cudaStreamDestroy(stream);
@@ -943,6 +962,8 @@ SampleCharRNNParams initializeSampleParams(const samplesCommon::Args& args)
     params.outputSize = 1;
     params.weightFileName = locateFile("char-rnn.wts", params.dataDirs);
     params.useILoop = args.useILoop;
+    params.saveEngine = args.saveEngine;
+    params.loadEngine = args.loadEngine;
 
     // Input strings and their respective expected output strings
     const std::vector<std::string> inS{
@@ -985,6 +1006,8 @@ void printHelpInfo()
     std::cout << "--help          Display help information\n";
     std::cout << "--useILoop      Use ILoop LSTM definition\n";
     std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used multiple times to add multiple directories. If no data directories are given, the default is to use data/samples/char-rnn/ and data/char-rnn/" << std::endl;
+    std::cout << "--loadEngine    Specify path from which to load the engine. When this option is provided, engine building is skipped." << std::endl;
+    std::cout << "--saveEngine    Specify path at which to save the engine." << std::endl;
 }
 
 //!
@@ -992,12 +1015,12 @@ void printHelpInfo()
 //!
 int main(int argc, char** argv)
 {
-    setReportableSeverity(Logger::Severity::kVERBOSE);
+    sample::setReportableSeverity(sample::Logger::Severity::kVERBOSE);
     samplesCommon::Args args;
     bool argsOK = samplesCommon::parseArgs(args, argc, argv);
     if (!argsOK)
     {
-        gLogError << "Invalid arguments" << std::endl;
+        sample::gLogError << "Invalid arguments" << std::endl;
         printHelpInfo();
         return EXIT_FAILURE;
     }
@@ -1007,9 +1030,9 @@ int main(int argc, char** argv)
         return EXIT_SUCCESS;
     }
 
-    auto sampleTest = gLogger.defineTest(gSampleName, argc, argv);
+    auto sampleTest = sample::gLogger.defineTest(gSampleName, argc, argv);
 
-    gLogger.reportTestStart(sampleTest);
+    sample::gLogger.reportTestStart(sampleTest);
 
     SampleCharRNNParams params = initializeSampleParams(args);
     std::unique_ptr<SampleCharRNNBase> sample;
@@ -1023,21 +1046,21 @@ int main(int argc, char** argv)
         sample.reset(new SampleCharRNNv2(params));
     }
 
-    gLogInfo << "Building and running a GPU inference engine for Char RNN model..."
+    sample::gLogInfo << "Building and running a GPU inference engine for Char RNN model..."
              << std::endl;
 
     if (!sample->build())
     {
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
     if (!sample->infer())
     {
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
     if (!sample->teardown())
     {
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
 
-    return gLogger.reportPass(sampleTest);
+    return sample::gLogger.reportPass(sampleTest);
 }

@@ -63,15 +63,15 @@ using namespace plugin;
 #define ENABLE_DLA_API 1
 #endif
 
-#define CHECK(status)                                                                                                  \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        auto ret = (status);                                                                                           \
-        if (ret != 0)                                                                                                  \
-        {                                                                                                              \
-            std::cerr << "Cuda failure: " << ret << std::endl;                                                         \
-            abort();                                                                                                   \
-        }                                                                                                              \
+#define CHECK(status)                                           \
+    do                                                          \
+    {                                                           \
+        auto ret = (status);                                    \
+        if (ret != 0)                                           \
+        {                                                       \
+            sample::gLogError << "Cuda failure: " << ret << std::endl;  \
+            abort();                                            \
+        }                                                       \
     } while (0)
 
 #define CHECK_RETURN_W_MSG(status, val, errMsg)                                                                        \
@@ -79,11 +79,22 @@ using namespace plugin;
     {                                                                                                                  \
         if (!(status))                                                                                                 \
         {                                                                                                              \
-            std::cerr << errMsg << " Error in " << __FILE__ << ", function " << FN_NAME << "(), line " << __LINE__     \
+            sample::gLogError << errMsg << " Error in " << __FILE__ << ", function " << FN_NAME << "(), line " << __LINE__     \
                       << std::endl;                                                                                    \
             return val;                                                                                                \
         }                                                                                                              \
     } while (0)
+
+#define ASSERT(condition)                                                   \
+    do                                                                      \
+    {                                                                       \
+        if (!(condition))                                                   \
+        {                                                                   \
+            sample::gLogError << "Assertion failure: " << #condition << std::endl;  \
+            abort();                                                        \
+        }                                                                   \
+    } while (0)
+
 
 #define CHECK_RETURN(status, val) CHECK_RETURN_W_MSG(status, val, "")
 
@@ -517,7 +528,7 @@ inline void setAllTensorScales(INetworkDefinition* network, float inScales = 2.0
             // Optional inputs are nullptr here and are from RNN layers.
             if (input != nullptr && !input->dynamicRangeIsSet())
             {
-                assert(input->setDynamicRange(-inScales, inScales));
+                ASSERT(input->setDynamicRange(-inScales, inScales));
             }
         }
     }
@@ -537,11 +548,11 @@ inline void setAllTensorScales(INetworkDefinition* network, float inScales = 2.0
                 // Pooling must have the same input and output scales.
                 if (layer->getType() == LayerType::kPOOLING)
                 {
-                    assert(output->setDynamicRange(-inScales, inScales));
+                    ASSERT(output->setDynamicRange(-inScales, inScales));
                 }
                 else
                 {
-                    assert(output->setDynamicRange(-outScales, outScales));
+                    ASSERT(output->setDynamicRange(-outScales, outScales));
                 }
             }
         }
@@ -553,7 +564,7 @@ inline void setDummyInt8Scales(const IBuilderConfig* c, INetworkDefinition* n)
     // Set dummy tensor scales if Int8 mode is requested.
     if (c->getFlag(BuilderFlag::kINT8))
     {
-        gLogWarning
+        sample::gLogWarning
             << "Int8 calibrator not provided. Generating dummy per tensor scales. Int8 accuracy is not guaranteed."
             << std::endl;
         setAllTensorScales(n);
@@ -887,9 +898,9 @@ inline void loadLibrary(const std::string& path)
     if (handle == nullptr)
     {
 #ifdef _MSC_VER
-        gLogError << "Could not load plugin library: " << path << std::endl;
+        sample::gLogError << "Could not load plugin library: " << path << std::endl;
 #else
-        gLogError << "Could not load plugin library: " << path << ", due to: " << dlerror() << std::endl;
+        sample::gLogError << "Could not load plugin library: " << path << ", due to: " << dlerror() << std::endl;
 #endif
     }
 }

@@ -14,8 +14,6 @@
     * [Verifying the output](#verifying-the-output)
     * [TensorRT API layers and ops](#tensorrt-api-layers-and-ops)
 - [Batch files for calibration](#batch-files-for-calibration)
-    * [Generating batch files for Caffe users](#generating-batch-files-for-caffe-users)
-    * [Generating batch files for non-Caffe users](#generating-batch-files-for-non-caffe-users)
 - [Running the sample](#running-the-sample)
     * [Sample `--help` options](#sample-help-options)
 - [Additional resources](#additional-resources)
@@ -185,7 +183,7 @@ After the engine has been built, it can be used just like an FP32 engine. For ex
     auto context = SampleUniquePtr<nvinfer1::IExecutionContext>(mEngine->createExecutionContext());
     ```
 
-3.  Get data dimensions. 
+3.  Get data dimensions.
     ```
     Dims outputDims = context->getEngine().getBindingDimensions(
     context->getEngine().getBindingIndex(mParams.outputTensorNames[0].c_str()));
