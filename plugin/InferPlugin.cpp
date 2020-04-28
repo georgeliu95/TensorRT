@@ -41,6 +41,9 @@ using namespace nvinfer1::plugin;
 #include "resizeNearestPlugin/resizeNearestPlugin.h"
 #include "specialSlicePlugin/specialSlicePlugin.h"
 #include "instanceNormalizationPlugin/instanceNormalizationPlugin.h"
+#include "detectionLayerTLTPlugin/detectionLayerTLTPlugin.h"
+#include "multilevelProposeROI/multilevelProposeROIPlugin.h"
+#include "pyramidROIAlignTLTPlugin/pyramidROIAlignTLTPlugin.h"
 
 using nvinfer1::plugin::RPROIParams;
 
@@ -118,6 +121,9 @@ bool initLibNvInferPlugins(void* logger, const char* libNamespace)
     initializePlugin<nvinfer1::plugin::ResizeNearestPluginCreator>(logger, libNamespace);
     initializePlugin<nvinfer1::plugin::SpecialSlicePluginCreator>(logger, libNamespace);
     initializePlugin<nvinfer1::plugin::InstanceNormalizationPluginCreator>(logger, libNamespace);
+    initializePlugin<nvinfer1::plugin::DetectionLayerTLTPluginCreator>(logger, libNamespace);
+    initializePlugin<nvinfer1::plugin::MultilevelProposeROIPluginCreator>(logger, libNamespace);
+    initializePlugin<nvinfer1::plugin::PyramidROIAlignTLTPluginCreator>(logger, libNamespace);
     return true;
 }
 } // extern "C"
