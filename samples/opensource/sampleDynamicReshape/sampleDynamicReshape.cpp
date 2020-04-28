@@ -108,10 +108,10 @@ private:
 //!
 bool SampleDynamicReshape::build()
 {
-    auto builder = makeUnique(nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
+    auto builder = makeUnique(nvinfer1::createInferBuilder(sample::gLogger.getTRTLogger()));
     if (!builder)
     {
-        gLogError << "Create inference builder failed." << std::endl;
+        sample::gLogError << "Create inference builder failed." << std::endl;
         return false;
     }
     // This function will also set mPredictionInputDims and mPredictionOutputDims,
@@ -131,7 +131,7 @@ bool SampleDynamicReshape::buildPreprocessorEngine(const SampleUniquePtr<nvinfer
         builder->createNetworkV2(1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH)));
     if (!preprocessorNetwork)
     {
-        gLogError << "Create network failed." << std::endl;
+        sample::gLogError << "Create network failed." << std::endl;
         return false;
     }
 
@@ -145,7 +145,7 @@ bool SampleDynamicReshape::buildPreprocessorEngine(const SampleUniquePtr<nvinfer
     auto preprocessorConfig = makeUnique(builder->createBuilderConfig());
     if (!preprocessorConfig)
     {
-        gLogError << "Create builder config failed." << std::endl;
+        sample::gLogError << "Create builder config failed." << std::endl;
         return false;
     }
 
@@ -183,13 +183,13 @@ bool SampleDynamicReshape::buildPreprocessorEngine(const SampleUniquePtr<nvinfer
     mPreprocessorEngine = makeUnique(builder->buildEngineWithConfig(*preprocessorNetwork, *preprocessorConfig));
     if (!mPreprocessorEngine)
     {
-        gLogError << "Preprocessor engine build failed." << std::endl;
+        sample::gLogError << "Preprocessor engine build failed." << std::endl;
         return false;
     }
-    gLogInfo << "Profile dimensions in preprocessor engine:" << std::endl;
-    gLogInfo << "    Minimum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kMIN) << std::endl;
-    gLogInfo << "    Optimum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kOPT) << std::endl;
-    gLogInfo << "    Maximum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kMAX) << std::endl;
+    sample::gLogInfo << "Profile dimensions in preprocessor engine:" << std::endl;
+    sample::gLogInfo << "    Minimum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kMIN) << std::endl;
+    sample::gLogInfo << "    Optimum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kOPT) << std::endl;
+    sample::gLogInfo << "    Maximum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kMAX) << std::endl;
     return true;
 }
 
@@ -209,16 +209,16 @@ bool SampleDynamicReshape::buildPredictionEngine(const SampleUniquePtr<nvinfer1:
     auto network = makeUnique(builder->createNetworkV2(explicitBatch));
     if (!network)
     {
-        gLogError << "Create network failed." << std::endl;
+        sample::gLogError << "Create network failed." << std::endl;
         return false;
     }
 
-    auto parser = samplesCommon::infer_object(nvonnxparser::createParser(*network, gLogger.getTRTLogger()));
+    auto parser = samplesCommon::infer_object(nvonnxparser::createParser(*network, sample::gLogger.getTRTLogger()));
     bool parsingSuccess = parser->parseFromFile(
-        locateFile(mParams.onnxFileName, mParams.dataDirs).c_str(), static_cast<int>(gLogger.getReportableSeverity()));
+        locateFile(mParams.onnxFileName, mParams.dataDirs).c_str(), static_cast<int>(sample::gLogger.getReportableSeverity()));
     if (!parsingSuccess)
     {
-        gLogError << "Failed to parse model." << std::endl;
+        sample::gLogError << "Failed to parse model." << std::endl;
         return false;
     }
 
@@ -237,7 +237,7 @@ bool SampleDynamicReshape::buildPredictionEngine(const SampleUniquePtr<nvinfer1:
     auto config = makeUnique(builder->createBuilderConfig());
     if (!config)
     {
-        gLogError << "Create builder config failed." << std::endl;
+        sample::gLogError << "Create builder config failed." << std::endl;
         return false;
     }
     config->setMaxWorkspaceSize(16_MiB);
@@ -270,7 +270,7 @@ bool SampleDynamicReshape::buildPredictionEngine(const SampleUniquePtr<nvinfer1:
     mPredictionEngine = makeUnique(builder->buildEngineWithConfig(*network, *config));
     if (!mPredictionEngine)
     {
-        gLogError << "Prediction engine build failed." << std::endl;
+        sample::gLogError << "Prediction engine build failed." << std::endl;
         return false;
     }
     return true;
@@ -290,14 +290,14 @@ bool SampleDynamicReshape::prepare()
     mPreprocessorContext = makeUnique(mPreprocessorEngine->createExecutionContext());
     if (!mPreprocessorContext)
     {
-        gLogError << "Preprocessor context build failed." << std::endl;
+        sample::gLogError << "Preprocessor context build failed." << std::endl;
         return false;
     }
 
     mPredictionContext = makeUnique(mPredictionEngine->createExecutionContext());
     if (!mPredictionContext)
     {
-        gLogError << "Prediction context build failed." << std::endl;
+        sample::gLogError << "Prediction context build failed." << std::endl;
         return false;
     }
 
@@ -381,12 +381,12 @@ Dims SampleDynamicReshape::loadPGMFile(const std::string& fileName)
     infile.read(reinterpret_cast<char*>(fileData.data()), vol);
 
     // Print an ascii representation
-    gLogInfo << "Input:\n";
+    sample::gLogInfo << "Input:\n";
     for (size_t i = 0; i < vol; i++)
     {
-        gLogInfo << (" .:-=+*#%@"[fileData[i] / 26]) << (((i + 1) % w) ? "" : "\n");
+        sample::gLogInfo << (" .:-=+*#%@"[fileData[i] / 26]) << (((i + 1) % w) ? "" : "\n");
     }
-    gLogInfo << std::endl;
+    sample::gLogInfo << std::endl;
 
     // Normalize and copy to the host buffer.
     mInput.hostBuffer.resize(inputDims);
@@ -407,7 +407,7 @@ bool SampleDynamicReshape::validateOutput(int digit)
     int curIndex{0};
     for (const auto& elem : prob)
     {
-        gLogInfo << " Prob " << curIndex << "  " << std::fixed << std::setw(5) << std::setprecision(4) << elem << " "
+        sample::gLogInfo << " Prob " << curIndex << "  " << std::fixed << std::setw(5) << std::setprecision(4) << elem << " "
                  << "Class " << curIndex << ": " << std::string(int(std::floor(elem * 10 + 0.5f)), '*') << std::endl;
         ++curIndex;
     }
@@ -461,7 +461,7 @@ int main(int argc, char** argv)
     bool argsOK = samplesCommon::parseArgs(args, argc, argv);
     if (!argsOK)
     {
-        gLogError << "Invalid arguments" << std::endl;
+        sample::gLogError << "Invalid arguments" << std::endl;
         printHelpInfo();
         return EXIT_FAILURE;
     }
@@ -471,24 +471,24 @@ int main(int argc, char** argv)
         return EXIT_SUCCESS;
     }
 
-    auto sampleTest = gLogger.defineTest(gSampleName, argc, argv);
+    auto sampleTest = sample::gLogger.defineTest(gSampleName, argc, argv);
 
-    gLogger.reportTestStart(sampleTest);
+    sample::gLogger.reportTestStart(sampleTest);
 
     SampleDynamicReshape sample{initializeSampleParams(args)};
 
     if (!sample.build())
     {
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
     if (!sample.prepare())
     {
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
     if (!sample.infer())
     {
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
 
-    return gLogger.reportPass(sampleTest);
+    return sample::gLogger.reportPass(sampleTest);
 }

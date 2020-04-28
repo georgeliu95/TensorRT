@@ -24,6 +24,7 @@
 #include <functional>
 #include <limits>
 #include <memory>
+#include <chrono>
 
 #include "NvInfer.h"
 
@@ -56,7 +57,7 @@ bool setUpInference(InferenceEnvironment& iEnv, const InferenceOptions& inferenc
 
     if (nOptProfiles > 1)
     {
-        gLogWarning << "Multiple profiles are currently not supported. Running with one profile." <<  std::endl;
+        sample::gLogWarning << "Multiple profiles are currently not supported. Running with one profile." <<  std::endl;
     }
 
     // Set all input dimensions before all bindings can be allocated
@@ -94,7 +95,7 @@ bool setUpInference(InferenceEnvironment& iEnv, const InferenceOptions& inferenc
                         std::transform(dims.d, dims.d + dims.nbDims, staticDims.begin(),
                             [&](int dim) { return dim >= 0 ? dim : DEFAULT_DIMENSION; });
                     }
-                    gLogWarning << "Dynamic dimensions required for input: " << iEnv.engine->getBindingName(b) << ", but no shapes were provided. Automatically overriding shape to: " << staticDims << std::endl;
+                    sample::gLogWarning << "Dynamic dimensions required for input: " << iEnv.engine->getBindingName(b) << ", but no shapes were provided. Automatically overriding shape to: " << staticDims << std::endl;
                 }
                 else
                 {
@@ -150,6 +151,8 @@ bool setUpInference(InferenceEnvironment& iEnv, const InferenceOptions& inferenc
 
 namespace {
 
+using TimePoint = std::chrono::time_point<std::chrono::high_resolution_clock>;
+
 //!
 //! \struct SyncStruct
 //! \brief Threads synchronization structure
@@ -158,7 +161,8 @@ struct SyncStruct
 {
     std::mutex mutex;
     TrtCudaStream mainStream;
-    TrtCudaEvent mainStart{cudaEventBlockingSync};
+    TrtCudaEvent gpuStart{cudaEventBlockingSync};
+    TimePoint cpuStart{};
     int sleep{0};
 };
 
@@ -223,6 +227,8 @@ using MultiStream = std::array<TrtCudaStream, static_cast<int>(StreamType::kNUM)
 
 using MultiEvent = std::array<std::unique_ptr<TrtCudaEvent>, static_cast<int>(EventType::kNUM)>;
 
+using EnqueueTimes = std::array<TimePoint, 2>;
+
 //!
 //! \class Iteration
 //! \brief Inference iteration and streams management
@@ -234,7 +240,7 @@ public:
 
     Iteration(int id, bool overlap, bool spin, nvinfer1::IExecutionContext& context, Bindings& bindings,
                EnqueueFunction enqueue): mContext(context), mBindings(bindings), mEnqueue(enqueue),
-               mStreamId(id), mDepth(1 + overlap), mActive(mDepth), mEvents(mDepth)
+               mStreamId(id), mDepth(1 + overlap), mActive(mDepth), mEvents(mDepth), mEnqueueTimes(mDepth)
     {
         for (int d = 0; d < mDepth; ++d)
         {
@@ -258,7 +264,9 @@ public:
 
         wait(EventType::kINPUT_E, StreamType::kCOMPUTE); // Wait for input DMA before compute
         record(EventType::kCOMPUTE_S, StreamType::kCOMPUTE);
+        recordEnqueueTime();
         mEnqueue(mContext, mBindings.getDeviceBuffers(), getStream(StreamType::kCOMPUTE));
+        recordEnqueueTime();
         record(EventType::kCOMPUTE_E, StreamType::kCOMPUTE);
 
         wait(EventType::kCOMPUTE_E, StreamType::kOUTPUT); // Wait for compute before output DMA
@@ -270,30 +278,30 @@ public:
         moveNext();
     }
 
-    float sync(const TrtCudaEvent& start, std::vector<InferenceTrace>& trace)
+    float sync(const TimePoint& cpuStart, const TrtCudaEvent& gpuStart, std::vector<InferenceTrace>& trace)
     {
         if (mActive[mNext])
         {
             getEvent(EventType::kOUTPUT_E).synchronize();
-            trace.emplace_back(getTrace(start));
+            trace.emplace_back(getTrace(cpuStart, gpuStart));
             mActive[mNext] = false;
-            return getEvent(EventType::kCOMPUTE_S) - start;
+            return getEvent(EventType::kCOMPUTE_S) - gpuStart;
         }
         return 0;
     }
 
-    void syncAll(const TrtCudaEvent& start, std::vector<InferenceTrace>& trace)
+    void syncAll(const TimePoint& cpuStart, const TrtCudaEvent& gpuStart, std::vector<InferenceTrace>& trace)
     {
         for (int d = 0; d < mDepth; ++d)
         {
-            sync(start, trace);
+            sync(cpuStart, gpuStart, trace);
             moveNext();
         }
     }
 
-    void wait(TrtCudaEvent& start)
+    void wait(TrtCudaEvent& gpuStart)
     {
-        getStream(StreamType::kINPUT).wait(start);
+        getStream(StreamType::kINPUT).wait(gpuStart);
     }
 
 private:
@@ -318,16 +326,29 @@ private:
         getEvent(e).record(getStream(s));
     }
 
+    void recordEnqueueTime()
+    {
+        mEnqueueTimes[mNext][enqueueStart] = std::chrono::high_resolution_clock::now();
+        enqueueStart = 1 - enqueueStart;
+    }
+
+    TimePoint getEnqueueTime(bool start)
+    {
+        return mEnqueueTimes[mNext][start ? 0 : 1];
+    }
+
     void wait(EventType e, StreamType s)
     {
         getStream(s).wait(getEvent(e));
     }
 
-    InferenceTrace getTrace(const TrtCudaEvent& start)
+    InferenceTrace getTrace(const TimePoint& cpuStart, const TrtCudaEvent& gpuStart)
     {
-        return InferenceTrace(mStreamId, getEvent(EventType::kINPUT_S) - start, getEvent(EventType::kINPUT_E) - start,
-                                         getEvent(EventType::kCOMPUTE_S) - start, getEvent(EventType::kCOMPUTE_E) - start,
-                                         getEvent(EventType::kOUTPUT_S)- start, getEvent(EventType::kOUTPUT_E)- start);
+        return InferenceTrace(mStreamId, std::chrono::duration<float, std::milli>(getEnqueueTime(true) - cpuStart).count(),
+                                         std::chrono::duration<float, std::milli>(getEnqueueTime(false) - cpuStart).count(),
+                                         getEvent(EventType::kINPUT_S) - gpuStart, getEvent(EventType::kINPUT_E) - gpuStart,
+                                         getEvent(EventType::kCOMPUTE_S) - gpuStart, getEvent(EventType::kCOMPUTE_E) - gpuStart,
+                                         getEvent(EventType::kOUTPUT_S)- gpuStart, getEvent(EventType::kOUTPUT_E)- gpuStart);
     }
 
     nvinfer1::IExecutionContext& mContext;
@@ -342,11 +363,14 @@ private:
     std::vector<bool> mActive;
     MultiStream mStream;
     std::vector<MultiEvent> mEvents;
+
+    int enqueueStart{0};
+    std::vector<EnqueueTimes> mEnqueueTimes;
 };
 
 using IterationStreams = std::vector<std::unique_ptr<Iteration>>;
 
-void inferenceLoop(IterationStreams& iStreams, const TrtCudaEvent& mainStart, int batch, int iterations, float maxDurationMs, float warmupMs, std::vector<InferenceTrace>& trace)
+void inferenceLoop(IterationStreams& iStreams, const TimePoint& cpuStart, const TrtCudaEvent& gpuStart, int batch, int iterations, float maxDurationMs, float warmupMs, std::vector<InferenceTrace>& trace)
 {
     float durationMs = 0;
     int skip = 0;
@@ -359,7 +383,7 @@ void inferenceLoop(IterationStreams& iStreams, const TrtCudaEvent& mainStart, in
         }
         for (auto& s : iStreams)
         {
-            durationMs = std::max(durationMs, s->sync(mainStart, trace));
+            durationMs = std::max(durationMs, s->sync(cpuStart, gpuStart, trace));
         }
         if (durationMs < warmupMs) // Warming up
         {
@@ -372,7 +396,7 @@ void inferenceLoop(IterationStreams& iStreams, const TrtCudaEvent& mainStart, in
     }
     for (auto& s : iStreams)
     {
-        s->syncAll(mainStart, trace);
+        s->syncAll(cpuStart, gpuStart, trace);
     }
 }
 
@@ -392,11 +416,11 @@ void inferenceExecution(const InferenceOptions& inference, InferenceEnvironment&
 
     for (auto& s : iStreams)
     {
-        s->wait(sync.mainStart);
+        s->wait(sync.gpuStart);
     }
 
     std::vector<InferenceTrace> localTrace;
-    inferenceLoop(iStreams, sync.mainStart, inference.batch, inference.iterations, durationMs, warmupMs, localTrace);
+    inferenceLoop(iStreams, sync.cpuStart, sync.gpuStart, inference.batch, inference.iterations, durationMs, warmupMs, localTrace);
 
     sync.mutex.lock();
     trace.insert(trace.end(), localTrace.begin(), localTrace.end());
@@ -418,7 +442,8 @@ void runInference(const InferenceOptions& inference, InferenceEnvironment& iEnv,
     SyncStruct sync;
     sync.sleep = inference.sleep;
     sync.mainStream.sleep(&sync.sleep);
-    sync.mainStart.record(sync.mainStream);
+    sync.cpuStart = std::chrono::high_resolution_clock::now();
+    sync.gpuStart.record(sync.mainStream);
 
     int threadsNum = inference.threads ? inference.streams : 1;
     int streamsPerThread  = inference.streams / threadsNum;

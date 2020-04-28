@@ -70,7 +70,8 @@ float findMedian(const std::vector<InferenceTime>& timings, const T& toFloat)
 
 inline InferenceTime traceToTiming(const InferenceTrace& a)
 {
-    return InferenceTime((a.inEnd - a.inStart), (a.computeEnd - a.computeStart), (a.outEnd - a.outStart), (a.outEnd - a.inStart));
+    return InferenceTime((a.enqEnd - a.enqStart), (a.inEnd - a.inStart), (a.computeEnd - a.computeStart),
+                         (a.outEnd - a.outStart), (a.outEnd - a.inStart));
 };
 
 } // namespace
@@ -96,9 +97,10 @@ void printTiming(const std::vector<InferenceTime>& timings, int runsPerAvg, std:
 // clang off
             os << "Average on " << runsPerAvg << " runs - GPU latency: " << sum.compute / runsPerAvg
                << " ms - Host latency: " << sum.latency() / runsPerAvg << " ms (end to end "
-               << sum.e2e / runsPerAvg << " ms)" << std::endl;
+               << sum.e2e / runsPerAvg << " ms, enqueue " << sum.enq / runsPerAvg << " ms)" << std::endl;
 // clang on
             count = 0;
+            sum.enq = 0;
             sum.in = 0;
             sum.compute = 0;
             sum.out = 0;
@@ -136,8 +138,15 @@ void printEpilog(std::vector<InferenceTime> timings, float walltimeMs, float per
     const float gpuMedian = findMedian(timings, getCompute);
     const float gpuPercentile = findPercentile(percentile, timings, getCompute);
 
+    const auto getEnqueue = [](const InferenceTime& t) { return t.enq; };
+    const auto cmpEnqueue = [](const InferenceTime& a, const InferenceTime& b) { return a.enq < b.enq; };
+    std::sort(timings.begin(), timings.end(), cmpEnqueue);
+    const float enqMin = timings.front().enq;
+    const float enqMax = timings.back().enq;
+    const float enqMedian = findMedian(timings, getEnqueue);
+
 // clang off
-    os << "Host latency"                                                           << std::endl <<
+    os << "Host Latency"                                                           << std::endl <<
           "min: "                << latencyMin                           << " ms "
           "(end to end "         << endToEndMin                          << " ms)" << std::endl <<
           "max: "                << latencyMax                           << " ms "
@@ -152,6 +161,10 @@ void printEpilog(std::vector<InferenceTime> timings, float walltimeMs, float per
           "at "                  << percentile                           << "%)"   << std::endl <<
           "throughput: "         << latencyThroughput                    << " qps" << std::endl <<
           "walltime: "           << walltimeMs / 1000                    << " s"   << std::endl <<
+          "Enqueue Time"                                                           << std::endl <<
+          "min: "                << enqMin                               << " ms"  << std::endl <<
+          "max: "                << enqMax                               << " ms"  << std::endl <<
+          "median: "             << enqMedian                            << " ms"  << std::endl <<
           "GPU Compute"                                                            << std::endl <<
           "min: "                << gpuMin                               << " ms"  << std::endl <<
           "max: "                << gpuMax                               << " ms"  << std::endl <<
@@ -179,8 +192,8 @@ void printPerformanceReport(const std::vector<InferenceTrace>& trace, const Repo
 
 //! Printed format:
 //! [ value, ...]
-//! value ::= { "start in" : time, "end in" : time, "start compute" : time, "end compute" : time, "start out" : time,
-//!             "in" : time, "compute" : time, "out" : time, "latency" : time, "end to end" : time}
+//! value ::= { "start enq : time, "end enq" : time, "start in" : time, "end in" : time, "start compute" : time, "end compute" : time,
+//!             "start out" : time, "in" : time, "compute" : time, "out" : time, "latency" : time, "end to end" : time}
 //!
 void exportJSONTrace(const std::vector<InferenceTrace>& trace, const std::string& fileName)
 {
@@ -193,7 +206,8 @@ void exportJSONTrace(const std::vector<InferenceTrace>& trace, const std::string
         os << sep << "{ ";
         sep = ", ";
 // clang off
-        os << "\"startInMs\" : "      << t.inStart      << sep << "\"endInMs\" : "      << t.inEnd      << sep
+        os << "\"startEnqMs\" : "     << t.inStart      << sep << "\"endEnqMs\" : "     << t.inEnd      << sep
+           << "\"startInMs\" : "      << t.enqStart     << sep << "\"endInMs\" : "      << t.enqEnd     << sep
            << "\"startComputeMs\" : " << t.computeStart << sep << "\"endComputeMs\" : " << t.computeEnd << sep
            << "\"startOutMs\" : "     << t.outStart     << sep << "\"endOutMs\" : "     << t.outEnd     << sep
            << "\"inMs\" : "           << it.in          << sep << "\"computeMs\" : "    << it.compute   << sep

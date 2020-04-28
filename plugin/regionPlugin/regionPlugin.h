@@ -19,6 +19,7 @@
 #include "plugin.h"
 #include <iostream>
 #include <vector>
+#include <memory>
 
 namespace nvinfer1
 {
@@ -82,11 +83,13 @@ public:
 
     void detachFromContext() override;
 
+    void setSoftmaxTree(const std::shared_ptr<softmaxTree>& softmaxTree) { smTree = softmaxTree; }
+
 private:
     int num;
     int coords;
     int classes;
-    softmaxTree* smTree;
+    std::shared_ptr<softmaxTree> smTree;
     int C, H, W;
     bool hasSoftmaxTree;
     std::string mPluginNamespace;

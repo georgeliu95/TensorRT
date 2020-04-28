@@ -79,7 +79,7 @@ cudnnStatus_t convert_trt2cudnn_dtype(nvinfer1::DataType trt_dtype, cudnnDataTyp
 }
 
 namespace {
-    constexpr const char* INSTANCE_PLUGIN_VERSION{"001"};
+    constexpr const char* INSTANCE_PLUGIN_VERSION{"1"};
     constexpr const char* INSTANCE_PLUGIN_NAME{"InstanceNormalization_TRT"};
 }
 

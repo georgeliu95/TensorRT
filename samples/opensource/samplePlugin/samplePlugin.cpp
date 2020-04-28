@@ -126,7 +126,7 @@ private:
 //!
 bool SamplePlugin::build()
 {
-    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
+    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(sample::gLogger.getTRTLogger()));
     if (!builder)
     {
         return false;
@@ -178,7 +178,7 @@ bool SamplePlugin::build()
     auto modelStream = SampleUniquePtr<nvinfer1::IHostMemory>(builtEngine->serialize());
     assert(modelStream != nullptr);
 
-    auto runtime = SampleUniquePtr<nvinfer1::IRuntime>(nvinfer1::createInferRuntime(gLogger.getTRTLogger()));
+    auto runtime = SampleUniquePtr<nvinfer1::IRuntime>(nvinfer1::createInferRuntime(sample::gLogger.getTRTLogger()));
     if (mParams.dlaCore >= 0)
     {
         runtime->setDLACore(mParams.dlaCore);
@@ -188,7 +188,7 @@ bool SamplePlugin::build()
         runtime->deserializeCudaEngine(modelStream->data(), modelStream->size(), &runtimePluginFactory),
         samplesCommon::InferDeleter());
 
-    gLogInfo << "Done preparing engine..." << std::endl;
+    sample::gLogInfo << "Done preparing engine..." << std::endl;
 
     assert(network->getNbInputs() == 1);
     mInputDims = network->getInput(0)->getDimensions();
@@ -221,7 +221,7 @@ void SamplePlugin::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder
     // Parse mean blob for preprocessing input later
     mMeanBlob
         = SampleUniquePtr<nvcaffeparser1::IBinaryProtoBlob>(parser->parseBinaryProto(mParams.meanFileName.c_str()));
-    gLogInfo << "Done constructing network..." << std::endl;
+    sample::gLogInfo << "Done constructing network..." << std::endl;
 }
 
 //!
@@ -281,7 +281,7 @@ bool SamplePlugin::infer()
     // The output correctness is not used to determine the test result.
     if (!outputCorrect && mParams.dlaCore != -1)
     {
-        gLogInfo << "Warning: infer result is not correct. It maybe caused by dummy scales in INT8 mode." << std::endl;
+        sample::gLogInfo << "Warning: infer result is not correct. It maybe caused by dummy scales in INT8 mode." << std::endl;
     }
 
     return true;
@@ -302,12 +302,12 @@ bool SamplePlugin::processInput(
     readPGMFile(locateFile(std::to_string(inputFileIdx) + ".pgm", mParams.dataDirs), fileData.data(), inputH, inputW);
 
     // Print ASCII representation of digit
-    gLogInfo << "Input:\n";
+    sample::gLogInfo << "Input:\n";
     for (int i = 0; i < inputH * inputW; i++)
     {
-        gLogInfo << (" .:-=+*#%@"[fileData[i] / 26]) << (((i + 1) % inputW) ? "" : "\n");
+        sample::gLogInfo << (" .:-=+*#%@"[fileData[i] / 26]) << (((i + 1) % inputW) ? "" : "\n");
     }
-    gLogInfo << std::endl;
+    sample::gLogInfo << std::endl;
 
     float* hostInputBuffer = static_cast<float*>(buffers.getHostBuffer(inputTensorName));
     const float* meanData = reinterpret_cast<const float*>(mMeanBlob->getData());
@@ -329,7 +329,7 @@ bool SamplePlugin::verifyOutput(
     const float* prob = static_cast<const float*>(buffers.getHostBuffer(outputTensorName));
 
     // Print histogram of the output distribution
-    gLogInfo << "Output:\n";
+    sample::gLogInfo << "Output:\n";
     float val{0.0f};
     int idx{0};
     const int kDIGITS = 10;
@@ -342,9 +342,9 @@ bool SamplePlugin::verifyOutput(
             idx = i;
         }
 
-        gLogInfo << i << ": " << std::string(int(std::floor(prob[i] * 10 + 0.5f)), '*') << "\n";
+        sample::gLogInfo << i << ": " << std::string(int(std::floor(prob[i] * 10 + 0.5f)), '*') << "\n";
     }
-    gLogInfo << std::endl;
+    sample::gLogInfo << std::endl;
 
     return (idx == groundTruthDigit && val > 0.9f);
 }
@@ -415,7 +415,7 @@ int main(int argc, char** argv)
     bool argsOK = samplesCommon::parseArgs(args, argc, argv);
     if (!argsOK)
     {
-        gLogError << "Invalid arguments" << std::endl;
+        sample::gLogError << "Invalid arguments" << std::endl;
         printHelpInfo();
         return EXIT_FAILURE;
     }
@@ -425,29 +425,29 @@ int main(int argc, char** argv)
         return EXIT_SUCCESS;
     }
 
-    auto sampleTest = gLogger.defineTest(gSampleName, argc, argv);
+    auto sampleTest = sample::gLogger.defineTest(gSampleName, argc, argv);
 
-    gLogger.reportTestStart(sampleTest);
+    sample::gLogger.reportTestStart(sampleTest);
 
     samplesCommon::CaffeSampleParams params = initializeSampleParams(args);
 
     SamplePlugin sample(params);
-    gLogInfo << "Building and running a GPU inference engine for MNIST" << std::endl;
+    sample::gLogInfo << "Building and running a GPU inference engine for MNIST" << std::endl;
 
     if (!sample.build())
     {
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
 
     if (!sample.infer())
     {
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
 
     if (!sample.teardown())
     {
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
 
-    return gLogger.reportPass(sampleTest);
+    return sample::gLogger.reportPass(sampleTest);
 }

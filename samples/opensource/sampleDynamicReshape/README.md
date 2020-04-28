@@ -51,12 +51,12 @@ First, create an empty full-dims network, and parser:
 ```
 const auto explicitBatch = 1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
 auto network = makeUnique(builder->createNetworkV2(explicitBatch));
-auto parser = nvonnxparser::createParser(*network, gLogger.getTRTLogger());
+auto parser = nvonnxparser::createParser(*network, sample::gLogger.getTRTLogger());
 ```
 
 Next, parse the model file to populate the network:
 ```
-parser->parseFromFile(locateFile(mParams.onnxFileName, mParams.dataDirs).c_str(), static_cast<int>(gLogger.getReportableSeverity()));
+parser->parseFromFile(locateFile(mParams.onnxFileName, mParams.dataDirs).c_str(), static_cast<int>(sample::gLogger.getReportableSeverity()));
 ```
 
 ### Building engines

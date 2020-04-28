@@ -136,9 +136,9 @@ Parser modelToNetwork(const ModelOptions& model, nvinfer1::INetworkDefinition& n
     case ModelFormat::kONNX:
     {
         using namespace nvonnxparser;
-        parser.onnxParser.reset(createParser(network, gLogger.getTRTLogger()));
+        parser.onnxParser.reset(createParser(network, sample::gLogger.getTRTLogger()));
         if (!parser.onnxParser->parseFromFile(
-                model.baseModel.model.c_str(), static_cast<int>(gLogger.getReportableSeverity())))
+                model.baseModel.model.c_str(), static_cast<int>(sample::gLogger.getReportableSeverity())))
         {
             err << "Failed to parse onnx file" << std::endl;
             parser.onnxParser.reset();
@@ -380,7 +380,7 @@ ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys
                         std::transform(dims.d, dims.d + dims.nbDims, staticDims.begin(),
                             [&DEFAULT_DIMENSION](int dim) { return dim > 0 ? dim : DEFAULT_DIMENSION; });
                     }
-                    gLogWarning << "Dynamic dimensions required for input: " << input->getName() << ", but no shapes were provided. Automatically overriding shape to: " << staticDims << std::endl;
+                    sample::gLogWarning << "Dynamic dimensions required for input: " << input->getName() << ", but no shapes were provided. Automatically overriding shape to: " << staticDims << std::endl;
                     std::fill(shapes.begin(), shapes.end(), staticDims);
                 }
                 else
@@ -477,7 +477,7 @@ ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys
 
     if (build.int8 && !build.fp16)
     {
-        gLogInfo << "FP32 and INT8 precisions have been specified - more performance might be enabled by additionally "
+        sample::gLogInfo << "FP32 and INT8 precisions have been specified - more performance might be enabled by additionally "
                     "specifying --fp16 or --best"
                  << std::endl;
     }
@@ -496,7 +496,7 @@ ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys
     {
         IOptimizationProfile* profileCalib{nullptr};
         if (!build.shapesCalib.empty())
-        {    
+        {
             profileCalib = builder.createOptimizationProfile();
             for (unsigned int i = 0, n = network.getNbInputs(); i < n; i++)
             {
@@ -518,7 +518,7 @@ ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys
             SMP_RETVAL_IF_FALSE(
                 config->setCalibrationProfile(profileCalib), "Error in set calibration profile", nullptr, err);
         }
-        
+
         std::vector<int> elemCount{};
         for (int i = 0; i < network.getNbInputs(); i++)
         {
@@ -536,7 +536,7 @@ ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys
                 elemCount.push_back(volume(input->getDimensions()));
             }
         }
-        
+
         config->setInt8Calibrator(new RndInt8Calibrator(1, elemCount, build.calibration, network, err));
     }
 
@@ -575,7 +575,7 @@ ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys
 ICudaEngine* modelToEngine(
     const ModelOptions& model, const BuildOptions& build, const SystemOptions& sys, std::ostream& err)
 {
-    TrtUniquePtr<IBuilder> builder{createInferBuilder(gLogger.getTRTLogger())};
+    TrtUniquePtr<IBuilder> builder{createInferBuilder(sample::gLogger.getTRTLogger())};
     if (builder == nullptr)
     {
         err << "Builder creation failed" << std::endl;
@@ -621,7 +621,7 @@ ICudaEngine* loadEngine(const std::string& engine, int DLACore, std::ostream& er
         return nullptr;
     }
 
-    TrtUniquePtr<IRuntime> runtime{createInferRuntime(gLogger.getTRTLogger())};
+    TrtUniquePtr<IRuntime> runtime{createInferRuntime(sample::gLogger.getTRTLogger())};
     if (DLACore != -1)
     {
         runtime->setDLACore(DLACore);

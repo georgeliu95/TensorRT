@@ -65,7 +65,7 @@ public:
         : mParams(params)
         , mEngine(nullptr)
     {
-        initLibNvInferPlugins(&gLogger.getTRTLogger(), "");
+        initLibNvInferPlugins(&sample::gLogger.getTRTLogger(), "");
     }
 
     //!
@@ -127,7 +127,7 @@ private:
 bool SampleINT8::build(DataType dataType)
 {
 
-    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
+    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(sample::gLogger.getTRTLogger()));
     if (!builder)
     {
         return false;
@@ -177,7 +177,7 @@ bool SampleINT8::build(DataType dataType)
 //!
 bool SampleINT8::isSupported(DataType dataType)
 {
-    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(gLogger.getTRTLogger()));
+    auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(sample::gLogger.getTRTLogger()));
     if (!builder)
     {
         return false;
@@ -245,7 +245,7 @@ bool SampleINT8::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
         samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
         if (mParams.batchSize > builder->getMaxDLABatchSize())
         {
-            gLogError << "Requested batch size " << mParams.batchSize << " is greater than the max DLA batch size of "
+            sample::gLogError << "Requested batch size " << mParams.batchSize << " is greater than the max DLA batch size of "
                       << builder->getMaxDLABatchSize() << ". Reducing batch size accordingly." << std::endl;
             return false;
         }
@@ -335,7 +335,7 @@ bool SampleINT8::infer(std::vector<float>& score, int firstScoreBatch, int nbSco
 
         if (batchStream.getBatchesRead() % 100 == 0)
         {
-            gLogInfo << "Processing next set of max 100 batches" << std::endl;
+            sample::gLogInfo << "Processing next set of max 100 batches" << std::endl;
         }
     }
 
@@ -343,8 +343,8 @@ bool SampleINT8::infer(std::vector<float>& score, int firstScoreBatch, int nbSco
     score[0] = float(top1) / float(imagesRead);
     score[1] = float(top5) / float(imagesRead);
 
-    gLogInfo << "Top1: " << score[0] << ", Top5: " << score[1] << std::endl;
-    gLogInfo << "Processing " << imagesRead << " images averaged " << totalTime / imagesRead << " ms/image and "
+    sample::gLogInfo << "Top1: " << score[0] << ", Top5: " << score[1] << std::endl;
+    sample::gLogInfo << "Processing " << imagesRead << " images averaged " << totalTime / imagesRead << " ms/image and "
              << totalTime / batchStream.getBatchesRead() << " ms/batch." << std::endl;
 
     return true;
@@ -483,13 +483,13 @@ int main(int argc, char** argv)
 
     if (batchSize > 128)
     {
-        gLogError << "Please provide batch size <= 128" << std::endl;
+        sample::gLogError << "Please provide batch size <= 128" << std::endl;
         return EXIT_FAILURE;
     }
 
     if ((firstScoreBatch + nbScoreBatches) * batchSize > 60000)
     {
-        gLogError << "Only 60000 images available" << std::endl;
+        sample::gLogError << "Only 60000 images available" << std::endl;
         return EXIT_FAILURE;
     }
 
@@ -498,11 +498,11 @@ int main(int argc, char** argv)
 
     SampleINT8 sample(initializeSampleParams(args, batchSize));
 
-    auto sampleTest = gLogger.defineTest(gSampleName, argc, argv);
+    auto sampleTest = sample::gLogger.defineTest(gSampleName, argc, argv);
 
-    gLogger.reportTestStart(sampleTest);
+    sample::gLogger.reportTestStart(sampleTest);
 
-    gLogInfo << "Building and running a GPU inference engine for INT8 sample" << std::endl;
+    sample::gLogInfo << "Building and running a GPU inference engine for INT8 sample" << std::endl;
 
     std::vector<std::string> dataTypeNames = {"FP32", "FP16", "INT8"};
     std::vector<std::string> topNames = {"Top1", "Top5"};
@@ -510,22 +510,22 @@ int main(int argc, char** argv)
     std::vector<std::vector<float> > scores(3, std::vector<float>(2, 0.0f));
     for (size_t i = 0; i < dataTypes.size(); i++)
     {
-        gLogInfo << dataTypeNames[i] << " run:" << nbScoreBatches << " batches of size " << batchSize << " starting at "
+        sample::gLogInfo << dataTypeNames[i] << " run:" << nbScoreBatches << " batches of size " << batchSize << " starting at "
                  << firstScoreBatch << std::endl;
 
         if (!sample.build(dataTypes[i]))
         {
             if (!sample.isSupported(dataTypes[i]))
             {
-                gLogWarning << "Skipping " << dataTypeNames[i] << " since the platform does not support this data type."
+                sample::gLogWarning << "Skipping " << dataTypeNames[i] << " since the platform does not support this data type."
                             << std::endl;
                 continue;
             }
-            return gLogger.reportFail(sampleTest);
+            return sample::gLogger.reportFail(sampleTest);
         }
         if (!sample.infer(scores[i], firstScoreBatch, nbScoreBatches))
         {
-            return gLogger.reportFail(sampleTest);
+            return sample::gLogger.reportFail(sampleTest);
         }
     }
 
@@ -535,9 +535,9 @@ int main(int argc, char** argv)
 
     if ((scores[0][0] < goldenMNIST) || (scores[0][1] < goldenMNIST))
     {
-        gLogError << "FP32 accuracy is less than 99%: Top1 = " << scores[0][0] 
+        sample::gLogError << "FP32 accuracy is less than 99%: Top1 = " << scores[0][0] 
                   << ", Top5 = " << scores[0][1] << "." << std::endl;
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
     
     for (unsigned i = 0; i < topNames.size(); i++)
@@ -546,18 +546,18 @@ int main(int argc, char** argv)
         {
             if (scores[j][i] != 0.0f && !isApproximatelyEqual(scores[0][i], scores[j][i], tolerance))
             {
-                gLogError << "FP32(" << scores[0][i] << ") and " 
+                sample::gLogError << "FP32(" << scores[0][i] << ") and " 
                     << dataTypeNames[j] << "(" << scores[j][i]
                     << ") " << topNames[i] << " accuracy differ by more than " << tolerance << "." << std::endl;
-                return gLogger.reportFail(sampleTest);
+                return sample::gLogger.reportFail(sampleTest);
             }
         }
     }
 
     if (!sample.teardown())
     {
-        return gLogger.reportFail(sampleTest);
+        return sample::gLogger.reportFail(sampleTest);
     }
 
-    return gLogger.reportPass(sampleTest);
+    return sample::gLogger.reportPass(sampleTest);
 }
