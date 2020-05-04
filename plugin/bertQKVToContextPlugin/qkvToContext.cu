@@ -406,16 +406,23 @@ template int computeMaskedScaledSoftmax<float>(cudaStream_t stream, const int ld
 template int computeMaskedScaledSoftmax<half>(cudaStream_t stream, const int ld, const int B, const int N,
     const float rsqrtHeadSize, const int* maskIdx, const half* input, half* output);
 
-// kFLOAT: old code
-// kHALF or kINT8:
-//- S=384: Julien's code
-//- S=128: Placeholder for Julien's code
-// kHALF: for non-standard sizes - old code (low prio)
+size_t MHARunner::getSerializationSize() const
+{
+    return sizeof(mS) + sizeof(mB);
+}
 
-// construction: know runtime type
-// configurePlugin: get S
-// initialize: setup dispatcher
-// enqueue: run
+void MHARunner::serialize(void* buffer) const
+{
+    serialize_value(&buffer, mS);
+    serialize_value(&buffer, mB);
+}
+
+void MHARunner::deserialize(const void* data, size_t length)
+{
+    deserialize_value(&data, &length, &mS);
+    deserialize_value(&data, &length, &mB);
+    setup(mS, mB);
+}
 
 UnfusedMHARunner::UnfusedMHARunner(const nvinfer1::DataType type, const int numHeads, const int headSize)
     : MHARunner(type, numHeads, headSize)
@@ -430,6 +437,25 @@ UnfusedMHARunner::~UnfusedMHARunner()
     CHECK_CUBLAS(cublasDestroy(mCublas));
 }
 
+size_t UnfusedMHARunner::getSerializationSize() const
+{
+    return sizeof(mAlgoBatchedEx1) + sizeof(mAlgoBatchedEx2) + MHARunner::getSerializationSize();
+}
+
+void UnfusedMHARunner::serialize(void* buffer) const
+{
+    serialize_value(&buffer, mAlgoBatchedEx1);
+    serialize_value(&buffer, mAlgoBatchedEx2);
+    MHARunner::serialize(buffer);
+}
+
+void UnfusedMHARunner::deserialize(const void* data, size_t length)
+{
+    deserialize_value(&data, &length, &mAlgoBatchedEx1);
+    deserialize_value(&data, &length, &mAlgoBatchedEx2);
+    MHARunner::deserialize(data, length);
+}
+
 void UnfusedMHARunner::setup(const int S, const int B)
 {
     MHARunner::setup(S, B);
@@ -438,7 +464,7 @@ void UnfusedMHARunner::setup(const int S, const int B)
         std::tie(mAlgoBatchedEx1, mAlgoBatchedEx2) = tuneBatchedGemm(B, S, mNumHeads, mHeadSize);
 
         gLogVerbose << "QKV Plugin - Selected Algos for batch gemms: " << mAlgoBatchedEx1 << ", " << mAlgoBatchedEx2
-                    << "\n";
+            << "\n";
     }
 }
 
@@ -544,7 +570,7 @@ public:
         : interface(interface)
         , sm(interface->mSm)
     {
-        assert((sm == 80 || sm == 75) && "Unsupported architecture");
+        assert((sm == kSM_AMPERE || sm == kSM_TURING) && "Unsupported architecture");
         memset(&params, 0, sizeof(params));
     }
 
@@ -602,7 +628,6 @@ public:
         params.qkv_stride_in_bytes = get_size_in_bytes(interface->mLdQKV, DATA_TYPE_FP16);
         params.packed_mask_stride_in_bytes = xmmas_m * threads_per_cta * sizeof(uint32_t);
         params.o_stride_in_bytes = get_size_in_bytes(interface->mLdOut, DATA_TYPE_FP16);
-        printf("Setup S=%d B=%d\n", S, B);
     }
 
     void run(const PluginTensorDesc& inputDesc, const PluginTensorDesc& outputDesc, const void* qkvPtr,
@@ -646,6 +671,12 @@ size_t FusedMHARunnerFP16::getWorkspaceSize() const
     return 0;
 }
 
+void FusedMHARunnerFP16::deserialize(const void* data, size_t length)
+{
+    MHARunner::deserialize(data, length);
+    setup(mS, mB);
+}
+
 void FusedMHARunnerFP16::run(const PluginTensorDesc& inputDesc, const PluginTensorDesc& outputDesc, const void* qkvPtr,
     const void* maskPtr, void* output, void* workspace, cudaStream_t stream)
 {
@@ -663,7 +694,7 @@ public:
         , sm(interface->mSm)
         , mDqProbs(interface->mDqProbs)
     {
-        assert((sm == 80 || sm == 75) && "Unsupported architecture");
+        assert((sm == kSM_AMPERE || sm == kSM_TURING) && "Unsupported architecture");
         memset(&params, 0, sizeof(params));
 
     }
@@ -711,7 +742,6 @@ public:
         params.qkv_stride_in_bytes = get_size_in_bytes(interface->mLdQKV, DATA_TYPE_INT8);
         params.packed_mask_stride_in_bytes = xmmas_m * threads_per_cta * sizeof(uint32_t);
         params.o_stride_in_bytes = get_size_in_bytes(interface->mLdOut, DATA_TYPE_INT8);
-        printf("Setup S=%d B=%d\n", S, B);
     }
 
     void run(const PluginTensorDesc& inputDesc, const PluginTensorDesc& outputDesc, const void* qkvPtr,
@@ -724,8 +754,6 @@ public:
         float scaleBmm2 = mDqProbs * scaleQkv / scaleCtx;
         float scaleSoftmax = 1.f / mDqProbs;
 
-        //DEBUG print all scales
-        //printf("############# d_p %f bmm1 %f bmm2 %f softmax %f qkv %f ctx %f\n", mDqProbs, scaleBmm1, scaleBmm2, scaleSoftmax, scaleQkv, scaleCtx);
         params.scale_bmm1 = reinterpret_cast<const uint32_t&>(scaleBmm1);
         params.scale_bmm2 = reinterpret_cast<const uint32_t&>(scaleBmm2);
         params.scale_softmax = reinterpret_cast<const uint32_t&>(scaleSoftmax);
@@ -739,48 +767,9 @@ public:
 
         params.o_ptr = output;
 
-        /* DEBUG
-        printf("###################\n");
-        printf("qkv_stride_in_bytes %lu\n", params.qkv_stride_in_bytes);
-        printf("packed_mask_stride_in_bytes %lu\n", params.packed_mask_stride_in_bytes);
-        printf("o_stride_in_bytes %lu\n", params.o_stride_in_bytes);
-        printf("b %d\n", params.b);
-        printf("h %d\n", params.h);
-        printf("s %d\n", params.s);
-        printf("d %d\n", params.d);
-
-        float a = reinterpret_cast<const float&>(params.scale_bmm1);
-        float b = reinterpret_cast<const float&>(params.scale_bmm2);
-        float c = reinterpret_cast<const float&>(params.scale_softmax);
-
-        printf("scale bmm1 %f\n", a);
-        printf("scale bmm2 %f\n", b);
-        printf("scale soft %f\n", c);
-        printf("###################\n");
-        */
-
         run_fused_multihead_attention(params, DATA_TYPE_INT8, interface->mS, 64, sm, stream);
         CHECK(cudaPeekAtLastError());
 
-        /*DEBUG
-        printf("REMOVE ME\n");
-        cudaDeviceSynchronize();
-        std::vector<int8_t> tmp(params.s * params.b * params.h * params.d * 3);
-        cudaMemcpy(tmp.data(), qkvPtr, tmp.size(), cudaMemcpyDeviceToHost);
-
-        if (std::FILE* f1 = std::fopen("/data/qkv.bin", "wb"))
-        {
-            std::fwrite(tmp.data(), sizeof(int8_t), tmp.size(), f1);
-            std::fclose(f1);
-        }
-
-        cudaMemcpy(tmp.data(), output, 10, cudaMemcpyDeviceToHost);
-        for (int it = 0; it < 10; it++)
-        {
-            int blub = (int32_t)tmp[it];
-            printf("%d\n", blub);
-        }
-        */
     }
 
 private:
@@ -811,6 +800,12 @@ void FusedMHARunnerInt8::setup(const int S, const int B)
 size_t FusedMHARunnerInt8::getWorkspaceSize() const
 {
     return 0;
+}
+
+void FusedMHARunnerInt8::deserialize(const void* data, size_t length)
+{
+    MHARunner::deserialize(data, length);
+    setup(mS, mB);
 }
 
 void FusedMHARunnerInt8::run(const PluginTensorDesc& inputDesc, const PluginTensorDesc& outputDesc, const void* qkvPtr,

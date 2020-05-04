@@ -28,13 +28,13 @@
 
 namespace bert
 {
+static constexpr int32_t kSM_TURING = 75;
+static constexpr int32_t kSM_AMPERE = 80;
 
 // Multi Head Attention runner
 class MHARunner
 {
 public:
-    MHARunner() {}
-
     MHARunner(const nvinfer1::DataType type, const int numHeads, const int headSize)
         : mType(type)
         , mNumHeads(numHeads)
@@ -44,10 +44,12 @@ public:
     {
     }
 
-    virtual ~MHARunner() {}
+    virtual ~MHARunner() = default;
 
     virtual void setup(const int S, const int B)
     {
+        assert(S);
+        assert(B);
         mB = B;
         mS = S;
 
@@ -63,6 +65,10 @@ public:
     virtual void run(const nvinfer1::PluginTensorDesc& inputDesc, const nvinfer1::PluginTensorDesc& outputDesc, const void* qkvPtr,
         const void* maskPtr, void* output, void* workspace, cudaStream_t stream)
         = 0;
+
+    virtual size_t getSerializationSize() const;
+    virtual void serialize(void* buffer) const;
+    virtual void deserialize(const void* data, size_t length);
 
     virtual size_t getWorkspaceSize() const = 0;
 
@@ -102,8 +108,7 @@ class QKVToContextPluginDynamic : public nvinfer1::IPluginV2DynamicExt
 {
 public:
     QKVToContextPluginDynamic(const std::string name, const nvinfer1::DataType type, const int hiddenSize,
-        const int numHeads, const float dqProbs, 
-        bool hasImask = false);
+        const int numHeads, const float dqProbs, bool hasImask = false);
 
     QKVToContextPluginDynamic(const std::string name, const void* data, size_t length);
 
@@ -139,12 +144,19 @@ public:
     void setPluginNamespace(const char* pluginNamespace) override;
     const char* getPluginNamespace() const override;
 
+protected:
+    void createMHARunner();
+    int getSMVersion() const;
+
 private:
     const std::string mLayerName;
     std::string mNamespace;
 
     std::unique_ptr<MHARunner> dispatcher;
 
+    int mS;
+    int mB;
+    int mSM;
     int mHeadSize;
     int mHiddenSize;
     int mNumHeads;
@@ -202,6 +214,10 @@ public:
 
     size_t getWorkspaceSize() const override;
 
+    size_t getSerializationSize() const override;
+    void serialize(void* buffer) const override;
+    void deserialize(const void* data, size_t length) override;
+
 private:
     int mAlgoBatchedEx1;
     int mAlgoBatchedEx2;
@@ -221,6 +237,8 @@ public:
 
     size_t getWorkspaceSize() const override;
 
+    void deserialize(const void* data, size_t length) override;
+
 private:
     int mSm;
     class mhaImpl;
@@ -239,6 +257,8 @@ public:
         const void* maskPtr, void* output, void* workspace, cudaStream_t stream) override;
 
     size_t getWorkspaceSize() const override;
+
+    void deserialize(const void* data, size_t length) override;
 
 private:
     float mDqProbs;
