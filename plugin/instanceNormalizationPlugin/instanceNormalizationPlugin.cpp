@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 #include <stdexcept>
+#include <cuda_fp16.h>
 #include "instanceNormalizationPlugin.h"
 
 using namespace nvinfer1;
@@ -44,27 +45,6 @@ inline bool is_CHW(nvinfer1::Dims const& dims)
 {
     return (dims.nbDims == 3 && dims.type[0] == nvinfer1::DimensionType::kCHANNEL
         && dims.type[1] == nvinfer1::DimensionType::kSPATIAL && dims.type[2] == nvinfer1::DimensionType::kSPATIAL);
-}
-
-// This is derived from: https://fgiesen.wordpress.com/2012/03/28/half-to-float-done-quic/
-inline float half_to_float_fast(unsigned short value)
-{
-    union F32
-    {
-        unsigned int u;
-        float f;
-    };
-    static const F32 magic = {(254 - 15) << 23};
-    static const F32 was_infnan = {(127 + 16) << 23};
-    F32 result;
-    result.u = (value & 0x7fff) << 13; // exponent/mantissa bits
-    result.f *= magic.f;               // exponent adjust
-    if (result.f >= was_infnan.f)
-    { // make sure Inf/NaN survive
-        result.u |= 255 << 23;
-    }
-    result.u |= (value & 0x8000) << 16; // sign bit
-    return result.f;
 }
 
 cudnnStatus_t convert_trt2cudnn_dtype(nvinfer1::DataType trt_dtype, cudnnDataType_t* cudnn_dtype)
@@ -113,7 +93,7 @@ InstanceNormalizationPlugin::InstanceNormalizationPlugin(
         for (int c = 0; c < _nchan; ++c)
         {
             unsigned short value = ((unsigned short*) scale.values)[c];
-            _h_scale.push_back(half_to_float_fast(value));
+            _h_scale.push_back(__internal_half2float(value));
         }
     }
     else
@@ -130,7 +110,7 @@ InstanceNormalizationPlugin::InstanceNormalizationPlugin(
         for (int c = 0; c < _nchan; ++c)
         {
             unsigned short value = ((unsigned short*) bias.values)[c];
-            _h_bias.push_back(half_to_float_fast(value));
+            _h_bias.push_back(__internal_half2float(value));
         }
     }
     else
