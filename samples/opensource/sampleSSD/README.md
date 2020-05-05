@@ -294,17 +294,10 @@ Due to the size of the SSD Caffe model, it is not included in the product bundle
     This output shows that the sample ran successfully; `PASSED`.
 
 
-### Sample --help options
+### Sample `--help` options
 
-To see the full list of available options and their descriptions, use the `-h` or `--help` command line option. For example:
-```sh
-Usage: ./build/x86_64-linux/sample_ssd
-Optional Parameters:
-    -h, --help      Display help information.
-    --useDLACore=N  Specify the DLA engine to run on.
-    --fp16          Specify to run in fp16 mode.
-    --int8          Specify to run in int8 mode.
-```
+To see the full list of available options and their descriptions, use the `-h` or `--help` command line option.
+
 
 # Additional resources
 

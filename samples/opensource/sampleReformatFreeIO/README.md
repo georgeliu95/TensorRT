@@ -62,9 +62,11 @@ This sample, sampleReformatFreeIO, uses a Caffe model that was trained on the [M
 	```
 	This output shows that the sample ran successfully; `PASSED`.
 
+
 ### Sample `--help` options
 
-To see the full list of available options and their descriptions, use the `./sample_reformat_free_io --help` command.
+To see the full list of available options and their descriptions, use the `-h` or `--help` command line option.
+
 
 ## Additional resources
 

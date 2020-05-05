@@ -189,22 +189,7 @@ The SoftMax layer applies the SoftMax function on the input tensor along an inpu
 ### Sample `--help` options
 
 To see the full list of available options and their descriptions, use the `-h` or `--help` command line option.
-```
-Usage: ./sample_uff_faster_rcnn --datadir /data/uff_faster_rcnn -h
---help[-h] Display help information
---datadir[-d] Specify path to a data directory, overriding the default. This option can be repeated to add multiple directories. If the option is unspecified, the default is to search data/faster-rcnn/ and data/samples/faster-rcnn/.
---useDLACore[-u] Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, where n is the number of DLA engines on the platform.
---fp16[-f] Specify to run in fp16 mode.
---int8[-i] Specify to run in int8 mode.
---inputWidth[-W] Specify the input width of the model.
---inputHeight[-H] Specify the input height of the model.
---batchSize[-B] Specify the batch size for inference.
---profile[-p] Whether to do per-layer profiling.
---repeat[-r] Specify the repeat number to execute the TRT context, used to smooth the profiling time.
---inputImages[-I] Specify the input images for inference.
---saveEngine[-s] Path to save engine.
---loadEngine[-l] Path to load engine.
-```
+
 
 # Additional resources
 

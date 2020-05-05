@@ -169,16 +169,10 @@ The SoftMax layer applies the SoftMax function on the input tensor along an inpu
 	```
     This output shows that the sample ran successfully; `PASSED`.
 
-### Sample --help options
 
-To see the full list of available options and their descriptions, use the `-h` or `--help` command line option. The following example output is printed when running the sample:
-```
-./sample_fasterRCNN --help
-Usage: ./build/x86_64-linux/sample_fasterRCNN
-Optional Parameters:
-  -h, --help        Display help information.
-  --useDLACore=N    Specify the DLA engine to run on.
-```
+### Sample `--help` options
+
+To see the full list of available options and their descriptions, use the `-h` or `--help` command line option.
 
 
 # Additional resources

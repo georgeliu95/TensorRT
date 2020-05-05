@@ -122,28 +122,8 @@ Now that you have trained weights, downloaded the text and vocabulary data, and 
 
 ### Sample `--help` options
 
-To see the full list of available options and their descriptions, use the `-h` or `--help` command line option.  For example:
-```
+To see the full list of available options and their descriptions, use the `-h` or `--help` command line option.
 
-Optional params:
-  --help, -h                           Output help message and exit
-  --data_writer=bleu/text/benchmark    Type of the output the app generates (default = bleu)
-  --output_file=<path_to_file>         Path to the output file when data_writer=text (default = translation_output.txt)
-  --batch=<N>                          Batch size (default = 128)
-  --beam=<N>                           Beam width (default = 5)
-  --max_input_sequence_length=<N>      Maximum length for input sequences (default = 150)
-  --max_output_sequence_length=<N>     Maximum length for output sequences (default = -1), negative value indicates no limit
-  --max_inference_samples=<N>          Maximum sample count to run inference for, negative values indicates no limit is set (default = -1)
-  --verbose                            Output verbose-level messages by TensorRT
-  --max_workspace_size=<N>             Maximum workspace size (default = 268435456)
-  --data_dir=<path_to_data_directory>  Path to the directory where data and weights are located (default = data/samples/nmt/deen)
-  --profile                            Profile TensorRT execution layer by layer. Use benchmark data_writer when profiling on, disregard benchmark results
-  --aggregate_profile                  Merge profiles from multiple TensorRT engines
-  --fp16                               Switch on fp16 math
-  --int8                               Switch on int8 math
-  --useDLACore=N                       Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, where n is the number of DLA engines on the platform.
-  --padMultiple=N                      Specify multiple to pad out matrix dimensions to test performance
-```
 
 ## Additional resources
 
