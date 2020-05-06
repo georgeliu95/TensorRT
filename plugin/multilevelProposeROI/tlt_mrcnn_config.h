@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,6 @@ static const int MASK_POOL_SIZE = 14;
 static const float MASK_THRESHOLD = 0.5;
 
 // Bounding box refinement standard deviation for RPN and final detections.
-//static const float RPN_BBOX_STD_DEV[] = {0.1, 0.1, 0.2, 0.2};
 static const float DETECTION_REG_WEIGHTS[] = {10, 10, 5, 5};
 
 // Max number of final detections
@@ -54,7 +53,6 @@ static const int FPN_CLASSIF_FC_LAYERS_SIZE = 1024;
 static const int TOP_DOWN_PYRAMID_SIZE = 256;
 
 // Number of classification classes (including background)
-// static const int NUM_CLASSES = 1 + 80; // COCO has 80 classes
 static const int NUM_CLASSES = 1 + 90;
 
 // Min and max level of fpn feature pyramids:

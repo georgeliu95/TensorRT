@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,7 +82,6 @@ PyramidROIAlignTLT::PyramidROIAlignTLT(int pooled_size)
 
     assert(pooled_size > 0);
     // shape
-    // mInputSize = TLTMaskRCNNConfig::IMAGE_SHAPE.d[1];
     mInputHeight = TLTMaskRCNNConfig::IMAGE_SHAPE.d[1];
     mInputWidth = TLTMaskRCNNConfig::IMAGE_SHAPE.d[2];
     //Threshold to P3: Smaller -> P2

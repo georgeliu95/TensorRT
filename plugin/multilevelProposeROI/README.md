@@ -1,4 +1,4 @@
-# ProposalLayer
+# MultilevelProposeROI
 
 **Table Of Contents**
 - [Description](#description)
@@ -11,39 +11,38 @@
 
 ## Description
 
-The `ProposalLayer` plugin generates the first-stage detection (ROI candidates) out of the scores, refinement info from RPN(Region Proposal Network) and pre-defined anchors. It is
+The `MultilevelProposeROI` plugin generates the first-stage detection (ROI candidates) from the scores, refinement information from RPN(Region Proposal Network) and pre-defined anchors. It is
 used in sampleMaskRCNN.   
 
 
 ### Structure
 
-This plugin supports the NCHW format. It takes two input tenosrs: `object_score` and `object_delta` 
+This plugin supports the NCHW format. It takes two input tensors: `object_score` and `object_delta` 
 
-`object_score` is the objectness score from RPN. `objetc_score`'s shape is `[N, anchors, 2, 1]` where `N` is the batch_size, `anchors` is the total number of anchors and `2` means 2
+`object_score` is the objectness score from RPN. `object_score`'s shape is `[N, anchors, 2, 1]` where `N` is the batch_size, `anchors` is the total number of anchors and `2` means 2
 classes of objectness --- foreground and background . 
 
-`object_delta` is the refinement info from RPN of shape `[N, anchors, 4, 1]`. `4` means 4 elements of refinement information --- `[dy, dx, dh, dw]`
+`object_delta` is the refinement information from RPN of shape `[N, anchors, 4, 1]`. `4` means 4 elements of refinement information --- `[dy, dx, dh, dw]`
 
 This plugin generates one output tensor of shape `[N, keep_topk, 4]` where `keep_topk` is the maximum number of detections left after NMS and `4` means coordinates of ROI
 candidates `[y1, x1, y2, x2]`
 
-Instead of fed as input in Keras, the default anchors are generated in this plugin during `initialization`.   
-For resnet101 + 1024*1024 input shape, the number of anchors can be computed as 
+Instead of fed as input in Keras, the default anchors used in this plugin are generated upon `initialization`.   
+For resnet50 + 832*1344 input shape, the number of anchors can be computed as 
 ```
-Anchors in feature map P2: 256*256*3 
-Anchors in feature map P3: 128*128*3
-Anchors in feature map P4: 64*64*3
-Anchors in feature map P5: 32*32*3
-Anchors in feature map P6(maxpooling): 16*16*3  
+Anchors in feature map P2: 208*336*3
+Anchors in feature map P3: 104*168*3
+Anchors in feature map P4: 52*84*3
+Anchors in feature map P5: 26*42*3
+Anchors in feature map P6(maxpooling): 13*21*3
 
-total number of anchors: 87296*3 = 261888
 ```
 
 ## Parameters
 
-This plugin has the plugin creator class `ProposalLayerPluginCreator` and the plugin class `ProposalLayer`.
+This plugin has the plugin creator class `MultilevelProposeROIPluginCreator` and the plugin class `MultilevelProposeROI`.
   
-The following parameters were used to create `ProposalLayer` instance:
+The following parameters were used to create `MultilevelProposeROI` instance:
 
 | Type              | Parameter                        | Description
 |-------------------|----------------------------------|--------------------------------------------------------
@@ -54,10 +53,6 @@ The following parameters were used to create `ProposalLayer` instance:
 
 ## Additional resources
 
-The following resources provide a deeper understanding of the `ProposalLayer` plugin:
-
-- [MaskRCNN](https://github.com/matterport/Mask_RCNN)
-
 
 ## License
 
@@ -67,7 +62,7 @@ documentation.
 
 ## Changelog
 
-June 2019
+June 2020
 This is the first release of this `README.md` file.
 
 

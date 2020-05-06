@@ -780,7 +780,7 @@ RefineDetectionWorkSpace::RefineDetectionWorkSpace(
     sumSize += AlignMem(dimVolume(sortClassScoreDims) * typeSize(type) * batchSize);
 
     sortClassLabelOffset = sumSize;
-    // sortClassLabel : [N, samples] : kINT32
+    // sortClassLabel : [N, samples] : m_Type
     sumSize += AlignMem(dimVolume(sortClassLabelDims) * typeSize(type) * batchSize);
 
     sortClassSampleIdxOffset = sumSize;
@@ -854,7 +854,7 @@ ProposalWorkSpace::ProposalWorkSpace(const int batchSize, const int inputCnt, co
     sumSize += AlignMem(dimVolume(sortClassScoreDims) * typeSize(type) * batchSize);
 
     sortClassLabelOffset = sumSize;
-    // sortClassLabel : [N, samples] : kINT32
+    // sortClassLabel : [N, samples] : m_Type
     sumSize += AlignMem(dimVolume(sortClassLabelDims) * typeSize(type) * batchSize);
 
     sortClassSampleIdxOffset = sumSize;
@@ -898,10 +898,6 @@ MultilevelProposeROIWorkSpace::MultilevelProposeROIWorkSpace(const int batchSize
     tempStorageOffset = sumSize;
     sumSize += (1 << 23) * batchSize;
 
-    // // preRefineScore : [N, inputcnt, 1] // extracted foreground score from inputs[0]
-    // preRefineScoreOffset = sumSize;
-    // sumSize += AlignMem(dimVolume(preRefineScoreDims) * typeSize(type) * batchSize);
-
     // preRefineSortedScore: [N, inputcnt, 1]
     preRefineSortedScoreOffset = sumSize;
     sumSize += AlignMem(dimVolume(preRefineSortedScoreDims) * typeSize(type) * batchSize);
@@ -910,7 +906,7 @@ MultilevelProposeROIWorkSpace::MultilevelProposeROIWorkSpace(const int batchSize
     preRefineBboxOffset = sumSize;
     sumSize += AlignMem(dimVolume(preRefineBboxDims) * typeSize(type) * batchSize);
 
-    // arMaxScore : [N, samples] : m_Type
+    // argMaxScore : [N, samples] : m_Type
     argMaxScoreOffset = sumSize;
     sumSize += AlignMem(dimVolume(argMaxScoreDims) * typeSize(type) * batchSize);
 
@@ -919,7 +915,7 @@ MultilevelProposeROIWorkSpace::MultilevelProposeROIWorkSpace(const int batchSize
     sumSize += AlignMem(dimVolume(argMaxBboxDims) * typeSize(type) * batchSize);
 
     argMaxLabelOffset = sumSize;
-    // argMaxLabel : [N, samples] : kINT32
+    // argMaxLabel : [N, samples] : m_Type
     sumSize += AlignMem(dimVolume(argMaxLabelDims) * typeSize(type) * batchSize);
 
     sortClassScoreOffset = sumSize;
@@ -927,7 +923,7 @@ MultilevelProposeROIWorkSpace::MultilevelProposeROIWorkSpace(const int batchSize
     sumSize += AlignMem(dimVolume(sortClassScoreDims) * typeSize(type) * batchSize);
 
     sortClassLabelOffset = sumSize;
-    // sortClassLabel : [N, samples] : kINT32
+    // sortClassLabel : [N, samples] : m_Type
     sumSize += AlignMem(dimVolume(sortClassLabelDims) * typeSize(type) * batchSize);
 
     sortClassSampleIdxOffset = sumSize;
@@ -964,7 +960,7 @@ ConcatTopKWorkSpace::ConcatTopKWorkSpace(const int batchSize, const int concatCn
     tempStorageOffset = sumSize;
     sumSize += (1 << 23) * batchSize;
 
-    // concatedScoreOffset: [N, concatCnt*topK, 1] // 
+    // concatedScoreOffset: [N, concatCnt*topK, 1] 
     concatedScoreOffset = sumSize;
     sumSize += AlignMem(dimVolume(concatedScoreDims) * typeSize(type) * batchSize);
 
@@ -1549,10 +1545,7 @@ cudaError_t proposalRefineBatchClassNMS(cudaStream_t stream, int N, int inputCnt
 
     int NClass = param.numClasses;
     assert(NClass == 1);
-    if (NClass > 1)
-    { // multiple classes
-    }
-    else
+    if (NClass == 1)
     { // Only one class
         resample_kernel<<<N, dMIN(samples, 1024), 0, stream>>>(
             inputCnt, samples, preRefineSortedScorePtr, preRefineBboxPtr, argMaxScorePtr, argMaxBBoxPtr);
@@ -1567,7 +1560,8 @@ cudaError_t proposalRefineBatchClassNMS(cudaStream_t stream, int N, int inputCnt
             resetMemValue_kernel<float><<<blocks, threads, 0, stream>>>(argMaxLabelPtr, N * samples, 0);
             break;
         }
-        case nvinfer1::DataType::kHALF: { break;
+        case nvinfer1::DataType::kHALF: { 
+            break;
         }
         default: assert(false);
         }
@@ -1596,18 +1590,15 @@ cudaError_t proposalRefineBatchClassNMS(cudaStream_t stream, int N, int inputCnt
         assert(false && "unsupported sortPerClass");
         return cudaErrorLaunchFailure;
     }
-    assert(status == cudaSuccess);
     CUASSERT(status);
 
     status = PerClassNMS<256>(stream, N, dtype, samples, NClass, param.iouThreshold, sortClassValidCountPtr,
         // sortClassScorePtr,
         sortClassLabelPtr, argMaxBBoxPtr, sortClassSampleIdxPtr, sortClassPosPtr, sortNMSMarkPtr);
-    assert(status == cudaSuccess);
     CUASSERT(status);
 
     status = KeepTopKGather<256>(stream, N, dtype, samples, param.keepTopK, sortClassValidCountPtr, sortClassScorePtr,
         sortClassLabelPtr, argMaxBBoxPtr, sortClassSampleIdxPtr, sortNMSMarkPtr, outProposals, 1);
-    assert(status == cudaSuccess);
     CUASSERT(status);
 
     return status;
@@ -1682,10 +1673,7 @@ cudaError_t MultilevelPropose(cudaStream_t stream, int N, int inputCnt, int samp
         offsets, offsets + 1, 0, 8 * sizeof(float), stream);
     CUASSERT(cudaGetLastError());
 
-    if (NClass > 1)
-    { // multiple classes
-    }
-    else
+    if (NClass == 1)
     { // Only one class
         resample_kernel<<<N, dMIN(samples, 1024), 0, stream>>>(
             inputCnt, samples, preRefineSortedScorePtr, preRefineBboxPtr, argMaxScorePtr, argMaxBBoxPtr);
@@ -1704,7 +1692,8 @@ cudaError_t MultilevelPropose(cudaStream_t stream, int N, int inputCnt, int samp
             CUASSERT(cudaGetLastError());
             break;
         }
-        case nvinfer1::DataType::kHALF: { break;
+        case nvinfer1::DataType::kHALF: { 
+            break;
         }
         default: assert(false);
         }
@@ -1761,97 +1750,97 @@ struct DELTA
 };
 
 __global__ void apply_delta_kernelTLT(int samples, const void* anchors, const void* delta, 
-    const float* regWeight, const float inputHeight, const float inputWidth, 
-    void* outputBbox, float bboxClipThresh)
+                const float* regWeight, const float inputHeight, const float inputWidth, 
+                void* outputBbox, float bboxClipThresh)
 {
 
-const BBOX* anchors_in = static_cast<const BBOX*>(anchors);
-const DELTA* delta_in = static_cast<const DELTA*>(delta);
-BBOX* bbox_out = static_cast<BBOX*>(outputBbox);
+    const BBOX* anchors_in = static_cast<const BBOX*>(anchors);
+    const DELTA* delta_in = static_cast<const DELTA*>(delta);
+    BBOX* bbox_out = static_cast<BBOX*>(outputBbox);
 
-int N = blockIdx.x;
-int blockOffset = N * samples;
-int totalItems = (samples + (blockDim.x - 1)) / blockDim.x;
+    int N = blockIdx.x;
+    int blockOffset = N * samples;
+    int totalItems = (samples + (blockDim.x - 1)) / blockDim.x;
 
-for (int i = 0; i < totalItems; i++)
-{
-int cur_id = i * blockDim.x + threadIdx.x;
+    for (int i = 0; i < totalItems; i++)
+    {
+        int cur_id = i * blockDim.x + threadIdx.x;
 
-if (cur_id < samples)
-{
-BBOX cur_anchor_yxyx = anchors_in[blockOffset + cur_id];
-// convert yxyx -> cyxhw
-// cy, cx, h, w
-/*BBOX cur_anchor_cyxhw;*/
+        if (cur_id < samples)
+        {
+          BBOX cur_anchor_yxyx = anchors_in[blockOffset + cur_id];
+          // convert yxyx -> cyxhw
+          // cy, cx, h, w
+          /*BBOX cur_anchor_cyxhw;*/
 
-float cur_anchor_h = (cur_anchor_yxyx.y2 - cur_anchor_yxyx.y1 + 1.0);
-float cur_anchor_w = (cur_anchor_yxyx.x2 - cur_anchor_yxyx.x1 + 1.0); //w
-float cur_anchor_yc = cur_anchor_yxyx.y1 + cur_anchor_h * 0.5; //cy
-float cur_anchor_xc = cur_anchor_yxyx.x1 + cur_anchor_w * 0.5; //cx
+          float cur_anchor_h = (cur_anchor_yxyx.y2 - cur_anchor_yxyx.y1 + 1.0);
+          float cur_anchor_w = (cur_anchor_yxyx.x2 - cur_anchor_yxyx.x1 + 1.0); //w
+          float cur_anchor_yc = cur_anchor_yxyx.y1 + cur_anchor_h * 0.5; //cy
+          float cur_anchor_xc = cur_anchor_yxyx.x1 + cur_anchor_w * 0.5; //cx
 
-DELTA cur_delta = delta_in[blockOffset + cur_id];
+          DELTA cur_delta = delta_in[blockOffset + cur_id];
 
-// divided by regWeight
-cur_delta.dy /= regWeight[0];
-cur_delta.dx /= regWeight[1];
-cur_delta.logdh /= regWeight[2];
-cur_delta.logdw /= regWeight[3];
+          // divided by regWeight
+          cur_delta.dy /= regWeight[0];
+          cur_delta.dx /= regWeight[1];
+          cur_delta.logdh /= regWeight[2];
+          cur_delta.logdw /= regWeight[3];
 
-cur_delta.logdh = dMIN(cur_delta.logdh, bboxClipThresh);
-cur_delta.logdw = dMIN(cur_delta.logdw, bboxClipThresh);
+          cur_delta.logdh = dMIN(cur_delta.logdh, bboxClipThresh);
+          cur_delta.logdw = dMIN(cur_delta.logdw, bboxClipThresh);
 
-// apply delta
-float decoded_box_yc = cur_anchor_yc + cur_delta.dy * cur_anchor_h;
-float decoded_box_xc = cur_anchor_xc + cur_delta.dx * cur_anchor_w; 
-float decoded_box_h = expf(cur_delta.logdh) * cur_anchor_h;
-float decoded_box_w = expf(cur_delta.logdw) * cur_anchor_w;
+          // apply delta
+          float decoded_box_yc = cur_anchor_yc + cur_delta.dy * cur_anchor_h;
+          float decoded_box_xc = cur_anchor_xc + cur_delta.dx * cur_anchor_w; 
+          float decoded_box_h = expf(cur_delta.logdh) * cur_anchor_h;
+          float decoded_box_w = expf(cur_delta.logdw) * cur_anchor_w;
 
-float decoded_box_ymin = decoded_box_yc - 0.5 * decoded_box_h;
-float decoded_box_xmin = decoded_box_xc - 0.5 * decoded_box_w;
-float decoded_box_ymax = decoded_box_ymin + decoded_box_h - 1.0;
-float decoded_box_xmax = decoded_box_xmin + decoded_box_w - 1.0;
+          float decoded_box_ymin = decoded_box_yc - 0.5 * decoded_box_h;
+          float decoded_box_xmin = decoded_box_xc - 0.5 * decoded_box_w;
+          float decoded_box_ymax = decoded_box_ymin + decoded_box_h - 1.0;
+          float decoded_box_xmax = decoded_box_xmin + decoded_box_w - 1.0;
 
-// clip bbox: a more precision clip method based on real window could be implemented
-decoded_box_ymin = dMAX(dMIN(decoded_box_ymin, inputHeight - 1.0), 0.0);
-decoded_box_xmin = dMAX(dMIN(decoded_box_xmin, inputWidth - 1.0), 0.0);
-decoded_box_ymax = dMAX(dMIN(decoded_box_ymax, inputHeight - 1.0), 0.0);
-decoded_box_xmax = dMAX(dMIN(decoded_box_xmax, inputWidth - 1.0), 0.0);
+          // clip bbox: a more precision clip method based on real window could be implemented
+          decoded_box_ymin = dMAX(dMIN(decoded_box_ymin, inputHeight - 1.0), 0.0);
+          decoded_box_xmin = dMAX(dMIN(decoded_box_xmin, inputWidth - 1.0), 0.0);
+          decoded_box_ymax = dMAX(dMIN(decoded_box_ymax, inputHeight - 1.0), 0.0);
+          decoded_box_xmax = dMAX(dMIN(decoded_box_xmax, inputWidth - 1.0), 0.0);
 
-bbox_out[blockOffset + cur_id].y1 = decoded_box_ymin;
-bbox_out[blockOffset + cur_id].x1 = decoded_box_xmin;
-bbox_out[blockOffset + cur_id].y2 = decoded_box_ymax;
-bbox_out[blockOffset + cur_id].x2 = decoded_box_xmax;
-}
-}
+          bbox_out[blockOffset + cur_id].y1 = decoded_box_ymin;
+          bbox_out[blockOffset + cur_id].x1 = decoded_box_xmin;
+          bbox_out[blockOffset + cur_id].y2 = decoded_box_ymax;
+          bbox_out[blockOffset + cur_id].x2 = decoded_box_xmax;
+        }
+    }
 }
 
 cudaError_t ApplyDelta2BboxesTLT(cudaStream_t stream, int N,
-int samples,         // number of anchors per image
-const float* regWeight, 
-const float inputHeight,
-const float inputWidth,
-const void* anchors, // [N, anchors, (y1, x1, y2, x2)]
-const void* delta,   //[N, anchors, (dy, dx, log(dh), log(dw)])
-void* outputBbox     //[N, anchors, (y1, x1, y2, x2)]
-)
+    int samples,         // number of anchors per image
+    const float* regWeight, 
+    const float inputHeight,
+    const float inputWidth,
+    const void* anchors, // [N, anchors, (y1, x1, y2, x2)]
+    const void* delta,   //[N, anchors, (dy, dx, log(dh), log(dw)])
+    void* outputBbox     //[N, anchors, (y1, x1, y2, x2)]
+    )
 {
 
-int blocks = N;
-int threads = dMIN(samples, 1024);
+    int blocks = N;
+    int threads = dMIN(samples, 1024);
 
-// delta multiply bbox_std
-// apply delta steps:
-//  cy = anchor_cy + dy*height
-//  cx = anchor_cx + dx*weight
-//  h = exp(dh)*anchor_h
-//  w = exp(dw)*anchor_w
-// clip the bbox in absolute coordinates
-float bboxClipThresh = log(1000.0f/16.0f);
+    // delta multiply bbox_std
+    // apply delta steps:
+    //  cy = anchor_cy + dy*height
+    //  cx = anchor_cx + dx*weight
+    //  h = exp(dh)*anchor_h
+    //  w = exp(dw)*anchor_w
+    // clip the bbox in absolute coordinates
+    float bboxClipThresh = log(1000.0f/16.0f);
 
-apply_delta_kernelTLT<<<blocks, threads, 0, stream>>>(samples, anchors, 
-delta, regWeight, inputHeight, inputWidth,  outputBbox, bboxClipThresh);
+    apply_delta_kernelTLT<<<blocks, threads, 0, stream>>>(samples, anchors, 
+          delta, regWeight, inputHeight, inputWidth,  outputBbox, bboxClipThresh);
 
-return cudaGetLastError();
+    return cudaGetLastError();
 }
 
 __global__ void apply_delta_kernel(int samples, const void* anchors, const void* delta, void* outputBbox)
@@ -1978,7 +1967,6 @@ __global__ void roiAlign_kernel(int featureCount, int roiCount,
     const int batch = blockIdx.x;
     const int feature = blockIdx.y;
 
-    // int prev_invalid = -1;
     for (int roiIdx = threadIdx.x; roiIdx < roiCount; roiIdx += blockDim.x)
     {
         const Trois* roi = rois + 4 * (batch * roiCount + roiIdx);
@@ -2091,7 +2079,6 @@ __global__ void roiAlignTLT_kernel(int featureCount, int roiCount,
     const int batch = blockIdx.x;
     const int feature = blockIdx.y;
 
-    // int prev_invalid = -1;
     for (int roiIdx = threadIdx.x; roiIdx < roiCount; roiIdx += blockDim.x)
     {
         const Trois* roi = rois + 4 * (batch * roiCount + roiIdx);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -58,9 +58,6 @@ public:
     size_t getSerializationSize() const override;
 
     void serialize(void* buffer) const override;
-
-    // void configureWithFormat(const Dims* inputs, int nbInputs, const Dims* outputDims, int nbOutputs,
-    // nvinfer1::DataType type, nvinfer1::PluginFormat format, int maxBatchSize) override;
 
     bool supportsFormat(DataType type, PluginFormat format) const override;
 
