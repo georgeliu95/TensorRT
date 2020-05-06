@@ -289,9 +289,11 @@ Download the [MNIST dataset](http://yann.lecun.com/exdb/mnist/)
 
 	This output shows that the sample ran successfully; `PASSED`.
 
+
 ### Sample `--help` options
 
 To see the full list of available options and their descriptions, use the `-h` or `--help` command line option.
+
 
 # Additional resources
 

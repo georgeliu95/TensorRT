@@ -214,26 +214,11 @@ The image to be inferred.
 
 	This output shows that the sample ran successfully; `PASSED`.
 
-### Sample --help options
 
-To see the full list of available options and their descriptions, use the `-h` or `--help` command line option. For example:
-```
-    Usage:
-		./sample_int8_api [--model=model_file] [--ranges=per_tensor_dynamic_range_file] [--image=image_file] [--reference=reference_file] [--data=/path/to/data/dir] [--useDLACore=<int>] [-v or --verbose]
+### Sample `--help` options
 
-	Help:
-		./sample_int8_api [-h or --help]
-    		-h or --help. Display This help information
-            --model=model_file.onnx or /absolute/path/to/model_file.onnx. Generate model file using README.md in case it does not exists. Default to resnet50.onnx
-            --image=image.ppm or /absolute/path/to/image.ppm. Image to infer. Defaults to airlines.ppm
-            --reference=reference.txt or /absolute/path/to/reference.txt. Reference labels file. Defaults to reference_labels.txt
-            --ranges=ranges.txt or /absolute/path/to/ranges.txt. Specify custom per tensor dynamic range for the network. Defaults to     resnet50_per_tensor_dynamic_range.txt
-            --write_tensors. Option to generate file containing network tensors name. By default writes to network_tensors.txt file. To provide user defined file     name use         additional option --network_tensors_file. See --network_tensors_file option usage for more detail.
-            --network_tensors_file=network_tensors.txt or /absolute/path/to/network_tensors.txt. This option needs to be used with --write_tensors option. Specify     file name         (will write to current execution directory) or absolute path to file name to write network tensor names file. Dynamic range corresponding to     each network tensor is         required to run the sample. Defaults to network_tensors.txt
-            --data=/path/to/data/dir. Specify data directory to search for above files in case absolute paths to files are not provided. Defaults to data/samples/    int8_api/ or         data/int8_api/
-            --useDLACore=N. Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, where n is the number of DLA engines on the platform.
-            --verbose. Outputs per tensor dynamic range and layer precision info for the network
-```
+To see the full list of available options and their descriptions, use the `-h` or `--help` command line option.
+
 
 # Models other than ResNet-50 with custom configuration
 

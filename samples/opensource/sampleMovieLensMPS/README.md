@@ -134,20 +134,11 @@ This sample comes with a pre-trained model. However, if you want to train your o
 6. To restore the system to its original state, shutdown MPS, if needed.
 	`echo quit | nvidia-cuda-mps-control`
 
-### Sample --help options
 
-To see the full list of available options and their descriptions, use the `-h` or `--help` command line option. For example:
-```
-Usage:
-         ./sample_movielens_mps [-h] [-b NUM_USERS] [-p NUM_PROCESSES] [--useDLACore=<int>] [--verbose]
-        -h             Display help information. All single dash options enable perf mode.
-        -b             Number of Users i.e. Batch Size (default numUsers=32).
-        -p             Number of child processes to launch (default nbProcesses=1. Using MPS with this option is strongly recommended).
-        --useDLACore=N Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, where n is the number of DLA engines on the platform.
-        --verbose      Enable verbose prints.
-        --int8         Run in Int8 mode.
-        --fp16         Run in FP16 mode.
-```
+### Sample `--help` options
+
+To see the full list of available options and their descriptions, use the `-h` or `--help` command line option.
+
 
 # Additional resources
 

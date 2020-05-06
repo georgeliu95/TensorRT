@@ -77,15 +77,11 @@ The SoftMax layer applies the SoftMax function on the input tensor along an inpu
 	```
 	This output shows that the input to the sample is called `data`, the output tensor is called `prob` and the sample ran successfully; `PASSED`.
 
-### Sample --help options
 
-To see the full list of available options and their descriptions, use the `-h` or `--help` command line option. The following example output is printed when running the sample:
-```
-Usage: ./sample_googlenet [-h or --help] [-d or --datadir=<path_to_data_directory>] [--useDLACore=<int>]
---help Display help information
---datadir Specify path to a data directory, overriding the default. This option can be used multiple times to add multiple directories. If no data directories are given, the default is to use data/samples/googlenet/ and data/googlenet/
---useDLACore=N Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, where n is the number of DLA engines on the platform.
-```
+### Sample `--help` options
+
+To see the full list of available options and their descriptions, use the `-h` or `--help` command line option.
+
 
 # Additional resources
 

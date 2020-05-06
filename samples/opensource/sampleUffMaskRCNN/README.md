@@ -144,15 +144,11 @@ The Pooling layer implements pooling within a channel. Supported pooling types a
     ```
     This output shows that the sample ran successfully; `PASSED`.
 
+
 ### Sample `--help` options
 
 To see the full list of available options and their descriptions, use the `-h` or `--help` command line option.
-```
-Usage: ./sample_maskRCNN [-h or --help] [-d or --datadir=<path to data directory>]
---help Display help information
---datadir Specify path to a data directory, overriding the default. This option can be used multiple times to add multiple directories. If no data directories are given, the default is to use data/samples/maskrcnn/ and data/maskrcnn/
---fp16 Specify to run in fp16 mode.
-```
+
 
 ## Additional resources
 
