@@ -342,7 +342,7 @@ samplesCommon::OnnxSampleParams initializeSampleParams(const samplesCommon::Args
 void printHelpInfo()
 {
     std::cout
-        << "Usage: ./sample_onnx_mnist [-h or --help] [-d or --datadir=<path to data directory>] [--useDLACore=<int>]"
+        << "Usage: ./sample_onnx_mnist_coord_conv_ac [-h or --help] [-d or --datadir=<path to data directory>] [--useDLACore=<int>]"
         << std::endl;
     std::cout << "--help          Display help information" << std::endl;
     std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used "
