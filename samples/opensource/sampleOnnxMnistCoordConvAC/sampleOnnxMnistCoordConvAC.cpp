@@ -325,7 +325,7 @@ samplesCommon::OnnxSampleParams initializeSampleParams(const samplesCommon::Args
     {
         params.dataDirs = args.dataDirs;
     }
-    params.onnxFileName = "mnist_cc_changed.onnx";
+    params.onnxFileName = "mnist_with_coordconv.onnx";
     params.inputTensorNames.push_back("conv1");
     params.batchSize = 1;
     params.outputTensorNames.push_back("fc2");
