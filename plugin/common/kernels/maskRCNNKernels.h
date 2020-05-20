@@ -209,7 +209,7 @@ cudaError_t RefineBatchClassNMS(cudaStream_t stream, int N, int samples, nvinfer
     const RefineNMSParameters& param, const RefineDetectionWorkSpace& refineOffset, void* workspace,
     const void* inScores, const void* inDelta, const void* inCountValid, const void* inROI, void* outDetections);
 
-cudaError_t RefineBatchClassNMSTLT(cudaStream_t stream, int N, int samples, const float* regWeight, 
+cudaError_t DetectionPostProcess(cudaStream_t stream, int N, int samples, const float* regWeight, 
     const float inputHeight, const float inputWidth, nvinfer1::DataType dtype,
     const RefineNMSParameters& param, const RefineDetectionWorkSpace& refineOffset, void* workspace,
     const void* inScores, const void* inDelta, const void* inCountValid, const void* inROI, void* outDetections);
@@ -250,7 +250,7 @@ cudaError_t ConcatTopK(cudaStream_t stream,
     void** inBBox,
     void* outProposals); 
 
-cudaError_t ApplyDelta2BboxesTLT(cudaStream_t stream, int N,
+cudaError_t DecodeBBoxes(cudaStream_t stream, int N,
     int samples,         // number of anchors per image
     const float* regWeight, 
     const float inputHeight,
@@ -288,7 +288,7 @@ cudaError_t roiAlign(cudaStream_t stream, int batchSize, int featureCount, int r
 
     void* pooled, const xy_t poolDims);
 
-cudaError_t roiAlignTLT(cudaStream_t stream, int batchSize, int featureCount, int roiCount, float firstThreshold,
+cudaError_t roiAlignHalfCenter(cudaStream_t stream, int batchSize, int featureCount, int roiCount, float firstThreshold,
 
     int inputHeight, int inputWidth, const void* rois, const void* const layers[], const xy_t* layerDims,
 

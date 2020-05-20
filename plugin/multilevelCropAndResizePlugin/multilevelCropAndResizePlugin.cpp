@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "pyramidROIAlignTLTPlugin.h"
+#include "multilevelCropAndResizePlugin.h"
 #include "plugin.h"
 #include <cuda_runtime_api.h>
 
@@ -21,19 +21,19 @@
 
 using namespace nvinfer1;
 using namespace plugin;
-using nvinfer1::plugin::PyramidROIAlignTLT;
-using nvinfer1::plugin::PyramidROIAlignTLTPluginCreator;
+using nvinfer1::plugin::MultilevelCropAndResize;
+using nvinfer1::plugin::MultilevelCropAndResizePluginCreator;
 
 namespace
 {
-const char* PYRAMIDROIALIGNTLT_PLUGIN_VERSION{"1"};
-const char* PYRAMIDROIALIGNTLT_PLUGIN_NAME{"PyramidROIAlignTLT_TRT"};
+const char* MULTILEVELCROPANDRESIZE_PLUGIN_VERSION{"1"};
+const char* MULTILEVELCROPANDRESIZE_PLUGIN_NAME{"MultilevelCropAndResize_TRT"};
 } // namespace
 
-PluginFieldCollection PyramidROIAlignTLTPluginCreator::mFC{};
-std::vector<PluginField> PyramidROIAlignTLTPluginCreator::mPluginAttributes;
+PluginFieldCollection MultilevelCropAndResizePluginCreator::mFC{};
+std::vector<PluginField> MultilevelCropAndResizePluginCreator::mPluginAttributes;
 
-PyramidROIAlignTLTPluginCreator::PyramidROIAlignTLTPluginCreator()
+MultilevelCropAndResizePluginCreator::MultilevelCropAndResizePluginCreator()
 {
     mPluginAttributes.emplace_back(PluginField("pooled_size", nullptr, PluginFieldType::kINT32, 1));
 
@@ -41,22 +41,22 @@ PyramidROIAlignTLTPluginCreator::PyramidROIAlignTLTPluginCreator()
     mFC.fields = mPluginAttributes.data();
 }
 
-const char* PyramidROIAlignTLTPluginCreator::getPluginName() const
+const char* MultilevelCropAndResizePluginCreator::getPluginName() const
 {
-    return PYRAMIDROIALIGNTLT_PLUGIN_NAME;
+    return MULTILEVELCROPANDRESIZE_PLUGIN_NAME;
 };
 
-const char* PyramidROIAlignTLTPluginCreator::getPluginVersion() const
+const char* MultilevelCropAndResizePluginCreator::getPluginVersion() const
 {
-    return PYRAMIDROIALIGNTLT_PLUGIN_VERSION;
+    return MULTILEVELCROPANDRESIZE_PLUGIN_VERSION;
 };
 
-const PluginFieldCollection* PyramidROIAlignTLTPluginCreator::getFieldNames()
+const PluginFieldCollection* MultilevelCropAndResizePluginCreator::getFieldNames()
 {
     return &mFC;
 };
 
-IPluginV2Ext* PyramidROIAlignTLTPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
+IPluginV2Ext* MultilevelCropAndResizePluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
 {
     const PluginField* fields = fc->fields;
     for (int i = 0; i < fc->nbFields; ++i)
@@ -68,15 +68,15 @@ IPluginV2Ext* PyramidROIAlignTLTPluginCreator::createPlugin(const char* name, co
             mPooledSize = *(static_cast<const int*>(fields[i].data));
         }
     }
-    return new PyramidROIAlignTLT(mPooledSize);
+    return new MultilevelCropAndResize(mPooledSize);
 };
 
-IPluginV2Ext* PyramidROIAlignTLTPluginCreator::deserializePlugin(const char* name, const void* data, size_t length)
+IPluginV2Ext* MultilevelCropAndResizePluginCreator::deserializePlugin(const char* name, const void* data, size_t length)
 {
-    return new PyramidROIAlignTLT(data, length);
+    return new MultilevelCropAndResize(data, length);
 };
 
-PyramidROIAlignTLT::PyramidROIAlignTLT(int pooled_size)
+MultilevelCropAndResize::MultilevelCropAndResize(int pooled_size)
     : mPooledSize({pooled_size, pooled_size})
 {
 
@@ -88,61 +88,61 @@ PyramidROIAlignTLT::PyramidROIAlignTLT(int pooled_size)
     mThresh = (224*224) / (4.0f);
 };
 
-int PyramidROIAlignTLT::getNbOutputs() const
+int MultilevelCropAndResize::getNbOutputs() const
 {
     return 1;
 };
 
-int PyramidROIAlignTLT::initialize()
+int MultilevelCropAndResize::initialize()
 {
     return 0;
 };
 
-void PyramidROIAlignTLT::terminate(){
+void MultilevelCropAndResize::terminate(){
 
 };
 
-void PyramidROIAlignTLT::destroy()
+void MultilevelCropAndResize::destroy()
 {
     delete this;
 };
 
-size_t PyramidROIAlignTLT::getWorkspaceSize(int) const
+size_t MultilevelCropAndResize::getWorkspaceSize(int) const
 {
     return 0;
 }
 
-bool PyramidROIAlignTLT::supportsFormat(DataType type, PluginFormat format) const
+bool MultilevelCropAndResize::supportsFormat(DataType type, PluginFormat format) const
 {
     return (type == DataType::kFLOAT && format == PluginFormat::kNCHW);
 };
 
-const char* PyramidROIAlignTLT::getPluginType() const
+const char* MultilevelCropAndResize::getPluginType() const
 {
-    return "PyramidROIAlignTLT_TRT";
+    return "MultilevelCropAndResize_TRT";
 };
 
-const char* PyramidROIAlignTLT::getPluginVersion() const
+const char* MultilevelCropAndResize::getPluginVersion() const
 {
     return "1";
 };
 
-IPluginV2Ext* PyramidROIAlignTLT::clone() const
+IPluginV2Ext* MultilevelCropAndResize::clone() const
 {
-    return new PyramidROIAlignTLT(*this);
+    return new MultilevelCropAndResize(*this);
 };
 
-void PyramidROIAlignTLT::setPluginNamespace(const char* libNamespace)
+void MultilevelCropAndResize::setPluginNamespace(const char* libNamespace)
 {
     mNameSpace = libNamespace;
 };
 
-const char* PyramidROIAlignTLT::getPluginNamespace() const
+const char* MultilevelCropAndResize::getPluginNamespace() const
 {
     return mNameSpace.c_str();
 }
 
-void PyramidROIAlignTLT::check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims)
+void MultilevelCropAndResize::check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims)
 {
     // to be compatible with tensorflow node's input:
     // roi: [N, anchors, 4],
@@ -162,7 +162,7 @@ void PyramidROIAlignTLT::check_valid_inputs(const nvinfer1::Dims* inputs, int nb
     }
 }
 
-Dims PyramidROIAlignTLT::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
+Dims MultilevelCropAndResize::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
 {
 
     check_valid_inputs(inputs, nbInputDims);
@@ -183,13 +183,13 @@ Dims PyramidROIAlignTLT::getOutputDimensions(int index, const Dims* inputs, int 
     return result;
 };
 
-int PyramidROIAlignTLT::enqueue(
+int MultilevelCropAndResize::enqueue(
     int batch_size, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream)
 {
 
     void* pooled = outputs[0];
     
-    cudaError_t status = roiAlignTLT(stream, batch_size, mFeatureLength, mROICount, mThresh,
+    cudaError_t status = roiAlignHalfCenter(stream, batch_size, mFeatureLength, mROICount, mThresh,
 
         mInputHeight, mInputWidth, inputs[0], &inputs[1], mFeatureSpatialSize,
 
@@ -199,12 +199,12 @@ int PyramidROIAlignTLT::enqueue(
     return 0;
 };
 
-size_t PyramidROIAlignTLT::getSerializationSize() const
+size_t MultilevelCropAndResize::getSerializationSize() const
 {
     return sizeof(int) * 2 + sizeof(int) * 4 + sizeof(float) + sizeof(int) * 2 * mFeatureMapCount;
 };
 
-void PyramidROIAlignTLT::serialize(void* buffer) const
+void MultilevelCropAndResize::serialize(void* buffer) const
 {
     char *d = reinterpret_cast<char*>(buffer), *a = d;
     write(d, mPooledSize.y);
@@ -222,7 +222,7 @@ void PyramidROIAlignTLT::serialize(void* buffer) const
     assert(d == a + getSerializationSize());
 };
 
-PyramidROIAlignTLT::PyramidROIAlignTLT(const void* data, size_t length)
+MultilevelCropAndResize::MultilevelCropAndResize(const void* data, size_t length)
 {
     const char *d = reinterpret_cast<const char*>(data), *a = d;
     mPooledSize = {read<int>(d), read<int>(d)};
@@ -241,26 +241,26 @@ PyramidROIAlignTLT::PyramidROIAlignTLT(const void* data, size_t length)
 };
 
 // Return the DataType of the plugin output at the requested index
-DataType PyramidROIAlignTLT::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const
+DataType MultilevelCropAndResize::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const
 {
     // Only DataType::kFLOAT is acceptable by the plugin layer
     return DataType::kFLOAT;
 }
 
 // Return true if output tensor is broadcast across a batch.
-bool PyramidROIAlignTLT::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const
+bool MultilevelCropAndResize::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const
 {
     return false;
 }
 
 // Return true if plugin can use input that is broadcast across batch without replication.
-bool PyramidROIAlignTLT::canBroadcastInputAcrossBatch(int inputIndex) const
+bool MultilevelCropAndResize::canBroadcastInputAcrossBatch(int inputIndex) const
 {
     return false;
 }
 
 // Configure the layer with input and output data types.
-void PyramidROIAlignTLT::configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
+void MultilevelCropAndResize::configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
     const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
     const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize)
 {
@@ -280,10 +280,10 @@ void PyramidROIAlignTLT::configurePlugin(const Dims* inputDims, int nbInputs, co
 }
 
 // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
-void PyramidROIAlignTLT::attachToContext(
+void MultilevelCropAndResize::attachToContext(
     cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
 {
 }
 
 // Detach the plugin object from its execution context.
-void PyramidROIAlignTLT::detachFromContext() {}
+void MultilevelCropAndResize::detachFromContext() {}

@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef TRT_PYRAMID_ROIALIGN_TLT_PLUGIN_H
-#define TRT_PYRAMID_ROIALIGN_TLT_PLUGIN_H
-
+#ifndef TRT_GENERATE_DETECTION_PLUGIN_H
+#define TRT_GENERATE_DETECTION_PLUGIN_H
 #include <cassert>
 #include <cuda_runtime_api.h>
+#include <memory>
 #include <string.h>
 #include <string>
 #include <vector>
@@ -32,14 +32,14 @@ namespace nvinfer1
 namespace plugin
 {
 
-class PyramidROIAlignTLT : public IPluginV2Ext
+class GenerateDetection : public IPluginV2Ext
 {
 public:
-    PyramidROIAlignTLT(int pooled_size);
+    GenerateDetection(int num_classes, int keep_topk, float score_threshold, float iou_threshold);
 
-    PyramidROIAlignTLT(const void* data, size_t length);
+    GenerateDetection(const void* data, size_t length);
 
-    ~PyramidROIAlignTLT() override = default;
+    ~GenerateDetection() override = default;
 
     int getNbOutputs() const override;
 
@@ -51,7 +51,7 @@ public:
 
     void destroy() override;
 
-    size_t getWorkspaceSize(int) const override;
+    size_t getWorkspaceSize(int maxBatchSize) const override;
 
     int enqueue(
         int batch_size, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream) override;
@@ -90,23 +90,28 @@ public:
 private:
     void check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims);
 
-    xy_t mPooledSize;
-    static const int mFeatureMapCount = 5; //p2, p3, p4, p5, p6(Maxpooling)
-    int mFeatureLength;
-    int mROICount;
-    float mThresh;
-    int mInputHeight;
-    int mInputWidth;
-    xy_t mFeatureSpatialSize[mFeatureMapCount];
+    int mBackgroundLabel;
+    int mNbClasses;
+    int mKeepTopK;
+    float mScoreThreshold;
+    float mIOUThreshold;
+
+    int mMaxBatchSize;
+    int mAnchorsCnt;
+    std::shared_ptr<CudaBind<int>> mValidCnt; // valid cnt = number of input rois for every image.
+    nvinfer1::DataType mType;
+    RefineNMSParameters mParam;
+    std::shared_ptr<CudaBind<float>> mRegWeightDevice;
+
     std::string mNameSpace;
 };
 
-class PyramidROIAlignTLTPluginCreator : public BaseCreator
+class GenerateDetectionPluginCreator : public BaseCreator
 {
 public:
-    PyramidROIAlignTLTPluginCreator();
+    GenerateDetectionPluginCreator();
 
-    ~PyramidROIAlignTLTPluginCreator(){};
+    ~GenerateDetectionPluginCreator(){};
 
     const char* getPluginName() const override;
 
@@ -120,9 +125,12 @@ public:
 
 private:
     static PluginFieldCollection mFC;
-    int mPooledSize;
+    int mNbClasses;
+    int mKeepTopK;
+    float mScoreThreshold;
+    float mIOUThreshold;
     static std::vector<PluginField> mPluginAttributes;
 };
 } // namespace plugin
 } // namespace nvinfer1
-#endif // TRT_PYRAMID_ROIALIGN_TLT_PLUGIN_H
+#endif // TRT_GENERATE_DETECTION_PLUGIN_H

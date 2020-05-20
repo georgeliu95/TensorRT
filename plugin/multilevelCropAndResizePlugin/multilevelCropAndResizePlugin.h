@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef TRT_DETECTION_LAYER_TLT_PLUGIN_H
-#define TRT_DETECTION_LAYER_TLT_PLUGIN_H
+#ifndef TRT_MULTILEVEL_CROP_AND_RESIZE_PLUGIN_H
+#define TRT_MULTILEVEL_CROP_AND_RESIZE_PLUGIN_H
+
 #include <cassert>
 #include <cuda_runtime_api.h>
-#include <memory>
 #include <string.h>
 #include <string>
 #include <vector>
@@ -32,14 +32,14 @@ namespace nvinfer1
 namespace plugin
 {
 
-class DetectionLayerTLT : public IPluginV2Ext
+class MultilevelCropAndResize : public IPluginV2Ext
 {
 public:
-    DetectionLayerTLT(int num_classes, int keep_topk, float score_threshold, float iou_threshold);
+    MultilevelCropAndResize(int pooled_size);
 
-    DetectionLayerTLT(const void* data, size_t length);
+    MultilevelCropAndResize(const void* data, size_t length);
 
-    ~DetectionLayerTLT() override = default;
+    ~MultilevelCropAndResize() override = default;
 
     int getNbOutputs() const override;
 
@@ -51,7 +51,7 @@ public:
 
     void destroy() override;
 
-    size_t getWorkspaceSize(int maxBatchSize) const override;
+    size_t getWorkspaceSize(int) const override;
 
     int enqueue(
         int batch_size, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream) override;
@@ -90,28 +90,23 @@ public:
 private:
     void check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims);
 
-    int mBackgroundLabel;
-    int mNbClasses;
-    int mKeepTopK;
-    float mScoreThreshold;
-    float mIOUThreshold;
-
-    int mMaxBatchSize;
-    int mAnchorsCnt;
-    std::shared_ptr<CudaBind<int>> mValidCnt; // valid cnt = number of input rois for every image.
-    nvinfer1::DataType mType;
-    RefineNMSParameters mParam;
-    std::shared_ptr<CudaBind<float>> mRegWeightDevice;
-
+    xy_t mPooledSize;
+    static const int mFeatureMapCount = 5; //p2, p3, p4, p5, p6(Maxpooling)
+    int mFeatureLength;
+    int mROICount;
+    float mThresh;
+    int mInputHeight;
+    int mInputWidth;
+    xy_t mFeatureSpatialSize[mFeatureMapCount];
     std::string mNameSpace;
 };
 
-class DetectionLayerTLTPluginCreator : public BaseCreator
+class MultilevelCropAndResizePluginCreator : public BaseCreator
 {
 public:
-    DetectionLayerTLTPluginCreator();
+    MultilevelCropAndResizePluginCreator();
 
-    ~DetectionLayerTLTPluginCreator(){};
+    ~MultilevelCropAndResizePluginCreator(){};
 
     const char* getPluginName() const override;
 
@@ -125,12 +120,9 @@ public:
 
 private:
     static PluginFieldCollection mFC;
-    int mNbClasses;
-    int mKeepTopK;
-    float mScoreThreshold;
-    float mIOUThreshold;
+    int mPooledSize;
     static std::vector<PluginField> mPluginAttributes;
 };
 } // namespace plugin
 } // namespace nvinfer1
-#endif // TRT_DETECTION_LAYER_TLT_PLUGIN_H
+#endif // TRT_MULTILEVEL_CROP_AND_RESIZE_PLUGIN_H

@@ -471,7 +471,7 @@ __global__ void PerClassNMS_kernel(
                     if (curIdx > refIdx && curIdx < endIdx)
                     {
                         BBox refBox = smemClasses.refBox[label[ite]];
-                        if (boxIoU(refBox, curBox[ite]) >= (DType) nmsThreshold)
+                        if (boxIoU(refBox, curBox[ite]) > (DType) nmsThreshold)
                         {
                             smemClasses.markSamples[curIdx] = false;
                         }
@@ -754,7 +754,7 @@ RefineDetectionWorkSpace::RefineDetectionWorkSpace(
     , argMaxLabelDims(sampleCount, 1)
     , sortClassScoreDims(sampleCount, 1)
     , sortClassLabelDims(sampleCount, 1)
-    , sortClassSampleIdxDims(sampleCount, 1)
+    , sortClassSampleIdxDims(sampleCount + 1, 1)
     , sortClassPosDims(param.numClasses + 1, 1)
     , sortNMSMarkDims(sampleCount, 1)
 {
@@ -1000,7 +1000,7 @@ cudaError_t argMaxGroup(cudaStream_t stream, int N, nvinfer1::DataType dtype, in
 }
 
 template <int Threads>
-cudaError_t argMaxGroupTLT(cudaStream_t stream, int N, nvinfer1::DataType dtype, int samples, int NClass,
+cudaError_t argMaxWOBackground(cudaStream_t stream, int N, nvinfer1::DataType dtype, int samples, int NClass,
     const void* inScore, const void* inBbox, const void* validSamples, void* outScore, void* outLabel, void* outBbox)
 {
     int maxGridX = dMIN(samples, 512 / N);
@@ -1102,7 +1102,7 @@ cudaError_t KeepTopKGather(cudaStream_t stream, int N, nvinfer1::DataType dtype,
 // outDetectionCount : int [N], must be set 0 before kernel
 #define MaxItemsPerThreads 8
 template <typename DType, typename BoxType, int Threads = 256>
-__global__ void TopKGatherProposalTLT_kernel(int samples, int keepTopK, const void* validSampleCountPtr,
+__global__ void TopKGatherBoxScore_kernel(int samples, int keepTopK, const void* validSampleCountPtr,
     const void* inScorePtr, const void* inLabelPtr, const void* inBboxPtr, const void* inBboxRefIdxPtr,
     const void* inFlagSamplesPtr, void* outScorePtr, void* outBboxPtr)
 {
@@ -1213,7 +1213,7 @@ __global__ void TopKGatherProposalTLT_kernel(int samples, int keepTopK, const vo
 }
 
 template <int Threads>
-cudaError_t KeepTopKGatherTLT(cudaStream_t stream, int N, nvinfer1::DataType dtype, int samples, int keepTopK,
+cudaError_t KeepTopKGatherBoxScore(cudaStream_t stream, int N, nvinfer1::DataType dtype, int samples, int keepTopK,
     const void* validSampleCountPtr, const void* inScorePtr, const void* inLabelPtr, const void* inBboxPtr,
     const void* inBboxRefIdxPtr, const void* inFlagSamplesPtr, void* outScores, void* outDetections, int proposal)
 {
@@ -1225,7 +1225,7 @@ cudaError_t KeepTopKGatherTLT(cudaStream_t stream, int N, nvinfer1::DataType dty
     case nvinfer1::DataType::kFLOAT:
         if (proposal)
         {
-            TopKGatherProposalTLT_kernel<float, float, Threads><<<blocks, threads, 0, stream>>>(samples, keepTopK,
+            TopKGatherBoxScore_kernel<float, float, Threads><<<blocks, threads, 0, stream>>>(samples, keepTopK,
                 validSampleCountPtr, inScorePtr, inLabelPtr, inBboxPtr, inBboxRefIdxPtr, inFlagSamplesPtr,
                 outScores, outDetections);
         }
@@ -1332,7 +1332,7 @@ cudaError_t RefineBatchClassNMS(cudaStream_t stream, int N, int samples, nvinfer
     return status;
 }
 
-cudaError_t RefineBatchClassNMSTLT(cudaStream_t stream, int N, int samples, const float* regWeight, 
+cudaError_t DetectionPostProcess(cudaStream_t stream, int N, int samples, const float* regWeight, 
     const float inputHeight, const float inputWidth, nvinfer1::DataType dtype,
     const RefineNMSParameters& param, const RefineDetectionWorkSpace& refineOffset, void* workspace,
     const void* inScores, const void* inDelta, const void* inCountValid, const void* inROI, void* outDetections)
@@ -1359,7 +1359,7 @@ cudaError_t RefineBatchClassNMSTLT(cudaStream_t stream, int N, int samples, cons
 
     if (NClass > 1)
     { // multiple classes
-        status = argMaxGroupTLT<32>(stream, N, dtype, samples, NClass, inScores, inDelta, inCountValid, argMaxScorePtr,
+        status = argMaxWOBackground<32>(stream, N, dtype, samples, NClass, inScores, inDelta, inCountValid, argMaxScorePtr,
             argMaxLabelPtr, argMaxBBoxPtr); // argMaxBBoxPtr means delta of bboxes
         assert(status == cudaSuccess);
         CUASSERT(status);
@@ -1384,7 +1384,7 @@ cudaError_t RefineBatchClassNMSTLT(cudaStream_t stream, int N, int samples, cons
         }
     }
 
-    status = ApplyDelta2BboxesTLT(stream, N, samples, regWeight, inputHeight, inputWidth, 
+    status = DecodeBBoxes(stream, N, samples, regWeight, inputHeight, inputWidth, 
         inROI, argMaxBBoxPtr, argMaxBBoxPtr);
     assert(status == cudaSuccess);
     
@@ -1470,12 +1470,13 @@ __global__ void resample_kernel(int orig_size, int sample_size, const void* orig
     int N = blockIdx.x;
     int blockOffset_in = N * orig_size;
     int blockOffset_out = N * sample_size;
-    int totalItems = (sample_size + (blockDim.x - 1)) / blockDim.x;
+    int realSampleCnt = dMIN(sample_size, orig_size);
+    int totalItems = (realSampleCnt + (blockDim.x - 1)) / blockDim.x;
 
     for (int i = 0; i < totalItems; i++)
     {
         int cur_id = i * blockDim.x + threadIdx.x;
-        if (cur_id < sample_size)
+        if (cur_id < realSampleCnt)
         {
             out_score[blockOffset_out + cur_id] = in_score[blockOffset_in + cur_id];
             out_bbox[blockOffset_out + cur_id] = in_bbox[blockOffset_in + cur_id];
@@ -1642,7 +1643,7 @@ cudaError_t MultilevelPropose(cudaStream_t stream, int N, int inputCnt, int samp
     CUASSERT(cudaGetLastError());
 
     // Here, inDelta are converted to normalize coordinates based on anchors
-    status = ApplyDelta2BboxesTLT(stream, N, inputCnt, regWeight, inputHeight, inputWidth, 
+    status = DecodeBBoxes(stream, N, inputCnt, regWeight, inputHeight, inputWidth, 
                                   inAnchors, inDelta, const_cast<void*>(inDelta));
     CUASSERT(cudaGetLastError());
 
@@ -1731,7 +1732,7 @@ cudaError_t MultilevelPropose(cudaStream_t stream, int N, int inputCnt, int samp
 
     CUASSERT(cudaGetLastError());
 
-    status = KeepTopKGatherTLT<1024>(stream, N, dtype, samples, param.keepTopK, sortClassValidCountPtr, sortClassScorePtr,
+    status = KeepTopKGatherBoxScore<1024>(stream, N, dtype, samples, param.keepTopK, sortClassValidCountPtr, sortClassScorePtr,
         sortClassLabelPtr, argMaxBBoxPtr, sortClassSampleIdxPtr, sortNMSMarkPtr, outScore, outBbox, 1);
 
     CUASSERT(cudaGetLastError());
@@ -1749,7 +1750,7 @@ struct DELTA
     float dy, dx, logdh, logdw;
 };
 
-__global__ void apply_delta_kernelTLT(int samples, const void* anchors, const void* delta, 
+__global__ void decode_bboxes_kernel(int samples, const void* anchors, const void* delta, 
                 const float* regWeight, const float inputHeight, const float inputWidth, 
                 void* outputBbox, float bboxClipThresh)
 {
@@ -1814,7 +1815,7 @@ __global__ void apply_delta_kernelTLT(int samples, const void* anchors, const vo
     }
 }
 
-cudaError_t ApplyDelta2BboxesTLT(cudaStream_t stream, int N,
+cudaError_t DecodeBBoxes(cudaStream_t stream, int N,
     int samples,         // number of anchors per image
     const float* regWeight, 
     const float inputHeight,
@@ -1837,7 +1838,7 @@ cudaError_t ApplyDelta2BboxesTLT(cudaStream_t stream, int N,
     // clip the bbox in absolute coordinates
     float bboxClipThresh = log(1000.0f/16.0f);
 
-    apply_delta_kernelTLT<<<blocks, threads, 0, stream>>>(samples, anchors, 
+    decode_bboxes_kernel<<<blocks, threads, 0, stream>>>(samples, anchors, 
           delta, regWeight, inputHeight, inputWidth,  outputBbox, bboxClipThresh);
 
     return cudaGetLastError();
@@ -2067,7 +2068,7 @@ cudaError_t roiAlign(cudaStream_t stream, int batchSize, int featureCount, int r
 
 
 template <typename Trois, typename Tfeat>
-__global__ void roiAlignTLT_kernel(int featureCount, int roiCount,
+__global__ void roiAlignHalfCenter_kernel(int featureCount, int roiCount,
 
     float threshold, int inputHeight, int inputWidth, const Trois* rois,
 
@@ -2173,7 +2174,7 @@ __global__ void roiAlignTLT_kernel(int featureCount, int roiCount,
     }
 }
 
-cudaError_t roiAlignTLT(cudaStream_t stream, int batchSize, int featureCount, int roiCount, float firstThreshold,
+cudaError_t roiAlignHalfCenter(cudaStream_t stream, int batchSize, int featureCount, int roiCount, float firstThreshold,
 
     int inputHeight, int inputWidth, const void* rois, const void* const layers[], const xy_t* layerDims,
 
@@ -2182,7 +2183,7 @@ cudaError_t roiAlignTLT(cudaStream_t stream, int batchSize, int featureCount, in
     const dim3 blocks(batchSize, featureCount);
     const int threads(256);
 
-    roiAlignTLT_kernel<<<blocks, threads, 0, stream>>>(featureCount, roiCount, firstThreshold, inputHeight, inputWidth,
+    roiAlignHalfCenter_kernel<<<blocks, threads, 0, stream>>>(featureCount, roiCount, firstThreshold, inputHeight, inputWidth,
         static_cast<const float*>(rois),
         static_cast<const float*>(layers[0]), layerDims[0], static_cast<const float*>(layers[1]), layerDims[1],
         static_cast<const float*>(layers[2]), layerDims[2], static_cast<const float*>(layers[3]), layerDims[3],
@@ -2289,7 +2290,7 @@ __global__ void concatenate(int featureCnt, int sampleCnt, const void* const* in
     }
 }
 
-__global__ void resampleTLT_kernel(int orig_size, int sample_size, const void* orig_bbox_ptr, void* sampled_bbox_ptr)
+__global__ void resampleBBox_kernel(int orig_size, int sample_size, const void* orig_bbox_ptr, void* sampled_bbox_ptr)
 {
     const BBoxT<float>* in_bbox = static_cast<const BBoxT<float>*>(orig_bbox_ptr);
     BBoxT<float>* out_bbox = static_cast<BBoxT<float>*>(sampled_bbox_ptr);
@@ -2366,7 +2367,7 @@ cudaError_t ConcatTopK(cudaStream_t stream,
     assert(cudaGetLastError() == cudaSuccess);
 
     //Sample
-    resampleTLT_kernel<<<N, dMIN(topK, 1024), 0, stream>>>(itemCnt, topK, sortedBBoxPtr, outProposals);   
+    resampleBBox_kernel<<<N, dMIN(topK, 1024), 0, stream>>>(itemCnt, topK, sortedBBoxPtr, outProposals);   
     
     assert(cudaGetLastError() == cudaSuccess);
     return cudaGetLastError();

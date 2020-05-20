@@ -13,27 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "detectionLayerTLTPlugin.h"
+#include "generateDetectionPlugin.h"
 #include "plugin.h"
 #include <cuda_runtime_api.h>
 
 using namespace nvinfer1;
 using namespace plugin;
-using nvinfer1::plugin::DetectionLayerTLT;
-using nvinfer1::plugin::DetectionLayerTLTPluginCreator;
+using nvinfer1::plugin::GenerateDetection;
+using nvinfer1::plugin::GenerateDetectionPluginCreator;
 
 #include <fstream>
 
 namespace
 {
-const char* DETECTIONLAYERTLT_PLUGIN_VERSION{"1"};
-const char* DETECTIONLAYERTLT_PLUGIN_NAME{"DetectionLayerTLT_TRT"};
+const char* GENERATEDETECTION_PLUGIN_VERSION{"1"};
+const char* GENERATEDETECTION_PLUGIN_NAME{"GenerateDetection_TRT"};
 } // namespace
 
-PluginFieldCollection DetectionLayerTLTPluginCreator::mFC{};
-std::vector<PluginField> DetectionLayerTLTPluginCreator::mPluginAttributes;
+PluginFieldCollection GenerateDetectionPluginCreator::mFC{};
+std::vector<PluginField> GenerateDetectionPluginCreator::mPluginAttributes;
 
-DetectionLayerTLTPluginCreator::DetectionLayerTLTPluginCreator()
+GenerateDetectionPluginCreator::GenerateDetectionPluginCreator()
 {
 
     mPluginAttributes.emplace_back(PluginField("num_classes", nullptr, PluginFieldType::kINT32, 1));
@@ -45,22 +45,22 @@ DetectionLayerTLTPluginCreator::DetectionLayerTLTPluginCreator()
     mFC.fields = mPluginAttributes.data();
 }
 
-const char* DetectionLayerTLTPluginCreator::getPluginName() const
+const char* GenerateDetectionPluginCreator::getPluginName() const
 {
-    return DETECTIONLAYERTLT_PLUGIN_NAME;
+    return GENERATEDETECTION_PLUGIN_NAME;
 };
 
-const char* DetectionLayerTLTPluginCreator::getPluginVersion() const
+const char* GenerateDetectionPluginCreator::getPluginVersion() const
 {
-    return DETECTIONLAYERTLT_PLUGIN_VERSION;
+    return GENERATEDETECTION_PLUGIN_VERSION;
 };
 
-const PluginFieldCollection* DetectionLayerTLTPluginCreator::getFieldNames()
+const PluginFieldCollection* GenerateDetectionPluginCreator::getFieldNames()
 {
     return &mFC;
 };
 
-IPluginV2Ext* DetectionLayerTLTPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
+IPluginV2Ext* GenerateDetectionPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
 {
     const PluginField* fields = fc->fields;
     for (int i = 0; i < fc->nbFields; ++i)
@@ -87,15 +87,15 @@ IPluginV2Ext* DetectionLayerTLTPluginCreator::createPlugin(const char* name, con
             mIOUThreshold = *(static_cast<const float*>(fields[i].data));
         }
     }
-    return new DetectionLayerTLT(mNbClasses, mKeepTopK, mScoreThreshold, mIOUThreshold);
+    return new GenerateDetection(mNbClasses, mKeepTopK, mScoreThreshold, mIOUThreshold);
 };
 
-IPluginV2Ext* DetectionLayerTLTPluginCreator::deserializePlugin(const char* name, const void* data, size_t length)
+IPluginV2Ext* GenerateDetectionPluginCreator::deserializePlugin(const char* name, const void* data, size_t length)
 {
-    return new DetectionLayerTLT(data, length);
+    return new GenerateDetection(data, length);
 };
 
-DetectionLayerTLT::DetectionLayerTLT(int num_classes, int keep_topk, float score_threshold, float iou_threshold)
+GenerateDetection::GenerateDetection(int num_classes, int keep_topk, float score_threshold, float iou_threshold)
     : mNbClasses(num_classes)
     , mKeepTopK(keep_topk)
     , mScoreThreshold(score_threshold)
@@ -116,12 +116,12 @@ DetectionLayerTLT::DetectionLayerTLT(int num_classes, int keep_topk, float score
     mType = DataType::kFLOAT;
 };
 
-int DetectionLayerTLT::getNbOutputs() const
+int GenerateDetection::getNbOutputs() const
 {
     return 1;
 };
 
-int DetectionLayerTLT::initialize()
+int GenerateDetection::initialize()
 {
     // Init the regWeight [10, 10, 5, 5]
     mRegWeightDevice = std::make_shared<CudaBind<float>>(4);
@@ -139,49 +139,49 @@ int DetectionLayerTLT::initialize()
     return 0;
 };
 
-void DetectionLayerTLT::terminate(){};
+void GenerateDetection::terminate(){};
 
-void DetectionLayerTLT::destroy()
+void GenerateDetection::destroy()
 {
     delete this;
 };
 
-bool DetectionLayerTLT::supportsFormat(DataType type, PluginFormat format) const
+bool GenerateDetection::supportsFormat(DataType type, PluginFormat format) const
 {
     return (type == DataType::kFLOAT && format == PluginFormat::kNCHW);
 };
 
-const char* DetectionLayerTLT::getPluginType() const
+const char* GenerateDetection::getPluginType() const
 {
-    return "DetectionLayerTLT_TRT";
+    return "GenerateDetection_TRT";
 };
 
-const char* DetectionLayerTLT::getPluginVersion() const
+const char* GenerateDetection::getPluginVersion() const
 {
     return "1";
 };
 
-IPluginV2Ext* DetectionLayerTLT::clone() const
+IPluginV2Ext* GenerateDetection::clone() const
 {
-    return new DetectionLayerTLT(*this);
+    return new GenerateDetection(*this);
 };
 
-void DetectionLayerTLT::setPluginNamespace(const char* libNamespace)
+void GenerateDetection::setPluginNamespace(const char* libNamespace)
 {
     mNameSpace = libNamespace;
 };
 
-const char* DetectionLayerTLT::getPluginNamespace() const
+const char* GenerateDetection::getPluginNamespace() const
 {
     return mNameSpace.c_str();
 }
 
-size_t DetectionLayerTLT::getSerializationSize() const
+size_t GenerateDetection::getSerializationSize() const
 {
     return sizeof(int) * 2 + sizeof(float) * 2 + sizeof(int) * 2;
 };
 
-void DetectionLayerTLT::serialize(void* buffer) const
+void GenerateDetection::serialize(void* buffer) const
 {
     char *d = reinterpret_cast<char*>(buffer), *a = d;
     write(d, mNbClasses);
@@ -193,7 +193,7 @@ void DetectionLayerTLT::serialize(void* buffer) const
     ASSERT(d == a + getSerializationSize());
 };
 
-DetectionLayerTLT::DetectionLayerTLT(const void* data, size_t length)
+GenerateDetection::GenerateDetection(const void* data, size_t length)
 {
     const char *d = reinterpret_cast<const char*>(data), *a = d;
     int num_classes = read<int>(d);
@@ -218,7 +218,7 @@ DetectionLayerTLT::DetectionLayerTLT(const void* data, size_t length)
     mType = DataType::kFLOAT;
 };
 
-void DetectionLayerTLT::check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims)
+void GenerateDetection::check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims)
 {
     // classifier_delta_bbox[N, anchors, num_classes*4, 1, 1]
     // classifier_class[N, anchors, num_classes, 1, 1]
@@ -233,13 +233,13 @@ void DetectionLayerTLT::check_valid_inputs(const nvinfer1::Dims* inputs, int nbI
     assert(inputs[2].nbDims == 2 && inputs[2].d[1] == 4);
 };
 
-size_t DetectionLayerTLT::getWorkspaceSize(int batch_size) const
+size_t GenerateDetection::getWorkspaceSize(int batch_size) const
 {
     RefineDetectionWorkSpace refine(batch_size, mAnchorsCnt, mParam, mType);
     return refine.totalSize;
 };
 
-Dims DetectionLayerTLT::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
+Dims GenerateDetection::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
 {
 
     check_valid_inputs(inputs, nbInputDims);
@@ -256,7 +256,7 @@ Dims DetectionLayerTLT::getOutputDimensions(int index, const Dims* inputs, int n
     return detections;
 }
 
-int DetectionLayerTLT::enqueue(
+int GenerateDetection::enqueue(
     int batch_size, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream)
 {
 
@@ -264,7 +264,7 @@ int DetectionLayerTLT::enqueue(
 
     // refine detection
     RefineDetectionWorkSpace refDetcWorkspace(batch_size, mAnchorsCnt, mParam, mType);
-    cudaError_t status = RefineBatchClassNMSTLT(stream, batch_size, mAnchorsCnt,
+    cudaError_t status = DetectionPostProcess(stream, batch_size, mAnchorsCnt,
         static_cast<float*>(mRegWeightDevice->mPtr), 
         static_cast<float>(TLTMaskRCNNConfig::IMAGE_SHAPE.d[1]), // Image Height
         static_cast<float>(TLTMaskRCNNConfig::IMAGE_SHAPE.d[2]), // Image Width
@@ -280,26 +280,26 @@ int DetectionLayerTLT::enqueue(
     return status;
 };
 
-DataType DetectionLayerTLT::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const
+DataType GenerateDetection::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const
 {
     // Only DataType::kFLOAT is acceptable by the plugin layer
     return DataType::kFLOAT;
 }
 
 // Return true if output tensor is broadcast across a batch.
-bool DetectionLayerTLT::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const
+bool GenerateDetection::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const
 {
     return false;
 }
 
 // Return true if plugin can use input that is broadcast across batch without replication.
-bool DetectionLayerTLT::canBroadcastInputAcrossBatch(int inputIndex) const
+bool GenerateDetection::canBroadcastInputAcrossBatch(int inputIndex) const
 {
     return false;
 }
 
 // Configure the layer with input and output data types.
-void DetectionLayerTLT::configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
+void GenerateDetection::configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
     const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
     const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize)
 {
@@ -312,10 +312,10 @@ void DetectionLayerTLT::configurePlugin(const Dims* inputDims, int nbInputs, con
 }
 
 // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
-void DetectionLayerTLT::attachToContext(
+void GenerateDetection::attachToContext(
     cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
 {
 }
 
 // Detach the plugin object from its execution context.
-void DetectionLayerTLT::detachFromContext() {}
+void GenerateDetection::detachFromContext() {}

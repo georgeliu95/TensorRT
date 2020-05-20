@@ -45,9 +45,9 @@ set(PLUGIN_LISTS
     detectionLayerPlugin
     proposalLayerPlugin
     pyramidROIAlignPlugin
-    detectionLayerTLTPlugin
+    generateDetectionPlugin
     multilevelProposeROI
-    pyramidROIAlignTLTPlugin
+    multilevelCropAndResizePlugin
     resizeNearestPlugin
     specialSlicePlugin
     instanceNormalizationPlugin

@@ -1,5 +1,5 @@
 
-# PyramidROIAlignTLT
+# MultilevelCropAndResize
 
 **Table Of Contents**
 - [Description](#description)
@@ -12,7 +12,7 @@
 
 ## Description
 
-The `PyramidROIAlignTLT` plugin performs the ROIAlign operation on the output feature maps from FPN (Feature Pyramid Network). It is used for MaskRCNN inference in Transfer Learning Toolkit. 
+The `MultilevelCropAndResize` plugin performs the ROIAlign operation on the output feature maps from FPN (Feature Pyramid Network). It is used for MaskRCNN inference in Transfer Learning Toolkit. 
 
 
 ### Structure
@@ -29,9 +29,9 @@ height(and width) of the feature area after ROIAlign.
 
 ## Parameters
 
-This plugin has the plugin creator class `PyramidROIAlignTLTPluginCreator` and the plugin class `PyramidROIAlignTLT`.
+This plugin has the plugin creator class `MultilevelCropAndResizePluginCreator` and the plugin class `MultilevelCropAndResize`.
   
-The following parameters were used to create `PyramidROIAlignTLT` instance:
+The following parameters were used to create `MultilevelCropAndResize` instance:
 
 | Type             | Parameter                       | Description
 |------------------|---------------------------------|--------------------------------------------------------

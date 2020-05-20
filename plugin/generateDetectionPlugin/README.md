@@ -1,4 +1,4 @@
-# DetectionLayerTLT
+# generateDetection
 
 **Table Of Contents**
 - [Description](#description)
@@ -11,7 +11,7 @@
 
 ## Description
 
-The `DetectionLayerTLT` plugin performs bounding boxe refinement of MaskRCNN's detection head and generates the final detection output of MaskRCNN.   
+The `generateDetection` plugin performs bounding boxe refinement of MaskRCNN's detection head and generates the final detection output of MaskRCNN.   
 
 
 ### Structure
@@ -21,7 +21,7 @@ This plugin supports the NCHW format. It takes three input tensors: `delta_bbox`
 `delta_bbox` is the refinement information of roi boxes generated from the `MultilevelProposeROI` plugin. `delta_bbox` tensor's shape is `[N, rois, num_classes*4, 1, 1]` where `N` is batch size,
 `rois` is the total number of ROI boxes candidates per image, and `num_classes*4` means 4 refinement elements (`[dy, dx, dh, dw]`) for each roi box as different classes.
 
-`score` is the predicted class scores of ROI boxes generated from MaskRCNN detection head of shape `[N, rois, num_classes, 1, 1]`. There is an `argmax` operation in `DetectionlayerTLT` to determine the final class of detection
+`score` is the predicted class scores of ROI boxes generated from MaskRCNN detection head of shape `[N, rois, num_classes, 1, 1]`. There is an `argmax` operation in `generateDetection` to determine the final class of detection
 candidates.   
 
 `roi` is the coordinates of ROI boxes candidates from the `MultilevelProposeROI` plugin of shape `[N, rois, 4]`. 
@@ -31,9 +31,9 @@ class_label, score]`
 
 ## Parameters
 
-This plugin has the plugin creator class `DetectionlayerTLTPluginCreator` and the plugin class `DetectionlayerTLT`.
+This plugin has the plugin creator class `generateDetectionPluginCreator` and the plugin class `generateDetection`.
   
-The following parameters were used to create `DetectionlayerTLT` instance:
+The following parameters were used to create `generateDetection` instance:
 
 | Type               | Parameter                          | Description
 |--------------------|------------------------------------|--------------------------------------------------------
