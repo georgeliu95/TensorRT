@@ -1,6 +1,6 @@
 # Modiyfing A Model
 
-This example first generates a very basic model for demonstrative purposes,
+This example first generates a very basic model,
 then modifies the resulting model in various ways.
 
 By importing an ONNX graph into the [ONNX GraphSurgeon IR](../../README.md#ir), it is
