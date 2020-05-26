@@ -1,6 +1,6 @@
 # Isolating A Subgraph
 
-This example first generates a very basic model for demonstrative purposes,
+This example first generates a very basic model,
 then extracts a subgraph from this model.
 
 Isolating a subgraph from a model is as simple as modifying the inputs and
