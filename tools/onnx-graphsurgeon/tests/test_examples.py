@@ -14,12 +14,19 @@ import os
 ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))
 EXAMPLES_ROOT = os.path.join(ROOT_DIR, "examples")
 
+class Artifact(object):
+    def __init__(self, name, infer=True):
+        self.name = name
+        self.infer = infer
+
+
 EXAMPLES = [
-    ("01_creating_a_model", ["test_globallppool.onnx"]),
-    ("02_creating_a_model_with_initializer", ["test_conv.onnx"]),
-    ("03_isolating_a_subgraph", ["model.onnx", "subgraph.onnx"]),
-    ("04_modifying_a_model", ["model.onnx", "modified.onnx"]),
-    ("05_folding_constants", ["model.onnx", "folded.onnx"]),
+    ("01_creating_a_model", [Artifact("test_globallppool.onnx")]),
+    ("02_creating_a_model_with_initializer", [Artifact("test_conv.onnx")]),
+    ("03_isolating_a_subgraph", [Artifact("model.onnx"), Artifact("subgraph.onnx")]),
+    ("04_modifying_a_model", [Artifact("model.onnx"), Artifact("modified.onnx")]),
+    ("05_folding_constants", [Artifact("model.onnx"), Artifact("folded.onnx")]),
+    ("06_removing_nodes", [Artifact("model.onnx", infer=False), Artifact("removed.onnx")]),
 ]
 
 # Extract any ``` blocks from the README
@@ -67,7 +74,8 @@ def test_examples(example_dir, artifacts):
         assert sp.run(["bash", "-c", command], cwd=example_dir, env={"PYTHONPATH": ROOT_DIR}).returncode == 0
 
     for artifact in artifacts:
-        artifact_path = os.path.join(example_dir, artifact)
+        artifact_path = os.path.join(example_dir, artifact.name)
         assert os.path.exists(artifact_path)
-        assert infer_model(artifact_path)
+        if artifact.infer:
+            assert infer_model(artifact_path)
         os.remove(artifact_path)
