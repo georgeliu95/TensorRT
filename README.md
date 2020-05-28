@@ -97,7 +97,7 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 Using the SDK manager, download the host componets of the PDK version or Jetpack specified in the name of the Dockerfile. To do this:
 
 1. [**SDK Manager Step 01**] Log into the SDK manager
-2. [**SDK Manager Step 01**] Select the correct platform and Target OS System  (should be corresponding to the name of the Dockerfile you are building (e.g. Jetson AGX Xavier, `Linux Jetpack 4.2.1`), then click `Continue`
+2. [**SDK Manager Step 01**] Select the correct platform and Target OS System  (should be corresponding to the name of the Dockerfile you are building (e.g. Jetson AGX Xavier, `Linux Jetpack 4.4`), then click `Continue`
 3. [**SDK Manager Step 02**] Under `Download & Install Options` make note of or change the download folder **and Select Download now. Install later.** then agree to the license terms and click `Continue`
 
 You should now have all expected files to build the container. Move these into the `docker/jetpack_files` folder.
