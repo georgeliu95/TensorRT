@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_VERSION=10.2
+ARG CUDA_VERSION=11.0
 ARG CENTOS_VERSION=7
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn7-devel-centos${CENTOS_VERSION}
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${CENTOS_VERSION}
 
 LABEL maintainer="NVIDIA CORPORATION"
 

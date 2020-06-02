@@ -15,8 +15,8 @@ To build the TensorRT OSS components, ensure you meet the following package requ
 
 * [CUDA](https://developer.nvidia.com/cuda-toolkit)
   * Recommended versions:
-  * [cuda-10.2](https://developer.nvidia.com/cuda-10.2-download-archive-base) + cuDNN-7.6
-  * [cuda-10.0](https://developer.nvidia.com/cuda-10.0-download-archive) + cuDNN-7.6
+  * cuda-11.0 + cuDNN-8.0
+  * cuda-10.2 + cuDNN-8.0
 
 * [GNU Make](https://ftp.gnu.org/gnu/make/) >= v4.1
 
@@ -47,12 +47,12 @@ To build the TensorRT OSS components, ensure you meet the following package requ
 
 **TensorRT Release**
 
-* [TensorRT](https://developer.nvidia.com/nvidia-tensorrt-download) v7.0
+* [TensorRT](https://developer.nvidia.com/nvidia-tensorrt-download) v7.1
 
 
 NOTE: Along with the TensorRT OSS components, the following source packages will also be downloaded, and they are not required to be installed on the system.
 
-- [ONNX-TensorRT](https://github.com/onnx/onnx-tensorrt) v7.0
+- [ONNX-TensorRT](https://github.com/onnx/onnx-tensorrt) v7.1
 - [CUB](http://nvlabs.github.io/cub/) v1.8.0
 - [Protobuf](https://github.com/protocolbuffers/protobuf.git) v3.8.x
 
@@ -70,26 +70,28 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 
 2. #### Download the TensorRT binary release.
 
-	To build the TensorRT OSS, obtain the corresponding TensorRT 7.0 binary release from [NVidia Developer Zone](https://developer.nvidia.com/nvidia-tensorrt-7x-download). For a list of key features, known and fixed issues, refer to the [TensorRT 7.0 Release Notes](https://docs.nvidia.com/deeplearning/sdk/tensorrt-release-notes/tensorrt-7.html#tensorrt-7).
+* TODO rajerao - update for GA *
 
-	**Example: Ubuntu 18.04 with cuda-10.2**
+	To build the TensorRT OSS, obtain the corresponding TensorRT 7.1 binary release from [NVidia Developer Zone](https://developer.nvidia.com/nvidia-tensorrt-7x-download). For a list of key features, known and fixed issues, refer to the [TensorRT 7.1 Release Notes](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/tensorrt-7.html#rel_7-1-0).
 
-	Download and extract the latest *TensorRT 7.0 GA package for Ubuntu 18.04 and CUDA 10.2*
+	**Example: Ubuntu 18.04 with cuda-11.0**
+
+	Download and extract the latest *TensorRT 7.1 GA package for Ubuntu 18.04 and CUDA 11.0*
 	```bash
 	cd ~/Downloads
-	# Download TensorRT-7.0.0.11.Ubuntu-18.04.x86_64-gnu.cuda-10.2.cudnn7.6.tar.gz
-	tar -xvzf TensorRT-7.0.0.11.Ubuntu-18.04.x86_64-gnu.cuda-10.2.cudnn7.6.tar.gz
-	export TRT_RELEASE=`pwd`/TensorRT-7.0.0.11
+	# Download TensorRT-7.1.2.6.Ubuntu-18.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
+	tar -xvzf TensorRT-7.1.2.6.Ubuntu-18.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
+	export TRT_RELEASE=`pwd`/TensorRT-7.1.2.6
 	```
 
-	**Example: CentOS/RedHat 7 with cuda-10.0**
+	**Example: CentOS/RedHat 7 with cuda-10.2**
 
-	Download and extract the *TensorRT 7.0 GA for CentOS/RedHat 7 and CUDA 10.0 tar package*
+	Download and extract the *TensorRT 7.1 GA for CentOS/RedHat 7 and CUDA 10.2 tar package*
 	```bash
 	cd ~/Downloads
-	# Download TensorRT-7.0.0.11.CentOS-7.6.x86_64-gnu.cuda-10.0.cudnn7.6.tar.gz
-	tar -xvzf TensorRT-7.0.0.11.CentOS-7.6.x86_64-gnu.cuda-10.0.cudnn7.6.tar.gz
-	export TRT_RELEASE=`pwd`/TensorRT-7.0.0.11
+	# Download TensorRT-7.1.2.6.CentOS-8.0.x86_64-gnu.cuda-10.2.cudnn8.0.tar.gz
+	tar -xvzf TensorRT-7.1.2.6.CentOS-8.0.x86_64-gnu.cuda-10.2.cudnn8.0.tar.gz
+	export TRT_RELEASE=`pwd`/TensorRT-7.1.2.6
 	```
 
 3. #### Download JetPack packages for cross-compilation.[OPTIONAL]
@@ -97,7 +99,7 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 Using the SDK manager, download the host componets of the PDK version or Jetpack specified in the name of the Dockerfile. To do this:
 
 1. [**SDK Manager Step 01**] Log into the SDK manager
-2. [**SDK Manager Step 01**] Select the correct platform and Target OS System  (should be corresponding to the name of the Dockerfile you are building (e.g. Jetson AGX Xavier, `Linux Jetpack 4.2.1`), then click `Continue`
+2. [**SDK Manager Step 01**] Select the correct platform and Target OS System  (should be corresponding to the name of the Dockerfile you are building (e.g. Jetson AGX Xavier, `Linux Jetpack 4.4`), then click `Continue`
 3. [**SDK Manager Step 02**] Under `Download & Install Options` make note of or change the download folder **and Select Download now. Install later.** then agree to the license terms and click `Continue`
 
 You should now have all expected files to build the container. Move these into the `docker/jetpack_files` folder.
@@ -112,28 +114,28 @@ You should now have all expected files to build the container. Move these into t
 
   The docker container can be built using the included Dockerfile. The build container is configured with the environment and packages required for building TensorRT OSS.
 
-  **Example: Ubuntu 18.04 with cuda-10.2**
+  **Example: Ubuntu 18.04 with cuda-11.0**
 
   ```bash
-  docker build -f docker/ubuntu.Dockerfile --build-arg UBUNTU_VERSION=18.04 --build-arg CUDA_VERSION=10.2 --tag=tensorrt-ubuntu .
+  docker build -f docker/ubuntu.Dockerfile --build-arg UBUNTU_VERSION=18.04 --build-arg CUDA_VERSION=11.0 --tag=tensorrt-ubuntu .
   ```
 
-  **Example: CentOS/RedHat 7 with cuda-10.0**
+  **Example: CentOS/RedHat 7 with cuda-10.2**
 
   ```bash
-  docker build -f docker/centos.Dockerfile --build-arg CENTOS_VERSION=7 --build-arg CUDA_VERSION=10.0 --tag=tensorrt-centos .
+  docker build -f docker/centos.Dockerfile --build-arg CENTOS_VERSION=7 --build-arg CUDA_VERSION=10.2 --tag=tensorrt-centos .
   ```
 
-   **Example: Cross compile for JetPack 4.2.1 with cuda-10.0**
+   **Example: Cross compile for JetPack 4.4 with cuda-10.2**
    ```bash
-   docker build -f docker/ubuntu-cross-aarch64.Dockerfile --build-arg UBUNTU_VERSION=18.04 --build-arg CUDA_VERSION=10.0 --tag tensorrt-ubuntu-aarch64 .
+   docker build -f docker/ubuntu-cross-aarch64.Dockerfile --build-arg UBUNTU_VERSION=18.04 --build-arg CUDA_VERSION=10.2 --tag tensorrt-ubuntu-aarch64 .
    `
    ```
 
 2. #### Launch the TensorRT build container.
 
 	```bash
-	docker run -v $TRT_RELEASE:/tensorrt -v $TRT_SOURCE:/workspace/TensorRT -it tensorrt-ubuntu:latest
+	docker run --gpus all -v $TRT_RELEASE:/tensorrt -v $TRT_SOURCE:/workspace/TensorRT -it tensorrt-ubuntu:latest
 	```
 
 	> NOTE: To run TensorRT/CUDA programs within the build container, install [nvidia-docker](#prerequisites). Replace the `docker run` command with `nvidia-docker run` or `docker run --runtime=nvidia`.
@@ -151,7 +153,7 @@ You should now have all expected files to build the container. Move these into t
 	```
 
 	> NOTE:
-	> 1. The default CUDA version used by CMake is 10.2. To override this, for example to 10.0, append `-DCUDA_VERSION=10.0` to the cmake command.
+	> 1. The default CUDA version used by CMake is 11.0. To override this, for example to 10.2, append `-DCUDA_VERSION=10.2` to the cmake command.
 	> 2. Samples may fail to link on CentOS7. To work around this create the following symbolic link:
 	> `ln -s $TRT_BIN_DIR/libnvinfer_plugin.so $TRT_BIN_DIR/libnvinfer_plugin.so.7`
 
@@ -165,9 +167,9 @@ You should now have all expected files to build the container. Move these into t
 
 	- `CMAKE_BUILD_TYPE`: Specify if binaries generated are for release or debug (contain debug symbols). Values consists of [`Release`] | `Debug`
 
-	- `CUDA_VERISON`: The version of CUDA to target, for example [`10.2`].
+	- `CUDA_VERISON`: The version of CUDA to target, for example [`11.0`].
 
-	- `CUDNN_VERSION`: The version of cuDNN to target, for example [`7.6`].
+	- `CUDNN_VERSION`: The version of cuDNN to target, for example [`8.0`].
 
 	- `PROTOBUF_VERSION`:  The version of Protobuf to use, for example [`3.8.x`]. Note: Changing this will not configure CMake to use a system version of Protobuf, it will configure CMake to download and try building that version.
 
@@ -190,11 +192,10 @@ You should now have all expected files to build the container. Move these into t
 	- `CUB_VERSION`: The version of CUB to use, for example [`1.8.0`].
 
 	- `GPU_ARCHS`: GPU (SM) architectures to target. By default we generate CUDA code for all major SMs. Specific SM versions can be specified here as a quoted space-separated list to reduce compilation time and binary size. Table of compute capabilities of NVIDIA GPUs can be found [here](https://developer.nvidia.com/cuda-gpus). Examples:
-	  - Titan V: `-DGPU_ARCHS="70"`
-	  - Tesla V100: `-DGPU_ARCHS="70"`
-	  - GeForce RTX 2080: `-DGPU_ARCHS="75"`
-	  - Tesla T4: `-DGPU_ARCHS="75"`
-	  - Multiple SMs: `-DGPU_ARCHS="70 75"`
+        - NVidia A100: `-DGPU_ARCHS="80"`
+        - Tesla T4, GeForce RTX 2080: `-DGPU_ARCHS="75"`
+        - Titan V, Tesla V100: `-DGPU_ARCHS="70"`
+        - Multiple SMs: `-DGPU_ARCHS="80 75"`
 
 
 ## Useful Resources
@@ -202,12 +203,12 @@ You should now have all expected files to build the container. Move these into t
 #### TensorRT
 
 * [TensorRT Homepage](https://developer.nvidia.com/tensorrt)
-* [TensorRT Developer Guide](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html)
-* [TensorRT Sample Support Guide](https://docs.nvidia.com/deeplearning/sdk/tensorrt-sample-support-guide/index.html)
+* [TensorRT Developer Guide](https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html)
+* [TensorRT Sample Support Guide](https://docs.nvidia.com/deeplearning/tensorrt/sample-support-guide/index.html)
 * [TensorRT Discussion Forums](https://devtalk.nvidia.com/default/board/304/tensorrt/)
 
 
 ## Known Issues
 
-#### TensorRT 7.0
-* See [Release Notes](https://docs.nvidia.com/deeplearning/sdk/tensorrt-release-notes/tensorrt-7.html#tensorrt-7).
+#### TensorRT 7.1
+* See [Release Notes](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/tensorrt-7.html#rel_7-1-0).

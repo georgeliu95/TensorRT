@@ -87,6 +87,7 @@ else()
       61
       70
       75
+      80
     )
   message(STATUS "GPU_ARCHS is not defined. Generating CUDA code for default SMs: ${GPU_ARCHS}")
 endif()
@@ -107,8 +108,8 @@ endif()
 set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -Wno-deprecated-declarations")
 
 ################################### DEPENDENCIES ##########################################
-set(DEFAULT_CUDA_VERSION 10.2)
-set(DEFAULT_CUDNN_VERSION 7.6)
+set(DEFAULT_CUDA_VERSION 11.0)
+set(DEFAULT_CUDNN_VERSION 8.0)
 set(DEFAULT_PROTOBUF_VERSION 3.0.0)
 set(DEFAULT_PROTOBUF_INTERNAL_VERSION 10.0)
 set(DEFAULT_CUB_VERSION 1.8.0)
