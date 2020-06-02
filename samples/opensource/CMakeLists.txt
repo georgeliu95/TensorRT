@@ -35,6 +35,7 @@ set(OPENSOURCE_SAMPLES_LIST
     sampleUffMNIST
     sampleUffPluginV2Ext
     sampleUffSSD
+    sampleOnnxMnistCoordConvAC
     trtexec
 )
 
