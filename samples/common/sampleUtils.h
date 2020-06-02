@@ -24,6 +24,8 @@
 #include <numeric>
 #include <unordered_map>
 #include <vector>
+
+#include <cuda.h>
 #if CUDA_VERSION < 10000
 #include <half.h>
 #else
@@ -257,7 +259,7 @@ public:
         }
         mNames[name] = b;
         mBindings[b].isInput = isInput;
-        mBindings[b].buffer.allocate(volume * dataTypeSize(dataType));
+        mBindings[b].buffer.allocate(static_cast<size_t>(volume) * static_cast<size_t>(dataTypeSize(dataType)));
         mBindings[b].volume = volume;
         mBindings[b].dataType = dataType;
         mDevicePointers[b] = mBindings[b].buffer.getDeviceBuffer();

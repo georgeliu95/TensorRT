@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,11 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-SET(SAMPLE_SOURCES
-    sampleCharRNN.cpp
-    ../../common/sampleEngines.cpp
-)
-# Required due to inclusion of sampleEnines.h
-SET(SAMPLE_PARSERS "uff" "caffe" "onnx")
-
-include(../../CMakeSamplesTemplate.txt)
+file(GLOB SRCS *.cpp *.cu)
+set(PLUGIN_SOURCES ${PLUGIN_SOURCES} ${SRCS})
+set(PLUGIN_SOURCES ${PLUGIN_SOURCES} PARENT_SCOPE)

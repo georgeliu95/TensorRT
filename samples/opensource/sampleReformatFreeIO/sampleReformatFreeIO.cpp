@@ -336,7 +336,9 @@ bool SampleReformatFreeIO::build(int dataWidth)
         builder->buildEngineWithConfig(*network, *config), samplesCommon::InferDeleter());
 
     if (!mEngine)
+    {
         return false;
+    }
 
     assert(network->getNbInputs() == 1);
     mInputDims = network->getInput(0)->getDimensions();
@@ -632,7 +634,7 @@ void printHelpInfo()
 //! \brief Used to run the engine build and inference/reference functions
 //!
 template <typename T>
-int process(SampleReformatFreeIO& sample, const sample::Logger::TestAtom& sampleTest, SampleBuffer& inputBuf,
+bool process(SampleReformatFreeIO& sample, const sample::Logger::TestAtom& sampleTest, SampleBuffer& inputBuf,
     SampleBuffer& outputBuf, SampleBuffer& goldenInput, SampleBuffer& goldenOutput)
 {
     sample::gLogInfo << "Building and running a GPU inference engine for reformat free I/O" << std::endl;
@@ -642,14 +644,14 @@ int process(SampleReformatFreeIO& sample, const sample::Logger::TestAtom& sample
 
     if (!sample.build(sizeof(T)))
     {
-        return sample::gLogger.reportFail(sampleTest);
+        return false;
     }
 
     convertGoldenData<T>(goldenInput, inputBuf);
 
     if (!sample.infer(inputBuf, outputBuf))
     {
-        return sample::gLogger.reportFail(sampleTest);
+        return false;
     }
 
     SampleBuffer linearOutputBuf(sample.mOutputDims, sizeof(T), TensorFormat::kLINEAR);
@@ -658,20 +660,20 @@ int process(SampleReformatFreeIO& sample, const sample::Logger::TestAtom& sample
 
     if (!sample.verifyOutput<T>(linearOutputBuf, sample.mDigit))
     {
-        return sample::gLogger.reportFail(sampleTest);
+        return false;
     }
 
-    return 0;
+    return true;
 }
 
-int runFP32Reference(SampleReformatFreeIO& sample, const sample::Logger::TestAtom& sampleTest, SampleBuffer& goldenInput,
+bool runFP32Reference(SampleReformatFreeIO& sample, const sample::Logger::TestAtom& sampleTest, SampleBuffer& goldenInput,
     SampleBuffer& goldenOutput)
 {
     sample::gLogInfo << "Building and running a FP32 GPU inference to get golden input/output" << std::endl;
 
     if (!sample.build(sizeof(float)))
     {
-        return sample::gLogger.reportFail(sampleTest);
+        return false;
     }
 
     goldenInput = SampleBuffer(sample.mInputDims, sizeof(float), TensorFormat::kLINEAR);
@@ -682,15 +684,15 @@ int runFP32Reference(SampleReformatFreeIO& sample, const sample::Logger::TestAto
 
     if (!sample.infer(goldenInput, goldenOutput))
     {
-        return sample::gLogger.reportFail(sampleTest);
+        return false;
     }
 
     if (!sample.verifyOutput<float>(goldenOutput, sample.mDigit))
     {
-        return sample::gLogger.reportFail(sampleTest);
+        return false;
     }
 
-    return 0;
+    return true;
 }
 
 int main(int argc, char** argv)
@@ -738,7 +740,10 @@ int main(int argc, char** argv)
              << std::endl
              << std::endl;
 
-    runFP32Reference(sample, sampleTest, goldenInput, goldenOutput);
+    if (!runFP32Reference(sample, sampleTest, goldenInput, goldenOutput))
+    {
+        return sample::gLogger.reportFail(sampleTest);
+    }
 
     // Test INT8 formats
     for (auto elem : vecINT8TensorFmt)
@@ -747,7 +752,10 @@ int main(int argc, char** argv)
         sample.mTensorFormat = elem.first;
         SampleBuffer inputBuf, outputBuf;
 
-        process<int8_t>(sample, sampleTest, inputBuf, outputBuf, goldenInput, goldenOutput);
+        if (!process<int8_t>(sample, sampleTest, inputBuf, outputBuf, goldenInput, goldenOutput))
+        {
+            return sample::gLogger.reportFail(sampleTest);
+        }
     }
 
     // Test FP16 formats
@@ -757,7 +765,10 @@ int main(int argc, char** argv)
         sample.mTensorFormat = elem.first;
         SampleBuffer inputBuf, outputBuf;
 
-        process<half_float::half>(sample, sampleTest, inputBuf, outputBuf, goldenInput, goldenOutput);
+        if (!process<half_float::half>(sample, sampleTest, inputBuf, outputBuf, goldenInput, goldenOutput))
+        {
+            return sample::gLogger.reportFail(sampleTest);
+        }
     }
 
     if (!sample.teardown())

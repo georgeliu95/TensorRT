@@ -15,32 +15,34 @@
  */
 #include "NvInfer.h"
 #include "NvInferPlugin.h"
+#include "checkMacrosPlugin.h"
 #include <algorithm>
 #include <array>
 #include <iostream>
 #include <memory>
+#include <mutex>
+#include <stack>
+#include <unordered_set>
 using namespace nvinfer1;
 using namespace nvinfer1::plugin;
 
-#include "batchedNMSPlugin/batchedNMSPlugin.h"
-#include "cropAndResizePlugin/cropAndResizePlugin.h"
-#include "flattenConcat/flattenConcat.h"
-#include "gridAnchorPlugin/gridAnchorPlugin.h"
-#include "nmsPlugin/nmsPlugin.h"
-#include "normalizePlugin/normalizePlugin.h"
-#include "nvFasterRCNN/nvFasterRCNNPlugin.h"
-#include "priorBoxPlugin/priorBoxPlugin.h"
-#include "proposalPlugin/proposalPlugin.h"
-#include "regionPlugin/regionPlugin.h"
-#include "reorgPlugin/reorgPlugin.h"
-
-#include "batchTilePlugin/batchTilePlugin.h"
-#include "detectionLayerPlugin/detectionLayerPlugin.h"
-#include "proposalLayerPlugin/proposalLayerPlugin.h"
-#include "pyramidROIAlignPlugin/pyramidROIAlignPlugin.h"
-#include "resizeNearestPlugin/resizeNearestPlugin.h"
-#include "specialSlicePlugin/specialSlicePlugin.h"
-#include "instanceNormalizationPlugin/instanceNormalizationPlugin.h"
+#include "nvFasterRCNNPlugin.h"
+#include "batchedNMSPlugin.h"
+#include "cropAndResizePlugin.h"
+#include "detectionLayerPlugin.h"
+#include "flattenConcat.h"
+#include "gridAnchorPlugin.h"
+#include "instanceNormalizationPlugin.h"
+#include "nmsPlugin.h"
+#include "normalizePlugin.h"
+#include "priorBoxPlugin.h"
+#include "proposalLayerPlugin.h"
+#include "proposalPlugin.h"
+#include "pyramidROIAlignPlugin.h"
+#include "regionPlugin.h"
+#include "reorgPlugin.h"
+#include "resizeNearestPlugin.h"
+#include "specialSlicePlugin.h"
 
 using nvinfer1::plugin::RPROIParams;
 
@@ -49,53 +51,101 @@ namespace nvinfer1
 
 namespace plugin
 {
-ILogger* gLogger{};
 
-// Instances of this class are statically constructed in initializePlugin.
-// This ensures that each plugin is only registered a single time, as further calls to
-// initializePlugin will be no-ops.
-template <typename CreatorType>
-class InitializePlugin
+extern ILogger* gLogger;
+
+// This singleton ensures that each plugin is only registered once for a given
+// namespace and type, and attempts of duplicate registration are ignored.
+class PluginCreatorRegistry
 {
 public:
-    InitializePlugin(void* logger, const char* libNamespace)
-        : mCreator{new CreatorType{}}
+    static PluginCreatorRegistry& getInstance()
     {
-        mCreator->setPluginNamespace(libNamespace);
-        bool status = getPluginRegistry()->registerCreator(*mCreator, libNamespace);
-        if (logger)
+        static PluginCreatorRegistry instance;
+        return instance;
+    }
+
+    template <typename CreatorType>
+    void addPluginCreator(void* logger, const char* libNamespace)
+    {
+        // Make accesses to the plugin creator registry thread safe
+        std::lock_guard<std::mutex> lock(mRegistryLock);
+
+        std::string errorMsg;
+        std::string verboseMsg;
+
+        std::unique_ptr<CreatorType> pluginCreator{new CreatorType{}};
+        pluginCreator->setPluginNamespace(libNamespace);
+
+        nvinfer1::plugin::gLogger = static_cast<nvinfer1::ILogger*>(logger);
+        std::string pluginType = std::string{pluginCreator->getPluginNamespace()} + "::"
+                + std::string{pluginCreator->getPluginName()} + " version " + std::string{pluginCreator->getPluginVersion()};
+
+        if (mRegistryList.find(pluginType) == mRegistryList.end())
         {
-            nvinfer1::plugin::gLogger = static_cast<nvinfer1::ILogger*>(logger);
-            if (!status)
+            bool status = getPluginRegistry()->registerCreator(*pluginCreator, libNamespace);
+            if (status)
             {
-                std::string errorMsg{"Could not register plugin creator:  " + std::string(mCreator->getPluginName())
-                    + " in namespace: " + std::string{mCreator->getPluginNamespace()}};
-                nvinfer1::plugin::gLogger->log(ILogger::Severity::kERROR, errorMsg.c_str());
+                mRegistry.push(std::move(pluginCreator));
+                mRegistryList.insert(pluginType);
+                verboseMsg = "Registered plugin creator - " + pluginType;
             }
             else
             {
-                std::string verboseMsg{
-                    "Plugin Creator registration succeeded - " + std::string{mCreator->getPluginName()}};
+                errorMsg = "Could not register plugin creator -  " + pluginType;
+            }
+        }
+        else
+        {
+            verboseMsg = "Plugin creator already registered - " + pluginType;
+        }
+
+        if (logger)
+        {
+            if (!errorMsg.empty())
+            {
+                nvinfer1::plugin::gLogger->log(ILogger::Severity::kERROR, errorMsg.c_str());
+            }
+            if (!verboseMsg.empty())
+            {
                 nvinfer1::plugin::gLogger->log(ILogger::Severity::kVERBOSE, verboseMsg.c_str());
             }
         }
     }
 
-    InitializePlugin(const InitializePlugin&) = delete;
-    InitializePlugin(InitializePlugin&&) = delete;
+    ~PluginCreatorRegistry()
+    {
+        std::lock_guard<std::mutex> lock(mRegistryLock);
+
+        // Release pluginCreators in LIFO order of registration.
+        while (!mRegistry.empty())
+        {
+            mRegistry.pop();
+        }
+        mRegistryList.clear();
+    }
 
 private:
-    std::unique_ptr<CreatorType> mCreator;
+    PluginCreatorRegistry() {}
+
+    std::mutex mRegistryLock;
+    std::stack<std::unique_ptr<IPluginCreator>> mRegistry;
+    std::unordered_set<std::string> mRegistryList;
+
+public:
+    PluginCreatorRegistry(PluginCreatorRegistry const&) = delete;
+    void operator=(PluginCreatorRegistry const&) = delete;
 };
 
 template <typename CreatorType>
 void initializePlugin(void* logger, const char* libNamespace)
 {
-    static InitializePlugin<CreatorType> plugin{logger, libNamespace};
+    PluginCreatorRegistry::getInstance().addPluginCreator<CreatorType>(logger, libNamespace);
 }
 
 } // namespace plugin
 } // namespace nvinfer1
+// New Plugin APIs
 
 extern "C" {
 bool initLibNvInferPlugins(void* logger, const char* libNamespace)
@@ -110,9 +160,8 @@ bool initLibNvInferPlugins(void* logger, const char* libNamespace)
     initializePlugin<nvinfer1::plugin::BatchedNMSPluginCreator>(logger, libNamespace);
     initializePlugin<nvinfer1::plugin::FlattenConcatPluginCreator>(logger, libNamespace);
     initializePlugin<nvinfer1::plugin::CropAndResizePluginCreator>(logger, libNamespace);
-    initializePlugin<nvinfer1::plugin::ProposalPluginCreator>(logger, libNamespace);
-    initializePlugin<nvinfer1::plugin::BatchTilePluginCreator>(logger, libNamespace);
     initializePlugin<nvinfer1::plugin::DetectionLayerPluginCreator>(logger, libNamespace);
+    initializePlugin<nvinfer1::plugin::ProposalPluginCreator>(logger, libNamespace);
     initializePlugin<nvinfer1::plugin::ProposalLayerPluginCreator>(logger, libNamespace);
     initializePlugin<nvinfer1::plugin::PyramidROIAlignPluginCreator>(logger, libNamespace);
     initializePlugin<nvinfer1::plugin::ResizeNearestPluginCreator>(logger, libNamespace);

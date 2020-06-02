@@ -49,6 +49,7 @@ private:
     int64_t mFirstCalibBatch{0};
     int64_t mUseDLACore{-1};
     nvinfer1::DataType mModelDtype{nvinfer1::DataType::kFLOAT};
+    bool mTF32{true};
     Verbosity mVerbosity{static_cast<int>(nvinfer1::ILogger::Severity::kWARNING)};
     bool mPrintLayercInfo{false};
     bool mDebugBuilder{false};
@@ -88,6 +89,16 @@ public:
     nvinfer1::DataType getModelDtype() const
     {
         return mModelDtype;
+    }
+
+    bool getTF32() const
+    {
+        return mTF32;
+    }
+
+    void setTF32(bool enabled)
+    {
+        mTF32 = enabled;
     }
 
     const char* getModelFileName() const

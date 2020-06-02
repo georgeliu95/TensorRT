@@ -19,6 +19,7 @@
 
 #include <iostream>
 #include <thread>
+#include <cuda.h>
 #include <cuda_runtime.h>
 
 namespace sample
@@ -78,6 +79,11 @@ public:
     cudaStream_t get() const
     {
         return mStream;
+    }
+
+    void synchronize()
+    {
+        cudaCheck(cudaStreamSynchronize(mStream));
     }
 
     void wait(TrtCudaEvent& event);
@@ -155,6 +161,55 @@ inline void TrtCudaStream::wait(TrtCudaEvent& event)
 {
     cudaCheck(cudaStreamWaitEvent(mStream, event.get(), 0));
 }
+
+//!
+//! \class TrtCudaGraph
+//! \brief Managed CUDA graph
+//!
+class TrtCudaGraph
+{
+public:
+    explicit TrtCudaGraph() = default;
+
+    TrtCudaGraph(const TrtCudaGraph&) = delete;
+
+    TrtCudaGraph& operator=(const TrtCudaGraph&) = delete;
+
+    TrtCudaGraph(TrtCudaGraph&&) = delete;
+
+    TrtCudaGraph& operator=(TrtCudaGraph&&) = delete;
+
+    ~TrtCudaGraph()
+    {
+        if (mGraphExec)
+        {
+            cudaGraphExecDestroy(mGraphExec);
+        }
+    }
+
+    void beginCapture(TrtCudaStream& stream)
+    {
+        cudaCheck(cudaGraphCreate(&mGraph, 0));
+        cudaCheck(cudaStreamBeginCapture(stream.get(), cudaStreamCaptureModeGlobal));
+    }
+
+    void launch(TrtCudaStream& stream)
+    {
+        cudaCheck(cudaGraphLaunch(mGraphExec, stream.get()));
+    }
+
+    void endCapture(TrtCudaStream& stream)
+    {
+        cudaCheck(cudaStreamEndCapture(stream.get(), &mGraph));
+        cudaCheck(cudaGraphInstantiate(&mGraphExec, mGraph, nullptr, nullptr, 0));
+        cudaCheck(cudaGraphDestroy(mGraph));
+    }
+
+private:
+
+    cudaGraph_t mGraph{};
+    cudaGraphExec_t mGraphExec{};
+};
 
 //!
 //! \class TrtCudaBuffer
@@ -275,14 +330,14 @@ public:
         cudaCheck(cudaMemcpyAsync(mHostBuffer.get(), mDeviceBuffer.get(), mSize, cudaMemcpyDeviceToHost, stream.get()));
     }
 
-    int getSize() const
+    size_t getSize() const
     {
         return mSize;
     }
 
 private:
 
-    int mSize{0};
+    size_t mSize{0};
     TrtHostBuffer mHostBuffer;
     TrtDeviceBuffer mDeviceBuffer;
 };

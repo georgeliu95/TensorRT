@@ -48,7 +48,6 @@ using namespace sample;
 int main(int argc, char** argv)
 {
     const std::string sampleName = "TensorRT.trtexec";
-    const std::string supportNote{"Note: CUDA graphs and actual data IO are not supported in this version."};
 
     auto sampleTest = sample::gLogger.defineTest(sampleName, argc, argv);
 
@@ -88,7 +87,6 @@ int main(int argc, char** argv)
         if (failed)
         {
             AllOptions::help(std::cout);
-            std::cout << supportNote << std::endl;
             return sample::gLogger.reportFail(sampleTest);
         }
     }
@@ -100,7 +98,6 @@ int main(int argc, char** argv)
     if (options.helps)
     {
         AllOptions::help(std::cout);
-        std::cout << supportNote << std::endl;
         return sample::gLogger.reportPass(sampleTest);
     }
 

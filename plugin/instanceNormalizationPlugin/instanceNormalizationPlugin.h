@@ -90,6 +90,7 @@ private:
     std::vector<float> _h_bias;
     float* _d_scale;
     float* _d_bias;
+    size_t _d_bytes;
     cudnnHandle_t _cudnn_handle;
     cudnnTensorDescriptor_t _x_desc, _y_desc, _b_desc;
     std::string mPluginNamespace;

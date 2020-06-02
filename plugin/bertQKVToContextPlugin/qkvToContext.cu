@@ -470,7 +470,7 @@ void UnfusedMHARunner::setup(const int S, const int B)
 
 size_t UnfusedMHARunner::getWorkspaceSize() const
 {
-    return 2UL * mWordSize * mOmatSize * mNumMats * getElementSize(mType);
+    return 2UL * mWordSize * mOmatSize * mNumMats;
 }
 
 void UnfusedMHARunner::run(const PluginTensorDesc& inputDesc, const PluginTensorDesc& outputDesc, const void* qkvPtr,

@@ -48,6 +48,7 @@ set(PLUGIN_LISTS
     resizeNearestPlugin
     specialSlicePlugin
     instanceNormalizationPlugin
+    groupNormalizationPlugin
     )
 
 # Add BERT sources if ${BERT_GENCODES} was populated
