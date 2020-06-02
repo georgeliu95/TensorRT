@@ -15,5 +15,10 @@
 #
 SET(SAMPLE_SOURCES
     sampleCharRNN.cpp
+    ../../common/sampleEngines.cpp
 )
+
+# Required due to inclusion of sampleEnines.h
+set(SAMPLE_PARSERS "uff" "caffe" "onnx")
+
 include(../../CMakeSamplesTemplate.txt)

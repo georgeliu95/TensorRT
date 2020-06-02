@@ -12,10 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_VERSION=10.2
+ARG CUDA_VERSION=11.0
 ARG UBUNTU_VERSION=18.04
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn7-devel-ubuntu${UBUNTU_VERSION}
-
+# TODO rajerao - update
+#FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${UBUNTU_VERSION}
+FROM gitlab-master.nvidia.com:5005/cuda-installer/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu18.04-rc022
 LABEL maintainer="NVIDIA CORPORATION"
 
 ARG uid=1000

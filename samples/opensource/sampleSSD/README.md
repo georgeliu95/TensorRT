@@ -257,7 +257,7 @@ Due to the size of the SSD Caffe model, it is not included in the product bundle
 
 4.  Generate the INT8 calibration batches. The script selects 500 random JPEG images from the PASCAL VOC dataset and converts them to PPM images. These 500 PPM images are used to generate INT8 calibration batches.
     ```sh
-    <TensorRT root directory>/samples/sampleSSD/prepareINT8CalibrationBatches.sh
+    <TensorRT root directory>/samples/sampleSSD/PrepareINT8CalibrationBatches.sh
     ```
     **Note:** Do not move the batch files from the `<TensorRT root directory>/data/ssd/batches` directory.
 
