@@ -153,11 +153,11 @@ public:
     void setLabel(int64_t label)
     {
         mLabel = label;
-    }//!<  set the Label
+    } //!<  set the Label
     int64_t getLabel() const
     {
         return mLabel;
-    }//!<  get the Label
+    } //!<  get the Label
     bool getPrintLayerInfo() const
     {
         return mPrintLayercInfo;

@@ -374,10 +374,10 @@ bool SampleUffSSD::verifyOutput(const samplesCommon::BufferManager& buffers)
             }
 
             sample::gLogInfo << "Detected " << classes[detection].c_str() << " in the image " << int(det[0]) << " ("
-                     << mPPMs[p].fileName.c_str() << ")"
-                     << " with confidence " << det[2] * 100.f << " and coordinates (" << det[3] * inputW << ","
-                     << det[4] * inputH << ")"
-                     << ",(" << det[5] * inputW << "," << det[6] * inputH << ")." << std::endl;
+                             << mPPMs[p].fileName.c_str() << ")"
+                             << " with confidence " << det[2] * 100.f << " and coordinates (" << det[3] * inputW << ","
+                             << det[4] * inputH << ")"
+                             << ",(" << det[5] * inputW << "," << det[6] * inputH << ")." << std::endl;
 
             sample::gLogInfo << "Result stored in " << storeName.c_str() << "." << std::endl;
 

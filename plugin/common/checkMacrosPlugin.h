@@ -32,7 +32,6 @@
 #define NORETURN [[noreturn]]
 #endif
 
-
 namespace nvinfer1
 {
 namespace plugin
@@ -49,7 +48,8 @@ class LogStream : public std::ostream
     Buf buffer;
 
 public:
-    LogStream() : std::ostream(&buffer) {};
+    LogStream()
+        : std::ostream(&buffer){};
 };
 
 extern LogStream<ILogger::Severity::kERROR> gLogError;
@@ -76,7 +76,10 @@ public:
     {
     }
     virtual void log(std::ostream& logStream) const;
-    void setMessage(const char* msg) { message = msg; }
+    void setMessage(const char* msg)
+    {
+        message = msg;
+    }
 
 protected:
     const char* file{nullptr};
@@ -118,42 +121,42 @@ public:
 
 } // namespace nvinfer1
 
-#define API_CHECK(condition)                                             \
-    {                                                                    \
-        if ((condition) == false)                                        \
-        {                                                                \
-            nvinfer1::plugin::logError(#condition, __FILE__, FN_NAME, __LINE__); \
-            return;                                                      \
-        }                                                                \
+#define API_CHECK(condition)                                                                                           \
+    {                                                                                                                  \
+        if ((condition) == false)                                                                                      \
+        {                                                                                                              \
+            nvinfer1::plugin::logError(#condition, __FILE__, FN_NAME, __LINE__);                                       \
+            return;                                                                                                    \
+        }                                                                                                              \
     }
 
-#define API_CHECK_RETVAL(condition, retval)                              \
-    {                                                                    \
-        if ((condition) == false)                                        \
-        {                                                                \
-            nvinfer1::plugin::logError(#condition, __FILE__, FN_NAME, __LINE__); \
-            return retval;                                               \
-        }                                                                \
+#define API_CHECK_RETVAL(condition, retval)                                                                            \
+    {                                                                                                                  \
+        if ((condition) == false)                                                                                      \
+        {                                                                                                              \
+            nvinfer1::plugin::logError(#condition, __FILE__, FN_NAME, __LINE__);                                       \
+            return retval;                                                                                             \
+        }                                                                                                              \
     }
 
-#define API_CHECK_WEIGHTS(Name)        \
-    API_CHECK((Name).values != nullptr); \
-    API_CHECK((Name).count > 0);         \
+#define API_CHECK_WEIGHTS(Name)                                                                                        \
+    API_CHECK((Name).values != nullptr);                                                                               \
+    API_CHECK((Name).count > 0);                                                                                       \
     API_CHECK(int((Name).type) >= 0 && int((Name).type) < EnumMax<DataType>());
 
-#define API_CHECK_WEIGHTS0(Name)                                                     \
-    API_CHECK((Name).count >= 0);                                                      \
-    API_CHECK((Name).count > 0 ? ((Name).values != nullptr) : ((Name).values == nullptr)); \
+#define API_CHECK_WEIGHTS0(Name)                                                                                       \
+    API_CHECK((Name).count >= 0);                                                                                      \
+    API_CHECK((Name).count > 0 ? ((Name).values != nullptr) : ((Name).values == nullptr));                             \
     API_CHECK(int((Name).type) >= 0 && int((Name).type) < EnumMax<DataType>());
 
-#define API_CHECK_WEIGHTS_RETVAL(Name, retval)        \
-    API_CHECK_RETVAL((Name).values != nullptr, retval); \
-    API_CHECK_RETVAL((Name).count > 0, retval);         \
+#define API_CHECK_WEIGHTS_RETVAL(Name, retval)                                                                         \
+    API_CHECK_RETVAL((Name).values != nullptr, retval);                                                                \
+    API_CHECK_RETVAL((Name).count > 0, retval);                                                                        \
     API_CHECK_RETVAL(int((Name).type) >= 0 && int((Name).type) < EnumMax<DataType>(), retval);
 
-#define API_CHECK_WEIGHTS0_RETVAL(Name, retval)                                                     \
-    API_CHECK_RETVAL((Name).count >= 0, retval);                                                      \
-    API_CHECK_RETVAL((Name).count > 0 ? ((Name).values != nullptr) : ((Name).values == nullptr), retval); \
+#define API_CHECK_WEIGHTS0_RETVAL(Name, retval)                                                                        \
+    API_CHECK_RETVAL((Name).count >= 0, retval);                                                                       \
+    API_CHECK_RETVAL((Name).count > 0 ? ((Name).values != nullptr) : ((Name).values == nullptr), retval);              \
     API_CHECK_RETVAL(int((Name).type) >= 0 && int((Name).type) < EnumMax<DataType>(), retval);
 
 #define API_CHECK_NULL(param) API_CHECK((param) != nullptr)
@@ -161,84 +164,84 @@ public:
 #define API_CHECK_NULL_RET_NULL(ptr) API_CHECK_NULL_RETVAL(ptr, nullptr)
 
 #define API_CHECK_ENUM_RANGE(Type, val) API_CHECK(int(val) >= 0 && int(val) < EnumMax<Type>())
-#define API_CHECK_ENUM_RANGE_RETVAL(Type, val, retval) API_CHECK_RETVAL(int(val) >= 0 && int(val) < EnumMax<Type>(), retval)
+#define API_CHECK_ENUM_RANGE_RETVAL(Type, val, retval)                                                                 \
+    API_CHECK_RETVAL(int(val) >= 0 && int(val) < EnumMax<Type>(), retval)
 
 #ifndef TRT_PLUGIN_H
-#define CUBLASASSERTMSG(status_, msg)                                         \
-    {                                                                         \
-        auto s_ = status_;                                                    \
-        if (s_ != CUBLAS_STATUS_SUCCESS)                                      \
-        {                                                                     \
-            nvinfer1::plugin::throwCublasError(__FILE__, FN_NAME, __LINE__, s_, msg); \
-        }                                                                     \
+#define CUBLASASSERTMSG(status_, msg)                                                                                  \
+    {                                                                                                                  \
+        auto s_ = status_;                                                                                             \
+        if (s_ != CUBLAS_STATUS_SUCCESS)                                                                               \
+        {                                                                                                              \
+            nvinfer1::plugin::throwCublasError(__FILE__, FN_NAME, __LINE__, s_, msg);                                  \
+        }                                                                                                              \
     }
 
-#define CUBLASASSERT(status_)                                            \
-    {                                                                    \
-        auto s_ = status_;                                               \
-        if (s_ != CUBLAS_STATUS_SUCCESS)                                 \
-        {                                                                \
-            nvinfer1::plugin::throwCublasError(__FILE__, FN_NAME, __LINE__, s_); \
-        }                                                                \
+#define CUBLASASSERT(status_)                                                                                          \
+    {                                                                                                                  \
+        auto s_ = status_;                                                                                             \
+        if (s_ != CUBLAS_STATUS_SUCCESS)                                                                               \
+        {                                                                                                              \
+            nvinfer1::plugin::throwCublasError(__FILE__, FN_NAME, __LINE__, s_);                                       \
+        }                                                                                                              \
     }
 
-#define CUDNNASSERTMSG(status_, msg)                                         \
-    {                                                                        \
-        auto s_ = status_;                                                   \
-        if (s_ != CUDNN_STATUS_SUCCESS)                                      \
-        {                                                                    \
-            nvinfer1::plugin::throwCudnnError(__FILE__, FN_NAME, __LINE__, s_, msg); \
-        }                                                                    \
+#define CUDNNASSERTMSG(status_, msg)                                                                                   \
+    {                                                                                                                  \
+        auto s_ = status_;                                                                                             \
+        if (s_ != CUDNN_STATUS_SUCCESS)                                                                                \
+        {                                                                                                              \
+            nvinfer1::plugin::throwCudnnError(__FILE__, FN_NAME, __LINE__, s_, msg);                                   \
+        }                                                                                                              \
     }
 
-#define CUDNNASSERT(status_)                                                 \
-    {                                                                        \
-        auto s_ = status_;                                                   \
-        if (s_ != CUDNN_STATUS_SUCCESS)                                      \
-        {                                                                    \
-            const char* msg = cudnnGetErrorString(s_);                       \
-            nvinfer1::plugin::throwCudnnError(__FILE__, FN_NAME, __LINE__, s_, msg); \
-        }                                                                    \
+#define CUDNNASSERT(status_)                                                                                           \
+    {                                                                                                                  \
+        auto s_ = status_;                                                                                             \
+        if (s_ != CUDNN_STATUS_SUCCESS)                                                                                \
+        {                                                                                                              \
+            const char* msg = cudnnGetErrorString(s_);                                                                 \
+            nvinfer1::plugin::throwCudnnError(__FILE__, FN_NAME, __LINE__, s_, msg);                                   \
+        }                                                                                                              \
     }
 
-#define CUASSERTMSG(status_, msg)                                           \
-    {                                                                       \
-        auto s_ = status_;                                                  \
-        if (s_ != cudaSuccess)                                              \
-        {                                                                   \
-            nvinfer1::plugin::throwCudaError(__FILE__, FN_NAME, __LINE__, s_, msg); \
-        }                                                                   \
+#define CUASSERTMSG(status_, msg)                                                                                      \
+    {                                                                                                                  \
+        auto s_ = status_;                                                                                             \
+        if (s_ != cudaSuccess)                                                                                         \
+        {                                                                                                              \
+            nvinfer1::plugin::throwCudaError(__FILE__, FN_NAME, __LINE__, s_, msg);                                    \
+        }                                                                                                              \
     }
 
-#define CUASSERT(status_)                                                   \
-    {                                                                       \
-        auto s_ = status_;                                                  \
-        if (s_ != cudaSuccess)                                              \
-        {                                                                   \
-            const char* msg = cudaGetErrorString(s_);                       \
-            nvinfer1::plugin::throwCudaError(__FILE__, FN_NAME, __LINE__, s_, msg); \
-        }                                                                   \
+#define CUASSERT(status_)                                                                                              \
+    {                                                                                                                  \
+        auto s_ = status_;                                                                                             \
+        if (s_ != cudaSuccess)                                                                                         \
+        {                                                                                                              \
+            const char* msg = cudaGetErrorString(s_);                                                                  \
+            nvinfer1::plugin::throwCudaError(__FILE__, FN_NAME, __LINE__, s_, msg);                                    \
+        }                                                                                                              \
     }
 
-
-#define ASSERT(assertion)                                              \
-    {                                                                  \
-        if (!(assertion))                                              \
-        {                                                              \
-            nvinfer1::plugin::reportAssertion(#assertion, __FILE__, __LINE__); \
-        }                                                              \
+#define ASSERT(assertion)                                                                                              \
+    {                                                                                                                  \
+        if (!(assertion))                                                                                              \
+        {                                                                                                              \
+            nvinfer1::plugin::reportAssertion(#assertion, __FILE__, __LINE__);                                         \
+        }                                                                                                              \
     }
 
-#define FAIL(msg)                                           \
-    {                                                       \
-        nvinfer1::plugin::reportAssertion(msg, __FILE__, __LINE__); \
+#define FAIL(msg)                                                                                                      \
+    {                                                                                                                  \
+        nvinfer1::plugin::reportAssertion(msg, __FILE__, __LINE__);                                                    \
     }
 
-#define CUERRORMSG(status_)                                                        \
-    {                                                                              \
-        auto s_ = status_;                                                         \
-        if (s_ != 0)                                                               \
-            nvinfer1::plugin::logError(#status_ " failure.", __FILE__, FN_NAME, __LINE__); \
+#define CUERRORMSG(status_)                                                                                            \
+    {                                                                                                                  \
+        auto s_ = status_;                                                                                             \
+        if (s_ != 0)                                                                                                   \
+            nvinfer1::plugin::logError(#status_ " failure.", __FILE__, FN_NAME, __LINE__);                             \
     }
 
 #endif // TRT_PLUGIN_H

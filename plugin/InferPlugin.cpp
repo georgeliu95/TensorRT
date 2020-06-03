@@ -26,15 +26,19 @@
 using namespace nvinfer1;
 using namespace nvinfer1::plugin;
 
-#include "nvFasterRCNNPlugin.h"
+#include "batchTilePlugin.h"
 #include "batchedNMSPlugin.h"
 #include "cropAndResizePlugin.h"
 #include "detectionLayerPlugin.h"
 #include "flattenConcat.h"
+#include "generateDetectionPlugin.h"
 #include "gridAnchorPlugin.h"
 #include "instanceNormalizationPlugin.h"
+#include "multilevelCropAndResizePlugin.h"
+#include "multilevelProposeROIPlugin.h"
 #include "nmsPlugin.h"
 #include "normalizePlugin.h"
+#include "nvFasterRCNNPlugin.h"
 #include "priorBoxPlugin.h"
 #include "proposalLayerPlugin.h"
 #include "proposalPlugin.h"
@@ -43,10 +47,6 @@ using namespace nvinfer1::plugin;
 #include "reorgPlugin.h"
 #include "resizeNearestPlugin.h"
 #include "specialSlicePlugin.h"
-#include "batchTilePlugin.h"
-#include "generateDetectionPlugin.h"
-#include "multilevelProposeROIPlugin.h"
-#include "multilevelCropAndResizePlugin.h"
 
 using nvinfer1::plugin::RPROIParams;
 
@@ -82,8 +82,9 @@ public:
         pluginCreator->setPluginNamespace(libNamespace);
 
         nvinfer1::plugin::gLogger = static_cast<nvinfer1::ILogger*>(logger);
-        std::string pluginType = std::string{pluginCreator->getPluginNamespace()} + "::"
-                + std::string{pluginCreator->getPluginName()} + " version " + std::string{pluginCreator->getPluginVersion()};
+        std::string pluginType = std::string{pluginCreator->getPluginNamespace()}
+            + "::" + std::string{pluginCreator->getPluginName()} + " version "
+            + std::string{pluginCreator->getPluginVersion()};
 
         if (mRegistryList.find(pluginType) == mRegistryList.end())
         {

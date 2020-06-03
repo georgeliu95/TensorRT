@@ -15,8 +15,8 @@
  */
 #include "resizeNearestPlugin.h"
 #include "plugin.h"
-#include <cuda_runtime_api.h>
 #include <algorithm>
+#include <cuda_runtime_api.h>
 #include <iostream>
 
 #define DEBUG 0
@@ -115,9 +115,7 @@ int ResizeNearest::initialize()
     return 0;
 }
 
-void ResizeNearest::terminate()
-{
-}
+void ResizeNearest::terminate() {}
 
 void ResizeNearest::destroy()
 {

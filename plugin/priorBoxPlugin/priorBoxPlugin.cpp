@@ -167,14 +167,14 @@ PriorBox::PriorBox(const void* data, size_t length)
     W = read<int>(d);
     for (auto i = 0; i < mParam.numMinSize; i++)
     {
-        mParam.minSize[i] = reinterpret_cast<const float *>(d)[i];
+        mParam.minSize[i] = reinterpret_cast<const float*>(d)[i];
     }
     minSize = deserializeToDevice(d, mParam.numMinSize);
     if (mParam.numMaxSize > 0)
     {
         for (auto i = 0; i < mParam.numMaxSize; i++)
         {
-            mParam.maxSize[i] = reinterpret_cast<const float *>(d)[i];
+            mParam.maxSize[i] = reinterpret_cast<const float*>(d)[i];
         }
         maxSize = deserializeToDevice(d, mParam.numMaxSize);
     }
@@ -183,7 +183,7 @@ PriorBox::PriorBox(const void* data, size_t length)
     {
         for (auto i = 0; i < mParam.numAspectRatios; i++)
         {
-            mParam.aspectRatios[i] = reinterpret_cast<const float *>(d)[i];
+            mParam.aspectRatios[i] = reinterpret_cast<const float*>(d)[i];
         }
         aspectRatios = deserializeToDevice(d, numAspectRatios);
     }

@@ -334,7 +334,7 @@ public:
         nvinfer1::Dims bufDims = mEngine->getBindingDimensions(index);
         size_t rowCount = static_cast<size_t>(bufDims.nbDims > 0 ? bufDims.d[bufDims.nbDims - 1] : mBatchSize);
         int leadDim = mBatchSize;
-        int *trailDims = bufDims.d;
+        int* trailDims = bufDims.d;
         int nbDims = bufDims.nbDims;
 
         // Fix explicit Dimension networks
@@ -454,7 +454,7 @@ private:
     std::shared_ptr<nvinfer1::ICudaEngine> mEngine;              //!< The pointer to the engine
     int mBatchSize;                                              //!< The batch size for legacy networks, 0 otherwise.
     std::vector<std::unique_ptr<ManagedBuffer>> mManagedBuffers; //!< The vector of pointers to managed buffers
-    std::vector<void*> mDeviceBindings;                          //!< The vector of device buffers needed for engine execution
+    std::vector<void*> mDeviceBindings; //!< The vector of device buffers needed for engine execution
 };
 
 } // namespace samplesCommon

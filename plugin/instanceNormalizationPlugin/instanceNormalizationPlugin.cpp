@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <stdexcept>
-#include <cuda_fp16.h>
 #include "instanceNormalizationPlugin.h"
+#include <cuda_fp16.h>
+#include <stdexcept>
 
 using namespace nvinfer1;
 using nvinfer1::plugin::InstanceNormalizationPlugin;
@@ -58,14 +58,14 @@ cudnnStatus_t convert_trt2cudnn_dtype(nvinfer1::DataType trt_dtype, cudnnDataTyp
     return CUDNN_STATUS_SUCCESS;
 }
 
-namespace {
-    constexpr const char* INSTANCE_PLUGIN_VERSION{"1"};
-    constexpr const char* INSTANCE_PLUGIN_NAME{"InstanceNormalization_TRT"};
-}
+namespace
+{
+constexpr const char* INSTANCE_PLUGIN_VERSION{"1"};
+constexpr const char* INSTANCE_PLUGIN_NAME{"InstanceNormalization_TRT"};
+} // namespace
 
 PluginFieldCollection InstanceNormalizationPluginCreator::mFC{};
 std::vector<PluginField> InstanceNormalizationPluginCreator::mPluginAttributes;
-
 
 InstanceNormalizationPlugin::InstanceNormalizationPlugin(
     float epsilon, const std::vector<float>& scale, const std::vector<float>& bias)
@@ -162,11 +162,11 @@ void InstanceNormalizationPlugin::terminate()
     cudaFree(_d_scale);
 }
 
-size_t InstanceNormalizationPlugin::getWorkspaceSize(const nvinfer1::PluginTensorDesc* inputs, int nbInputs, const nvinfer1::PluginTensorDesc* outputs, int nbOutputs) const
+size_t InstanceNormalizationPlugin::getWorkspaceSize(const nvinfer1::PluginTensorDesc* inputs, int nbInputs,
+    const nvinfer1::PluginTensorDesc* outputs, int nbOutputs) const
 {
     return 0;
 }
-
 
 int InstanceNormalizationPlugin::enqueue(const nvinfer1::PluginTensorDesc* inputDesc,
     const nvinfer1::PluginTensorDesc* outputDesc, const void* const* inputs, void* const* outputs, void* workspace,
@@ -216,13 +216,10 @@ int InstanceNormalizationPlugin::enqueue(const nvinfer1::PluginTensorDesc* input
 
 size_t InstanceNormalizationPlugin::getSerializationSize() const
 {
-    return (serialized_size(_epsilon) +
-            serialized_size(_nchan) +
-            serialized_size(_h_scale) +
-            serialized_size(_h_bias));
+    return (serialized_size(_epsilon) + serialized_size(_nchan) + serialized_size(_h_scale) + serialized_size(_h_bias));
 }
 
-void InstanceNormalizationPlugin::serialize(void *buffer) const
+void InstanceNormalizationPlugin::serialize(void* buffer) const
 {
     serialize_value(&buffer, _epsilon);
     serialize_value(&buffer, _nchan);
@@ -279,7 +276,8 @@ nvinfer1::DataType InstanceNormalizationPlugin::getOutputDataType(
 }
 
 // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
-void InstanceNormalizationPlugin::attachToContext(cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
+void InstanceNormalizationPlugin::attachToContext(
+    cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
 {
     _cudnn_handle = cudnnContext;
     cudnnCreateTensorDescriptor(&_b_desc);
@@ -301,11 +299,11 @@ void InstanceNormalizationPlugin::configurePlugin(const nvinfer1::DynamicPluginT
     auto input_dims = in[0].desc.dims;
     for (int i = 0; i < nbInputs; i++)
     {
-      for (int j = 0; j < input_dims.nbDims; j++)
-      {
-        // Do not support dynamic dimensions
-        ASSERT(input_dims.d[j] != -1);
-      }
+        for (int j = 0; j < input_dims.nbDims; j++)
+        {
+            // Do not support dynamic dimensions
+            ASSERT(input_dims.d[j] != -1);
+        }
     }
 
     int n = input_dims.d[0];
@@ -348,11 +346,12 @@ const PluginFieldCollection* InstanceNormalizationPluginCreator::getFieldNames()
     return &mFC;
 }
 
-IPluginV2DynamicExt* InstanceNormalizationPluginCreator::createPlugin(const char* name, const nvinfer1::PluginFieldCollection* fc)
+IPluginV2DynamicExt* InstanceNormalizationPluginCreator::createPlugin(
+    const char* name, const nvinfer1::PluginFieldCollection* fc)
 {
     std::vector<float> scaleValues;
     std::vector<float> biasValues;
-    float epsilon {};
+    float epsilon{};
     const PluginField* fields = fc->fields;
     for (int i = 0; i < fc->nbFields; ++i)
     {
@@ -360,7 +359,7 @@ IPluginV2DynamicExt* InstanceNormalizationPluginCreator::createPlugin(const char
         if (!strcmp(attrName, "epsilon"))
         {
             ASSERT(fields[i].type == PluginFieldType::kFLOAT32);
-            epsilon= *(static_cast<const float*>(fields[i].data));
+            epsilon = *(static_cast<const float*>(fields[i].data));
         }
         else if (!strcmp(attrName, "scales"))
         {
@@ -396,7 +395,8 @@ IPluginV2DynamicExt* InstanceNormalizationPluginCreator::createPlugin(const char
     return obj;
 }
 
-IPluginV2DynamicExt* InstanceNormalizationPluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength)
+IPluginV2DynamicExt* InstanceNormalizationPluginCreator::deserializePlugin(
+    const char* name, const void* serialData, size_t serialLength)
 {
     InstanceNormalizationPlugin* obj = new InstanceNormalizationPlugin{serialData, serialLength};
     obj->setPluginNamespace(mNamespace.c_str());

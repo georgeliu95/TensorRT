@@ -22,15 +22,15 @@
 #include <random>
 #include <string>
 
-#include "NvInfer.h"
 #include "NvCaffeParser.h"
+#include "NvInfer.h"
 #include "NvOnnxParser.h"
 #include "NvUffParser.h"
 
 #include "logger.h"
-#include "sampleUtils.h"
-#include "sampleOptions.h"
 #include "sampleEngines.h"
+#include "sampleOptions.h"
+#include "sampleUtils.h"
 
 using namespace nvinfer1;
 
@@ -145,8 +145,7 @@ Parser modelToNetwork(const ModelOptions& model, nvinfer1::INetworkDefinition& n
         }
         break;
     }
-    case ModelFormat::kANY:
-        break;
+    case ModelFormat::kANY: break;
     }
 
     return parser;
@@ -158,8 +157,8 @@ namespace
 class RndInt8Calibrator : public nvinfer1::IInt8EntropyCalibrator2
 {
 public:
-    RndInt8Calibrator(
-        int batches, std::vector<int>& elemCount, const std::string& cacheFile, const nvinfer1::INetworkDefinition& network, std::ostream& err);
+    RndInt8Calibrator(int batches, std::vector<int>& elemCount, const std::string& cacheFile,
+        const nvinfer1::INetworkDefinition& network, std::ostream& err);
 
     ~RndInt8Calibrator()
     {
@@ -189,8 +188,8 @@ private:
     std::ostream& mErr;
 };
 
-RndInt8Calibrator::RndInt8Calibrator(
-    int batches, std::vector<int>& elemCount, const std::string& cacheFile, const INetworkDefinition& network, std::ostream& err)
+RndInt8Calibrator::RndInt8Calibrator(int batches, std::vector<int>& elemCount, const std::string& cacheFile,
+    const INetworkDefinition& network, std::ostream& err)
     : mBatches(batches)
     , mCurrentBatch(0)
     , mCacheFile(cacheFile)
@@ -350,7 +349,8 @@ ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys
         {
             Dims dims = input->getDimensions();
             const bool isScalar = dims.nbDims == 0;
-            const bool isDynamicInput = std::any_of(dims.d, dims.d + dims.nbDims, [](int dim){ return dim == -1; }) || input->isShapeTensor();
+            const bool isDynamicInput = std::any_of(dims.d, dims.d + dims.nbDims, [](int dim) { return dim == -1; })
+                || input->isShapeTensor();
             if (isDynamicInput)
             {
                 hasDynamicShapes = true;
@@ -380,7 +380,9 @@ ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys
                         std::transform(dims.d, dims.d + dims.nbDims, staticDims.begin(),
                             [&DEFAULT_DIMENSION](int dim) { return dim > 0 ? dim : DEFAULT_DIMENSION; });
                     }
-                    sample::gLogWarning << "Dynamic dimensions required for input: " << input->getName() << ", but no shapes were provided. Automatically overriding shape to: " << staticDims << std::endl;
+                    sample::gLogWarning << "Dynamic dimensions required for input: " << input->getName()
+                                        << ", but no shapes were provided. Automatically overriding shape to: "
+                                        << staticDims << std::endl;
                     std::fill(shapes.begin(), shapes.end(), staticDims);
                 }
                 else
@@ -477,9 +479,10 @@ ICudaEngine* networkToEngine(const BuildOptions& build, const SystemOptions& sys
 
     if (build.int8 && !build.fp16)
     {
-        sample::gLogInfo << "FP32 and INT8 precisions have been specified - more performance might be enabled by additionally "
-                    "specifying --fp16 or --best"
-                 << std::endl;
+        sample::gLogInfo
+            << "FP32 and INT8 precisions have been specified - more performance might be enabled by additionally "
+               "specifying --fp16 or --best"
+            << std::endl;
     }
 
     auto isInt8 = [](const IOFormat& format) { return format.first == DataType::kINT8; };
@@ -582,8 +585,9 @@ ICudaEngine* modelToEngine(
         return nullptr;
     }
     const bool isOnnxModel = model.baseModel.format == ModelFormat::kONNX;
-    auto batchFlag = (build.maxBatch && !isOnnxModel) ? 0U : 1U
-        << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
+    auto batchFlag = (build.maxBatch && !isOnnxModel)
+        ? 0U
+        : 1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
     TrtUniquePtr<INetworkDefinition> network{builder->createNetworkV2(batchFlag)};
     if (!network)
     {
@@ -650,7 +654,8 @@ bool saveEngine(const ICudaEngine& engine, const std::string& fileName, std::ost
     return !engineFile.fail();
 }
 
-TrtUniquePtr<nvinfer1::ICudaEngine> getEngine(const ModelOptions& model, const BuildOptions& build, const SystemOptions& sys, std::ostream& err)
+TrtUniquePtr<nvinfer1::ICudaEngine> getEngine(
+    const ModelOptions& model, const BuildOptions& build, const SystemOptions& sys, std::ostream& err)
 {
     TrtUniquePtr<nvinfer1::ICudaEngine> engine;
     if (build.load)

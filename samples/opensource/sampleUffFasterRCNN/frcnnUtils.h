@@ -191,8 +191,8 @@ void resizePPM(vPPM& ppm, int target_width, int target_height)
 class BatchStream
 {
 public:
-    BatchStream(
-        int batchSize, int maxBatches, const std::string& prefix, const std::string& suffix, const std::vector<std::string>& directories)
+    BatchStream(int batchSize, int maxBatches, const std::string& prefix, const std::string& suffix,
+        const std::vector<std::string>& directories)
         : mBatchSize(batchSize)
         , mMaxBatches(maxBatches)
         , mPrefix(prefix)
@@ -224,8 +224,8 @@ public:
     {
     }
 
-    BatchStream(
-        int batchSize, int maxBatches, const nvinfer1::Dims& dims, const std::string& listFile, const std::vector<std::string>& directories)
+    BatchStream(int batchSize, int maxBatches, const nvinfer1::Dims& dims, const std::string& listFile,
+        const std::vector<std::string>& directories)
         : mBatchSize(batchSize)
         , mMaxBatches(maxBatches)
         , mDims(dims)
@@ -431,8 +431,8 @@ private:
 class EntropyCalibratorImpl
 {
 public:
-    EntropyCalibratorImpl(
-        BatchStream& stream, int firstBatch, const std::string& networkName, const char* inputBlobName, bool readCache = true)
+    EntropyCalibratorImpl(BatchStream& stream, int firstBatch, const std::string& networkName,
+        const char* inputBlobName, bool readCache = true)
         : mStream(stream)
         , mCalibrationTableName("CalibrationTable" + networkName)
         , mInputBlobName(inputBlobName)

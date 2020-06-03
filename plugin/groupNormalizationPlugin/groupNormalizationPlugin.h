@@ -17,12 +17,12 @@
 #ifndef TRT_GROUP_NORM_PLUGIN_H
 #define TRT_GROUP_NORM_PLUGIN_H
 
-#include "serialize.hpp"
 #include "plugin.h"
+#include "serialize.hpp"
 #include <cudnn.h>
-#include <vector>
 #include <iostream>
 #include <string>
+#include <vector>
 
 // One of the preferred ways of making TensorRT to be able to see
 // our custom layer requires extending IPluginV2 and IPluginCreator classes.
@@ -50,24 +50,25 @@ public:
     int getNbOutputs() const override;
 
     // DynamicExt plugins returns DimsExprs class instead of Dims
-    DimsExprs getOutputDimensions(int index, const nvinfer1::DimsExprs* inputs, int nbInputDims, nvinfer1::IExprBuilder& exprBuilder) override;
+    DimsExprs getOutputDimensions(
+        int index, const nvinfer1::DimsExprs* inputs, int nbInputDims, nvinfer1::IExprBuilder& exprBuilder) override;
 
     int initialize() override;
 
     void terminate() override;
 
-    size_t getWorkspaceSize(const nvinfer1::PluginTensorDesc* inputs, int nbInputs, const nvinfer1::PluginTensorDesc* outputs, int nbOutputs) const override;
+    size_t getWorkspaceSize(const nvinfer1::PluginTensorDesc* inputs, int nbInputs,
+        const nvinfer1::PluginTensorDesc* outputs, int nbOutputs) const override;
 
     int enqueue(const nvinfer1::PluginTensorDesc* inputDesc, const nvinfer1::PluginTensorDesc* outputDesc,
-                const void* const* inputs, void* const* outputs,
-                void* workspace,
-                cudaStream_t stream) override;
+        const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) override;
 
     size_t getSerializationSize() const override;
 
     void serialize(void* buffer) const override;
 
-    bool supportsFormatCombination(int pos, const nvinfer1::PluginTensorDesc* inOut, int nbInputs, int nbOutputs) override;
+    bool supportsFormatCombination(
+        int pos, const nvinfer1::PluginTensorDesc* inOut, int nbInputs, int nbOutputs) override;
 
     const char* getPluginType() const override;
 
@@ -88,7 +89,7 @@ public:
     const char* getPluginNamespace() const override;
 
     void configurePlugin(const nvinfer1::DynamicPluginTensorDesc* in, int nbInputs,
-                       const nvinfer1::DynamicPluginTensorDesc* out, int nbOutputs) override;
+        const nvinfer1::DynamicPluginTensorDesc* out, int nbOutputs) override;
 
 private:
     const char* mPluginNamespace;
@@ -99,20 +100,20 @@ private:
     int mChannelVolume;
 
     cudnnHandle_t _cudnn_handle;
-    cudnnTensorDescriptor_t desc, bnDesc;   // describes input and output
-    //These are buffers initialized to 1 and 0 respectively
-    void * bnScale;
-    void * bnBias;
+    cudnnTensorDescriptor_t desc, bnDesc; // describes input and output
+    // These are buffers initialized to 1 and 0 respectively
+    void* bnScale;
+    void* bnBias;
 
 protected:
     // To prevent compiler warnings.
-    using nvinfer1::IPluginV2DynamicExt::getOutputDimensions;
-    using nvinfer1::IPluginV2DynamicExt::isOutputBroadcastAcrossBatch;
     using nvinfer1::IPluginV2DynamicExt::canBroadcastInputAcrossBatch;
-    using nvinfer1::IPluginV2DynamicExt::supportsFormat;
     using nvinfer1::IPluginV2DynamicExt::configurePlugin;
-    using nvinfer1::IPluginV2DynamicExt::getWorkspaceSize;
     using nvinfer1::IPluginV2DynamicExt::enqueue;
+    using nvinfer1::IPluginV2DynamicExt::getOutputDimensions;
+    using nvinfer1::IPluginV2DynamicExt::getWorkspaceSize;
+    using nvinfer1::IPluginV2DynamicExt::isOutputBroadcastAcrossBatch;
+    using nvinfer1::IPluginV2DynamicExt::supportsFormat;
 };
 
 class GroupNormalizationPluginCreator : public IPluginCreator

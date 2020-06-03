@@ -23,12 +23,12 @@
 #include <functional>
 #include <iostream>
 #include <iterator>
+#include <memory>
 #include <sstream>
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <vector>
-#include <memory>
 
 #include "NvInfer.h"
 #include "NvInferPlugin.h"
@@ -37,9 +37,9 @@
 #include "common.h"
 #include "logger.h"
 #include "sampleDevice.h"
-#include "sampleOptions.h"
 #include "sampleEngines.h"
 #include "sampleInference.h"
+#include "sampleOptions.h"
 #include "sampleReporting.h"
 
 using namespace nvinfer1;
@@ -132,8 +132,9 @@ int main(int argc, char** argv)
     if (options.build.safe && options.system.DLACore >= 0)
     {
         sample::gLogInfo << "Safe DLA capability is detected. Please save DLA loadable with --saveEngine option, "
-                    "then use dla_safety_runtime to run inference with saved DLA loadable, "
-                    "or alternatively run with your own application" << std::endl;
+                            "then use dla_safety_runtime to run inference with saved DLA loadable, "
+                            "or alternatively run with your own application"
+                         << std::endl;
         return sample::gLogger.reportFail(sampleTest);
     }
 
@@ -151,7 +152,8 @@ int main(int argc, char** argv)
     sample::gLogInfo << "Starting inference threads" << std::endl;
     runInference(options.inference, iEnv, options.system.device, trace);
 
-    printPerformanceReport(trace, options.reporting, static_cast<float>(options.inference.warmup), options.inference.batch, sample::gLogInfo);
+    printPerformanceReport(trace, options.reporting, static_cast<float>(options.inference.warmup),
+        options.inference.batch, sample::gLogInfo);
 
     if (options.reporting.output)
     {

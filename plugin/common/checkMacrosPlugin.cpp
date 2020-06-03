@@ -15,15 +15,15 @@
  */
 #include "checkMacrosPlugin.h"
 #include <cstdlib>
-#include <cuda_runtime.h>
 #include <cublas_v2.h>
+#include <cuda_runtime.h>
 
 namespace nvinfer1
 {
 namespace plugin
 {
 
-ILogger *gLogger {};
+ILogger* gLogger{};
 
 template <ILogger::Severity kSeverity>
 int LogStream<kSeverity>::Buf::sync()
@@ -61,36 +61,16 @@ void throwCublasError(const char* file, const char* function, int line, int stat
         auto s_ = static_cast<cublasStatus_t>(status);
         switch (s_)
         {
-        case CUBLAS_STATUS_SUCCESS:
-            msg = "CUBLAS_STATUS_SUCCESS";
-            break;
-        case CUBLAS_STATUS_NOT_INITIALIZED:
-            msg = "CUBLAS_STATUS_NOT_INITIALIZED";
-            break;
-        case CUBLAS_STATUS_ALLOC_FAILED:
-            msg = "CUBLAS_STATUS_ALLOC_FAILED";
-            break;
-        case CUBLAS_STATUS_INVALID_VALUE:
-            msg = "CUBLAS_STATUS_INVALID_VALUE";
-            break;
-        case CUBLAS_STATUS_ARCH_MISMATCH:
-            msg = "CUBLAS_STATUS_ARCH_MISMATCH";
-            break;
-        case CUBLAS_STATUS_MAPPING_ERROR:
-            msg = "CUBLAS_STATUS_MAPPING_ERROR";
-            break;
-        case CUBLAS_STATUS_EXECUTION_FAILED:
-            msg = "CUBLAS_STATUS_EXECUTION_FAILED";
-            break;
-        case CUBLAS_STATUS_INTERNAL_ERROR:
-            msg = "CUBLAS_STATUS_INTERNAL_ERROR";
-            break;
-        case CUBLAS_STATUS_NOT_SUPPORTED:
-            msg = "CUBLAS_STATUS_NOT_SUPPORTED";
-            break;
-        case CUBLAS_STATUS_LICENSE_ERROR:
-            msg = "CUBLAS_STATUS_LICENSE_ERROR";
-            break;
+        case CUBLAS_STATUS_SUCCESS: msg = "CUBLAS_STATUS_SUCCESS"; break;
+        case CUBLAS_STATUS_NOT_INITIALIZED: msg = "CUBLAS_STATUS_NOT_INITIALIZED"; break;
+        case CUBLAS_STATUS_ALLOC_FAILED: msg = "CUBLAS_STATUS_ALLOC_FAILED"; break;
+        case CUBLAS_STATUS_INVALID_VALUE: msg = "CUBLAS_STATUS_INVALID_VALUE"; break;
+        case CUBLAS_STATUS_ARCH_MISMATCH: msg = "CUBLAS_STATUS_ARCH_MISMATCH"; break;
+        case CUBLAS_STATUS_MAPPING_ERROR: msg = "CUBLAS_STATUS_MAPPING_ERROR"; break;
+        case CUBLAS_STATUS_EXECUTION_FAILED: msg = "CUBLAS_STATUS_EXECUTION_FAILED"; break;
+        case CUBLAS_STATUS_INTERNAL_ERROR: msg = "CUBLAS_STATUS_INTERNAL_ERROR"; break;
+        case CUBLAS_STATUS_NOT_SUPPORTED: msg = "CUBLAS_STATUS_NOT_SUPPORTED"; break;
+        case CUBLAS_STATUS_LICENSE_ERROR: msg = "CUBLAS_STATUS_LICENSE_ERROR"; break;
         }
     }
     CublasError error(file, function, line, status, msg);

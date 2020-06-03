@@ -1210,7 +1210,8 @@ int main(int argc, char** argv)
             {
                 if (!generatorShuffleContext->enqueue(validSampleCount, &generatorShuffleBindings[0], stream, nullptr))
                 {
-                    sample::gLogError << "Error in generator shuffle context enqueue step " << outputTimestep << std::endl;
+                    sample::gLogError << "Error in generator shuffle context enqueue step " << outputTimestep
+                                      << std::endl;
                     return sample::gLogger.reportTest(sampleTest, false);
                 }
                 if (!generatorContext->enqueue(validSampleCount, &generatorBindings[0], stream, nullptr))
@@ -1284,8 +1285,8 @@ int main(int argc, char** argv)
 
     if (gDataWriterStr == "benchmark")
     {
-        sample::gLogInfo << "Average latency (without data read) = " << totalLatency / static_cast<float>(batchCount) << " ms"
-                 << std::endl;
+        sample::gLogInfo << "Average latency (without data read) = " << totalLatency / static_cast<float>(batchCount)
+                         << " ms" << std::endl;
     }
 
     if (gEnableProfiling)

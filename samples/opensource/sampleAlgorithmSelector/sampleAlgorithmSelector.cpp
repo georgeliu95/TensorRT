@@ -761,8 +761,9 @@ int main(int argc, char** argv)
 
     {
         // Build network using MinimumWorkspaceAlgorithmSelector.
-        sample::gLogInfo << "Building a GPU inference engine for MNIST using Algorithms with minimum workspace requirements."
-                 << std::endl;
+        sample::gLogInfo
+            << "Building a GPU inference engine for MNIST using Algorithms with minimum workspace requirements."
+            << std::endl;
         MinimumWorkspaceAlgorithmSelector minimumWorkspaceAlgorithmSelector;
         if (!sampleAlgorithmSelector.build(&minimumWorkspaceAlgorithmSelector))
         {

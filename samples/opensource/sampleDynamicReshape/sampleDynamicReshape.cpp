@@ -77,7 +77,7 @@ private:
 
     samplesCommon::OnnxSampleParams mParams; //!< The parameters for the sample.
 
-    nvinfer1::Dims mPredictionInputDims;   //!< The dimensions of the input of the MNIST model.
+    nvinfer1::Dims mPredictionInputDims;  //!< The dimensions of the input of the MNIST model.
     nvinfer1::Dims mPredictionOutputDims; //!< The dimensions of the output of the MNIST model.
 
     // Engines used for inference. The first is used for resizing inputs, the second for prediction.
@@ -173,10 +173,10 @@ bool SampleDynamicReshape::buildPreprocessorEngine(const SampleUniquePtr<nvinfer
     {
         preprocessorConfig->setFlag(BuilderFlag::kINT8);
         const int nCalibBatches{10};
-        MNISTBatchStream calibrationStream(calibBatchSize, nCalibBatches, "train-images-idx3-ubyte",
-            "train-labels-idx1-ubyte", mParams.dataDirs);
-        calibrator.reset(new Int8EntropyCalibrator2<MNISTBatchStream>(
-            calibrationStream, 0, "MNISTPreprocessor", "input"));
+        MNISTBatchStream calibrationStream(
+            calibBatchSize, nCalibBatches, "train-images-idx3-ubyte", "train-labels-idx1-ubyte", mParams.dataDirs);
+        calibrator.reset(
+            new Int8EntropyCalibrator2<MNISTBatchStream>(calibrationStream, 0, "MNISTPreprocessor", "input"));
         preprocessorConfig->setInt8Calibrator(calibrator.get());
     }
 
@@ -187,9 +187,12 @@ bool SampleDynamicReshape::buildPreprocessorEngine(const SampleUniquePtr<nvinfer
         return false;
     }
     sample::gLogInfo << "Profile dimensions in preprocessor engine:" << std::endl;
-    sample::gLogInfo << "    Minimum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kMIN) << std::endl;
-    sample::gLogInfo << "    Optimum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kOPT) << std::endl;
-    sample::gLogInfo << "    Maximum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kMAX) << std::endl;
+    sample::gLogInfo << "    Minimum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kMIN)
+                     << std::endl;
+    sample::gLogInfo << "    Optimum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kOPT)
+                     << std::endl;
+    sample::gLogInfo << "    Maximum = " << mPreprocessorEngine->getProfileDimensions(0, 0, OptProfileSelector::kMAX)
+                     << std::endl;
     return true;
 }
 
@@ -214,8 +217,8 @@ bool SampleDynamicReshape::buildPredictionEngine(const SampleUniquePtr<nvinfer1:
     }
 
     auto parser = samplesCommon::infer_object(nvonnxparser::createParser(*network, sample::gLogger.getTRTLogger()));
-    bool parsingSuccess = parser->parseFromFile(
-        locateFile(mParams.onnxFileName, mParams.dataDirs).c_str(), static_cast<int>(sample::gLogger.getReportableSeverity()));
+    bool parsingSuccess = parser->parseFromFile(locateFile(mParams.onnxFileName, mParams.dataDirs).c_str(),
+        static_cast<int>(sample::gLogger.getReportableSeverity()));
     if (!parsingSuccess)
     {
         sample::gLogError << "Failed to parse model." << std::endl;
@@ -260,10 +263,10 @@ bool SampleDynamicReshape::buildPredictionEngine(const SampleUniquePtr<nvinfer1:
     {
         config->setFlag(BuilderFlag::kINT8);
         int nCalibBatches{10};
-        MNISTBatchStream calibrationStream(calibBatchSize, nCalibBatches, "train-images-idx3-ubyte",
-            "train-labels-idx1-ubyte", mParams.dataDirs);
-        calibrator.reset(new Int8EntropyCalibrator2<MNISTBatchStream>(
-            calibrationStream, 0, "MNISTPrediction", inputName));
+        MNISTBatchStream calibrationStream(
+            calibBatchSize, nCalibBatches, "train-images-idx3-ubyte", "train-labels-idx1-ubyte", mParams.dataDirs);
+        calibrator.reset(
+            new Int8EntropyCalibrator2<MNISTBatchStream>(calibrationStream, 0, "MNISTPrediction", inputName));
         config->setInt8Calibrator(calibrator.get());
     }
     // Build the prediciton engine.
@@ -407,8 +410,10 @@ bool SampleDynamicReshape::validateOutput(int digit)
     int curIndex{0};
     for (const auto& elem : prob)
     {
-        sample::gLogInfo << " Prob " << curIndex << "  " << std::fixed << std::setw(5) << std::setprecision(4) << elem << " "
-                 << "Class " << curIndex << ": " << std::string(int(std::floor(elem * 10 + 0.5f)), '*') << std::endl;
+        sample::gLogInfo << " Prob " << curIndex << "  " << std::fixed << std::setw(5) << std::setprecision(4) << elem
+                         << " "
+                         << "Class " << curIndex << ": " << std::string(int(std::floor(elem * 10 + 0.5f)), '*')
+                         << std::endl;
         ++curIndex;
     }
 

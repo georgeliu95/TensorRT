@@ -63,15 +63,15 @@ using namespace plugin;
 #define ENABLE_DLA_API 1
 #endif
 
-#define CHECK(status)                                           \
-    do                                                          \
-    {                                                           \
-        auto ret = (status);                                    \
-        if (ret != 0)                                           \
-        {                                                       \
-            sample::gLogError << "Cuda failure: " << ret << std::endl;  \
-            abort();                                            \
-        }                                                       \
+#define CHECK(status)                                                                                                  \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        auto ret = (status);                                                                                           \
+        if (ret != 0)                                                                                                  \
+        {                                                                                                              \
+            sample::gLogError << "Cuda failure: " << ret << std::endl;                                                 \
+            abort();                                                                                                   \
+        }                                                                                                              \
     } while (0)
 
 #define CHECK_RETURN_W_MSG(status, val, errMsg)                                                                        \
@@ -79,22 +79,21 @@ using namespace plugin;
     {                                                                                                                  \
         if (!(status))                                                                                                 \
         {                                                                                                              \
-            sample::gLogError << errMsg << " Error in " << __FILE__ << ", function " << FN_NAME << "(), line " << __LINE__     \
-                      << std::endl;                                                                                    \
+            sample::gLogError << errMsg << " Error in " << __FILE__ << ", function " << FN_NAME << "(), line "         \
+                              << __LINE__ << std::endl;                                                                \
             return val;                                                                                                \
         }                                                                                                              \
     } while (0)
 
-#define ASSERT(condition)                                                   \
-    do                                                                      \
-    {                                                                       \
-        if (!(condition))                                                   \
-        {                                                                   \
-            sample::gLogError << "Assertion failure: " << #condition << std::endl;  \
-            abort();                                                        \
-        }                                                                   \
+#define ASSERT(condition)                                                                                              \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        if (!(condition))                                                                                              \
+        {                                                                                                              \
+            sample::gLogError << "Assertion failure: " << #condition << std::endl;                                     \
+            abort();                                                                                                   \
+        }                                                                                                              \
     } while (0)
-
 
 #define CHECK_RETURN(status, val) CHECK_RETURN_W_MSG(status, val, "")
 

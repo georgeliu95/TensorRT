@@ -17,10 +17,10 @@
 #ifndef TRT_SAMPLE_DEVICE_H
 #define TRT_SAMPLE_DEVICE_H
 
-#include <iostream>
-#include <thread>
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <iostream>
+#include <thread>
 
 namespace sample
 {
@@ -48,7 +48,7 @@ void cudaSleep(void* sleep)
     std::this_thread::sleep_for(std::chrono::duration<int, std::milli>(*static_cast<int*>(sleep)));
 }
 
-}
+} // namespace
 
 //!
 //! \class TrtCudaStream
@@ -57,7 +57,6 @@ void cudaSleep(void* sleep)
 class TrtCudaStream
 {
 public:
-
     TrtCudaStream()
     {
         cudaCheck(cudaStreamCreate(&mStream));
@@ -98,7 +97,6 @@ public:
     }
 
 private:
-
     cudaStream_t mStream{};
 };
 
@@ -109,7 +107,6 @@ private:
 class TrtCudaEvent
 {
 public:
-
     explicit TrtCudaEvent(bool blocking = true)
     {
         const unsigned int flags = blocking ? cudaEventBlockingSync : cudaEventDefault;
@@ -153,7 +150,6 @@ public:
     }
 
 private:
-
     cudaEvent_t mEvent{};
 };
 
@@ -206,7 +202,6 @@ public:
     }
 
 private:
-
     cudaGraph_t mGraph{};
     cudaGraphExec_t mGraphExec{};
 };
@@ -219,7 +214,6 @@ template <typename A, typename D>
 class TrtCudaBuffer
 {
 public:
-
     TrtCudaBuffer() = default;
 
     TrtCudaBuffer(const TrtCudaBuffer&) = delete;
@@ -273,28 +267,39 @@ public:
     }
 
 private:
-
     void* mPtr{nullptr};
 };
 
 struct DeviceAllocator
 {
-    void operator()(void** ptr, size_t size) { cudaCheck(cudaMalloc(ptr, size)); }
+    void operator()(void** ptr, size_t size)
+    {
+        cudaCheck(cudaMalloc(ptr, size));
+    }
 };
 
 struct DeviceDeallocator
 {
-    void operator()(void* ptr) { cudaCheck(cudaFree(ptr)); }
+    void operator()(void* ptr)
+    {
+        cudaCheck(cudaFree(ptr));
+    }
 };
 
 struct HostAllocator
 {
-    void operator()(void** ptr, size_t size) { cudaCheck(cudaMallocHost(ptr, size)); }
+    void operator()(void** ptr, size_t size)
+    {
+        cudaCheck(cudaMallocHost(ptr, size));
+    }
 };
 
 struct HostDeallocator
 {
-    void operator()(void* ptr) { cudaCheck(cudaFreeHost(ptr)); }
+    void operator()(void* ptr)
+    {
+        cudaCheck(cudaFreeHost(ptr));
+    }
 };
 
 using TrtDeviceBuffer = TrtCudaBuffer<DeviceAllocator, DeviceDeallocator>;
@@ -308,7 +313,6 @@ using TrtHostBuffer = TrtCudaBuffer<HostAllocator, HostDeallocator>;
 class MirroredBuffer
 {
 public:
-
     void allocate(size_t size)
     {
         mSize = size;
@@ -316,9 +320,15 @@ public:
         mDeviceBuffer.allocate(size);
     }
 
-    void* getDeviceBuffer() const { return mDeviceBuffer.get(); }
+    void* getDeviceBuffer() const
+    {
+        return mDeviceBuffer.get();
+    }
 
-    void* getHostBuffer() const { return mHostBuffer.get(); }
+    void* getHostBuffer() const
+    {
+        return mHostBuffer.get();
+    }
 
     void hostToDevice(TrtCudaStream& stream)
     {
@@ -336,7 +346,6 @@ public:
     }
 
 private:
-
     size_t mSize{0};
     TrtHostBuffer mHostBuffer;
     TrtDeviceBuffer mDeviceBuffer;

@@ -20,8 +20,8 @@
 #if (defined(__x86_64__) || defined(__PPC__))
 
 #include "NvInferPlugin.h"
-#include "cudaDriverWrapper.h"
 #include "checkMacros.h"
+#include "cudaDriverWrapper.h"
 #include "legacy_plugin.h"
 #include <cmath>
 #include <cstdio>

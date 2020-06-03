@@ -43,8 +43,9 @@ const std::string gSampleName = "TensorRT.sample_int8_api";
 
 struct SampleINT8APIPreprocessing
 {
-    // Preprocessing values are available here: https://github.com/onnx/models/tree/master/models/image_classification/resnet
-    std::vector<int> inputDims{1,3,224,224};
+    // Preprocessing values are available here:
+    // https://github.com/onnx/models/tree/master/models/image_classification/resnet
+    std::vector<int> inputDims{1, 3, 224, 224};
 };
 
 //!
@@ -161,7 +162,7 @@ void SampleINT8API::getInputOutputNames()
             if (mParams.verbose)
             {
                 sample::gLogInfo << "Found input: " << mEngine.get()->getBindingName(b) << " shape=" << dims
-                         << " dtype=" << (int) mEngine.get()->getBindingDataType(b) << std::endl;
+                                 << " dtype=" << (int) mEngine.get()->getBindingDataType(b) << std::endl;
             }
             mInOut["input"] = mEngine.get()->getBindingName(b);
         }
@@ -170,7 +171,7 @@ void SampleINT8API::getInputOutputNames()
             if (mParams.verbose)
             {
                 sample::gLogInfo << "Found output: " << mEngine.get()->getBindingName(b) << " shape=" << dims
-                         << " dtype=" << (int) mEngine.get()->getBindingDataType(b) << std::endl;
+                                 << " dtype=" << (int) mEngine.get()->getBindingDataType(b) << std::endl;
             }
             mInOut["output"] = mEngine.get()->getBindingName(b);
         }
@@ -221,9 +222,8 @@ void SampleINT8API::setLayerPrecision(SampleUniquePtr<nvinfer1::INetworkDefiniti
 
         // Don't set the precision on non-computation layers as they don't support
         // int8.
-        if (layer->getType() != LayerType::kCONSTANT
-                && layer->getType() != LayerType::kCONCATENATION
-                && layer->getType() != LayerType::kSHAPE)
+        if (layer->getType() != LayerType::kCONSTANT && layer->getType() != LayerType::kCONCATENATION
+            && layer->getType() != LayerType::kSHAPE)
         {
             // set computation precision of the layer
             layer->setPrecision(nvinfer1::DataType::kINT8);
@@ -252,9 +252,10 @@ void SampleINT8API::setLayerPrecision(SampleUniquePtr<nvinfer1::INetworkDefiniti
 void SampleINT8API::writeNetworkTensorNames(const SampleUniquePtr<nvinfer1::INetworkDefinition>& network)
 {
     sample::gLogInfo << "Sample requires to run with per tensor dynamic range." << std::endl;
-    sample::gLogInfo << "In order to run Int8 inference without calibration, user will need to provide dynamic range for all "
-                "the network tensors."
-             << std::endl;
+    sample::gLogInfo
+        << "In order to run Int8 inference without calibration, user will need to provide dynamic range for all "
+           "the network tensors."
+        << std::endl;
 
     std::ofstream tensorsFile{mParams.networkTensorsFileName};
 
@@ -284,10 +285,12 @@ void SampleINT8API::writeNetworkTensorNames(const SampleUniquePtr<nvinfer1::INet
         }
     }
     tensorsFile.close();
-    sample::gLogInfo << "Successfully generated network tensor names. Writing: " << mParams.networkTensorsFileName << std::endl;
-    sample::gLogInfo << "Use the generated tensor names file to create dynamic range file for Int8 inference. Follow README.md "
-                "for instructions to generate dynamic_ranges.txt file."
-             << std::endl;
+    sample::gLogInfo << "Successfully generated network tensor names. Writing: " << mParams.networkTensorsFileName
+                     << std::endl;
+    sample::gLogInfo
+        << "Use the generated tensor names file to create dynamic range file for Int8 inference. Follow README.md "
+           "for instructions to generate dynamic_ranges.txt file."
+        << std::endl;
 }
 
 //!
@@ -304,12 +307,14 @@ bool SampleINT8API::setDynamicRange(SampleUniquePtr<nvinfer1::INetworkDefinition
     sample::gLogInfo << "Setting Per Tensor Dynamic Range" << std::endl;
     if (mParams.verbose)
     {
-        sample::gLogInfo << "If dynamic range for a tensor is missing, TensorRT will run inference assuming dynamic range for "
-                    "the tensor as optional."
-                 << std::endl;
-        sample::gLogInfo << "If dynamic range for a tensor is required then inference will fail. Follow README.md to generate "
-                    "missing per tensor dynamic range."
-                 << std::endl;
+        sample::gLogInfo
+            << "If dynamic range for a tensor is missing, TensorRT will run inference assuming dynamic range for "
+               "the tensor as optional."
+            << std::endl;
+        sample::gLogInfo
+            << "If dynamic range for a tensor is required then inference will fail. Follow README.md to generate "
+               "missing per tensor dynamic range."
+            << std::endl;
     }
     // set dynamic range for network input tensors
     for (int i = 0; i < network->getNbInputs(); ++i)
@@ -332,7 +337,7 @@ bool SampleINT8API::setDynamicRange(SampleUniquePtr<nvinfer1::INetworkDefinition
         }
     }
 
-     // set dynamic range for layer output tensors
+    // set dynamic range for layer output tensors
     for (int i = 0; i < network->getNbLayers(); ++i)
     {
         auto lyr = network->getLayer(i);
@@ -354,7 +359,7 @@ bool SampleINT8API::setDynamicRange(SampleUniquePtr<nvinfer1::INetworkDefinition
                 if (mParams.verbose)
                 {
                     sample::gLogWarning << "Computing missing dynamic range for tensor, " << tName << ", from weights."
-                                << std::endl;
+                                        << std::endl;
                 }
                 auto wts = cLyr->getWeights();
                 double max = std::numeric_limits<double>::min();
@@ -416,7 +421,8 @@ bool SampleINT8API::setDynamicRange(SampleUniquePtr<nvinfer1::INetworkDefinition
     {
         sample::gLogInfo << "Per Tensor Dynamic Range Values for the Network:" << std::endl;
         for (auto iter = mPerTensorDynamicRangeMap.begin(); iter != mPerTensorDynamicRangeMap.end(); ++iter)
-            sample::gLogInfo << "Tensor: " << iter->first << ". Max Absolute Dynamic Range: " << iter->second << std::endl;
+            sample::gLogInfo << "Tensor: " << iter->first << ". Max Absolute Dynamic Range: " << iter->second
+                             << std::endl;
     }
     return true;
 }
@@ -533,7 +539,8 @@ sample::Logger::TestResult SampleINT8API::build()
         return sample::Logger::TestResult::kFAILED;
     }
 
-    auto parser = SampleUniquePtr<nvonnxparser::IParser>(nvonnxparser::createParser(*network, sample::gLogger.getTRTLogger()));
+    auto parser
+        = SampleUniquePtr<nvonnxparser::IParser>(nvonnxparser::createParser(*network, sample::gLogger.getTRTLogger()));
     if (!parser)
     {
         sample::gLogError << "Unable to create parser object." << mParams.referenceFileName << std::endl;
@@ -556,7 +563,8 @@ sample::Logger::TestResult SampleINT8API::build()
 
     if (!builder->platformHasFastInt8())
     {
-        sample::gLogError << "Platform does not support INT8 inference. sampleINT8API can only run in INT8 Mode." << std::endl;
+        sample::gLogError << "Platform does not support INT8 inference. sampleINT8API can only run in INT8 Mode."
+                          << std::endl;
         return sample::Logger::TestResult::kWAIVED;
     }
 

@@ -666,8 +666,8 @@ bool process(SampleReformatFreeIO& sample, const sample::Logger::TestAtom& sampl
     return true;
 }
 
-bool runFP32Reference(SampleReformatFreeIO& sample, const sample::Logger::TestAtom& sampleTest, SampleBuffer& goldenInput,
-    SampleBuffer& goldenOutput)
+bool runFP32Reference(SampleReformatFreeIO& sample, const sample::Logger::TestAtom& sampleTest,
+    SampleBuffer& goldenInput, SampleBuffer& goldenOutput)
 {
     sample::gLogInfo << "Building and running a FP32 GPU inference to get golden input/output" << std::endl;
 
@@ -736,9 +736,10 @@ int main(int argc, char** argv)
     sample.mDigit = rand() % 10;
 
     sample::gLogInfo << "The test chooses MNIST as the network and recognizes a randomly generated digit" << std::endl;
-    sample::gLogInfo << "Firstly it runs the FP32 as the golden data, then INT8/FP16 with different formats will be tested"
-             << std::endl
-             << std::endl;
+    sample::gLogInfo
+        << "Firstly it runs the FP32 as the golden data, then INT8/FP16 with different formats will be tested"
+        << std::endl
+        << std::endl;
 
     if (!runFP32Reference(sample, sampleTest, goldenInput, goldenOutput))
     {

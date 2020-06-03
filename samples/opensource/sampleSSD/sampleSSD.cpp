@@ -352,11 +352,11 @@ bool SampleSSD::verifyOutput(const samplesCommon::BufferManager& buffers)
                 correctDetection = true;
             }
 
-            sample::gLogInfo << " Image name:" << mPPMs[p].fileName.c_str() << ", Label: " << classes[(int) det[1]].c_str()
-                     << ","
-                     << " confidence: " << det[2] * 100.f << " xmin: " << det[3] * inputW
-                     << " ymin: " << det[4] * inputH << " xmax: " << det[5] * inputW << " ymax: " << det[6] * inputH
-                     << std::endl;
+            sample::gLogInfo << " Image name:" << mPPMs[p].fileName.c_str()
+                             << ", Label: " << classes[(int) det[1]].c_str() << ","
+                             << " confidence: " << det[2] * 100.f << " xmin: " << det[3] * inputW
+                             << " ymin: " << det[4] * inputH << " xmax: " << det[5] * inputW
+                             << " ymax: " << det[6] * inputH << std::endl;
 
             samplesCommon::writePPMFileWithBBox(
                 storeName, mPPMs[p], {det[3] * inputW, det[4] * inputH, det[5] * inputW, det[6] * inputH});

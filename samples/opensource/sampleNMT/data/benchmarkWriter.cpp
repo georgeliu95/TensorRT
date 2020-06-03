@@ -46,9 +46,9 @@ void BenchmarkWriter::finalize()
     std::chrono::duration<float> sec = std::chrono::high_resolution_clock::now() - mStartTS;
     int totalTokenCount = mInputTokenCount + mOutputTokenCount;
     sample::gLogInfo << mSampleCount << " sequences generated in " << sec.count() << " seconds, "
-             << (mSampleCount / sec.count()) << " samples/sec" << std::endl;
-    sample::gLogInfo << totalTokenCount << " tokens processed (source and destination), " << (totalTokenCount / sec.count())
-             << " tokens/sec" << std::endl;
+                     << (mSampleCount / sec.count()) << " samples/sec" << std::endl;
+    sample::gLogInfo << totalTokenCount << " tokens processed (source and destination), "
+                     << (totalTokenCount / sec.count()) << " tokens/sec" << std::endl;
 }
 
 std::string BenchmarkWriter::getInfo()
