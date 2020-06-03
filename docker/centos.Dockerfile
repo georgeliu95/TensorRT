@@ -14,7 +14,9 @@
 
 ARG CUDA_VERSION=11.0
 ARG CENTOS_VERSION=7
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${CENTOS_VERSION}
+# TODO rajerao - update
+#FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${CENTOS_VERSION}
+FROM gitlab-master.nvidia.com:5005/cuda-installer/cuda:${CUDA_VERSION}-cudnn8-devel-centos${CENTOS_VERSION}-rc022
 
 LABEL maintainer="NVIDIA CORPORATION"
 
@@ -24,6 +26,7 @@ RUN groupadd -r -f -g ${gid} trtuser && useradd -r -u ${uid} -g ${gid} -ms /bin/
 RUN usermod -aG wheel trtuser
 RUN echo 'trtuser:nvidia' | chpasswd
 RUN mkdir -p /workspace && chown trtuser /workspace
+
 # Install requried libraries
 RUN yum -y install \
     libcurl4-openssl-dev \
@@ -42,6 +45,9 @@ RUN yum -y install \
 RUN cd /usr/local/bin &&\
     ln -s /usr/bin/python3 python &&\
     ln -s /usr/bin/pip3 pip
+
+COPY requirements.txt /tmp/requirements.txt
+RUN pip3 install -r /tmp/requirements.txt
 
 # Install Cmake
 RUN cd /tmp && \

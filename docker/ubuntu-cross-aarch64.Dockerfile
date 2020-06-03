@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_VERSION=10.2
+ARG CUDA_VERSION=11.0
 ARG UBUNTU_VERSION=18.04
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION}
+# TODO rajerao - update
+#FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION}
+FROM gitlab-master.nvidia.com:5005/cuda-installer/cuda:${CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION}-rc022
 
 LABEL maintainer="NVIDIA CORPORATION"
 
@@ -24,6 +26,7 @@ RUN groupadd -r -f -g ${gid} trtuser && useradd -r -u ${uid} -g ${gid} -ms /bin/
 RUN usermod -aG sudo trtuser
 RUN echo 'trtuser:nvidia' | chpasswd
 RUN mkdir -p /workspace && chown trtuser /workspace
+
 # Install requried libraries
 RUN apt-get update && apt-get install -y software-properties-common
 RUN add-apt-repository ppa:ubuntu-toolchain-r/test
@@ -48,6 +51,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN cd /usr/local/bin &&\
     ln -s /usr/bin/python3 python &&\
     ln -s /usr/bin/pip3 pip
+
+COPY requirements.txt /tmp/requirements.txt
+RUN pip3 install -r /tmp/requirements.txt
 
 # Install Cmake
 RUN cd /tmp && \
