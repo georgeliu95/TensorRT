@@ -67,8 +67,8 @@ RUN dpkg -i /pdk_files/cuda-repo-cross-aarch64*.deb /pdk_files/cuda-repo-ubuntu*
     && rm -rf /var/lib/apt/lists/*
 
 # Unpack cudnn
-RUN  dpkg -x /pdk_files/libcudnn[0-9]_[0-9].[0-9].[0-9].*cuda[1-9][0-2].[0-2]_arm64.deb /pdk_files/cudnn \ 
-    && dpkg -x /pdk_files/libnvinfer-dev_[0-9].[0-9].[0-9]-[0-9]+cuda[1-9][0-9].[0-9]_arm64.deb /pdk_files/cudnn \
+RUN  dpkg -x /pdk_files/libcudnn8_*-1+cuda10.2_arm64.deb /pdk_files/cudnn \ 
+    && dpkg -x /pdk_files/libcudnn8-dev_*-1+cuda10.2_arm64.deb /pdk_files/cudnn \
     && cd /pdk_files/cudnn/usr/include/aarch64-linux-gnu \
     && cd /pdk_files/cudnn/usr/lib/aarch64-linux-gnu \
     && ln -s libcudnn.so.7 libcudnn.so \
@@ -79,14 +79,14 @@ RUN  dpkg -x /pdk_files/libcudnn[0-9]_[0-9].[0-9].[0-9].*cuda[1-9][0-2].[0-2]_ar
 
 # Unpack libnvinfer
 #
-RUN dpkg -x /pdk_files/libnvinfer[0-9]_[0-9].[0-9].[0-9]-1+cuda[1-9][0-9].[0-9]_arm64.deb /pdk_files/tensorrt \
-    && dpkg -x /pdk_files/libnvinfer-dev_[0-9].[0-9].[0-9]-1+cuda[1-9][0-9].[0-9]_arm64.deb /pdk_files/tensorrt \
-    && dpkg -x /pdk_files/libnvparsers[0-9]_[0-9].[0-9].[0-9]-1+cuda[1-9][0-9].[0-9]_arm64.deb /pdk_files/tensorrt \
-    && dpkg -x /pdk_files/libnvparsers-dev_[0-9].[0-9].[0-9]-1+cuda[1-9][0-9].[0-9]_arm64.deb /pdk_files/tensorrt \
-    && dpkg -x /pdk_files/libnvinfer-plugin[0-9]_[0-9].[0-9].[0-9]-1+cuda[1-9][0-9].[0-9]_arm64.deb /pdk_files/tensorrt \
-    && dpkg -x /pdk_files/libnvinfer-plugin-dev_[0-9].[0-9].[0-9]-1+cuda[1-9][0-9].[0-9]_arm64.deb /pdk_files/tensorrt \
-    && dpkg -x /pdk_files/libnvonnxparsers[0-9]_[0-9].[0-9].[0-9]-1+cuda[1-9][0-9].[0-9]_arm64.deb /pdk_files/tensorrt \
-    && dpkg -x /pdk_files/libnvonnxparsers-dev_[0-9].[0-9].[0-9]-[0-9]+cuda[1-9][0-9].[0-9]_arm64.deb /pdk_files/tensorrt
+RUN dpkg -x /pdk_files/libnvinfer7_*-1+cuda10.2_arm64.deb /pdk_files/tensorrt \
+    && dpkg -x /pdk_files/libnvinfer-dev_*-1+cuda10.2_arm64.deb /pdk_files/tensorrt \
+    && dpkg -x /pdk_files/libnvparsers7_*-1+cuda10.2_arm64.deb /pdk_files/tensorrt \
+    && dpkg -x /pdk_files/libnvparsers-dev_*-1+cuda10.2_arm64.deb /pdk_files/tensorrt \
+    && dpkg -x /pdk_files/libnvinfer-plugin7_*-1+cuda10.2_arm64.deb /pdk_files/tensorrt \
+    && dpkg -x /pdk_files/libnvinfer-plugin-dev_*-1+cuda10.2_arm64.deb /pdk_files/tensorrt \
+    && dpkg -x /pdk_files/libnvonnxparsers7_*-1+cuda10.2_arm64.deb /pdk_files/tensorrt \
+    && dpkg -x /pdk_files/libnvonnxparsers-dev_*-1+cuda10.2_arm64.deb /pdk_files/tensorrt
 
 # create stub libraries
 RUN cd /pdk_files/tensorrt \
