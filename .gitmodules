@@ -9,4 +9,4 @@
 [submodule "parsers/onnx"]
 	path = parsers/onnx
 	url = https://gitlab-master.nvidia.com/TensorRT/Public/onnx.git
-	branch = dev/rajerao-7.1-staging
+	branch = release/7.1-staging
