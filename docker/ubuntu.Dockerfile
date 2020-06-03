@@ -14,7 +14,7 @@
 
 ARG CUDA_VERSION=11.0
 ARG UBUNTU_VERSION=18.04
-# TODO rajerao - update
+# TODO TRT-11312 - update after cuda 11 GA
 #FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${UBUNTU_VERSION}
 FROM gitlab-master.nvidia.com:5005/cuda-installer/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${UBUNTU_VERSION}-rc022
 

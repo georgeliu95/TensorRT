@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_VERSION=11.0
+ARG CUDA_VERSION=10.2
 ARG UBUNTU_VERSION=18.04
-# TODO rajerao - update
+# TODO TRT-11312 - update after cuda 11 GA
 #FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION}
 FROM gitlab-master.nvidia.com:5005/cuda-installer/cuda:${CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION}-rc022
 
@@ -62,37 +62,35 @@ RUN cd /tmp && \
     ./cmake-3.14.4-Linux-x86_64.sh --prefix=/usr/local --exclude-subdir --skip-license && \
     rm ./cmake-3.14.4-Linux-x86_64.sh
 
-
 COPY docker/jetpack_files /pdk_files
 COPY scripts/stubify.sh /pdk_files
 
 # Install CUDA cross compile toolchain
-RUN dpkg -i /pdk_files/cuda-repo-cross-aarch64-10-0-local-10.0.326_1.0-1_all.deb /pdk_files/cuda-repo-ubuntu1804-10-0-local-10.0.326-410.108_1.0-1_amd64.deb \
+RUN dpkg -i /pdk_files/cuda-repo-cross-aarch64*.deb /pdk_files/cuda-repo-ubuntu*_amd64.deb \
     && apt-get update \
     && apt-get install -y cuda-cross-aarch64 \
     && rm -rf /var/lib/apt/lists/*
 
 # Unpack cudnn
-RUN dpkg -x /pdk_files/libcudnn7_7.5.0.56-1+cuda10.0_arm64.deb /pdk_files/cudnn  \
-    && dpkg -x /pdk_files/libcudnn7-dev_7.5.0.56-1+cuda10.0_arm64.deb /pdk_files/cudnn \
+RUN  dpkg -x /pdk_files/libcudnn[7-8]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/cudnn \ 
+    && dpkg -x /pdk_files/libcudnn[7-8]-dev_*-1+cuda10.[0-9]_arm64.deb /pdk_files/cudnn \
     && cd /pdk_files/cudnn/usr/include/aarch64-linux-gnu \
     && cd /pdk_files/cudnn/usr/lib/aarch64-linux-gnu \
     && ln -s libcudnn.so.7 libcudnn.so \
     && cd /pdk_files/cudnn \
     && ln -s usr/include/aarch64-linux-gnu include \
     && ln -s usr/lib/aarch64-linux-gnu lib \
-    && ln -s /pdk_files/cudnn/usr/include/aarch64-linux-gnu/cudnn_v7.h /usr/include/cudnn.h
+    && ln -s /pdk_files/cudnn/usr/include/aarch64-linux-gnu/cudnn_v[7-9].h /usr/include/cudnn.h
 
 # Unpack libnvinfer
-#
-RUN dpkg -x /pdk_files/libnvinfer6_6.0.1-1+cuda10.0_arm64.deb /pdk_files/tensorrt \
-    && dpkg -x /pdk_files/libnvinfer-dev_6.0.1-1+cuda10.0_arm64.deb /pdk_files/tensorrt \
-    && dpkg -x /pdk_files/libnvparsers6_6.0.1-1+cuda10.0_arm64.deb /pdk_files/tensorrt \
-    && dpkg -x /pdk_files/libnvparsers-dev_6.0.1-1+cuda10.0_arm64.deb /pdk_files/tensorrt \
-    && dpkg -x /pdk_files/libnvinfer-plugin6_6.0.1-1+cuda10.0_arm64.deb /pdk_files/tensorrt \
-    && dpkg -x /pdk_files/libnvinfer-plugin-dev_6.0.1-1+cuda10.0_arm64.deb /pdk_files/tensorrt \
-    && dpkg -x /pdk_files/libnvonnxparsers6_6.0.1-1+cuda10.0_arm64.deb /pdk_files/tensorrt \
-    && dpkg -x /pdk_files/libnvonnxparsers-dev_6.0.1-1+cuda10.0_arm64.deb /pdk_files/tensorrt
+RUN dpkg -x /pdk_files/libnvinfer[0-7]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
+    && dpkg -x /pdk_files/libnvinfer-dev_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
+    && dpkg -x /pdk_files/libnvparsers[6-7]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
+    && dpkg -x /pdk_files/libnvparsers-dev_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
+    && dpkg -x /pdk_files/libnvinfer-plugin[6-7]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
+    && dpkg -x /pdk_files/libnvinfer-plugin-dev_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
+    && dpkg -x /pdk_files/libnvonnxparsers[6-7]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
+    && dpkg -x /pdk_files/libnvonnxparsers-dev_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt
 
 # create stub libraries
 RUN cd /pdk_files/tensorrt \
