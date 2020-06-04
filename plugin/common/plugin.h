@@ -18,8 +18,8 @@
 #include "NvInferPlugin.h"
 #include <cuda_runtime.h>
 #include <iostream>
-#include <sstream>
 #include <memory>
+#include <sstream>
 #include <string>
 
 #ifndef TRT_LEGACY_PLUGIN_H

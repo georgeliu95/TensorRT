@@ -38,6 +38,7 @@ std::vector<PluginField> PriorBoxPluginCreator::mPluginAttributes;
 // Constructor
 PriorBox::PriorBox(PriorBoxParameters param)
     : mParam(param)
+    , mOwnsParamMemory(false)
 {
     // minSize is required and needs to be non-negative
     ASSERT(param.numMinSize > 0 && param.minSize != nullptr);
@@ -103,6 +104,7 @@ PriorBox::PriorBox(PriorBoxParameters param)
 // Constructor
 PriorBox::PriorBox(PriorBoxParameters param, int H, int W)
     : mParam(param)
+    , mOwnsParamMemory(false)
     , H(H)
     , W(W)
 {
@@ -152,19 +154,39 @@ PriorBox::PriorBox(PriorBoxParameters param, int H, int W)
 }
 
 PriorBox::PriorBox(const void* data, size_t length)
+    : mOwnsParamMemory(true)
 {
     const char *d = reinterpret_cast<const char*>(data), *a = d;
     mParam = read<PriorBoxParameters>(d);
+    mParam.minSize = new float[mParam.numMinSize];
+    mParam.maxSize = new float[mParam.numMaxSize];
+    mParam.aspectRatios = new float[mParam.numAspectRatios];
+
     numPriors = read<int>(d);
     H = read<int>(d);
     W = read<int>(d);
+    for (auto i = 0; i < mParam.numMinSize; i++)
+    {
+        mParam.minSize[i] = reinterpret_cast<const float*>(d)[i];
+    }
     minSize = deserializeToDevice(d, mParam.numMinSize);
     if (mParam.numMaxSize > 0)
     {
+        for (auto i = 0; i < mParam.numMaxSize; i++)
+        {
+            mParam.maxSize[i] = reinterpret_cast<const float*>(d)[i];
+        }
         maxSize = deserializeToDevice(d, mParam.numMaxSize);
     }
     int numAspectRatios = read<int>(d);
-    aspectRatios = deserializeToDevice(d, numAspectRatios);
+    if (mParam.numAspectRatios > 0)
+    {
+        for (auto i = 0; i < mParam.numAspectRatios; i++)
+        {
+            mParam.aspectRatios[i] = reinterpret_cast<const float*>(d)[i];
+        }
+        aspectRatios = deserializeToDevice(d, numAspectRatios);
+    }
     ASSERT(d == a + length);
 }
 
@@ -204,6 +226,12 @@ void PriorBox::terminate()
     if (mParam.numAspectRatios > 0)
     {
         CUASSERT(cudaFree(const_cast<void*>(aspectRatios.values)));
+    }
+    if (mOwnsParamMemory)
+    {
+        delete[] mParam.minSize;
+        delete[] mParam.maxSize;
+        delete[] mParam.aspectRatios;
     }
 }
 

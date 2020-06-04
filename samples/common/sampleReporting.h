@@ -33,7 +33,14 @@ namespace sample
 //!
 struct InferenceTime
 {
-    InferenceTime(float q, float i, float c, float o, float e): enq(q), in(i), compute(c), out(o), e2e(e) {}
+    InferenceTime(float q, float i, float c, float o, float e)
+        : enq(q)
+        , in(i)
+        , compute(c)
+        , out(o)
+        , e2e(e)
+    {
+    }
 
     InferenceTime() = default;
     InferenceTime(const InferenceTime&) = default;
@@ -61,9 +68,18 @@ struct InferenceTime
 //!
 struct InferenceTrace
 {
-    InferenceTrace(int s, float es, float ee, float is, float ie, float cs, float ce, float os, float oe):
-        stream(s), enqStart(es), enqEnd(ee), inStart(is), inEnd(ie),
-        computeStart(cs), computeEnd(ce), outStart(os), outEnd(oe) {}
+    InferenceTrace(int s, float es, float ee, float is, float ie, float cs, float ce, float os, float oe)
+        : stream(s)
+        , enqStart(es)
+        , enqEnd(ee)
+        , inStart(is)
+        , inEnd(ie)
+        , computeStart(cs)
+        , computeEnd(ce)
+        , outStart(os)
+        , outEnd(oe)
+    {
+    }
 
     InferenceTrace() = default;
     InferenceTrace(const InferenceTrace&) = default;
@@ -90,7 +106,7 @@ inline InferenceTime operator+(const InferenceTime& a, const InferenceTime& b)
 
 inline InferenceTime operator+=(InferenceTime& a, const InferenceTime& b)
 {
-    return a = a+b;
+    return a = a + b;
 }
 
 //!
@@ -111,7 +127,8 @@ void printEpilog(std::vector<InferenceTime> timings, float percentile, int queri
 //!
 //! \brief Print and summarize a timing trace
 //!
-void printPerformanceReport(const std::vector<InferenceTrace>& trace, const ReportingOptions& reporting, float warmupMs, int queries, std::ostream& os);
+void printPerformanceReport(const std::vector<InferenceTrace>& trace, const ReportingOptions& reporting, float warmupMs,
+    int queries, std::ostream& os);
 
 //!
 //! \brief Export a timing trace to JSON file
@@ -131,7 +148,8 @@ void dumpOutputs(const nvinfer1::IExecutionContext& context, const Bindings& bin
 //!
 //! \brief Export output tensors to JSON file
 //!
-void exportJSONOutput(const nvinfer1::IExecutionContext& context, const Bindings& bindings, const std::string& fileName);
+void exportJSONOutput(
+    const nvinfer1::IExecutionContext& context, const Bindings& bindings, const std::string& fileName);
 
 //!
 //! \struct LayerProfile
@@ -151,7 +169,6 @@ class Profiler : public nvinfer1::IProfiler
 {
 
 public:
-
     void reportLayerTime(const char* layerName, float timeMs) override;
 
     void print(std::ostream& os) const;
@@ -162,13 +179,9 @@ public:
     void exportJSONProfile(const std::string& fileName) const;
 
 private:
-
     float getTotalTime() const
     {
-        const auto plusLayerTime = [](float accumulator, const LayerProfile& lp)
-        {
-            return accumulator + lp.timeMs;
-        };
+        const auto plusLayerTime = [](float accumulator, const LayerProfile& lp) { return accumulator + lp.timeMs; };
         return std::accumulate(mLayers.begin(), mLayers.end(), 0.0, plusLayerTime);
     }
 

@@ -99,7 +99,6 @@ public:
 
     void detachFromContext() override;
 
-
     // ProposalPlugin(const std::string name, int input_height, int input_width, int rpn_height, int rpn_width,
     //     float rpn_std_scaling, int rpn_stride, float bbox_min_size, float nms_iou_threshold, int pre_nms_top_n,
     //     int max_box_num, const float* anchor_sizes, int anc_size_num, const float* anchor_ratios, int anc_ratio_num);

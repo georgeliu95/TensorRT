@@ -17,14 +17,14 @@
 #ifndef TRT_SAMPLE_OPTIONS_H
 #define TRT_SAMPLE_OPTIONS_H
 
-#include <utility>
-#include <stdexcept>
-#include <vector>
+#include <algorithm>
 #include <array>
+#include <iostream>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
-#include <algorithm>
-#include <iostream>
+#include <utility>
+#include <vector>
 
 #include "NvInfer.h"
 
@@ -219,7 +219,6 @@ std::ostream& operator<<(std::ostream& os, const InferenceOptions& options);
 std::ostream& operator<<(std::ostream& os, const ReportingOptions& options);
 
 std::ostream& operator<<(std::ostream& os, const AllOptions& options);
-
 
 } // namespace sample
 

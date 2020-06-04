@@ -273,7 +273,8 @@ bool SampleUffFasterRcnn::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& 
         const int imageW = mParams.inputWidth;
         nvinfer1::DimsNCHW imageDims{mParams.calBatchSize, imageC, imageH, imageW};
         // To prevent compiler initialization warning with some versions of gcc
-        for (int i=imageDims.nbDims; i < Dims::MAX_DIMS; ++i){
+        for (int i = imageDims.nbDims; i < Dims::MAX_DIMS; ++i)
+        {
             imageDims.d[i] = 0;
             imageDims.type[i] = DimensionType::kSPATIAL;
         }

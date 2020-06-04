@@ -28,12 +28,17 @@ To build the TensorRT OSS components, ensure you meet the following package requ
   * [Python3](https://www.python.org/downloads/release/python-365/) >= v3.6.5
 
 * [PIP](https://pypi.org/project/pip/#history) >= v19.0
+  * PyPI packages
+  * [numpy](https://pypi.org/project/numpy/)
+  * [pytest](https://pypi.org/project/pytest/)
+  * [onnx](https://pypi.org/project/onnx/1.6.0/) 1.6.0
+  * [onnxruntime](https://pypi.org/project/onnxruntime/) >= 1.3.0
 
 * Essential libraries and utilities
   * [Git](https://git-scm.com/downloads), [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/), [Wget](https://www.gnu.org/software/wget/faq.html#download), [Zlib](https://zlib.net/)
 
 * Cross compilation for Jetson platforms requires JetPack's host component installation
-  * [JetPack](https://developer.nvidia.com/embedded/jetpack) >= 4.2
+  * [JetPack](https://developer.nvidia.com/embedded/jetpack) >= 4.4
 
 **Optional Packages**
 
@@ -70,7 +75,7 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 
 2. #### Download the TensorRT binary release.
 
-* TODO rajerao - update for GA *
+* TODO TRT-11312 - update after 7.1 GA *
 
 	To build the TensorRT OSS, obtain the corresponding TensorRT 7.1 binary release from [NVidia Developer Zone](https://developer.nvidia.com/nvidia-tensorrt-7x-download). For a list of key features, known and fixed issues, refer to the [TensorRT 7.1 Release Notes](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/tensorrt-7.html#rel_7-1-0).
 

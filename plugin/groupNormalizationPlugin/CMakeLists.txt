@@ -1,6 +1,5 @@
-#!/bin/bash
 #
-# Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,23 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
-# Stub to call trtexec
-
-CUR_DPATH="$(dirname "$(readlink -f "${BASH_SOURCE}")")"
-TRTEXEC_FPATH=$CUR_DPATH/trtexec
-
-if [[ ! -f "$TRTEXEC_FPATH" ]]
-then
-    echo "Could not find trtexec"
-    exit 1
-fi
-
-if [[ ! -x "$TRTEXEC_FPATH" ]]
-then
-    echo "trtexec is not executable"
-    exit 1
-fi
-
-# Forward input args to trtexec
-$TRTEXEC_FPATH "$@"
+#
+file(GLOB SRCS *.cpp *.cu)
+set(PLUGIN_SOURCES ${PLUGIN_SOURCES} ${SRCS})
+set(PLUGIN_SOURCES ${PLUGIN_SOURCES} PARENT_SCOPE)

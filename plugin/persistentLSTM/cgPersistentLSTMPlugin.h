@@ -20,9 +20,9 @@
 #if (defined(__x86_64__) || defined(__PPC__))
 
 #include "NvInferPlugin.h"
-#include "legacy_plugin.h"
 #include "cgPersistentLSTM.h"
 #include "cudaDriverWrapper.h"
+#include "legacy_plugin.h"
 #include <cassert>
 #include <string>
 #include <vector>
@@ -66,9 +66,15 @@ public:
 
     void destroy() override;
 
-    void setPluginNamespace(const char* libNamespace) override { mNamespace = libNamespace; }
+    void setPluginNamespace(const char* libNamespace) override
+    {
+        mNamespace = libNamespace;
+    }
 
-    const char* getPluginNamespace() const override { return mNamespace.c_str(); }
+    const char* getPluginNamespace() const override
+    {
+        return mNamespace.c_str();
+    }
 
     size_t getWorkspaceSize(int maxBatchSize) const override;
 
@@ -121,9 +127,16 @@ public:
 
     IPluginV2* deserializePlugin(const char* name, const void* serialData, size_t serialLength) override;
 
-    void setPluginNamespace(const char* libNamespace) override { mNamespace = libNamespace; }
+    void setPluginNamespace(const char* libNamespace) override
+    {
+        mNamespace = libNamespace;
+    }
 
-    const char* getPluginNamespace() const override { return mNamespace.c_str(); }
+    const char* getPluginNamespace() const override
+    {
+        return mNamespace.c_str();
+    }
+
 private:
     std::string mNamespace;
     static PluginFieldCollection mFC;

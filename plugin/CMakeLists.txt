@@ -51,6 +51,7 @@ set(PLUGIN_LISTS
     resizeNearestPlugin
     specialSlicePlugin
     instanceNormalizationPlugin
+    groupNormalizationPlugin
     )
 
 # Add BERT sources if ${BERT_GENCODES} was populated
@@ -61,7 +62,7 @@ if(BERT_GENCODES)
         embLayerNormPlugin
         fcPlugin
         geluPlugin
-        # TODO rajerao, vincenth - re-enable BERT XMMA plugins
+        # TODO TRT-11311 - re-enable BERT XMMA plugins
         #bertQKVToContextPlugin
         skipLayerNormPlugin
         )

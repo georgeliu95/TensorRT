@@ -317,11 +317,14 @@ bool parseArgs(Args& args, int argc, char* argv[])
 void printOutputArgs(OutputArgs& pargs)
 {
     sample::gLogVerbose << "User Id                            :   " << pargs.userId << std::endl;
-    sample::gLogVerbose << "Expected Predicted Max Rating Item :   " << pargs.expectedPredictedMaxRatingItem << std::endl;
-    sample::gLogVerbose << "Expected Predicted Max Rating Prob :   " << pargs.expectedPredictedMaxRatingItemProb << std::endl;
+    sample::gLogVerbose << "Expected Predicted Max Rating Item :   " << pargs.expectedPredictedMaxRatingItem
+                        << std::endl;
+    sample::gLogVerbose << "Expected Predicted Max Rating Prob :   " << pargs.expectedPredictedMaxRatingItemProb
+                        << std::endl;
     sample::gLogVerbose << "Total TopK Items : " << pargs.itemProbPairVec.size() << std::endl;
     for (unsigned i = 0; i < pargs.itemProbPairVec.size(); ++i)
-        sample::gLogVerbose << pargs.itemProbPairVec.at(i).first << " : " << pargs.itemProbPairVec.at(i).second << std::endl;
+        sample::gLogVerbose << pargs.itemProbPairVec.at(i).first << " : " << pargs.itemProbPairVec.at(i).second
+                            << std::endl;
 }
 
 std::string readNextLine(std::ifstream& file, char delim)
@@ -435,8 +438,8 @@ bool printInferenceOutput(
             float expectedProb = args.userToExpectedItemProbMap.at(userIdx).at(k).second;
             int predictedItem = args.userToItemsMap.at(userIdx).at(predictedIdx);
             sample::gLogVerbose << "|" << std::setw(10) << userIdx << " | " << std::setw(10) << predictedItem << " | "
-                        << std::setw(15) << expectedProb << " | " << std::setw(15) << predictedProb << " | "
-                        << std::endl;
+                                << std::setw(15) << expectedProb << " | " << std::setw(15) << predictedProb << " | "
+                                << std::endl;
         }
     }
 
@@ -447,8 +450,8 @@ bool printInferenceOutput(
         int maxExpectedItem = args.userToExpectedItemProbMap.at(userIdx).at(0).first;
         int maxPredictedItem = args.userToItemsMap.at(userIdx).at(maxPredictedIdx);
         sample::gLogInfo << "| PID : " << std::setw(4) << getpid() << " | User :" << std::setw(4) << userIdx
-                 << "  |  Expected Item :" << std::setw(5) << maxExpectedItem << "  |  Predicted Item :" << std::setw(5)
-                 << maxPredictedItem << " | " << std::endl;
+                         << "  |  Expected Item :" << std::setw(5) << maxExpectedItem
+                         << "  |  Predicted Item :" << std::setw(5) << maxPredictedItem << " | " << std::endl;
     }
 
     return pass;
@@ -599,7 +602,7 @@ bool doInference(void* modelStreamData, int modelStreamSize, void* userInputPtr,
         cudaStreamSynchronize(b.mStream);
         timer.stop();
         sample::gLogInfo << "Done execution in process: " << getpid() << " . Duration : " << timer.microseconds()
-                 << " microseconds." << std::endl;
+                         << " microseconds." << std::endl;
     }
 
     int outputItemProbIndex = b.mEngine->getBindingIndex(TOPK_ITEM_PROB);
@@ -742,7 +745,7 @@ int mainMovieLensMPS(Args& args, OutputArgs& pargs)
         }
         timer.stop();
         sample::gLogInfo << "Number of processes executed : " << args.nbProcesses
-                 << ". Total MPS Run Duration : " << timer.milliseconds() << " milliseconds." << std::endl;
+                         << ". Total MPS Run Duration : " << timer.milliseconds() << " milliseconds." << std::endl;
     }
 
     bool pass = !args.failCount;

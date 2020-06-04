@@ -52,7 +52,7 @@ int getNvrtcMajorVersion()
     ASSERT(nvrtcVersion(&majorVersion, &minorVersion) == NVRTC_SUCCESS);
     return majorVersion;
 }
-} //namespace
+} // namespace
 
 CgPersistentLSTMPlugin::CgPersistentLSTMPlugin(CgPLSTMParameters params)
     : param(params)
@@ -62,7 +62,7 @@ CgPersistentLSTMPlugin::CgPersistentLSTMPlugin(CgPLSTMParameters params)
 
 CgPersistentLSTMPlugin::CgPersistentLSTMPlugin(const void* data, size_t length)
 {
-    const char *d = reinterpret_cast<const char *>(data), *a = d;
+    const char *d = reinterpret_cast<const char*>(data), *a = d;
     param = read<CgPLSTMParameters>(d);
     maxBatchSize = read<int>(d);
     seqLength = read<int>(d);
@@ -91,7 +91,8 @@ CgPersistentLSTMPlugin::CgPersistentLSTMPlugin(const void* data, size_t length)
 }
 
 // Default parameters
-CgPersistentLSTMPlugin::CgPersistentLSTMPlugin(int hiddenSize, int numLayers, int bidirectionFactor, int setInitialStates)
+CgPersistentLSTMPlugin::CgPersistentLSTMPlugin(
+    int hiddenSize, int numLayers, int bidirectionFactor, int setInitialStates)
 {
     int device;
     CUASSERT(cudaGetDevice(&device));
@@ -163,7 +164,6 @@ CgPersistentLSTMPlugin::CgPersistentLSTMPlugin(int hiddenSize, int numLayers, in
             param.rfSplitFactor = 11;
             param.separatePath = true;
         }
-
     }
 
     else
@@ -189,14 +189,16 @@ CgPersistentLSTMPlugin::CgPersistentLSTMPlugin(int hiddenSize, int numLayers, in
             param.rfSplitFactor = 1;
             param.separatePath = true;
         }
-
     }
 
     lstmRunner = nullptr;
 }
 
 // y, hidden state, cell state
-int CgPersistentLSTMPlugin::getNbOutputs() const { return 3; }
+int CgPersistentLSTMPlugin::getNbOutputs() const
+{
+    return 3;
+}
 
 Dims CgPersistentLSTMPlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
 {
@@ -240,7 +242,7 @@ Dims CgPersistentLSTMPlugin::getOutputDimensions(int index, const Dims* inputs, 
     {
         dim1.nbDims = 3;
         dim1.d[0] = 1;
-        dim1.d[1] = bidirectionFactor*param.numLayers;
+        dim1.d[1] = bidirectionFactor * param.numLayers;
         dim1.d[2] = param.hiddenSize;
     }
 
@@ -383,7 +385,7 @@ IPluginV2Ext* CgPersistentLSTMPlugin::clone() const
         plugin->initialize();
     }
     plugin->setPluginNamespace(mNamespace.c_str());
-    
+
     return plugin;
 }
 
@@ -419,7 +421,7 @@ size_t CgPersistentLSTMPlugin::getSerializationSize() const
 
 void CgPersistentLSTMPlugin::serialize(void* buffer) const
 {
-    char *d = reinterpret_cast<char *>(buffer), *a = d;
+    char *d = reinterpret_cast<char*>(buffer), *a = d;
     write(d, param);
     write(d, maxBatchSize);
     write(d, seqLength);
@@ -466,24 +468,35 @@ CgPersistentLSTMPluginCreator::CgPersistentLSTMPluginCreator()
     mFC.fields = mPluginAttributes.data();
 }
 
-const char* CgPersistentLSTMPluginCreator::getPluginName() const { return CG_PERSISTENT_LSTM_PLUGIN_NAME; }
+const char* CgPersistentLSTMPluginCreator::getPluginName() const
+{
+    return CG_PERSISTENT_LSTM_PLUGIN_NAME;
+}
 
-const char* CgPersistentLSTMPluginCreator::getPluginVersion() const { return CG_PERSISTENT_LSTM_PLUGIN_VERSION; }
+const char* CgPersistentLSTMPluginCreator::getPluginVersion() const
+{
+    return CG_PERSISTENT_LSTM_PLUGIN_VERSION;
+}
 
-const PluginFieldCollection* CgPersistentLSTMPluginCreator::getFieldNames() { return &mFC; }
+const PluginFieldCollection* CgPersistentLSTMPluginCreator::getFieldNames()
+{
+    return &mFC;
+}
 
 IPluginV2* CgPersistentLSTMPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
 {
     if (getNvrtcMajorVersion() == 0)
     {
-        gLogError << "CgPersistentLSTMPlugin is not supported on requested platform due to incompatible version of libnvrtc." << std::endl;
+        gLogError
+            << "CgPersistentLSTMPlugin is not supported on requested platform due to incompatible version of libnvrtc."
+            << std::endl;
         return nullptr;
     }
     const PluginField* fields = fc->fields;
     int hiddenSize = 0;
     int numLayers = 0;
     int bidirectionFactor = 0;
-    int setInitialStates=0;
+    int setInitialStates = 0;
     for (int i = 0; i < fc->nbFields; i++)
     {
         const char* attrName = fields[i].name;
@@ -513,7 +526,9 @@ IPluginV2* CgPersistentLSTMPluginCreator::deserializePlugin(
 {
     if (getNvrtcMajorVersion() == 0)
     {
-        gLogError << "CgPersistentLSTMPlugin is not supported on requested platform due to incompatible version of libnvrtc." << std::endl;
+        gLogError
+            << "CgPersistentLSTMPlugin is not supported on requested platform due to incompatible version of libnvrtc."
+            << std::endl;
         return nullptr;
     }
     return new CgPersistentLSTMPlugin(serialData, serialLength);

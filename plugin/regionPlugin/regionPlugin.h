@@ -18,8 +18,8 @@
 #include "kernel.h"
 #include "plugin.h"
 #include <iostream>
-#include <vector>
 #include <memory>
+#include <vector>
 
 namespace nvinfer1
 {
@@ -83,7 +83,10 @@ public:
 
     void detachFromContext() override;
 
-    void setSoftmaxTree(const std::shared_ptr<softmaxTree>& softmaxTree) { smTree = softmaxTree; }
+    void setSoftmaxTree(const std::shared_ptr<softmaxTree>& softmaxTree)
+    {
+        smTree = softmaxTree;
+    }
 
 private:
     int num;

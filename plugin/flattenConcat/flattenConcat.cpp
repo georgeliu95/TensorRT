@@ -49,8 +49,8 @@ FlattenConcat::FlattenConcat(int concatAxis, bool ignoreBatch)
     ASSERT(mConcatAxisID == 1 || mConcatAxisID == 2 || mConcatAxisID == 3);
 }
 
-FlattenConcat::FlattenConcat(
-    int concatAxis, bool ignoreBatch, int numInputs, int outputConcatAxis, const int* inputConcatAxis, const size_t* copySize)
+FlattenConcat::FlattenConcat(int concatAxis, bool ignoreBatch, int numInputs, int outputConcatAxis,
+    const int* inputConcatAxis, const size_t* copySize)
     : mCopySize(numInputs)
     , mInputConcatAxis(numInputs)
     , mIgnoreBatch(ignoreBatch)
@@ -62,7 +62,6 @@ FlattenConcat::FlattenConcat(
 
     std::copy(copySize, copySize + mNumInputs, mCopySize.begin());
     std::copy(inputConcatAxis, inputConcatAxis + mNumInputs, mInputConcatAxis.begin());
-
 }
 
 FlattenConcat::FlattenConcat(const void* data, size_t length)
@@ -86,9 +85,7 @@ FlattenConcat::FlattenConcat(const void* data, size_t length)
     ASSERT(d == a + length);
 }
 
-FlattenConcat::~FlattenConcat()
-{
-}
+FlattenConcat::~FlattenConcat() {}
 
 int FlattenConcat::getNbOutputs() const
 {
@@ -182,7 +179,8 @@ int FlattenConcat::enqueue(int batchSize, const void* const* inputs, void** outp
 
 size_t FlattenConcat::getSerializationSize() const
 {
-    return sizeof(bool) + sizeof(int) * (3 + mNumInputs) + sizeof(nvinfer1::Dims) + (sizeof(decltype(mCopySize)::value_type) * mNumInputs);
+    return sizeof(bool) + sizeof(int) * (3 + mNumInputs) + sizeof(nvinfer1::Dims)
+        + (sizeof(decltype(mCopySize)::value_type) * mNumInputs);
 }
 
 void FlattenConcat::serialize(void* buffer) const
@@ -303,8 +301,8 @@ void FlattenConcat::destroy()
 
 IPluginV2Ext* FlattenConcat::clone() const
 {
-    auto* plugin
-        = new FlattenConcat(mConcatAxisID, mIgnoreBatch, mNumInputs, mOutputConcatAxis, mInputConcatAxis.data(), mCopySize.data());
+    auto* plugin = new FlattenConcat(
+        mConcatAxisID, mIgnoreBatch, mNumInputs, mOutputConcatAxis, mInputConcatAxis.data(), mCopySize.data());
     plugin->setPluginNamespace(mPluginNamespace.c_str());
     plugin->mCublas = mCublas;
     return plugin;

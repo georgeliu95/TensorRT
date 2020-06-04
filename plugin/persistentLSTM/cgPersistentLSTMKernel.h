@@ -602,7 +602,7 @@ __launch_bounds__(BLOCK_DIM, BLOCKS_PER_SM) __global__                          
 }";
 
 const char* tCoreSourceSeparate
-= "#include <cooperative_groups.h>                                                                                      \n\
+    = "#include <cooperative_groups.h>                                                                                      \n\
 using namespace cooperative_groups;                                                                                     \n\
 #include <mma.h>                                                                                                        \n\
 using namespace nvcuda;                                                                                                 \n\

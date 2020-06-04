@@ -91,6 +91,7 @@ private:
     Weights deserializeToDevice(const char*& hostBuffer, size_t count);
 
     PriorBoxParameters mParam;
+    bool mOwnsParamMemory;
     int numPriors, H, W;
     Weights minSize, maxSize, aspectRatios; // not learnable weights
     std::string mPluginNamespace;

@@ -51,7 +51,6 @@ __global__ void fillSBSMaskKernel(
     const size_t warp_m = warp % warps_m;
     const size_t warp_n = warp / warps_m;
     const size_t lane = tidx % 32;
-    const size_t row = warp_m * 16 + lane / 4;
     const size_t col = warp_n * 16 + lane % 4 * 2;
 
     //load the mask corresponding to one batch
@@ -59,8 +58,6 @@ __global__ void fillSBSMaskKernel(
     {
         // not coalesced to conform to current input format: SxB
         shm_mask[si] = inputMaskSB[si * B + bi];
-        //if(shm_mask[si] == 1)
-        //printf("b=%d s=%d %d\n", bi, si, shm_mask[si]);
     }
     __syncthreads();
 
@@ -88,10 +85,8 @@ void convertMask(const uint32_t S, const uint32_t B, const uint32_t warps_m, con
     const size_t xmmas_m = (S + 16 * warps_m - 1) / (16 * warps_m);
 
     const size_t threads_per_cta = warps_m * warps_n * warps_k * 32;
-    //printf("converting mask S=%d B=%d wm=%d wn=%d wk=%d xm=%d t=%d\n", S,B,warps_m, warps_n, warps_k, xmmas_m, threads_per_cta);
     dim3 grid(xmmas_m, B);
     fillSBSMaskKernel<<<grid, threads_per_cta, S * sizeof(int), stream>>>(warps_m, warps_n, S, inputMaskSB, inputMaskX);
-    //cudaMemsetAsync(inputMaskX, 0xffffffff, B*xmmas_m*threads_per_cta*sizeof(int), stream );
     CHECK(cudaPeekAtLastError());
 }
 
@@ -102,16 +97,14 @@ __global__ void maskIdxKernelSmall(int ld, const int* mask, int* maskIdx)
     using BlockReduce = cub::BlockReduce<int, TPB>;
     __shared__ typename BlockReduce::TempStorage tmpStorage;
 
-    // ld is S
-    // blockIdx.x is b
-    const int offset = blockIdx.x * ld; // batch strides of S
-
     cub::Min min;
     int threadData(ld); // if the mask admits all values
 
-    const int idx = offset + threadIdx.x;
     if (threadIdx.x < ld)
     {
+        // mask has input dims {S, B} and gridDims.x is B
+        const int idx = threadIdx.x * gridDim.x + blockIdx.x;
+
         const int val = mask[idx];
         if (val == 0) // masked position: report thread idx
         {
@@ -134,17 +127,14 @@ __global__ void maskIdxKernel(int ld, const int* mask, int* maskIdx)
     using BlockReduce = cub::BlockReduce<int, TPB>;
     __shared__ typename BlockReduce::TempStorage tmpStorage;
 
-    // ld is S
-    // blockIdx.x is b
-
-    const int offset = blockIdx.x * ld; // batch strides of S
-
     cub::Min min;
     int threadData(ld); // if the mask admits all values
 
     for (int i = threadIdx.x; i < ld; i += TPB)
     {
-        const int idx = offset + i;
+        // mask has input dims {S, B} and gridDims.x is B
+        const int idx = i * gridDim.x + blockIdx.x;
+
         const int val = mask[idx];
         if (val == 0) // masked position: report thread idx
         {

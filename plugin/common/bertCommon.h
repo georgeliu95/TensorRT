@@ -398,19 +398,23 @@ inline nvinfer1::DataType fieldTypeToDataType(const nvinfer1::PluginFieldType ft
 {
     switch (ftype)
     {
-    case nvinfer1::PluginFieldType::kFLOAT32: {
+    case nvinfer1::PluginFieldType::kFLOAT32:
+    {
         gLogVerbose << "PluginFieldType is Float32" << std::endl;
         return nvinfer1::DataType::kFLOAT;
     }
-    case nvinfer1::PluginFieldType::kFLOAT16: {
+    case nvinfer1::PluginFieldType::kFLOAT16:
+    {
         gLogVerbose << "PluginFieldType is Float16" << std::endl;
         return nvinfer1::DataType::kHALF;
     }
-    case nvinfer1::PluginFieldType::kINT32: {
+    case nvinfer1::PluginFieldType::kINT32:
+    {
         gLogVerbose << "PluginFieldType is Int32" << std::endl;
         return nvinfer1::DataType::kINT32;
     }
-    case nvinfer1::PluginFieldType::kINT8: {
+    case nvinfer1::PluginFieldType::kINT8:
+    {
         gLogVerbose << "PluginFieldType is Int8" << std::endl;
         return nvinfer1::DataType::kINT8;
     }
