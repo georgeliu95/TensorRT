@@ -13,12 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#define CUDA_LIB_NAME "cuda"
 
-#ifdef __linux__
-#if (defined(__x86_64__) || defined(__PPC__))
+#if defined(_WIN32)
+#if !defined(WIN32_LEAN_AND_MEAN)
+#define WIN32_LEAN_AND_MEAN
+#endif // defined(WIN32_LEAN_AND_MEAN)
+#include <windows.h>
+#define dllOpen(name) (void*)LoadLibraryA("nv" name ".dll")
+#define dllClose(handle) FreeLibrary(static_cast<HMODULE>(handle))
+#define dllGetSym(handle, name) GetProcAddress(static_cast<HMODULE>(handle), name)
+#else
+#include <dlfcn.h>
+#define dllOpen(name) dlopen("lib" name ".so", RTLD_LAZY)
+#define dllClose(handle) dlclose(handle)
+#define dllGetSym(handle, name) dlsym(handle, name)
+#endif
+
 #include <cuda.h>
 #include <stdio.h>
-#include <dlfcn.h>
 #include "cudaDriverWrapper.h"
 #include "plugin.h"
 
@@ -26,11 +39,11 @@ using namespace nvinfer1;
 
 CUDADriverWrapper::CUDADriverWrapper()
 {
-    handle = dlopen("libcuda.so.1", RTLD_LAZY);
+    handle = dllOpen(CUDA_LIB_NAME);
     ASSERT(handle != nullptr);
 
-    auto load_sym = [](void *handle, const char *name) {
-        void *ret = dlsym(handle, name);
+    auto load_sym = [](void* handle, const char *name) {
+        void* ret = dllGetSym(handle, name);
         ASSERT(ret != nullptr);
         return ret;
     };
@@ -46,11 +59,12 @@ CUDADriverWrapper::CUDADriverWrapper()
     *(void**)(&_cuLinkAddFile) = load_sym(handle, "cuLinkAddFile_v2");
     *(void**)(&_cuLinkAddData) = load_sym(handle, "cuLinkAddData_v2");
     *(void**)(&_cuLaunchCooperativeKernel) = load_sym(handle, "cuLaunchCooperativeKernel");
+    *(void**)(&_cuLaunchKernel) = load_sym(handle, "cuLaunchKernel");
 }
 
 CUDADriverWrapper::~CUDADriverWrapper()
 {
-    dlclose(handle);
+    dllClose(handle);
 }
 
 CUresult CUDADriverWrapper::cuGetErrorName(CUresult error, const char** pStr) const
@@ -110,5 +124,8 @@ CUresult CUDADriverWrapper::cuLaunchCooperativeKernel (CUfunction f, unsigned in
         blockDimX, blockDimY, blockDimZ, sharedMemBytes, hStream, kernelParams);
 }
 
-#endif // (defined(__x86_64__) || defined(__PPC__))
-#endif //__linux__
+CUresult CUDADriverWrapper::cuLaunchKernel(CUfunction f, unsigned int  gridDimX, unsigned int  gridDimY, unsigned int  gridDimZ, unsigned int  blockDimX, unsigned int  blockDimY, unsigned int  blockDimZ, unsigned int  sharedMemBytes, CUstream hStream, void** kernelParams, void** extra) const
+{
+    return (*_cuLaunchKernel)(f, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, sharedMemBytes, hStream, kernelParams, extra);
+}
+

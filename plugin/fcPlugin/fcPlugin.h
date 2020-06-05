@@ -383,7 +383,7 @@ inline cublasLtMatmulAlgo_t gemmSearch(
     void* workspace;
     CHECK(cudaMalloc(&workspace, workspaceSize));
     cublasLtHandle_t lt;
-    CHECK_CUBLAS(cublasLtCreate(&lt));
+    CUBLASASSERT(cublasLtCreate(&lt));
     LtGemmSearch(lt, g, workspace, workspaceSize, perfResults);
     cudaDeviceSynchronize();
     cublasLtDestroy(lt);
@@ -410,7 +410,7 @@ inline cublasLtMatmulAlgo_t gemmSearch(Gemm<T>& g, const size_t workspaceSize, s
     void* workspace;
     CHECK(cudaMalloc(&workspace, workspaceSize));
     cublasLtHandle_t lt;
-    CHECK_CUBLAS(cublasLtCreate(&lt));
+    CUBLASASSERT(cublasLtCreate(&lt));
     LtGemmSearch(lt, g, workspace, workspaceSize, perfResults);
     cudaDeviceSynchronize();
     cublasLtDestroy(lt);

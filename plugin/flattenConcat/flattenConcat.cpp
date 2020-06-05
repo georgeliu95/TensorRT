@@ -129,7 +129,7 @@ Dims FlattenConcat::getOutputDimensions(int index, const Dims* inputs, int nbInp
 int FlattenConcat::initialize()
 {
     // Create cublas context
-    LOG_ERROR(cublasCreate(&mCublas));
+    CUBLASASSERT(cublasCreate(&mCublas));
     return 0;
 }
 
@@ -137,7 +137,7 @@ void FlattenConcat::terminate()
 {
     if (mCublas)
     {
-        LOG_ERROR(cublasDestroy(mCublas));
+        CUBLASASSERT(cublasDestroy(mCublas));
         mCublas = nullptr;
     }
 }
@@ -153,7 +153,7 @@ int FlattenConcat::enqueue(int batchSize, const void* const* inputs, void** outp
     // mCHW is the first input tensor
     int numConcats = std::accumulate(mCHW.d, mCHW.d + mConcatAxisID - 1, 1, std::multiplies<int>());
 
-    LOG_ERROR(cublasSetStream(mCublas, stream));
+    CUBLASASSERT(cublasSetStream(mCublas, stream));
 
     // Num concats will be proportional to number of samples in a batch
     if (!mIgnoreBatch)
@@ -168,7 +168,7 @@ int FlattenConcat::enqueue(int batchSize, const void* const* inputs, void** outp
         const auto* input = static_cast<const float*>(inputs[i]);
         for (int n = 0; n < numConcats; ++n)
         {
-            LOG_ERROR(cublasScopy(mCublas, mInputConcatAxis[i], input + n * mInputConcatAxis[i], 1,
+            CUBLASASSERT(cublasScopy(mCublas, mInputConcatAxis[i], input + n * mInputConcatAxis[i], 1,
                 output + (n * mOutputConcatAxis + offset), 1));
         }
         offset += mInputConcatAxis[i];
