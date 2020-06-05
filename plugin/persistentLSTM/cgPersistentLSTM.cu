@@ -36,20 +36,6 @@ using nvinfer1::plugin::CgPersistentLSTMPlugin;
 #define MAX_THREADS_PER_EMBEDDING 128
 #define THREADS(E) std::min(MAX_THREADS_PER_EMBEDDING, E)
 
-#define cuErrCheck(stat, wrap)                                                                                               \
-    {                                                                                                                  \
-        cuErrCheck_((stat), wrap, __FILE__, __LINE__);                                                                       \
-    }
-void cuErrCheck_(CUresult stat, const CUDADriverWrapper & wrap, const char* file, int line)
-{
-    if (stat != CUDA_SUCCESS)
-    {
-        const char* msg;
-        wrap.cuGetErrorName(stat, &msg);
-        fprintf(stderr, "CUDA Error: %s %s %d\n", msg, file, line);
-    }
-}
-
 #define nvrtcErrCheck(stat)                                                                                            \
     {                                                                                                                  \
         nvrtcErrCheck_((stat), __FILE__, __LINE__);                                                                    \

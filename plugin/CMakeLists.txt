@@ -62,11 +62,10 @@ if(BERT_GENCODES)
         embLayerNormPlugin
         fcPlugin
         geluPlugin
-        # TODO TRT-11311 - re-enable BERT XMMA plugins
-        #bertQKVToContextPlugin
+        bertQKVToContextPlugin
         skipLayerNormPlugin
         )
-    include_directories(bertQKVToContextPlugin/fused_multihead_attention/include)
+    add_definitions(-DENABLE_BERT_PLUGINS)
 endif()
 
 include_directories(common common/kernels ../samples/common)

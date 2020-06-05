@@ -25,17 +25,6 @@
 #include <string>
 #include <vector>
 
-#define LOG_ERROR(status)                                                                                              \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        auto ret = (status);                                                                                           \
-        if (ret != 0)                                                                                                  \
-        {                                                                                                              \
-            std::cout << "Cuda failure: " << ret << std::endl;                                                         \
-            abort();                                                                                                   \
-        }                                                                                                              \
-    } while (0)
-
 namespace nvinfer1
 {
 namespace plugin

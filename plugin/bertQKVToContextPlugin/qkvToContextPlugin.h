@@ -28,8 +28,6 @@
 
 namespace bert
 {
-static constexpr int32_t kSM_TURING = 75;
-static constexpr int32_t kSM_AMPERE = 80;
 
 // Multi Head Attention runner
 class MHARunner
@@ -62,8 +60,8 @@ public:
         mNumMats = B * mNumHeads;
     }
 
-    virtual void run(const nvinfer1::PluginTensorDesc& inputDesc, const nvinfer1::PluginTensorDesc& outputDesc,
-        const void* qkvPtr, const void* maskPtr, void* output, void* workspace, cudaStream_t stream)
+    virtual void run(const nvinfer1::PluginTensorDesc& inputDesc, const nvinfer1::PluginTensorDesc& outputDesc, const void* qkvPtr,
+        const void* maskPtr, void* output, void* workspace, cudaStream_t stream)
         = 0;
 
     virtual size_t getSerializationSize() const;
@@ -71,6 +69,8 @@ public:
     virtual void deserialize(const void* data, size_t length);
 
     virtual size_t getWorkspaceSize() const = 0;
+
+    virtual bool isValid() const = 0;
 
 protected:
     nvinfer1::DataType mType;
@@ -209,14 +209,15 @@ public:
 
     virtual void setup(const int S, const int B) override;
 
-    void run(const nvinfer1::PluginTensorDesc& inputDesc, const nvinfer1::PluginTensorDesc& outputDesc,
-        const void* qkvPtr, const void* maskPtr, void* output, void* workspace, cudaStream_t stream) override;
+    void run(const nvinfer1::PluginTensorDesc& inputDesc, const nvinfer1::PluginTensorDesc& outputDesc, const void* qkvPtr,
+        const void* maskPtr, void* output, void* workspace, cudaStream_t stream) override;
 
     size_t getWorkspaceSize() const override;
 
     size_t getSerializationSize() const override;
     void serialize(void* buffer) const override;
     void deserialize(const void* data, size_t length) override;
+    bool isValid() const override;
 
 private:
     int mAlgoBatchedEx1;
@@ -232,12 +233,14 @@ public:
 
     virtual void setup(const int S, const int B) override;
 
-    void run(const nvinfer1::PluginTensorDesc& inputDesc, const nvinfer1::PluginTensorDesc& outputDesc,
-        const void* qkvPtr, const void* maskPtr, void* output, void* workspace, cudaStream_t stream) override;
+    void run(const nvinfer1::PluginTensorDesc& inputDesc, const nvinfer1::PluginTensorDesc& outputDesc, const void* qkvPtr,
+        const void* maskPtr, void* output, void* workspace, cudaStream_t stream) override;
 
     size_t getWorkspaceSize() const override;
 
     void deserialize(const void* data, size_t length) override;
+
+    bool isValid() const override;
 
 private:
     int mSm;
@@ -253,12 +256,14 @@ public:
 
     virtual void setup(const int S, const int B) override;
 
-    void run(const nvinfer1::PluginTensorDesc& inputDesc, const nvinfer1::PluginTensorDesc& outputDesc,
-        const void* qkvPtr, const void* maskPtr, void* output, void* workspace, cudaStream_t stream) override;
+    void run(const nvinfer1::PluginTensorDesc& inputDesc, const nvinfer1::PluginTensorDesc& outputDesc, const void* qkvPtr,
+        const void* maskPtr, void* output, void* workspace, cudaStream_t stream) override;
 
     size_t getWorkspaceSize() const override;
 
     void deserialize(const void* data, size_t length) override;
+
+    bool isValid() const override;
 
 private:
     float mDqProbs;
