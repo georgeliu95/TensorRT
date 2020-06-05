@@ -20,5 +20,6 @@ SET(SAMPLE_SOURCES
     ../../common/sampleReporting.cpp
     trtexec.cpp
 )
-
 set(SAMPLE_PARSERS "caffe" "uff" "onnx")
+
+include(../../CMakeSamplesTemplate.txt)
