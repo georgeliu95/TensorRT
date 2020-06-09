@@ -33,7 +33,4 @@ endif()
 
 set(CUDA_INCLUDE_DIRS ${CUDA_ROOT}/include)
 
-if(DEFINED ENV{VULCAN} AND NOT $ENV{VULCAN} STREQUAL "")
-  set(DISABLE_SWIG TRUE)
-endif()
 set(TRT_PLATFORM_ID "ppc64le")
