@@ -77,6 +77,10 @@ endif()
 
 set(CMAKE_CXX_FLAGS "-Wno-deprecated-declarations ${CMAKE_CXX_FLAGS} -DBUILD_SYSTEM=cmake_oss")
 
+# Added to supress CUDA 11.0 Version Check Error
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DTHRUST_IGNORE_CUB_VERSION_CHECK")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -DTHRUST_IGNORE_CUB_VERSION_CHECK")
+
 if (DEFINED GPU_ARCHS)
   message(STATUS "GPU_ARCHS defined as ${GPU_ARCHS}. Generating CUDA code for SM ${GPU_ARCHS}")
   separate_arguments(GPU_ARCHS)
