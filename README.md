@@ -99,6 +99,16 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	export TRT_RELEASE=`pwd`/TensorRT-7.1.2.6
 	```
 
+	**Example: Ubuntu 16.04 with cuda-10.2**
+
+	Download and extract the *TensorRT 7.1 GA for Ubuntu 16.04 7 and CUDA 10.2 tar package*
+	```bash
+	cd ~/Downloads
+	# Download TensorRT-7.1.2.6.Ubuntu-16.04.x86_64-gnu.cuda-10.2.cudnn8.0.tar.gz
+	tar -xvzf TensorRT-7.1.2.6.Ubuntu-16.04.x86_64-gnu.cuda-10.2.cudnn8.0.tar.gz
+	export TRT_RELEASE=`pwd`/TensorRT-7.1.2.6
+	```
+
 3. #### Download JetPack packages for cross-compilation.[OPTIONAL]
 
 Using the SDK manager, download the host componets of the PDK version or Jetpack specified in the name of the Dockerfile. To do this:
@@ -131,6 +141,12 @@ You should now have all expected files to build the container. Move these into t
   docker build -f docker/centos.Dockerfile --build-arg CENTOS_VERSION=7 --build-arg CUDA_VERSION=10.2 --tag=tensorrt-centos .
   ```
 
+  **Example: Ubuntu 16.04 with cuda-10.2**
+
+  ```bash
+  docker build -f docker/ubuntu.Dockerfile --build-arg UBUNTU_VERSION=16.04 --build-arg CUDA_VERSION=11.0 --tag=tensorrt-ubuntu .
+  ```
+
    **Example: Cross compile for JetPack 4.4 with cuda-10.2**
    ```bash
    docker build -f docker/ubuntu-cross-aarch64.Dockerfile --build-arg UBUNTU_VERSION=18.04 --build-arg CUDA_VERSION=10.2 --tag tensorrt-ubuntu-aarch64 .
@@ -143,7 +159,7 @@ You should now have all expected files to build the container. Move these into t
 	docker run --gpus all -v $TRT_RELEASE:/tensorrt -v $TRT_SOURCE:/workspace/TensorRT -it tensorrt-ubuntu:latest
 	```
 
-	> NOTE: To run TensorRT/CUDA programs within the build container, install [nvidia-docker](#prerequisites). Replace the `docker run` command with `nvidia-docker run` or `docker run --runtime=nvidia`.
+	> NOTE: To run TensorRT/CUDA programs within the build container, install [nvidia-docker](#prerequisites). Add `--gpu <NUM GPUS>` to the `docker run` command.
 
 
 ## Building The TensorRT OSS Components
