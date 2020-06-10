@@ -24,8 +24,8 @@
 #include "NvInferRuntimeCommon.h"
 #include "cublas_v2.h"
 #include "cuda_fp16.h"
-#include "pluginLogger.h"
 #include "plugin.h"
+#include "pluginLogger.h"
 
 #include <algorithm>
 #include <cuda_runtime_api.h>

@@ -171,7 +171,7 @@ DimsExprs EmbLayerNormPluginDynamic::getOutputDimensions(
         DimsExprs ret;
         ret.nbDims = 2;
         ret.d[0] = inputs[0].d[BDIM];
-        //ret.d[1] = maskSize;
+        // ret.d[1] = maskSize;
         ret.d[1] = fp16maskSize;
         return ret;
     }
@@ -213,7 +213,8 @@ bool EmbLayerNormPluginDynamic::supportsFormatCombination(
             && desc.dims.d[SDIM] == prev.dims.d[SDIM] && desc.dims.d[3] == 1 && desc.dims.d[4] == 1;
     }
     // mask
-    if(mUseFullMask){
+    if (mUseFullMask)
+    {
         return desc.type == DataType::kHALF;
     }
     return desc.type == DataType::kINT32;
@@ -262,14 +263,16 @@ void EmbLayerNormPluginDynamic::configurePlugin(
     assert(inputs[1].desc.type == DataType::kINT32);
     assert(inputs[2].desc.type == DataType::kINT32);
     assert(outputs[0].desc.type == mType);
-    if(mUseFullMask){
-    assert(outputs[1].desc.type == DataType::kHALF);
-    }else{
+    if (mUseFullMask)
+    {
+        assert(outputs[1].desc.type == DataType::kHALF);
+    }
+    else
+    {
 
-    assert(outputs[1].desc.type == DataType::kINT32);
+        assert(outputs[1].desc.type == DataType::kINT32);
     }
 }
-
 
 size_t EmbLayerNormPluginDynamic::getWorkspaceSize(
     const PluginTensorDesc* inputs, int nbInputs, const PluginTensorDesc* outputs, int nbOutputs) const
@@ -341,9 +344,9 @@ int EmbLayerNormPluginDynamic::enqueue(const PluginTensorDesc* inputDesc, const 
 
         int* maskIdx = static_cast<int*>(outputs[1]);
         computeMaskIdx(stream, S, batchSize, inputMask, maskIdx);
-        //std::vector<int> maskIdx_h(batchSize);
-        //cudaMemcpy(maskIdx_h.data(), maskIdx, batchSize*sizeof(int), cudaMemcpyDeviceToHost);
-        //for(auto x :maskIdx_h ){
+        // std::vector<int> maskIdx_h(batchSize);
+        // cudaMemcpy(maskIdx_h.data(), maskIdx, batchSize*sizeof(int), cudaMemcpyDeviceToHost);
+        // for(auto x :maskIdx_h ){
         //    printf("%d\n", x);
         //}
     }
@@ -361,8 +364,9 @@ DataType EmbLayerNormPluginDynamic::getOutputDataType(int index, const DataType*
         assert(mType == DataType::kHALF || mType == DataType::kFLOAT);
         return mType;
     }
-    if(mUseFullMask){
-    return DataType::kHALF;
+    if (mUseFullMask)
+    {
+        return DataType::kHALF;
     }
     return DataType::kINT32;
 }

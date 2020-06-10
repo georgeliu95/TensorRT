@@ -60,8 +60,8 @@ public:
         mNumMats = B * mNumHeads;
     }
 
-    virtual void run(const nvinfer1::PluginTensorDesc& inputDesc, const nvinfer1::PluginTensorDesc& outputDesc, const void* qkvPtr,
-        const void* maskPtr, void* output, void* workspace, cudaStream_t stream)
+    virtual void run(const nvinfer1::PluginTensorDesc& inputDesc, const nvinfer1::PluginTensorDesc& outputDesc,
+        const void* qkvPtr, const void* maskPtr, void* output, void* workspace, cudaStream_t stream)
         = 0;
 
     virtual size_t getSerializationSize() const;
@@ -209,8 +209,8 @@ public:
 
     virtual void setup(const int S, const int B) override;
 
-    void run(const nvinfer1::PluginTensorDesc& inputDesc, const nvinfer1::PluginTensorDesc& outputDesc, const void* qkvPtr,
-        const void* maskPtr, void* output, void* workspace, cudaStream_t stream) override;
+    void run(const nvinfer1::PluginTensorDesc& inputDesc, const nvinfer1::PluginTensorDesc& outputDesc,
+        const void* qkvPtr, const void* maskPtr, void* output, void* workspace, cudaStream_t stream) override;
 
     size_t getWorkspaceSize() const override;
 
@@ -233,8 +233,8 @@ public:
 
     virtual void setup(const int S, const int B) override;
 
-    void run(const nvinfer1::PluginTensorDesc& inputDesc, const nvinfer1::PluginTensorDesc& outputDesc, const void* qkvPtr,
-        const void* maskPtr, void* output, void* workspace, cudaStream_t stream) override;
+    void run(const nvinfer1::PluginTensorDesc& inputDesc, const nvinfer1::PluginTensorDesc& outputDesc,
+        const void* qkvPtr, const void* maskPtr, void* output, void* workspace, cudaStream_t stream) override;
 
     size_t getWorkspaceSize() const override;
 
@@ -256,8 +256,8 @@ public:
 
     virtual void setup(const int S, const int B) override;
 
-    void run(const nvinfer1::PluginTensorDesc& inputDesc, const nvinfer1::PluginTensorDesc& outputDesc, const void* qkvPtr,
-        const void* maskPtr, void* output, void* workspace, cudaStream_t stream) override;
+    void run(const nvinfer1::PluginTensorDesc& inputDesc, const nvinfer1::PluginTensorDesc& outputDesc,
+        const void* qkvPtr, const void* maskPtr, void* output, void* workspace, cudaStream_t stream) override;
 
     size_t getWorkspaceSize() const override;
 

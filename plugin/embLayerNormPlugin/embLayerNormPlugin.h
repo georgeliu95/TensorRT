@@ -38,12 +38,12 @@ int embSkipLayerNorm(cudaStream_t stream, int ld, int B, int S, const int* input
 void convertMask(const uint32_t S, const uint32_t B, const uint32_t warps_m, const uint32_t warps_n,
     const uint32_t warps_k, const int* inputMaskSB, uint32_t* inputMaskX, cudaStream_t stream);
 
-
 class EmbLayerNormPluginDynamic : public nvinfer1::IPluginV2DynamicExt
 {
 public:
-    EmbLayerNormPluginDynamic(const std::string& name, const nvinfer1::DataType type, const nvinfer1::Weights& beta, const nvinfer1::Weights& gamma,
-        const nvinfer1::Weights& word_emb, const nvinfer1::Weights& pos_emb, const nvinfer1::Weights& tok_emb, const bool useFullMask);
+    EmbLayerNormPluginDynamic(const std::string& name, const nvinfer1::DataType type, const nvinfer1::Weights& beta,
+        const nvinfer1::Weights& gamma, const nvinfer1::Weights& word_emb, const nvinfer1::Weights& pos_emb,
+        const nvinfer1::Weights& tok_emb, const bool useFullMask);
 
     EmbLayerNormPluginDynamic(const std::string& name, const void* data, size_t length);
 
@@ -104,13 +104,13 @@ private:
 
 protected:
     // To prevent compiler warnings.
-    using nvinfer1::IPluginV2DynamicExt::getOutputDimensions;
-    using nvinfer1::IPluginV2DynamicExt::isOutputBroadcastAcrossBatch;
     using nvinfer1::IPluginV2DynamicExt::canBroadcastInputAcrossBatch;
-    using nvinfer1::IPluginV2DynamicExt::supportsFormat;
     using nvinfer1::IPluginV2DynamicExt::configurePlugin;
-    using nvinfer1::IPluginV2DynamicExt::getWorkspaceSize;
     using nvinfer1::IPluginV2DynamicExt::enqueue;
+    using nvinfer1::IPluginV2DynamicExt::getOutputDimensions;
+    using nvinfer1::IPluginV2DynamicExt::getWorkspaceSize;
+    using nvinfer1::IPluginV2DynamicExt::isOutputBroadcastAcrossBatch;
+    using nvinfer1::IPluginV2DynamicExt::supportsFormat;
 };
 
 class EmbLayerNormPluginDynamicCreator : public nvinfer1::IPluginCreator

@@ -40,27 +40,19 @@ enum Data_type
     DATA_TYPE_INT32
 };
 
-static inline size_t get_size_in_bytes(size_t n, Data_type dtype) {
-    switch( dtype ) {
-    case DATA_TYPE_E8M10:
-        return n * 4;
-    case DATA_TYPE_FP32:
-        return n * 4;
-    case DATA_TYPE_FP16:
-        return n * 2;
-    case DATA_TYPE_INT32:
-        return n * 4;
-    case DATA_TYPE_INT8:
-        return n;
-    case DATA_TYPE_INT4:
-        return n / 2;
-    case DATA_TYPE_BOOL:
-        return n / 8;
-    case DATA_TYPE_E8M7:
-        return n * 2;
-    default:
-        assert(false);
-        return 0;
+static inline size_t get_size_in_bytes(size_t n, Data_type dtype)
+{
+    switch (dtype)
+    {
+    case DATA_TYPE_E8M10: return n * 4;
+    case DATA_TYPE_FP32: return n * 4;
+    case DATA_TYPE_FP16: return n * 2;
+    case DATA_TYPE_INT32: return n * 4;
+    case DATA_TYPE_INT8: return n;
+    case DATA_TYPE_INT4: return n / 2;
+    case DATA_TYPE_BOOL: return n / 8;
+    case DATA_TYPE_E8M7: return n * 2;
+    default: assert(false); return 0;
     }
 }
 
@@ -243,4 +235,4 @@ struct FusedMultiHeadAttentionXMMAKernel
     };
     std::unordered_map<uint64_t, FusedMultiHeadAttentionKernelInfo> mFunctions;
 };
-}
+} // namespace bert

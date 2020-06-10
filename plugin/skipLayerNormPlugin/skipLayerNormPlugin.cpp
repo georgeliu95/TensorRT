@@ -43,7 +43,6 @@ std::vector<PluginField> SkipLayerNormPluginDynamicCreator::mPluginAttributes;
 
 REGISTER_TENSORRT_PLUGIN(SkipLayerNormPluginDynamicCreator);
 
-
 static inline DataType getParamWordType(DataType cfgType)
 {
     if (cfgType == DataType::kINT8)
@@ -63,10 +62,11 @@ SkipLayerNormPluginDynamic::SkipLayerNormPluginDynamic(const std::string name, c
     , mType(type)
     , mBiasDev(nullptr)
 {
-    assert(mType == nvinfer1::DataType::kFLOAT || mType == nvinfer1::DataType::kHALF || mType == nvinfer1::DataType::kINT8);
+    assert(mType == nvinfer1::DataType::kFLOAT || mType == nvinfer1::DataType::kHALF
+        || mType == nvinfer1::DataType::kINT8);
     // mCfgType is the dataType for beta, gamma bias weights, always fp16 or fp32
     // mType is the plugin IO datatype, can be int8
-    mCfgType = mType == DataType::kINT8 ? DataType::kHALF :  mType;
+    mCfgType = mType == DataType::kINT8 ? DataType::kHALF : mType;
     mParamWordsize = getElementSize(mCfgType);
 
     mBeta.convertAndCopy(beta, mCfgType);
@@ -228,13 +228,13 @@ int SkipLayerNormPluginDynamic::enqueue(const PluginTensorDesc* inputDesc, const
         const auto gamma = static_cast<const float*>(mGammaDev.get());
         if (mHasBias)
         {
-            status
-                = computeSkipLayerNorm<float, true>(stream, static_cast<int>(mLd), inputVolume, input, skip, beta, gamma, output, bias);
+            status = computeSkipLayerNorm<float, true>(
+                stream, static_cast<int>(mLd), inputVolume, input, skip, beta, gamma, output, bias);
         }
         else
         {
-            status
-                = computeSkipLayerNorm<float, false>(stream, static_cast<int>(mLd), inputVolume, input, skip, beta, gamma, output, bias);
+            status = computeSkipLayerNorm<float, false>(
+                stream, static_cast<int>(mLd), inputVolume, input, skip, beta, gamma, output, bias);
         }
     }
     else if (iType == DataType::kHALF)
@@ -247,12 +247,13 @@ int SkipLayerNormPluginDynamic::enqueue(const PluginTensorDesc* inputDesc, const
         const auto gamma = static_cast<const half*>(mGammaDev.get());
         if (mHasBias)
         {
-            status = computeSkipLayerNorm<half, true>(stream, static_cast<int>(mLd), inputVolume, input, skip, beta, gamma, output, bias);
+            status = computeSkipLayerNorm<half, true>(
+                stream, static_cast<int>(mLd), inputVolume, input, skip, beta, gamma, output, bias);
         }
         else
         {
-            status
-                = computeSkipLayerNorm<half, false>(stream, static_cast<int>(mLd), inputVolume, input, skip, beta, gamma, output, bias);
+            status = computeSkipLayerNorm<half, false>(
+                stream, static_cast<int>(mLd), inputVolume, input, skip, beta, gamma, output, bias);
         }
     }
     else if (iType == DataType::kINT8)
@@ -268,18 +269,19 @@ int SkipLayerNormPluginDynamic::enqueue(const PluginTensorDesc* inputDesc, const
         const auto gamma = static_cast<const half*>(mGammaDev.get());
         if (mHasBias)
         {
-            status = computeSkipLayerNormDQQ<true>(
-                stream, static_cast<int>(mLd), inputVolume, input, skip, beta, gamma, output, bias, dqScaleIn, dqScaleSkip, qScale);
+            status = computeSkipLayerNormDQQ<true>(stream, static_cast<int>(mLd), inputVolume, input, skip, beta, gamma,
+                output, bias, dqScaleIn, dqScaleSkip, qScale);
         }
         else
         {
-            status = computeSkipLayerNormDQQ<false>(
-                stream, static_cast<int>(mLd), inputVolume, input, skip, beta, gamma, output, bias, dqScaleIn, dqScaleSkip, qScale);
+            status = computeSkipLayerNormDQQ<false>(stream, static_cast<int>(mLd), inputVolume, input, skip, beta,
+                gamma, output, bias, dqScaleIn, dqScaleSkip, qScale);
         }
     }
     else
     {
-        gLogError << "Unsupported type error, expected [kINT8,kHALF,kFLOAT], but received " << static_cast<int>(iType) << "." << std::endl;
+        gLogError << "Unsupported type error, expected [kINT8,kHALF,kFLOAT], but received " << static_cast<int>(iType)
+                  << "." << std::endl;
         assert(false);
     }
     return status;
