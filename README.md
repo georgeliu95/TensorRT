@@ -50,6 +50,9 @@ To build the TensorRT OSS components, ensure you meet the following package requ
   * [Clang-format](https://clang.llvm.org/docs/ClangFormat.html)
   * [Git-clang-format](https://github.com/llvm-mirror/clang/blob/master/tools/clang-format/git-clang-format)
 
+* Required PyPI packages for Demos
+  * [Tensorflow](https://pypi.org/project/tensorflow/1.14.0/) >= 1.14.0
+
 **TensorRT Release**
 
 * [TensorRT](https://developer.nvidia.com/nvidia-tensorrt-download) v7.1
