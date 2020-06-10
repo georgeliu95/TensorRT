@@ -144,7 +144,7 @@ You should now have all expected files to build the container. Move these into t
   **Example: Ubuntu 16.04 with cuda-10.2**
 
   ```bash
-  docker build -f docker/ubuntu.Dockerfile --build-arg UBUNTU_VERSION=16.04 --build-arg CUDA_VERSION=11.0 --tag=tensorrt-ubuntu .
+  docker build -f docker/ubuntu.Dockerfile --build-arg UBUNTU_VERSION=16.04 --build-arg CUDA_VERSION=10.2 --tag=tensorrt-ubuntu .
   ```
 
    **Example: Cross compile for JetPack 4.4 with cuda-10.2**
