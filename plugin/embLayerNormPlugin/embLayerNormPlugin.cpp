@@ -171,7 +171,6 @@ DimsExprs EmbLayerNormPluginDynamic::getOutputDimensions(
         DimsExprs ret;
         ret.nbDims = 2;
         ret.d[0] = inputs[0].d[BDIM];
-        // ret.d[1] = maskSize;
         ret.d[1] = fp16maskSize;
         return ret;
     }

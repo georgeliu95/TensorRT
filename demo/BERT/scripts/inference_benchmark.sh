@@ -1,3 +1,19 @@
+#!/bin/bash
+
+# Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 # Usage: run_benchmark(batch_sizes, model_variant: (base/large), precision: (fp16/fp32), sequence_length, max_batch_size)
 run_benchmark() {
 BATCH_SIZES="${1}"
@@ -7,8 +23,8 @@ PRECISION="${3}"
 SEQUENCE_LENGTH="${4}"
 MAX_BATCH="${5}"
 
-CHECKPOINTS_DIR="/workspace/bert/models/fine-tuned/bert_tf_v2_${MODEL_VARIANT}_${PRECISION}_${SEQUENCE_LENGTH}_v2"
-ENGINE_NAME="/workspace/bert/engines/bert_${MODEL_VARIANT}_${PRECISION}_bs${MAX_BATCH}_seqlen${SEQUENCE_LENGTH}_benchmark.engine"
+CHECKPOINTS_DIR="/workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_${MODEL_VARIANT}_${PRECISION}_${SEQUENCE_LENGTH}_v2"
+ENGINE_NAME="/workspace/TensorRT/demo/BERT/engines/bert_${MODEL_VARIANT}_${PRECISION}_bs${MAX_BATCH}_seqlen${SEQUENCE_LENGTH}_benchmark.engine"
 
 echo "==== Benchmarking BERT ${MODEL_VARIANT} ${PRECISION} SEQLEN ${SEQUENCE_LENGTH} ===="
 if [ ! -f ${ENGINE_NAME} ]; then
@@ -25,7 +41,7 @@ python3 perf.py ${BATCH_SIZES} -s ${SEQUENCE_LENGTH} -e ${ENGINE_NAME}
 echo
 }
 
-mkdir -p /workspace/bert/engines
+mkdir -p /workspace/TensorRT/demo/BERT/engines
 
 # BERT BASE
 ## FP16

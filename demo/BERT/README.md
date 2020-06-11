@@ -67,7 +67,7 @@ Lastly, the tokens predicted by the model are projected back to the original tex
 
 The following software version configuration has been tested:
 
-#### TODO rajerao - update
+#### TODO TRT-11312 - update README for release
 
 |Software|Version|
 |--------|-------|
@@ -84,7 +84,7 @@ The following section lists the requirements that you need to meet in order to r
 
 This demo BERT application can be run within the TensorRT Open Source build container. If running in a different environment, ensure you have the following packages installed.
 
-#### TODO rajerao - update
+#### TODO TRT-11312 - update README for release
 
 * [NGC CLI](https://ngc.nvidia.com/setup/installers/cli) - for downloading BERT checkpoints from NGC.
 * PyPI Packages:
@@ -283,7 +283,7 @@ Also note that BERT Large engines, especially using mixed precision with large b
 
 ### Results
 
-#### TODO rajerao - update
+#### TODO TRT-11312 - update README/PBR results for release
 
 The following sections provide details on how we achieved our performance and inference.
 

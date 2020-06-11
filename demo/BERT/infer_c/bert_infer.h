@@ -37,7 +37,7 @@ struct BertInference
         , mEnableGraph(enableGraph)
     {
         gLogInfo << "--------------------\n";
-        gLogInfo << "Using bert inference C++\n";
+        gLogInfo << "Using BERT inference C++\n";
         if (enableGraph)
         {
             gLogInfo << "CUDA Graph is enabled\n";
@@ -51,7 +51,7 @@ struct BertInference
 
         initLibNvInferPlugins(&gLogger, "");
 
-        gLogInfo << "Loading Bert Inference Engine ... \n";
+        gLogInfo << "Loading BERT Inference Engine ... \n";
         std::ifstream input(enginePath, std::ios::binary);
         if (!input)
         {
