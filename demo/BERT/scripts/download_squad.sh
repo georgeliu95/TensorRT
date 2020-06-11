@@ -14,34 +14,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 # Setup default parameters (if no command-line parameters given)
-VERSION='v2'
-MODEL='large'
-FT_PRECISION='fp16'
-SEQ_LEN='128'
+VERSION='v1.1'
 
 while test $# -gt 0
 do
     case "$1" in
-        -h) echo "Usage: sh download_model.sh [base|large] [fp16|fp32] [128|384] [v2|v1_1]"
+        -h) echo "Usage: sh download_squad.sh [v2_0|v1_1]"
             exit 0
             ;;
-        base) MODEL='base'
+        v2_0) VERSION='v2.0'
             ;;
-        large) MODEL='large'
-            ;;
-        fp16) FT_PRECISION='fp16'
-            ;;
-        fp32) FT_PRECISION='fp32'
-            ;;
-        128) SEQ_LEN='128'
-            ;;
-        384) SEQ_LEN='384'
-            ;;
-        v2) VERSION='v2'
-            ;;
-        v1_1) VERSION='v1_1'
+        v1_1) VERSION='v1.1'
             ;;
         *) echo "Invalid argument $1...exiting"
             exit 0
@@ -50,8 +34,9 @@ do
     shift
 done
 
-# Download the BERT fine-tuned model
-echo "Downloading BERT-${MODEL} with fine-tuned precision ${FT_PRECISION} and sequence length ${SEQ_LEN} from NGC"
-mkdir -p /workspace/TensorRT/demo/BERT/models/fine-tuned
-cd /workspace/TensorRT/demo/BERT/models/fine-tuned
-ngc registry model download-version nvidia/bert_tf_${VERSION}_${MODEL}_${FT_PRECISION}_${SEQ_LEN}:2
+# Download the SQuAD training and dev datasets
+echo "Downloading SQuAD-${VERSION} training and dev datasets"
+mkdir -p /workspace/TensorRT/demo/BERT/squad
+cd /workspace/TensorRT/demo/BERT/squad
+wget https://rajpurkar.github.io/SQuAD-explorer/dataset/train-${VERSION}.json
+wget https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-${VERSION}.json

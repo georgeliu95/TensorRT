@@ -72,8 +72,7 @@ The following software version configuration has been tested:
 |Software|Version|
 |--------|-------|
 |Python|3.6.9|
-|TensorFlow|1.14.0|
-|TensorRT|7.1.2.4|
+|TensorRT|7.1.3|
 |CUDA|11.0.171|
 
 
@@ -83,50 +82,73 @@ The following section lists the requirements that you need to meet in order to r
 
 ### Requirements
 
-This repository contains a `Dockerfile` which extends the TensorRT NGC container and installs some dependencies. Ensure you have the following components:
+This demo BERT application can be run within the TensorRT Open Source build container. If running in a different environment, ensure you have the following packages installed.
 
 #### TODO rajerao - update
 
-* [NVIDIA Docker](https://github.com/NVIDIA/nvidia-docker)
-* [TensorRT NGC container](https://ngc.nvidia.com/catalog/containers/nvidia:tensorrt)
+* [NGC CLI](https://ngc.nvidia.com/setup/installers/cli) - for downloading BERT checkpoints from NGC.
+* PyPI Packages:
+  * [pycuda](https://pypi.org/project/pycuda/)
+  * [onnx](https://pypi.org/project/onnx/1.6.0/) 1.6.0
+  * [tensorflow 1.x]() >= 1.14.0
 * NVIDIA [Volta](https://www.nvidia.com/en-us/data-center/volta-gpu-architecture/), [Turing](https://www.nvidia.com/en-us/geforce/turing/) or [Ampere](https://www.nvidia.com/en-us/data-center/nvidia-ampere-gpu-architecture/) based GPU with NVIDIA Driver 450.37 or later.
 
-Required Python packages are listed in `requirements.txt`. These packages are automatically installed inside the container.
-
-SQuAD model weights require large files support. Please install git LFS prior to cloning the repository.
-`sudo apt-get install git-lfs`
 
 ## Quick Start Guide
 
-1. Create and launch the BERT container:
+1. Build and launch the TensorRT-OSS build container. On x86 with Ubuntu 18.04 for example:
     ```bash
-    bash trt/scripts/build.sh && bash trt/scripts/launch.sh
+    cd <TensorRT-OSS>
+    docker build -f docker/ubuntu.Dockerfile --build-arg uid=$(id -u) --build-arg gid=$(id -g) --build-arg UBUNTU_VERSION=18.04 --build-arg CUDA_VERSION=11.0 --tag=tensorrt-ubuntu .
+    docker run --gpus all -v $TRT_RELEASE:/tensorrt -v $TRT_SOURCE:/workspace/TensorRT -it tensorrt-ubuntu:latest
     ```
 
     **Note:** After this point, all commands should be run from within the container.
 
-2. Download checkpoints for a pre-trained BERT model:
+2. Build the TensorRT Plugins library from source and install the TensorRT python bindings:
+   ```bash
+   cd $TRT_SOURCE
+   export LD_LIBRARY_PATH=`pwd`/build/out:$LD_LIBRARY_PATH:/tensorrt/lib
+   mkdir -p build && cd build
+   cmake .. -DTRT_LIB_DIR=$TRT_RELEASE/lib -DTRT_BIN_DIR=`pwd`/out
+   make -j$(nproc)
+
+   pip3 install /tensorrt/python/tensorrt-7.1*-cp36-none-linux_x86_64.whl
+   ```
+
+3. Download the SQuAD dataset and pre-trained BERT checkpoints:
+    ```bash
+    cd $TRT_SOURCE/demo/BERT
+    ```
+
+    ```bash
+    bash scripts/download_squad.sh
+    ```
+
+    This will download SQuAD v1.1 training and dev dataset by default.
+
     ```bash
     bash scripts/download_model.sh
-    ```
-    This will download checkpoints for a BERT Large FP16 SQuAD v2 model with a sequence length of 128 by default.
+    ````
 
-**Note:** Since the checkpoints are stored in the directory mounted from the host, they do *not* need to be downloaded each time the container is launched. 
+    This will download checkpoints for a BERT Large FP16 SQuAD v2.0 model with a sequence length of 128 by default.
 
-3. Build a TensorRT engine. To build an engine, run the `builder.py` script. For example:
+**Note:** Since the datasets and checkpoints are stored in the directory mounted from the host, they do *not* need to be downloaded each time the container is launched. 
+
+4. Build a TensorRT engine. To build an engine, run the `builder.py` script. For example:
     ```bash
-    mkdir -p /workspace/bert/engines && python3 builder.py -m /workspace/bert/models/fine-tuned/bert_tf_v2_large_fp16_128_v2/model.ckpt-8144 -o /workspace/bert/engines/bert_large_128.engine -b 1 -s 128 --fp16 -c /workspace/bert/models/fine-tuned/bert_tf_v2_large_fp16_128_v2
+    mkdir -p /workspace/TensorRT/demo/BERT/engines && python3 builder.py -m /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_128_v2/model.ckpt-8144 -o /workspace/TensorRT/demo/BERT/engines/bert_large_128.engine -b 1 -s 128 --fp16 -c /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_128_v2
     ```
 
-    This will build an engine with a maximum batch size of 1 (`-b 1`), and sequence length of 128 (`-s 128`) using mixed precision (`--fp16`) using the BERT Large V2 FP16 Sequence Length 128 checkpoint (`-c /workspace/bert/models/fine-tuned/bert_tf_v2_large_fp16_128_v2`).
+    This will build an engine with a maximum batch size of 1 (`-b 1`), and sequence length of 128 (`-s 128`) using mixed precision (`--fp16`) using the BERT Large V2 FP16 Sequence Length 128 checkpoint (`-c /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_128_v2`).
 
-4. Run inference. Two options are provided for running the model.
+5. Run inference. Two options are provided for running the model.
 
     a. `inference.py` script
     This script accepts a passage and question and then runs the engine to generate an answer.
     For example:
     ```bash
-    python3 inference.py -e /workspace/bert/engines/bert_large_128.engine -p "TensorRT is a high performance deep learning inference platform that delivers low latency and high throughput for apps such as recommenders, speech and image/video on NVIDIA GPUs. It includes parsers to import models, and plugins to support novel ops and layers before applying optimizations for inference. Today NVIDIA is open-sourcing parsers and plugins in TensorRT so that the deep learning community can customize and extend these components to take advantage of powerful TensorRT optimizations for your apps." -q "What is TensorRT?" -v /workspace/bert/models/fine-tuned/bert_tf_v2_large_fp16_128_v2/vocab.txt
+    python3 inference.py -e /workspace/TensorRT/demo/BERT/engines/bert_large_128.engine -p "TensorRT is a high performance deep learning inference platform that delivers low latency and high throughput for apps such as recommenders, speech and image/video on NVIDIA GPUs. It includes parsers to import models, and plugins to support novel ops and layers before applying optimizations for inference. Today NVIDIA is open-sourcing parsers and plugins in TensorRT so that the deep learning community can customize and extend these components to take advantage of powerful TensorRT optimizations for your apps." -q "What is TensorRT?" -v /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_128_v2/vocab.txt
     ```
 
     b. `inference.ipynb` Jupyter Notebook
@@ -137,7 +159,7 @@ SQuAD model weights require large files support. Please install git LFS prior to
     ```
     Then, use your browser to open the link displayed. The link should look similar to: `http://127.0.0.1:8888/?token=<TOKEN>`
     
-5. Run inference with CUDA Graph support.
+6. Run inference with CUDA Graph support.
 
     A separate python `inference_c.py` script is provided to run inference with CUDA Graph support. This is necessary since CUDA Graph is only supported through CUDA C/C++ APIs, not pyCUDA. The `inference_c.py` script uses pybind11 to interface with C/C++ for CUDA graph capturing and launching. The cmdline interface is the same as `inference.py` except for an extra `--enable-graph` option.
     
@@ -145,13 +167,13 @@ SQuAD model weights require large files support. Please install git LFS prior to
     mkdir -p build
     cd build; cmake ..
     make; cd ..
-    python3 inference_c.py -e /workspace/bert/engines/bert_large_128.engine --enable-graph -p "TensorRT is a high performance deep learning inference platform that delivers low latency and high throughput for apps such as recommenders, speech and image/video on NVIDIA GPUs. It includes parsers to import models, and plugins to support novel ops and layers before applying optimizations for inference. Today NVIDIA is open-sourcing parsers and plugins in TensorRT so that the deep learning community can customize and extend these components to take advantage of powerful TensorRT optimizations for your apps." -q "What is TensorRT?" -v /workspace/bert/models/fine-tuned/bert_tf_v2_large_fp16_128_v2/vocab.txt
+    python3 inference_c.py -e /workspace/TensorRT/demo/BERT/engines/bert_large_128.engine --enable-graph -p "TensorRT is a high performance deep learning inference platform that delivers low latency and high throughput for apps such as recommenders, speech and image/video on NVIDIA GPUs. It includes parsers to import models, and plugins to support novel ops and layers before applying optimizations for inference. Today NVIDIA is open-sourcing parsers and plugins in TensorRT so that the deep learning community can customize and extend these components to take advantage of powerful TensorRT optimizations for your apps." -q "What is TensorRT?" -v /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_128_v2/vocab.txt
     ```
 
     A separate C/C++ inference benchmark executable `perf` (compiled from `perf.cpp`) is provided to run inference benchmarks with CUDA Graph. The cmdline interface is the same as `perf.py` except for an extra `--enable_graph` option.
     
     ```bash
-    build/perf -e /workspace/bert/engines/bert_large_128.engine -b 1 -s 128 -w 100 -i 1000 --enable_graph
+    build/perf -e /workspace/TensorRT/demo/BERT/engines/bert_large_128.engine -b 1 -s 128 -w 100 -i 1000 --enable_graph
     ```
     
 
@@ -219,18 +241,18 @@ As mentioned in the [Quick Start Guide](#quick-start-guide), two options are pro
 2. Build an engine:
     ```bash
     # Turing and Ampere GPUs support QKVToContextPlugin and SkipLayerNormPlugin running with INT8 I/O. Use -imh and -iln to enable INT8 QKVToContextPlugin and INT8 SkipLayerNormPlugin respectively.
-    mkdir -p /workspace/bert/engines && python3 builder.py -m /workspace/bert/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/model.ckpt-8144 -o /workspace/bert/engines/bert_large_384_int8mix.engine -b 1 -s 384 --int8 --fp16 --strict -c /workspace/bert/models/fine-tuned/bert_tf_v2_large_fp16_384_v2 --squad-json ./squad/train-v1.1.json -v /workspace/bert/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/vocab.txt --calib-num 100 -iln -imh
+    mkdir -p /workspace/TensorRT/demo/BERT/engines && python3 builder.py -m /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/model.ckpt-8144 -o /workspace/TensorRT/demo/BERT/engines/bert_large_384_int8mix.engine -b 1 -s 384 --int8 --fp16 --strict -c /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2 --squad-json ./squad/train-v1.1.json -v /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/vocab.txt --calib-num 100 -iln -imh
     # Xavier GPU only supports SkipLayerNormPlugin running with INT8 I/O. Use -iln to enable INT8 SkipLayerNormPlugin only.
-    mkdir -p /workspace/bert/engines && python3 builder.py -m /workspace/bert/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/model.ckpt-8144 -o /workspace/bert/engines/bert_large_384_int8mix.engine -b 1 -s 384 --int8 --fp16 --strict -c /workspace/bert/models/fine-tuned/bert_tf_v2_large_fp16_384_v2 --squad-json ./squad/train-v1.1.json -v /workspace/bert/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/vocab.txt --calib-num 100 -iln 
+    mkdir -p /workspace/TensorRT/demo/BERT/engines && python3 builder.py -m /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/model.ckpt-8144 -o /workspace/TensorRT/demo/BERT/engines/bert_large_384_int8mix.engine -b 1 -s 384 --int8 --fp16 --strict -c /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2 --squad-json ./squad/train-v1.1.json -v /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/vocab.txt --calib-num 100 -iln 
     # Volta GPU doesn't support QKVToContextPlugin and SkipLayerNormPlugin running with INT8 I/O. Don't specify -imh or -iln to builder.py.
-    mkdir -p /workspace/bert/engines && python3 builder.py -m /workspace/bert/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/model.ckpt-8144 -o /workspace/bert/engines/bert_large_384_int8mix.engine -b 1 -s 384 --int8 --fp16 --strict -c /workspace/bert/models/fine-tuned/bert_tf_v2_large_fp16_384_v2 --squad-json ./squad/train-v1.1.json -v /workspace/bert/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/vocab.txt --calib-num 100
+    mkdir -p /workspace/TensorRT/demo/BERT/engines && python3 builder.py -m /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/model.ckpt-8144 -o /workspace/TensorRT/demo/BERT/engines/bert_large_384_int8mix.engine -b 1 -s 384 --int8 --fp16 --strict -c /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2 --squad-json ./squad/train-v1.1.json -v /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/vocab.txt --calib-num 100
     ```
 
     This will build and engine with a maximum batch size of 1 (`-b 1`), calibration dataset squad (`--squad-json ./squad/train-v1.1.json`), calibration sentences number 100 (`--calib-num 100`), and sequence length of 384 (`-s 384`) using INT8 mixed precision computation where possible (`--int8 --fp16 --strict`).
 
 3. Run inference using the squad dataset, and evaluate the F1 score and exact match score:
     ```bash
-    python3 inference.py -e /workspace/bert/engines/bert_large_384_int8mix.engine -s 384 -sq ./squad/dev-v1.1.json -v /workspace/bert/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/vocab.txt -o ./predictions.json
+    python3 inference.py -e /workspace/TensorRT/demo/BERT/engines/bert_large_384_int8mix.engine -s 384 -sq ./squad/dev-v1.1.json -v /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/vocab.txt -o ./predictions.json
     python3 squad/evaluate-v1.1.py  squad/dev-v1.1.json  ./predictions.json 90
     ```
 
