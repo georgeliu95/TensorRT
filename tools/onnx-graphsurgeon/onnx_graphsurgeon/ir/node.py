@@ -29,7 +29,7 @@ class Node(object):
 
     def i(self, tensor_idx=0, producer_idx=0):
         """
-        Convenience function to get a producer node of one of this node's inputs.
+        Convenience function to get a producer node of one of this node's input tensors.
         Note that the parameters are swapped compared to the o() function; this is because tensors are likely to have only a single producer
 
         Args:
@@ -48,7 +48,7 @@ class Node(object):
 
     def o(self, consumer_idx=0, tensor_idx=0):
         """
-        Convenience function to get a consumer node of one of this node's outputs.
+        Convenience function to get a consumer node of one of this node's output tensors.
 
         Args:
             consumer_idx (int): The index of the consumer of the input tensor. Defaults to 0.

@@ -5,6 +5,7 @@ from onnx_graphsurgeon.util import misc
 
 from collections import OrderedDict, defaultdict
 from typing import Sequence, Set, Dict, Tuple
+import numpy as np
 import copy
 
 
@@ -40,6 +41,12 @@ class NodeIDAdder(object):
 
 
 class Graph(object):
+    @staticmethod
+    def register(func):
+        setattr(Graph, func.__name__, func)
+        return func
+
+
     def __init__(self, nodes: Sequence[Node]=None, inputs: Sequence[Tensor]=None, outputs: Sequence[Tensor]=None, name=None, doc_string=None, opset=None):
         """
         Represents a graph containing nodes and tensors.
@@ -60,6 +67,8 @@ class Graph(object):
         self.opset = misc.default_value(opset, 11)
         # Printing graphs can be very expensive
         G_LOGGER.ultra_verbose(lambda: "Created Graph: {:}".format(self))
+        # For layer() function
+        self.name_idx = 0
 
 
     def __eq__(self, other: "Graph"):
@@ -271,6 +280,54 @@ class Graph(object):
             graph_tensors[name].inputs.clear() # Constants do not need inputs
 
         return self
+
+
+    def _generate_name(self, prefix):
+        name = "{}_{}".format(prefix, self.name_idx)
+        self.name_idx += 1
+        return name
+
+
+    def layer(self, inputs=[], outputs=[], *args, **kwargs):
+        """
+        Creates a node, adds it to this graph, and optionally creates its input and output tensors.
+
+        The input and output lists can include various different types:
+            - Tensor: Any Tensors provided will be used as-is in the inputs/outputs of the node created
+            - str: If a string is provided, this function will generate a new tensor, using the string to generate a name. It will append an index to the end of the provided string to attempt to avoid duplicates, but since this doesn't guarantee that the name is unique, you should try to ensure that the string provided is as specific as possible.
+            - np.ndarray: If a NumPy array is provided, this function will generate a Constant tensor using the prefix: "onnx_graphsurgeon_constant"
+
+        Optional Args:
+            inputs (List[Union[Tensor, str, np.array]]): The list of inputs
+            outputs (List[Union[Tensor, str, np.array]]): The list of outputs
+            *args and **kwargs: These are passed directly to the constructor of Node
+
+        Returns:
+            List[Tensor]: The output tensors of the node
+        """
+        def process_io(io):
+            new_io = []
+            for elem in io:
+                if isinstance(elem, Tensor):
+                    new_io.append(elem)
+                elif isinstance(elem, str):
+                    tensor = Variable(name=self._generate_name(elem))
+                    new_io.append(tensor)
+                elif isinstance(elem, np.ndarray):
+                    new_io.append(Constant(name=self._generate_name("onnx_graphsurgeon_constant"), values=elem))
+                else:
+                    G_LOGGER.critical("Unrecognized type passed to Graph.layer: {:}.\n\tHint: Did you forget to unpack a list with `*`?\n\tPlease use Tensors, strings, or NumPy arrays.".format(elem))
+            return new_io
+
+        inputs = process_io(inputs)
+        outputs = process_io(outputs)
+
+        if "name" not in kwargs:
+            kwargs["name"] = self._generate_name("onnx_graphsurgeon_node")
+
+        node = Node(*args, **kwargs, inputs=inputs, outputs=outputs)
+        self.nodes.append(node)
+        return node.outputs
 
 
     def __deepcopy__(self, memo):
