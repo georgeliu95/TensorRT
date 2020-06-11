@@ -42,4 +42,6 @@ the graph:
     This will replace the expression: `((a + b) + d)` with a single constant tensor (which will be all `3`s).
     The resulting graph will compute `output = input + e` where `e = ((a + b) + d)`:
 
+    This script will also display the help output for `Graph.fold_constants()`
+
     ![../resources/05_folded.onnx.png](../resources/05_folded.onnx.png)
