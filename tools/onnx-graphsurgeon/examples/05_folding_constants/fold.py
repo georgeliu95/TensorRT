@@ -18,6 +18,8 @@
 import onnx_graphsurgeon as gs
 import onnx
 
+print("Graph.fold_constants Help:\n{}".format(gs.Graph.fold_constants.__doc__))
+
 graph = gs.import_onnx(onnx.load("model.onnx"))
 
 # Fold constants in the graph using ONNX Runtime. This will replace

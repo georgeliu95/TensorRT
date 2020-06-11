@@ -65,8 +65,45 @@ class Tensor(object):
         return self
 
 
+    def i(self, tensor_idx=0, producer_idx=0):
+        """
+        Convenience function to get an input tensor of one of this tensor's input nodes.
+        Note that the parameters are swapped compared to the o() function; this is because tensors are likely to have only a single producer
+
+        Args:
+            tensor_idx (int): The index of the input tensor of the input node. Defaults to 0.
+            producer_idx (int): The index of the producer node of the input tensor, if the tensor has multiple producers. Defaults to 0.
+
+        Example:
+            assert tensor.i() == tensor.inputs[0].inputs[0]
+            assert tensor.i(1, 2) == tensor.inputs[2].inputs[1]
+
+        Returns:
+            Node: The specified producer (input) tensor.
+        """
+        return self.inputs[producer_idx].inputs[tensor_idx]
+
+
+    def o(self, consumer_idx=0, tensor_idx=0):
+        """
+        Convenience function to get an output tensor of one of this tensor's output nodes.
+
+        Args:
+            consumer_idx (int): The index of the consumer of the input tensor. Defaults to 0.
+            tensor_idx (int): The index of the output tensor of the node, if the node has multiple outputs. Defaults to 0.
+
+        Example:
+            assert tensor.o() == tensor.outputs[0].outputs[0]
+            assert tensor.o(2, 1) == tensor.outputs[2].outputs[1]
+
+        Returns:
+            Node: The specified consumer (output) tensor
+        """
+        return self.outputs[consumer_idx].outputs[tensor_idx]
+
+
     def __str__(self):
-        return "{:} ({:})".format(type(self).__name__, self.name)
+        return "{:} ({:}): (shape={:}, dtype={:})".format(type(self).__name__, self.name, self.shape, self.dtype)
 
 
     def __repr__(self):
@@ -129,10 +166,6 @@ class Variable(Tensor):
         return Variable(self.name, self.dtype, self.shape)
 
 
-    def __str__(self):
-        return "{:}: (shape={:}, dtype={:})".format(super().__str__(), self.shape, self.dtype)
-
-
 class Constant(Tensor):
     def __init__(self, name: str, values: np.ndarray):
         """
@@ -140,14 +173,16 @@ class Constant(Tensor):
 
         Args:
             name (str): The name of the tensor.
-            values (np.ndarray): The values in this tensor.
+            values (np.ndarray): The values in this tensor, in the form of a NumPy array.
             dtype (np.dtype): The data type of the tensor.
             shape (Sequence[Union[int, str]]): The shape of the tensor.
         """
         self.name = name
         self.inputs = misc.SynchronizedList(self, field_name="outputs", initial=[])
         self.outputs = misc.SynchronizedList(self, field_name="inputs", initial=[])
-        self.values = values
+        if not isinstance(values, np.ndarray):
+            G_LOGGER.critical("Provided `values` argument is not a NumPy array (please provide a NumPy array to construct a Constant): {:}".format(values))
+        self.values = np.array(values)
 
 
     def has_metadata(self):

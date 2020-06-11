@@ -2,6 +2,10 @@
 
 Dates are in YYYY-MM-DD format.
 
+## v0.2.1 (2020-06-10)
+- Adds `layer()` function to `Graph` to make it easier to generate models from scratch
+- Adds `i()` and `o()` convenience functions to `Tensor`, which are similar to the functions for `Node`, but return `Tensor`s instead of `Node`s
+
 ## v0.2.0 (2020-04-15)
 - Various improvements to the logger
 - Adds an `examples` directory

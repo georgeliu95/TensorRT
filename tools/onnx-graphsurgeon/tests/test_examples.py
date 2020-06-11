@@ -27,6 +27,7 @@ EXAMPLES = [
     ("04_modifying_a_model", [Artifact("model.onnx"), Artifact("modified.onnx")]),
     ("05_folding_constants", [Artifact("model.onnx"), Artifact("folded.onnx")]),
     ("06_removing_nodes", [Artifact("model.onnx", infer=False), Artifact("removed.onnx")]),
+    ("07_creating_a_model_with_the_layer_api", [Artifact("model.onnx")]),
 ]
 
 # Extract any ``` blocks from the README
@@ -38,7 +39,7 @@ def load_commands_from_readme(readme):
     with open(readme, 'r') as f:
         in_command_block = False
         for line in f.readlines():
-            if not in_command_block and "```" in line:
+            if not in_command_block and "```bash" in line:
                 in_command_block = True
             elif in_command_block:
                 if "```" in line:
