@@ -58,6 +58,36 @@ class TensorBaseTests(object):
         tensor.outputs = self.tensor.outputs
         assert tensor.outputs == self.tensor.outputs
 
+    def test_i(self):
+        x = Variable(name="x")
+        y = Variable(name="y")
+        node = Node(op="Add", name="Input", inputs=[x], outputs=[y])
+        assert y.i() == x
+
+    def test_i_multiple_inputs(self):
+        x = Variable(name="x")
+        x2 = Variable(name="x2")
+        y = Variable(name="y")
+        node = Node(op="Add", name="Input", inputs=[x, x2], outputs=[y])
+        assert y.i() == x
+        assert y.i(1) == x2
+
+    def test_o(self):
+        x = Variable(name="x")
+        y = Variable(name="y")
+        node = Node(op="Add", name="Input", inputs=[x], outputs=[y])
+        assert x.o() == y
+
+
+    def test_o_multiple_outputs(self):
+        x = Variable(name="x")
+        y = Variable(name="y")
+        y2 = Variable(name="y2")
+        node = Node(op="Add", name="Input", inputs=[x], outputs=[y])
+        node2 = Node(op="Add", name="Input", inputs=[x], outputs=[y2])
+        assert x.o() == y
+        assert x.o(1) == y2
+
 
 class TestVariable(TensorBaseTests):
     def setup_method(self):
@@ -145,6 +175,36 @@ class TestNode(object):
         node = Node(op="Subtract")
         node.outputs = self.node.outputs
         assert node.outputs == self.node.outputs
+
+    def test_i(self):
+        intermediate_tensor = Variable(name="intermediate")
+        input_node = Node(op="Add", name="Input", inputs=[self.input_tensor], outputs=[intermediate_tensor])
+        output_node = Node(op="Add", name="Out", inputs=[intermediate_tensor], outputs=[self.output_tensor])
+        assert output_node.i() == input_node
+
+    def test_i_multiple_inputs(self):
+        intermediate_tensor = Variable(name="intermediate")
+        intermediate_tensor2 = Variable(name="intermediate2")
+        input_node = Node(op="Add", name="Input", inputs=[self.input_tensor], outputs=[intermediate_tensor])
+        input_node2 = Node(op="Add", name="Input2", inputs=[self.input_tensor], outputs=[intermediate_tensor2])
+        output_node = Node(op="Add", name="Out", inputs=[intermediate_tensor, intermediate_tensor2], outputs=[self.output_tensor])
+        assert output_node.i() == input_node
+        assert output_node.i(1) == input_node2
+
+    def test_o(self):
+        intermediate_tensor = Variable(name="intermediate")
+        input_node = Node(op="Add", name="Input", inputs=[self.input_tensor], outputs=[intermediate_tensor])
+        output_node = Node(op="Add", name="Out", inputs=[intermediate_tensor], outputs=[self.output_tensor])
+        assert input_node.o() == output_node
+
+    def test_o_multiple_outputs(self):
+        intermediate_tensor = Variable(name="intermediate")
+        intermediate_tensor2 = Variable(name="intermediate2")
+        input_node = Node(op="Add", name="Input", inputs=[self.input_tensor], outputs=[intermediate_tensor])
+        output_node = Node(op="Add", name="Out", inputs=[intermediate_tensor], outputs=[self.output_tensor])
+        output_node2 = Node(op="Add", name="Input2", inputs=[intermediate_tensor], outputs=[intermediate_tensor2])
+        assert input_node.o() == output_node
+        assert input_node.o(1) == output_node2
 
 
 class TestNodeIO(object):
@@ -378,6 +438,81 @@ TOPOSORT_TEST_CASES = [
 ]
 
 class TestGraph(object):
+    def test_generate_name(self):
+        graph = Graph()
+        names = set()
+        num_names = 100
+        # This function should not return the same name more than once
+        for idx in range(num_names):
+            names.add(graph._generate_name("name"))
+        assert len(names) == 100
+
+
+    def test_register(self):
+        graph = Graph()
+
+        @Graph.register
+        def add(self, a, b):
+            return self.layer(op="Add", inputs=[a, b], outputs=["add_out"])
+
+        [output] = graph.add("a", "b")
+        assert "add_out" in output.name
+        assert len(graph.nodes) == 1
+        assert graph.nodes[-1].op == "Add"
+
+
+    def test_layer_with_attrs(self):
+        graph = Graph()
+        outputs = graph.layer(op="Add", name="node", attrs={"fake_attr": 0})
+        assert len(graph.nodes) == 1
+        assert graph.nodes[-1].op == "Add"
+        assert graph.nodes[-1].name == "node"
+        assert graph.nodes[-1].attrs["fake_attr"] == 0
+
+
+    def test_layer_with_tensors(self):
+        x0 = Variable("x0")
+        x1 = Variable("x1")
+        y0 = Variable("y0")
+        y1 = Variable("y1")
+        graph = Graph()
+
+        outputs = graph.layer(op="Fake", inputs=[x0, x1], outputs=[y0, y1])
+        assert outputs == [y0, y1]
+        assert len(graph.nodes) == 1
+        assert graph.nodes[-1].inputs == [x0, x1]
+        assert graph.nodes[-1].outputs == outputs
+
+
+    def test_layer_with_strings(self):
+        x0 = "x0"
+        x1 = "x1"
+        y0 = "y0"
+        y1 = "y1"
+        graph = Graph()
+
+        outputs = graph.layer(op="Fake", inputs=[x0, x1], outputs=[y0, y1])
+        assert len(graph.nodes) == 1
+        assert [prefix in tensor.name for prefix, tensor in zip([x0, x1], graph.nodes[-1].inputs)]
+        assert [prefix in tensor.name for prefix, tensor in zip([y0, y1], graph.nodes[-1].outputs)]
+        assert graph.nodes[-1].outputs == outputs
+
+
+    def test_layer_with_arrays(self):
+        x0 = np.array([1])
+        x1 = np.array([1])
+        y0 = "y0"
+        y1 = "y1"
+        graph = Graph()
+
+        outputs = graph.layer(op="Fake", inputs=[x0, x1], outputs=[y0, y1])
+        assert [prefix in tensor.name for prefix, tensor in zip([y0, y1], graph.nodes[-1].outputs)]
+        assert len(graph.nodes) == 1
+        assert graph.nodes[-1].inputs[0].values == x0
+        assert graph.nodes[-1].inputs[1].values == x1
+        assert graph.nodes[-1].outputs == outputs
+
+
     def test_tensors(self):
         graph, nodes, tensors = tensors_linear_graph()
         graph_tensors = graph.tensors()
