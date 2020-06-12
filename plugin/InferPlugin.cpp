@@ -48,16 +48,6 @@ using namespace nvinfer1::plugin;
 #include "resizeNearestPlugin.h"
 #include "specialSlicePlugin.h"
 
-#ifdef ENABLE_BERT_PLUGINS
-#include "bertCommon.h"
-#include "qkvToContextPlugin.h"
-#include "embLayerNormPlugin.h"
-#include "fcPlugin.h"
-#include "geluPlugin.h"
-#include "skipLayerNormPlugin.h"
-using namespace bert;
-#endif
-
 using nvinfer1::plugin::RPROIParams;
 
 namespace nvinfer1
@@ -185,13 +175,6 @@ bool initLibNvInferPlugins(void* logger, const char* libNamespace)
     initializePlugin<nvinfer1::plugin::GenerateDetectionPluginCreator>(logger, libNamespace);
     initializePlugin<nvinfer1::plugin::MultilevelProposeROIPluginCreator>(logger, libNamespace);
     initializePlugin<nvinfer1::plugin::MultilevelCropAndResizePluginCreator>(logger, libNamespace);
-#ifdef ENABLE_BERT_PLUGINS
-    initializePlugin<bert::QKVToContextPluginDynamicCreator>(logger, libNamespace);
-    initializePlugin<bert::EmbLayerNormPluginDynamicCreator>(logger, libNamespace);
-    initializePlugin<bert::FCPluginDynamicCreator>(logger, libNamespace);
-    initializePlugin<bert::GeluPluginDynamicCreator>(logger, libNamespace);
-    initializePlugin<bert::SkipLayerNormPluginDynamicCreator>(logger, libNamespace);
-#endif
     return true;
 }
 } // extern "C"

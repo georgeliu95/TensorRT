@@ -101,56 +101,18 @@ PriorBox::PriorBox(PriorBoxParameters param)
     }
 }
 
-// Constructor
-PriorBox::PriorBox(PriorBoxParameters param, int H, int W)
+// Constructor used in `clone()`.
+// This constructor does not modify parameters, unlike the previous one.
+PriorBox::PriorBox(PriorBoxParameters param, int numPriors, int H, int W, Weights minSize, Weights maxSize, Weights aspectRatios)
     : mParam(param)
     , mOwnsParamMemory(false)
+    , numPriors(numPriors)
     , H(H)
     , W(W)
+    , minSize(minSize)
+    , maxSize(maxSize)
+    , aspectRatios(aspectRatios)
 {
-    // minSize is required and needs to be non-negative
-    ASSERT(param.numMinSize > 0 && param.minSize != nullptr);
-    for (int i = 0; i < param.numMinSize; ++i)
-    {
-        ASSERT(param.minSize[i] > 0 && "minSize must be positive");
-    }
-    minSize = copyToDevice(param.minSize, param.numMinSize);
-    ASSERT(param.numAspectRatios >= 0 && param.aspectRatios != nullptr);
-    std::vector<float> tmpAR(1, 1);
-    for (int i = 0; i < param.numAspectRatios; ++i)
-    {
-        float ar = param.aspectRatios[i];
-        bool alreadyExist = false;
-        for (unsigned j = 0; j < tmpAR.size(); ++j)
-        {
-            if (std::fabs(ar - tmpAR[j]) < 1e-6)
-            {
-                alreadyExist = true;
-                break;
-            }
-        }
-        if (!alreadyExist)
-        {
-            tmpAR.push_back(ar);
-            if (param.flip)
-            {
-                tmpAR.push_back(1.0F / ar);
-            }
-        }
-    }
-    aspectRatios = copyToDevice(&tmpAR[0], tmpAR.size());
-    numPriors = tmpAR.size() * param.numMinSize;
-    if (param.numMaxSize > 0)
-    {
-        ASSERT(param.numMinSize == param.numMaxSize && param.maxSize != nullptr);
-        for (int i = 0; i < param.numMaxSize; ++i)
-        {
-            // maxSize should be greater than minSize
-            ASSERT(param.maxSize[i] > param.minSize[i] && "maxSize must be greater than minSize");
-            numPriors++;
-        }
-        maxSize = copyToDevice(param.maxSize, param.numMaxSize);
-    }
 }
 
 PriorBox::PriorBox(const void* data, size_t length)
@@ -318,7 +280,7 @@ void PriorBox::destroy()
 
 IPluginV2Ext* PriorBox::clone() const
 {
-    IPluginV2Ext* plugin = new PriorBox(mParam, H, W);
+    IPluginV2Ext* plugin = new PriorBox(mParam, numPriors, H, W, minSize, maxSize, aspectRatios);
     plugin->setPluginNamespace(mPluginNamespace.c_str());
     return plugin;
 }

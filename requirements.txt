@@ -1,4 +1,6 @@
 numpy
-pytest
 onnx==1.6.0
 onnxruntime==1.3.0
+pycuda
+pytest
+tensorflow-gpu==1.14.0

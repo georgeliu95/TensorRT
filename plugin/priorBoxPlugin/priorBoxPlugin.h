@@ -33,7 +33,7 @@ class PriorBox : public IPluginV2Ext
 public:
     PriorBox(PriorBoxParameters param);
 
-    PriorBox(PriorBoxParameters param, int H, int W);
+    PriorBox(PriorBoxParameters param, int numPriors, int H, int W, Weights minSize, Weights maxSize, Weights aspectRatios);
 
     PriorBox(const void* buffer, size_t length);
 

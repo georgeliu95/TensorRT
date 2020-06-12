@@ -30,9 +30,9 @@ To build the TensorRT OSS components, ensure you meet the following package requ
 * [PIP](https://pypi.org/project/pip/#history) >= v19.0
   * PyPI packages
   * [numpy](https://pypi.org/project/numpy/)
-  * [pytest](https://pypi.org/project/pytest/)
   * [onnx](https://pypi.org/project/onnx/1.6.0/) 1.6.0
   * [onnxruntime](https://pypi.org/project/onnxruntime/) >= 1.3.0
+  * [pytest](https://pypi.org/project/pytest/)
 
 * Essential libraries and utilities
   * [Git](https://git-scm.com/downloads), [pkg-config](https://www.freedesktop.org/wiki/Software/pkg-config/), [Wget](https://www.gnu.org/software/wget/faq.html#download), [Zlib](https://zlib.net/)
@@ -49,6 +49,9 @@ To build the TensorRT OSS components, ensure you meet the following package requ
 * Code formatting tools
   * [Clang-format](https://clang.llvm.org/docs/ClangFormat.html)
   * [Git-clang-format](https://github.com/llvm-mirror/clang/blob/master/tools/clang-format/git-clang-format)
+
+* Required PyPI packages for Demos
+  * [Tensorflow](https://pypi.org/project/tensorflow/1.14.0/) >= 1.14.0
 
 **TensorRT Release**
 

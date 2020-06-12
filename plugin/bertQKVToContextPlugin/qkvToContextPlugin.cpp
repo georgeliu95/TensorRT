@@ -166,7 +166,8 @@ bool QKVToContextPluginDynamic::supportsFormatCombination(
     // we only support int8 IO in fused mha runner, and we only support fused mha runner on Turing and Ampere
     if (mType == DataType::kINT8 && mSM != bert::kSM_AMPERE && mSM != bert::kSM_TURING)
     {
-        gLogVerbose << "INT8 IO is only supported on Turing and Ampere for plugin " << QKV_TO_CONTEXT_PLUGIN_NAME << std::endl;
+        gLogVerbose << "INT8 IO is only supported on Turing and Ampere for plugin " << QKV_TO_CONTEXT_PLUGIN_NAME
+                    << std::endl;
         return false;
     }
 
@@ -175,10 +176,13 @@ bool QKVToContextPluginDynamic::supportsFormatCombination(
         bool isFormatSupported = in->format == TensorFormat::kLINEAR;
         if (mType == DataType::kINT8)
         {
-            if(in->dims.d[HDIM] % 32 == 0){
-            isFormatSupported = in->format == TensorFormat::kCHW32;
-            }else{
-            isFormatSupported = in->format == TensorFormat::kCHW4;
+            if (in->dims.d[HDIM] % 32 == 0)
+            {
+                isFormatSupported = in->format == TensorFormat::kCHW32;
+            }
+            else
+            {
+                isFormatSupported = in->format == TensorFormat::kCHW4;
             }
         }
 
@@ -192,11 +196,11 @@ bool QKVToContextPluginDynamic::supportsFormatCombination(
             ;
     }
     else
-    { // pos==1
-        if ((mHasImask && pos == 1)) //pos 1 is the mask
+    {                                // pos==1
+        if ((mHasImask && pos == 1)) // pos 1 is the mask
         {
             const auto* inMask = &inOut[1];
-            //detect full mask and check that it was produced
+            // detect full mask and check that it was produced
             const bool useFullMask = (mType == DataType::kHALF || mType == DataType::kINT8)
                 && (in->dims.d[SDIM] == 128 || in->dims.d[SDIM] == 384);
 
@@ -222,11 +226,14 @@ bool QKVToContextPluginDynamic::supportsFormatCombination(
             bool isFormatSupported = out->format == TensorFormat::kLINEAR;
             if (mType == DataType::kINT8)
             {
-            if(out->dims.d[HDIM] % 32 == 0){
-            isFormatSupported = out->format == TensorFormat::kCHW32;
-            }else{
-            isFormatSupported = out->format == TensorFormat::kCHW4;
-            }
+                if (out->dims.d[HDIM] % 32 == 0)
+                {
+                    isFormatSupported = out->format == TensorFormat::kCHW32;
+                }
+                else
+                {
+                    isFormatSupported = out->format == TensorFormat::kCHW4;
+                }
             }
 
             return (in->type == out->type) &&                      // precision
@@ -422,7 +429,6 @@ IPluginV2* QKVToContextPluginDynamicCreator::createPlugin(const char* name, cons
             dqProbs = *static_cast<const float*>(fc->fields[i].data);
             gLogVerbose << "Building dqProbs: " << dqProbs << std::endl;
         }
-
     }
     if (typeId < 0 || typeId > 3)
     {
@@ -447,8 +453,7 @@ IPluginV2* QKVToContextPluginDynamicCreator::createPlugin(const char* name, cons
         dqProbs = 1.f / 127.f;
     }
 
-    QKVToContextPluginDynamic* p
-        = new QKVToContextPluginDynamic(name, type, hiddenSize, numHeads, dqProbs, hasMask);
+    QKVToContextPluginDynamic* p = new QKVToContextPluginDynamic(name, type, hiddenSize, numHeads, dqProbs, hasMask);
     return p;
 }
 
