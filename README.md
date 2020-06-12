@@ -51,7 +51,7 @@ To build the TensorRT OSS components, ensure you meet the following package requ
   * [Git-clang-format](https://github.com/llvm-mirror/clang/blob/master/tools/clang-format/git-clang-format)
 
 * Required PyPI packages for Demos
-  * [Tensorflow](https://pypi.org/project/tensorflow/1.14.0/) >= 1.14.0
+  * [Tensorflow-gpu](https://pypi.org/project/tensorflow/1.14.0/) == 1.15.0
 
 **TensorRT Release**
 
@@ -233,4 +233,4 @@ You should now have all expected files to build the container. Move these into t
 ## Known Issues
 
 #### TensorRT 7.1
-* See [Release Notes](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/tensorrt-7.html#rel_7-1-0).
+* See [Release Notes](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/tensorrt-7.html#rel_7-1-3).
