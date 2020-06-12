@@ -39,7 +39,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     python3-dev \
-    python3-setuptools \
     python3-wheel \
     sudo \
     ssh \
@@ -53,6 +52,7 @@ RUN cd /usr/local/bin &&\
     ln -s /usr/bin/pip3 pip
 
 COPY requirements.txt /tmp/requirements.txt
+RUN pip3 install --upgrade pip
 RUN pip3 install -r /tmp/requirements.txt
 
 # Install Cmake
