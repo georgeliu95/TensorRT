@@ -115,19 +115,8 @@ public:
     IPluginV2Ext* deserializePlugin(const char* name, const void* serialData, size_t serialLength) override;
 
 private:
-    template <typename T>
-    T* allocMemory(int size = 1)
-    {
-        mTmpAllocs.reserve(mTmpAllocs.size() + 1);
-        T* tmpMem = static_cast<T*>(malloc(sizeof(T) * size));
-        mTmpAllocs.push_back(tmpMem);
-        return tmpMem;
-    }
-
-private:
     static PluginFieldCollection mFC;
     static std::vector<PluginField> mPluginAttributes;
-    std::vector<void*> mTmpAllocs;
 };
 } // namespace plugin
 } // namespace nvinfer1
