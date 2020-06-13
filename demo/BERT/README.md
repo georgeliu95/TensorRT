@@ -67,12 +67,10 @@ Lastly, the tokens predicted by the model are projected back to the original tex
 
 The following software version configuration has been tested:
 
-#### TODO TRT-11312 - update README for release
-
 |Software|Version|
 |--------|-------|
 |Python|3.6.9|
-|TensorRT|7.1.3|
+|TensorRT|7.1.3.3|
 |CUDA|11.0.171|
 
 
@@ -84,13 +82,11 @@ The following section lists the requirements that you need to meet in order to r
 
 This demo BERT application can be run within the TensorRT Open Source build container. If running in a different environment, ensure you have the following packages installed.
 
-#### TODO TRT-11312 - update README for release
-
 * [NGC CLI](https://ngc.nvidia.com/setup/installers/cli) - for downloading BERT checkpoints from NGC.
 * PyPI Packages:
-  * [pycuda](https://pypi.org/project/pycuda/)
+  * [pycuda](https://pypi.org/project/pycuda/) 2019.1.2
   * [onnx](https://pypi.org/project/onnx/1.6.0/) 1.6.0
-  * [tensorflow 1.x]() >= 1.14.0
+  * [tensorflow](https://pypi.org/project/tensorflow/1.15.3/) 1.15
 * NVIDIA [Volta](https://www.nvidia.com/en-us/data-center/volta-gpu-architecture/), [Turing](https://www.nvidia.com/en-us/geforce/turing/) or [Ampere](https://www.nvidia.com/en-us/data-center/nvidia-ampere-gpu-architecture/) based GPU with NVIDIA Driver 450.37 or later.
 
 

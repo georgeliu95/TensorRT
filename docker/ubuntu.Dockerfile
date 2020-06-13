@@ -15,8 +15,9 @@
 ARG CUDA_VERSION=11.0
 ARG UBUNTU_VERSION=18.04
 # TODO TRT-11312 - update after cuda 11 GA
-#FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${UBUNTU_VERSION}
-FROM gitlab-master.nvidia.com:5005/cuda-installer/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${UBUNTU_VERSION}-rc022
+# FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${UBUNTU_VERSION}
+# FROM gitlab-master.nvidia.com:5005/cuda-installer/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${UBUNTU_VERSION}-rc022
+FROM gitlab-master.nvidia.com:5005/dl/dgx/tensorrt:20.06-py3-qa
 
 LABEL maintainer="NVIDIA CORPORATION"
 
@@ -39,7 +40,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     python3-dev \
-    python3-setuptools \
     python3-wheel \
     sudo \
     ssh \
@@ -48,11 +48,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     bzip2 \
     unzip
 
-RUN cd /usr/local/bin &&\
-    ln -s /usr/bin/python3 python &&\
-    ln -s /usr/bin/pip3 pip
+# TODO TRT-11312 - update hack after cuda 11 GA
+RUN apt-get remove -y tensorrt libnvinfer7
+RUN pip3 uninstall tensorrt
+#RUN cd /usr/local/bin &&\
+#    ln -s /usr/bin/python3 python &&\
+#    ln -s /usr/bin/pip3 pip
 
 COPY requirements.txt /tmp/requirements.txt
+RUN pip3 install --upgrade pip
 RUN pip3 install -r /tmp/requirements.txt
 
 # Install Cmake

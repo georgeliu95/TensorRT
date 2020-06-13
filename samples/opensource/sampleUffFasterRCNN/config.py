@@ -31,6 +31,5 @@ namespace_plugin_map = {
 def preprocess(dynamic_graph):
     # Now create a new graph by collapsing namespaces
     dynamic_graph.append(Proposal)
-    dynamic_graph.remove('input_2')
+    dynamic_graph.remove(dynamic_graph.find_nodes_by_name('input_2'))
     dynamic_graph.collapse_namespaces(namespace_plugin_map)
-

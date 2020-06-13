@@ -38,7 +38,7 @@ std::vector<PluginField> PriorBoxPluginCreator::mPluginAttributes;
 // Constructor
 PriorBox::PriorBox(PriorBoxParameters param)
     : mParam(param)
-    , mOwnsParamMemory(false)
+    , mOwnsParamMemory(true)
 {
     // minSize is required and needs to be non-negative
     ASSERT(param.numMinSize > 0 && param.minSize != nullptr);
@@ -180,17 +180,17 @@ int PriorBox::initialize()
 
 void PriorBox::terminate()
 {
-    CUASSERT(cudaFree(const_cast<void*>(minSize.values)));
-    if (mParam.numMaxSize > 0)
-    {
-        CUASSERT(cudaFree(const_cast<void*>(maxSize.values)));
-    }
-    if (mParam.numAspectRatios > 0)
-    {
-        CUASSERT(cudaFree(const_cast<void*>(aspectRatios.values)));
-    }
     if (mOwnsParamMemory)
     {
+        CUASSERT(cudaFree(const_cast<void*>(minSize.values)));
+        if (mParam.numMaxSize > 0)
+        {
+            CUASSERT(cudaFree(const_cast<void*>(maxSize.values)));
+        }
+        if (mParam.numAspectRatios > 0)
+        {
+            CUASSERT(cudaFree(const_cast<void*>(aspectRatios.values)));
+        }
         delete[] mParam.minSize;
         delete[] mParam.maxSize;
         delete[] mParam.aspectRatios;
@@ -369,10 +369,6 @@ PriorBoxPluginCreator::PriorBoxPluginCreator()
 PriorBoxPluginCreator::~PriorBoxPluginCreator()
 {
     // Free allocated memory (if any) here
-    for (auto v : mTmpAllocs)
-    {
-        free(v);
-    }
 }
 
 const char* PriorBoxPluginCreator::getPluginName() const
@@ -402,7 +398,7 @@ IPluginV2Ext* PriorBoxPluginCreator::createPlugin(const char* /*name*/, const Pl
         {
             ASSERT(fields[i].type == PluginFieldType::kFLOAT32);
             int size = fields[i].length;
-            params.minSize = allocMemory<float>(size);
+            params.minSize = new float[size];
             const auto* minS = static_cast<const float*>(fields[i].data);
             for (int j = 0; j < size; j++)
             {
@@ -415,7 +411,7 @@ IPluginV2Ext* PriorBoxPluginCreator::createPlugin(const char* /*name*/, const Pl
         {
             ASSERT(fields[i].type == PluginFieldType::kFLOAT32);
             int size = fields[i].length;
-            params.maxSize = allocMemory<float>(size);
+            params.maxSize = new float[size];
             const auto* maxS = static_cast<const float*>(fields[i].data);
             for (int j = 0; j < size; j++)
             {
@@ -428,7 +424,7 @@ IPluginV2Ext* PriorBoxPluginCreator::createPlugin(const char* /*name*/, const Pl
         {
             ASSERT(fields[i].type == PluginFieldType::kFLOAT32);
             int size = fields[i].length;
-            params.aspectRatios = allocMemory<float>(size);
+            params.aspectRatios = new float[size];
             const auto* aR = static_cast<const float*>(fields[i].data);
             for (int j = 0; j < size; j++)
             {
