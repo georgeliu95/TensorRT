@@ -28,6 +28,7 @@ using namespace nvinfer1::plugin;
 
 #include "batchTilePlugin.h"
 #include "batchedNMSPlugin.h"
+#include "coordConvACPlugin.h"
 #include "cropAndResizePlugin.h"
 #include "detectionLayerPlugin.h"
 #include "flattenConcat.h"
@@ -175,6 +176,7 @@ bool initLibNvInferPlugins(void* logger, const char* libNamespace)
     initializePlugin<nvinfer1::plugin::GenerateDetectionPluginCreator>(logger, libNamespace);
     initializePlugin<nvinfer1::plugin::MultilevelProposeROIPluginCreator>(logger, libNamespace);
     initializePlugin<nvinfer1::plugin::MultilevelCropAndResizePluginCreator>(logger, libNamespace);
+    initializePlugin<nvinfer1::plugin::CoordConvACPluginCreator>(logger, libNamespace);
     return true;
 }
 } // extern "C"

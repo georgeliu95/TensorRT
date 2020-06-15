@@ -52,6 +52,7 @@ set(PLUGIN_LISTS
     specialSlicePlugin
     instanceNormalizationPlugin
     groupNormalizationPlugin
+    coordConvACPlugin
     )
 
 # Add BERT sources if ${BERT_GENCODES} was populated
@@ -65,7 +66,6 @@ if(BERT_GENCODES)
         bertQKVToContextPlugin
         skipLayerNormPlugin
         )
-    add_definitions(-DENABLE_BERT_PLUGINS)
 endif()
 
 include_directories(common common/kernels ../samples/common)

@@ -103,7 +103,8 @@ PriorBox::PriorBox(PriorBoxParameters param)
 
 // Constructor used in `clone()`.
 // This constructor does not modify parameters, unlike the previous one.
-PriorBox::PriorBox(PriorBoxParameters param, int numPriors, int H, int W, Weights minSize, Weights maxSize, Weights aspectRatios)
+PriorBox::PriorBox(
+    PriorBoxParameters param, int numPriors, int H, int W, Weights minSize, Weights maxSize, Weights aspectRatios)
     : mParam(param)
     , mOwnsParamMemory(false)
     , numPriors(numPriors)

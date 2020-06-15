@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef TRT_PRIOR_BOX_PLUGIN_H
-#define TRT_PRIOR_BOX_PLUGIN_H
-#include "cudnn.h"
+
+#ifndef TRT_COORDCONV_PLUGIN_H
+#define TRT_COORDCONV_PLUGIN_H
+
+#include "NvInferPlugin.h"
 #include "kernel.h"
 #include "plugin.h"
-#include <cstdlib>
-#include <cublas_v2.h>
+#include <cuda_runtime.h>
 #include <string>
 #include <vector>
 
@@ -28,17 +29,16 @@ namespace nvinfer1
 namespace plugin
 {
 
-class PriorBox : public IPluginV2Ext
+class CoordConvACPlugin : public IPluginV2Ext
 {
 public:
-    PriorBox(PriorBoxParameters param);
+    CoordConvACPlugin();
 
-    PriorBox(
-        PriorBoxParameters param, int numPriors, int H, int W, Weights minSize, Weights maxSize, Weights aspectRatios);
+    CoordConvACPlugin(DataType iType, int iC, int iH, int iW, int oC, int oH, int oW);
 
-    PriorBox(const void* buffer, size_t length);
+    CoordConvACPlugin(const void* data, size_t length);
 
-    ~PriorBox() override = default;
+    ~CoordConvACPlugin() override = default;
 
     int getNbOutputs() const override;
 
@@ -57,6 +57,10 @@ public:
 
     void serialize(void* buffer) const override;
 
+    void configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
+        const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
+        const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) override;
+
     bool supportsFormat(DataType type, PluginFormat format) const override;
 
     const char* getPluginType() const override;
@@ -67,43 +71,30 @@ public:
 
     IPluginV2Ext* clone() const override;
 
+    nvinfer1::DataType getOutputDataType(int index, const nvinfer1::DataType* inputType, int nbInputs) const override;
+
     void setPluginNamespace(const char* pluginNamespace) override;
 
     const char* getPluginNamespace() const override;
-
-    DataType getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const override;
 
     bool isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const override;
 
     bool canBroadcastInputAcrossBatch(int inputIndex) const override;
 
-    void attachToContext(
-        cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) override;
-
-    void configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
-        const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
-        const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) override;
-
-    void detachFromContext() override;
-
 private:
-    Weights copyToDevice(const void* hostData, size_t count);
-    void serializeFromDevice(char*& hostBuffer, Weights deviceWeights) const;
-    Weights deserializeToDevice(const char*& hostBuffer, size_t count);
-
-    PriorBoxParameters mParam;
-    bool mOwnsParamMemory;
-    int numPriors, H, W;
-    Weights minSize, maxSize, aspectRatios; // not learnable weights
-    std::string mPluginNamespace;
+    DataType iType;
+    int iC, iH, iW;
+    int oC, oH, oW;
+    const char* mPluginNamespace;
+    std::string mNamespace;
 };
 
-class PriorBoxPluginCreator : public BaseCreator
+class CoordConvACPluginCreator : public BaseCreator
 {
 public:
-    PriorBoxPluginCreator();
+    CoordConvACPluginCreator();
 
-    ~PriorBoxPluginCreator() override;
+    ~CoordConvACPluginCreator() override = default;
 
     const char* getPluginName() const override;
 
@@ -118,8 +109,11 @@ public:
 private:
     static PluginFieldCollection mFC;
     static std::vector<PluginField> mPluginAttributes;
+
+protected:
+    std::string mNamespace;
 };
 } // namespace plugin
 } // namespace nvinfer1
 
-#endif // TRT_PRIOR_BOX_PLUGIN_H
+#endif // TRT_COORDCONV_PLUGIN_H
