@@ -99,13 +99,6 @@ class TestVariable(TensorBaseTests):
         tensor = Variable(name="test_tensor0", dtype=np.float32, shape=(1, 3, 224, 224))
         assert not self.tensor == tensor
 
-    def test_has_metadata_true(self):
-        assert self.tensor.has_metadata()
-
-    def test_has_metadata_false(self):
-        tensor = Variable(name="other_test_tensor")
-        assert not tensor.has_metadata()
-
 
 class TestConstant(TensorBaseTests):
     def setup_method(self):
@@ -118,9 +111,6 @@ class TestConstant(TensorBaseTests):
 
     def test_can_get_dtype(self):
         assert self.tensor.dtype == np.float64
-
-    def test_has_metadata_true(self):
-        assert self.tensor.has_metadata()
 
 
 class TestNode(object):
@@ -449,16 +439,37 @@ class TestGraph(object):
 
 
     def test_register(self):
-        graph = Graph()
-
-        @Graph.register
+        @Graph.register()
         def add(self, a, b):
             return self.layer(op="Add", inputs=[a, b], outputs=["add_out"])
 
+        graph = Graph()
         [output] = graph.add("a", "b")
         assert "add_out" in output.name
         assert len(graph.nodes) == 1
         assert graph.nodes[-1].op == "Add"
+
+
+    def test_register_opset(self):
+        @Graph.register(opsets=[11])
+        def add(self, a, b):
+            return self.layer(op="Add", inputs=[a, b], outputs=["add_out"])
+
+        @Graph.register(opsets=[10])
+        def add(self, a, b):
+            return self.layer(op="Add-10", inputs=[a, b], outputs=["add_out"])
+
+        graph = Graph()
+        [output] = graph.add("a", "b")
+        assert "add_out" in output.name
+        assert len(graph.nodes) == 1
+        assert graph.nodes[-1].op == "Add"
+
+        graph_opset10 = Graph(opset=10)
+        [output] = graph_opset10.add("a", "b")
+        assert "add_out" in output.name
+        assert len(graph_opset10.nodes) == 1
+        assert graph_opset10.nodes[-1].op == "Add-10"
 
 
     def test_layer_with_attrs(self):
