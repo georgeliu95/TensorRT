@@ -77,8 +77,7 @@ is an ONNX GraphSurgeon type, or an instance of that type.
 Tensors are divided into two subclasses: `Variable` and `Constant`.
 
 - A `Constant` is a tensor whose values are known upfront, and can be retrieved as a NumPy array and modified.
-- A `Variable` is a tensor whose values are unknown until inference-time. `Variable`s include a `has_metadata()`
-    function, which returns `True` if the tensor contains information about data type and shape.
+- A `Variable` is a tensor whose values are unknown until inference-time, but may contain information about data type and shape.
 
 The inputs and outputs of Tensors are always Nodes.
 

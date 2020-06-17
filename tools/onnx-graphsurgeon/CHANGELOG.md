@@ -3,6 +3,14 @@
 Dates are in YYYY-MM-DD format.
 
 
+## v0.2.3
+### Added
+- `Graph.register()` now accepts an `opsets` argument so that functions can be registered for specific opsets.
+
+### Removed
+- `has_metadata` has been removed from `Tensor`, since the function is no longer used.
+
+
 ## v0.2.2 (2020-06-17)
 ### Fixed
 - ONNX GraphSurgeon now enforces the constraint that graph inputs/outputs must include type information.

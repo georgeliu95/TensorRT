@@ -41,7 +41,6 @@ class TestOnnxImporter(object):
         tensor = OnnxImporter.import_tensor(onnx_tensor)
         assert type(tensor) == Variable
         assert tensor.name == name
-        assert not tensor.has_metadata()
 
 
     # TODO: Test all attribute types - missing graph
