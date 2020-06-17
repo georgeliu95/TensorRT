@@ -62,6 +62,6 @@ dense = graph.relu(*graph.add(*axt, B))
 C = gs.Constant(name="C", values=np.ones(shape=(64, 64), dtype=np.float32))
 D = np.ones(shape=(64, 64), dtype=np.float32)
 graph.outputs = graph.add(*graph.mul(*dense, C), D)
-
+graph.outputs[0].dtype = np.float32
 
 onnx.save(gs.export_onnx(graph), "model.onnx")

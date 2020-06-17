@@ -11,7 +11,7 @@ i0 = gs.Variable(name="i0")
 i1 = gs.Variable(name="i1")
 
 # Outputs
-y = gs.Variable(name="y")
+y = gs.Variable(name="y", dtype=np.float32)
 
 nodes = [
     gs.Node(op="Identity", inputs=[x], outputs=[i0]),
