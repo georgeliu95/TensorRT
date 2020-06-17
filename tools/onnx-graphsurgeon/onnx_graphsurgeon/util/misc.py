@@ -4,6 +4,34 @@ from collections import OrderedDict
 from typing import List, Sequence
 
 
+# default_value exists to solve issues that might result from Python's normal default argument behavior.
+# Specifically, consider the following class:
+#
+# class MyClass(object):
+#     def __init__(self, value=[]):
+#         self.value = value
+#
+# This leads to unwanted behavior when the default value is used:
+#
+# >>> x = MyClass()
+# >>> x.value.append("SHOULD NOT BE IN Y")
+# >>> y = MyClass()
+# >>> y.value
+# ['SHOULD NOT BE IN Y']
+#
+# If we rewrite the class using default value:
+#
+# class MyClass(object):
+#     def __init__(self, value=None):
+#         self.value = default_value(value, [])
+#
+# Then we get the desired behavior:
+#
+# >>> x = MyClass()
+# >>> x.value.append("SHOULD NOT BE IN Y")
+# >>> y = MyClass()
+# >>> y.value
+# []
 def default_value(value, default):
     return value if value is not None else default
 
