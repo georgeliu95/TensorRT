@@ -5,9 +5,16 @@ import onnx
 
 print("Graph.layer Help:\n{}".format(gs.Graph.layer.__doc__))
 
-# We can use `Graph.register` to add a function to the Graph class. Later, we can invoke the function
+# For automatically propagating data types
+def propagate_dtype(outputs, dtype):
+    for output in outputs:
+        output.dtype = dtype
+    return outputs
+
+
+# We can use `Graph.register()` to add a function to the Graph class. Later, we can invoke the function
 # directly on instances of the graph, e.g., `graph.add(...)`
-@gs.Graph.register
+@gs.Graph.register()
 def add(self, a, b):
     # The Graph.layer function creates a node, adds inputs and outputs to it, and finally adds it to the graph.
     # It returns the output tensors of the node to make it easy to chain.
@@ -16,29 +23,39 @@ def add(self, a, b):
     # will generate distinct tensors. However, this does NOT guarantee that there will be no overlap with
     # other tensors in the graph. Hence, you should choose the prefixes to minimize the possibility of
     # collisions.
-    return self.layer(op="Add", inputs=[a, b], outputs=["add_out_gs"])
+    return propagate_dtype(self.layer(op="Add", inputs=[a, b], outputs=["add_out_gs"]), a.dtype or b.dtype)
 
 
-@gs.Graph.register
+@gs.Graph.register()
 def mul(self, a, b):
-    return self.layer(op="Mul", inputs=[a, b], outputs=["mul_out_gs"])
+    return propagate_dtype(self.layer(op="Mul", inputs=[a, b], outputs=["mul_out_gs"]), a.dtype or b.dtype)
 
 
-@gs.Graph.register
+@gs.Graph.register()
 def gemm(self, a, b, trans_a=False, trans_b=False):
     attrs = {"transA": int(trans_a), "transB": int(trans_b)}
-    return self.layer(op="Gemm", inputs=[a, b], outputs=["gemm_out_gs"], attrs=attrs)
+    return propagate_dtype(self.layer(op="Gemm", inputs=[a, b], outputs=["gemm_out_gs"], attrs=attrs), a.dtype or b.dtype)
 
 
-@gs.Graph.register
+# You can also specify a set of opsets when regsitering a function.
+# By default, the function is registered for all opsets lower than Graph.DEFAULT_OPSET
+@gs.Graph.register(opsets=[11])
 def relu(self, a):
-    return self.layer(op="Relu", inputs=[a], outputs=["act_out_gs"])
+    return propagate_dtype(self.layer(op="Relu", inputs=[a], outputs=["act_out_gs"]), a.dtype)
+
+
+# Note that the same function can be defined in different ways for different opsets.
+# It will only be called if the Graph's opset matches one of the opsets for which the function is registered.
+# Hence, for the opset 11 graph used in this example, the following function will never be used.
+@gs.Graph.register(opsets=[1])
+def relu(self, a):
+    raise NotImplementedError("This function has not been implemented!")
 
 
 ##########################################################################################################
 # The functions registered above greatly simplify the process of building the graph itself.
 
-graph = gs.Graph()
+graph = gs.Graph(opset=11)
 
 # Generates a graph which computes:
 # output = ReLU((A * X^T) + B) (.) C + D
@@ -62,6 +79,5 @@ dense = graph.relu(*graph.add(*axt, B))
 C = gs.Constant(name="C", values=np.ones(shape=(64, 64), dtype=np.float32))
 D = np.ones(shape=(64, 64), dtype=np.float32)
 graph.outputs = graph.add(*graph.mul(*dense, C), D)
-graph.outputs[0].dtype = np.float32
 
 onnx.save(gs.export_onnx(graph), "model.onnx")

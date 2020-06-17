@@ -41,10 +41,34 @@ class NodeIDAdder(object):
 
 
 class Graph(object):
+    DEFAULT_OPSET = 11
+    OPSET_FUNC_MAP = defaultdict(dict)
+
     @staticmethod
-    def register(func):
-        setattr(Graph, func.__name__, func)
-        return func
+    def register(opsets=list(range(DEFAULT_OPSET + 1))):
+        """
+        Registers a function with the Graph class for the specified group of opsets.
+        After registering the function, it can be accessed like a normal member function.
+
+        For example:
+        ::
+            @Graph.register()
+            def add(self, a, b):
+                return self.layer(op="Add", inputs=[a, b], outputs=["add_out_gs"])
+
+            graph.add(a, b)
+
+        Optional Args:
+            opsets (Sequence[int]): A group of opsets for which to register the function. By default, the function is registered for all opsets up to and including Graph.DEFAULT_OPSET. Multiple functions with the same name may be registered simultaneously if they are registered for different opsets. Registering a function with a duplicate name for the same opsets will overwrite any function previously registered for those opsets.
+        """
+        def register_func(func):
+            if hasattr(Graph, func.__name__):
+                G_LOGGER.warning("Registered function: {:} is hidden by a Graph attribute or function with the same name. This function will never be called!".format(func.__name__))
+
+            for opset in opsets:
+                Graph.OPSET_FUNC_MAP[opset][func.__name__] = func
+            return func
+        return register_func
 
 
     def __init__(self, nodes: Sequence[Node]=None, inputs: Sequence[Tensor]=None, outputs: Sequence[Tensor]=None, name=None, doc_string=None, opset=None):
@@ -63,12 +87,24 @@ class Graph(object):
         self.outputs = misc.default_value(outputs, [])
 
         self.name = misc.default_value(name, "onnx_graphsurgeon")
+        self.__name__ = self.name
+
         self.doc_string = misc.default_value(doc_string, "")
-        self.opset = misc.default_value(opset, 11)
+        self.opset = misc.default_value(opset, Graph.DEFAULT_OPSET)
         # Printing graphs can be very expensive
         G_LOGGER.ultra_verbose(lambda: "Created Graph: {:}".format(self))
         # For layer() function
         self.name_idx = 0
+
+
+    def __getattr__(self, name):
+        try:
+            return super().__getattribute__(name)
+        except AttributeError as err:
+            if self.opset not in Graph.OPSET_FUNC_MAP or name not in Graph.OPSET_FUNC_MAP[self.opset]:
+                G_LOGGER.error("No function: {:} registered for opset: {:}".format(name, self.opset))
+                raise err
+            return lambda *args, **kwargs: Graph.OPSET_FUNC_MAP[self.opset][name](self, *args, **kwargs)
 
 
     def __eq__(self, other: "Graph"):

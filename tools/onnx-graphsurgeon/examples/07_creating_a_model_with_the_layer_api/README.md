@@ -14,7 +14,7 @@ insert the node in the graph. For details, see the `help` output for `Graph.laye
 For example, to implement a `graph.add` function that inserts an "Add" operation into the graph, you could write:
 
 ```python
-@gs.Graph.register
+@gs.Graph.register()
 def add(self, a, b):
     return self.layer(op="Add", inputs=[a, b], outputs=["add_out"])
 ```

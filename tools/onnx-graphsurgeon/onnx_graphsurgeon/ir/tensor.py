@@ -141,16 +141,6 @@ class Variable(Tensor):
         self.shape = misc.default_value(shape, None)
 
 
-    def has_metadata(self):
-        """
-        Whether this tensor includes metadata about its data type and shape.
-
-        Returns:
-            bool
-        """
-        return self.dtype is not None and self.shape is not None
-
-
     def to_constant(self, values: np.ndarray):
         del self.dtype
         del self.shape
@@ -183,10 +173,6 @@ class Constant(Tensor):
         if not isinstance(values, np.ndarray):
             G_LOGGER.critical("Provided `values` argument is not a NumPy array (please provide a NumPy array to construct a Constant): {:}".format(values))
         self.values = np.array(values)
-
-
-    def has_metadata(self):
-        return True
 
 
     def to_variable(self, dtype: np.dtype=None, shape: Sequence[Union[int, str]]=[]):
