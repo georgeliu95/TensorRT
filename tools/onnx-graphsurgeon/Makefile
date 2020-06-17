@@ -15,7 +15,7 @@
 #
 
 test:
-	python3 -m pytest tests/ -v -x
+	python3 -m pytest tests/ -v -x --pdb
 
 clean:
 	rm -rf dist/ build/ onnx_graphsurgeon.egg-info/

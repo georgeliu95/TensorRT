@@ -270,7 +270,8 @@ class Graph(object):
         temp_graph.outputs = outputs_to_evaluate
         temp_graph.cleanup()
 
-        sess = onnxruntime.InferenceSession(export_onnx(temp_graph).SerializeToString())
+        # Determining types is not trivial, and ONNX-RT does its own type inference.
+        sess = onnxruntime.InferenceSession(export_onnx(temp_graph, do_type_check=False).SerializeToString())
         constant_values = sess.run(output_names, {})
 
         # Finally, replace the Variables in the original graph with constants.
@@ -346,7 +347,7 @@ class Graph(object):
 
         new_graph_inputs = [new_tensors[inp.name] for inp in self.inputs]
         new_graph_outputs = [new_tensors[out.name] for out in self.outputs]
-        return Graph(nodes=new_nodes, inputs=new_graph_inputs, outputs=new_graph_outputs, name=copy.deepcopy(self.name, memo), doc_string=copy.deepcopy(self.doc_string, memo))
+        return Graph(nodes=new_nodes, inputs=new_graph_inputs, outputs=new_graph_outputs, name=copy.deepcopy(self.name, memo), doc_string=copy.deepcopy(self.doc_string, memo), opset=copy.deepcopy(self.opset, memo))
 
 
     def __str__(self):

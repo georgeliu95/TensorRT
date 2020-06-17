@@ -34,7 +34,7 @@ class TestOnnxExporter(object):
         values = np.random.random_sample(size=shape).astype(np.float32)
 
         tensor = Constant(name=name, values=values)
-        onnx_tensor = OnnxExporter.export_value_info_proto(tensor)
+        onnx_tensor = OnnxExporter.export_value_info_proto(tensor, do_type_check=True)
         assert onnx_tensor.name == name
         assert onnx_tensor.type.tensor_type.elem_type == onnx.TensorProto.FLOAT
 
@@ -50,7 +50,7 @@ class TestOnnxExporter(object):
         dtype = np.float32
 
         tensor = Variable(dtype=dtype, shape=shape, name=name)
-        onnx_tensor = OnnxExporter.export_value_info_proto(tensor)
+        onnx_tensor = OnnxExporter.export_value_info_proto(tensor, do_type_check=True)
         assert onnx_tensor.name == name
         assert onnx_tensor.type.tensor_type.elem_type == onnx.TensorProto.FLOAT
 

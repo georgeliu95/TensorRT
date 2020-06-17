@@ -16,6 +16,7 @@
 #
 
 import onnx_graphsurgeon as gs
+import numpy as np
 import onnx
 
 graph = gs.import_onnx(onnx.load("model.onnx"))
@@ -29,7 +30,7 @@ first_add.op = "LeakyRelu"
 first_add.attrs["alpha"] = 0.02
 
 # 3. Add an identity after the add node
-identity_out = gs.Variable("identity_out")
+identity_out = gs.Variable("identity_out", dtype=np.float32)
 identity = gs.Node(op="Identity", inputs=first_add.outputs, outputs=[identity_out])
 graph.nodes.append(identity)
 
