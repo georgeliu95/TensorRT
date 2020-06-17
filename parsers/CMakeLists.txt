@@ -17,17 +17,9 @@
 add_custom_target(parsers DEPENDS 
     nvcaffeparserlibs
     nvonnxparser
-    if (NVINTERNAL OR NVPARTNER)
-        nvuffparserlibs
-        nvparserslibs
-    endif()
 )
 
 add_subdirectory(caffe)
-if (NVINTERNAL OR NVPARTNER)
-    add_subdirectory(uff)
-    include(uff/NvParsersCMakeLists.txt)
-endif()
 
 add_definitions("-D_PROTOBUF_INSTALL_DIR=${Protobuf_INSTALL_DIR}")
 add_compile_options("-Dgoogle=google_private")

@@ -205,12 +205,6 @@ You should now have all expected files to build the container. Move these into t
 
 	Other build options with limited applicability:
 
-	- `NVINTERNAL`: Used by TensorRT team for internal builds. Values consists of [`OFF`] | `ON`.
-
-	- `PROTOBUF_INTERNAL_VERSION`: The version of protobuf to use, for example [`10.0`].  Only applicable if `NVINTERNAL` is also enabled.
-
-	- `NVPARTNER`: For use by NVIDIA partners with exclusive source access.  Values consists of [`OFF`] | `ON`.
-
 	- `CUB_VERSION`: The version of CUB to use, for example [`1.8.0`].
 
 	- `GPU_ARCHS`: GPU (SM) architectures to target. By default we generate CUDA code for all major SMs. Specific SM versions can be specified here as a quoted space-separated list to reduce compilation time and binary size. Table of compute capabilities of NVIDIA GPUs can be found [here](https://developer.nvidia.com/cuda-gpus). Examples:

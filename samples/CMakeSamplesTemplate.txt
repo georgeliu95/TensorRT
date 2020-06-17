@@ -69,12 +69,7 @@ if(BUILD_PLUGINS OR BUILD_PARSERS)
     )
 endif()
 
-# TODO: Remove the NVINTERNAL branch once the CMake system is fully integrated into P4
-if (NVINTERNAL)
-    set(ONNX_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/parsers${NVINTERNAL_SUFFIX}/onnx CACHE STRING "Onnx include directory")
-else()
-    set(ONNX_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/parsers${NVINTERNAL_SUFFIX}/onnx CACHE STRING "Onnx include directory")
-endif()
+set(ONNX_INCLUDE_DIR ${PROJECT_SOURCE_DIR}/parsers/onnx CACHE STRING "ONNX include directory")
 
 target_include_directories(${TARGET_NAME}
     PUBLIC ${PROJECT_SOURCE_DIR}/include
