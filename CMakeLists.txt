@@ -33,7 +33,7 @@ foreach(TYPE MAJOR MINOR PATCH)
     string(REGEX MATCH "[0-9]" TRT_SO_${TYPE} ${TRT_TYPE_STRING})
 endforeach(TYPE)
 
-set(TRT_VERSION "${TRT_MAJOR}.${TRT_MINOR}.${TRT_PATCH}.${TRT_BUILD}" CACHE STRING "TensorRT project version")
+set(TRT_VERSION "${TRT_MAJOR}.${TRT_MINOR}.${TRT_PATCH}" CACHE STRING "TensorRT project version")
 set(TRT_SOVERSION "${TRT_SO_MAJOR}" CACHE STRING "TensorRT library so version")
 message("Building for TensorRT version: ${TRT_VERSION}, library version: ${TRT_SOVERSION}")
 
