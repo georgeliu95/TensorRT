@@ -18,7 +18,7 @@ def import_onnx(onnx_model: "onnx.ModelProto") -> Graph:
     return OnnxImporter.import_graph(onnx_model.graph, opset=OnnxImporter.get_opset(onnx_model))
 
 
-def export_onnx(graph: Graph, **kwargs) -> "onnx.ModelProto":
+def export_onnx(graph: Graph, do_type_check=True, **kwargs) -> "onnx.ModelProto":
     """
     Exports an onnx-graphsurgeon Graph to an ONNX model.
 
@@ -26,6 +26,7 @@ def export_onnx(graph: Graph, **kwargs) -> "onnx.ModelProto":
         graph (Graph): The graph to export
 
     Optional Args:
+        do_type_check (bool): Whether to check that input and output tensors have data types defined, and fail if not.
         **kwargs: Additional arguments to onnx.helper.make_model
 
     Returns:
@@ -34,7 +35,7 @@ def export_onnx(graph: Graph, **kwargs) -> "onnx.ModelProto":
     from onnx_graphsurgeon.exporters.onnx_exporter import OnnxExporter
     import onnx
 
-    onnx_graph = OnnxExporter.export_graph(graph)
+    onnx_graph = OnnxExporter.export_graph(graph, do_type_check=do_type_check)
 
     if "opset_imports" not in kwargs:
         kwargs["opset_imports"] = [onnx.helper.make_opsetid("", graph.opset)]
