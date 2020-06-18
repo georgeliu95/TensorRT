@@ -133,24 +133,24 @@ You should now have all expected files to build the container. Move these into t
   **Example: Ubuntu 18.04 with cuda-11.0**
 
   ```bash
-  docker build -f docker/ubuntu.Dockerfile --build-arg UBUNTU_VERSION=18.04 --build-arg CUDA_VERSION=11.0 --tag=tensorrt-ubuntu .
+  docker build -f docker/ubuntu.Dockerfile --build-arg UBUNTU_VERSION=18.04 --build-arg CUDA_VERSION=11.0 --build-arg NVCR_SUFFIX=-rc --build-arg uid=$(id -u) --build-arg gid=$gid(id -g) --tag=tensorrt-ubuntu .
   ```
 
   **Example: CentOS/RedHat 7 with cuda-10.2**
 
   ```bash
-  docker build -f docker/centos.Dockerfile --build-arg CENTOS_VERSION=7 --build-arg CUDA_VERSION=10.2 --tag=tensorrt-centos .
+  docker build -f docker/centos.Dockerfile --build-arg CENTOS_VERSION=7 --build-arg CUDA_VERSION=10.2 --build-arg uid=$(id -u) --build-arg gid=$gid(id -g) --tag=tensorrt-centos .
   ```
 
   **Example: Ubuntu 16.04 with cuda-11.0**
 
   ```bash
-  docker build -f docker/ubuntu.Dockerfile --build-arg UBUNTU_VERSION=16.04 --build-arg CUDA_VERSION=11.0 --build-arg uid=$(id -u) --build-arg gid=$gid(id -g) --tag=tensorrt-ubuntu .
+  docker build -f docker/ubuntu.Dockerfile --build-arg UBUNTU_VERSION=16.04 --build-arg CUDA_VERSION=11.0 --build-arg NVCR_SUFFIX=-rc --build-arg uid=$(id -u) --build-arg gid=$gid(id -g) --tag=tensorrt-ubuntu .
   ```
 
    **Example: Cross compile for JetPack 4.4 with cuda-10.2**
    ```bash
-   docker build -f docker/ubuntu-cross-aarch64.Dockerfile --build-arg UBUNTU_VERSION=18.04 --build-arg CUDA_VERSION=10.2 --tag tensorrt-ubuntu-aarch64 .
+   docker build -f docker/ubuntu-cross-aarch64.Dockerfile --build-arg UBUNTU_VERSION=18.04 --build-arg CUDA_VERSION=10.2 --build-arg uid=$(id -u) --build-arg gid=$gid(id -g) --tag tensorrt-ubuntu-aarch64 .
    `
    ```
 
@@ -192,6 +192,8 @@ You should now have all expected files to build the container. Move these into t
 	- `CUDA_VERISON`: The version of CUDA to target, for example [`11.0`].
 
 	- `CUDNN_VERSION`: The version of cuDNN to target, for example [`8.0`].
+
+	- `NVCR_SUFFIX`: Optional nvcr/cuda image suffix. Set to "-rc" for CUDA11 RC builds until general availability. Blank by default.
 
 	- `PROTOBUF_VERSION`:  The version of Protobuf to use, for example [`3.8.x`]. Note: Changing this will not configure CMake to use a system version of Protobuf, it will configure CMake to download and try building that version.
 

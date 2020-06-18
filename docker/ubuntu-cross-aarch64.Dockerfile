@@ -14,9 +14,8 @@
 
 ARG CUDA_VERSION=10.2
 ARG UBUNTU_VERSION=18.04
-# TODO TRT-11312 - update after cuda 11 GA
-#FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION}
-FROM gitlab-master.nvidia.com:5005/cuda-installer/cuda:${CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION}-rc022
+ARG NVCR_SUFFIX=
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION}${NVCR_SUFFIX}
 
 LABEL maintainer="NVIDIA CORPORATION"
 
@@ -45,15 +44,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pbzip2 \
     pv \
     bzip2 \
-    unzip
+    unzip \
+    build-essential
 
 RUN cd /usr/local/bin &&\
     ln -s /usr/bin/python3 python &&\
     ln -s /usr/bin/pip3 pip
-
-COPY requirements.txt /tmp/requirements.txt
 RUN pip3 install --upgrade pip
-RUN pip3 install -r /tmp/requirements.txt
+RUN pip3 install setuptools>=41.0.0
+
+# Install nvcc
+RUN apt-get install -y cuda-nvcc-* cuda-nvprof-*
 
 # Install Cmake
 RUN cd /tmp && \
@@ -61,6 +62,10 @@ RUN cd /tmp && \
     chmod +x cmake-3.14.4-Linux-x86_64.sh && \
     ./cmake-3.14.4-Linux-x86_64.sh --prefix=/usr/local --exclude-subdir --skip-license && \
     rm ./cmake-3.14.4-Linux-x86_64.sh
+
+# Install PyPI packages
+COPY requirements.txt /tmp/requirements.txt
+RUN pip3 install -r /tmp/requirements.txt
 
 # Download NGC client
 RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_bat_linux.zip && unzip ngccli_bat_linux.zip && chmod u+x ngc && rm ngccli_bat_linux.zip ngc.md5 && echo "no-apikey\nascii\nno-org\nno-team\nno-ace\n" | ngc config set
