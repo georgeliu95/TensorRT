@@ -20,11 +20,12 @@ VERSION='v2'
 MODEL='large'
 FT_PRECISION='fp16'
 SEQ_LEN='128'
+FW='tf'
 
 while test $# -gt 0
 do
     case "$1" in
-        -h) echo "Usage: sh download_model.sh [base|large] [fp16|fp32] [128|384] [v2|v1_1]"
+        -h) echo "Usage: sh download_model.sh [tf|pyt] [base|large] [fp16|fp32] [128|384] [v2|v1_1]"
             exit 0
             ;;
         base) MODEL='base'
@@ -43,6 +44,10 @@ do
             ;;
         v1_1) VERSION='v1_1'
             ;;
+        tf) FW='tf'
+            ;;
+        pyt) FW='pyt'
+            ;;
         *) echo "Invalid argument $1...exiting"
             exit 0
             ;;
@@ -50,8 +55,17 @@ do
     shift
 done
 
-# Download the BERT fine-tuned model
-echo "Downloading BERT-${MODEL} with fine-tuned precision ${FT_PRECISION} and sequence length ${SEQ_LEN} from NGC"
+# Prepare the download directory
 mkdir -p /workspace/TensorRT/demo/BERT/models/fine-tuned
 cd /workspace/TensorRT/demo/BERT/models/fine-tuned
-ngc registry model download-version nvidia/bert_tf_${VERSION}_${MODEL}_${FT_PRECISION}_${SEQ_LEN}:2
+
+# Download the BERT fine-tuned model
+if [ "${FW}" = 'tf' ]; then
+    echo "Downloading BERT-${MODEL} with fine-tuned precision ${FT_PRECISION} and sequence length ${SEQ_LEN} from NGC"
+    ngc registry model download-version nvidia/bert_tf_${VERSION}_${MODEL}_${FT_PRECISION}_${SEQ_LEN}:2
+else
+    echo "Downloading BERT-${FW} QAT ONNX model from NGC"
+    ngc registry model download-version nvidia/bert_pyt_onnx_large_qa_squad11_amp_fake_quant:1
+fi
+
+

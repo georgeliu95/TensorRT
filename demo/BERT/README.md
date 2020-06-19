@@ -228,14 +228,15 @@ As mentioned in the [Quick Start Guide](#quick-start-guide), two options are pro
 
 ## Accuracy
 
-### Evaluating Int8 Accuracy Using The SQuAD Dataset
-1.  Download checkpoints for a BERT Large FP16 SQuAD v2 model with a sequence length of 384:
+### Evaluating PTQ (post-training quantization) Int8 Accuracy Using The SQuAD Dataset
+1.  Download TF checkpoints for a BERT Large FP16 SQuAD v2 model with a sequence length of 384:
     ```bash
     bash scripts/download_model.sh large fp16 384 v2
     ```
 
 2. Build an engine:
     ```bash
+    mkdir -p squad && cd squad && wget https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v1.1.json && cd ..
     # Turing and Ampere GPUs support QKVToContextPlugin and SkipLayerNormPlugin running with INT8 I/O. Use -imh and -iln to enable INT8 QKVToContextPlugin and INT8 SkipLayerNormPlugin respectively.
     mkdir -p /workspace/TensorRT/demo/BERT/engines && python3 builder.py -m /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/model.ckpt-8144 -o /workspace/TensorRT/demo/BERT/engines/bert_large_384_int8mix.engine -b 1 -s 384 --int8 --fp16 --strict -c /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2 --squad-json ./squad/train-v1.1.json -v /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/vocab.txt --calib-num 100 -iln -imh
     # Xavier GPU only supports SkipLayerNormPlugin running with INT8 I/O. Use -iln to enable INT8 SkipLayerNormPlugin only.
@@ -248,6 +249,33 @@ As mentioned in the [Quick Start Guide](#quick-start-guide), two options are pro
 
 3. Run inference using the squad dataset, and evaluate the F1 score and exact match score:
     ```bash
+    mkdir -p squad && cd squad && wget https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v1.1.json && cd ..
+    python3 inference.py -e /workspace/TensorRT/demo/BERT/engines/bert_large_384_int8mix.engine -s 384 -sq ./squad/dev-v1.1.json -v /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/vocab.txt -o ./predictions.json
+    python3 squad/evaluate-v1.1.py  squad/dev-v1.1.json  ./predictions.json 90
+    ```
+### Evaluating QAT (quantization aware training) Int8 Accuracy Using The SQuAD Dataset
+1.  Download ONNX checkpoints for a BERT Large FP16 SQuAD v1.1 model with a sequence length of 384:
+    ```bash
+    bash scripts/download_model.sh pyt
+    ```
+
+2. Build an engine:
+    ```bash
+    # Turing and Ampere GPUs support QKVToContextPlugin and SkipLayerNormPlugin running with INT8 I/O. Use -imh and -iln to enable INT8 QKVToContextPlugin and INT8 SkipLayerNormPlugin respectively.
+    mkdir -p /workspace/TensorRT/demo/BERT/engines && python3 builder.py -o /workspace/TensorRT/demo/BERT/engines/bert_large_384_int8mix.engine -b 1 -s 384 --int8 --fp16 --strict -c /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2 -v /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/vocab.txt -x /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_pyt_onnx_large_qa_squad11_amp_fake_quant_v1/bert_large_v1_1_fake_quant.onnx -iln -imh
+    # Xavier GPU only supports SkipLayerNormPlugin running with INT8 I/O. Use -iln to enable INT8 SkipLayerNormPlugin only.
+    mkdir -p /workspace/TensorRT/demo/BERT/engines && python3 builder.py -o /workspace/TensorRT/demo/BERT/engines/bert_large_384_int8mix.engine -b 1 -s 384 --int8 --fp16 --strict -c /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2 -v /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/vocab.txt -x /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_pyt_onnx_large_qa_squad11_amp_fake_quant_v1/bert_large_v1_1_fake_quant.onnx -iln 
+    # Volta GPU doesn't support QKVToContextPlugin and SkipLayerNormPlugin running with INT8 I/O. Don't specify -imh or -iln to builder.py.
+    mkdir -p /workspace/TensorRT/demo/BERT/engines && python3 builder.py -o /workspace/TensorRT/demo/BERT/engines/bert_large_384_int8mix.engine -b 1 -s 384 --int8 --fp16 --strict -c /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2 -v /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/vocab.txt -x /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_pyt_onnx_large_qa_squad11_amp_fake_quant_v1/bert_large_v1_1_fake_quant.onnx 
+    ```
+
+    This will build and engine with a maximum batch size of 1 (`-b 1`) and sequence length of 384 (`-s 384`) using INT8 mixed precision computation where possible (`--int8 --fp16 --strict`).
+
+3. Run inference using the squad dataset, and evaluate the F1 score and exact match score:
+    Download https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v1.1.json to your local and save as ./squad/dev-v1.1.json. Then run command
+
+    ```bash
+    mkdir -p squad && cd squad && wget https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v1.1.json && cd ..
     python3 inference.py -e /workspace/TensorRT/demo/BERT/engines/bert_large_384_int8mix.engine -s 384 -sq ./squad/dev-v1.1.json -v /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_v2_large_fp16_384_v2/vocab.txt -o ./predictions.json
     python3 squad/evaluate-v1.1.py  squad/dev-v1.1.json  ./predictions.json 90
     ```
