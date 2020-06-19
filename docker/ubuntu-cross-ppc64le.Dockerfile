@@ -44,7 +44,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pv \
     bzip2 \
     unzip \
-		g++-powerpc64le-linux-gnu
+    g++-powerpc64le-linux-gnu
 
 RUN cd /usr/local/bin &&\
     ln -s /usr/bin/python3 python &&\
@@ -105,9 +105,9 @@ RUN dpkg -x cuda-cudart-11-0_11.0.171-1_ppc64el.deb cudart && \
 # Unpack RT
 RUN dpkg -x cuda-nvrtc-11-0_11.0.167-1_ppc64el.deb rt && \
     dpkg -x cuda-nvrtc-dev-11-0_11.0.167-1_ppc64el.deb rt && \
-		cp rt/usr/local/cuda-11.0/targets/ppc64le-linux/lib/*.so* /usr/local/cuda-11.0/targets/ppc64le-linux/lib/ && \
-		cp rt/usr/local/cuda-11.0/targets/ppc64le-linux/lib/stubs/* /usr/local/cuda-11.0/targets/ppc64le-linux/lib/stubs && \
-		cp rt/usr/local/cuda-11.0/targets/ppc64le-linux/include/*  /usr/local/cuda-11.0/targets/ppc64le-linux/include
+    cp rt/usr/local/cuda-11.0/targets/ppc64le-linux/lib/*.so* /usr/local/cuda-11.0/targets/ppc64le-linux/lib/ && \
+    cp rt/usr/local/cuda-11.0/targets/ppc64le-linux/lib/stubs/* /usr/local/cuda-11.0/targets/ppc64le-linux/lib/stubs && \
+    cp rt/usr/local/cuda-11.0/targets/ppc64le-linux/include/*  /usr/local/cuda-11.0/targets/ppc64le-linux/include
 
 RUN rm -rf cublas cudart rt
 
