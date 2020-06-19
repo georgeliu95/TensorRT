@@ -13,9 +13,9 @@
 # limitations under the License.
 
 ARG CUDA_VERSION=11.0
-ARG CENTOS_VERSION=7
+ARG OS_VERSION=7
 ARG NVCR_SUFFIX=
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${CENTOS_VERSION}${NVCR_SUFFIX}
+FROM nvidia/cuda:${CUDA_VERSION}-devel-centos${OS_VERSION}${NVCR_SUFFIX}
 
 LABEL maintainer="NVIDIA CORPORATION"
 
@@ -36,7 +36,9 @@ RUN yum -y install \
     python3 \
     python3-pip \
     python3-dev \
+    python3-devel \
     python3-wheel \
+    unzip \
     sudo \
     make \
     build-essential
@@ -48,7 +50,7 @@ RUN pip3 install --upgrade pip
 RUN pip3 install setuptools>=41.0.0
 
 # Install nvcc
-RUN apt-get install -y cuda-nvcc-* cuda-nvprof-*
+RUN yum -y install cuda-nvcc-* cuda-nvprof-*
 
 # Install Cmake
 RUN cd /tmp && \

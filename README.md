@@ -43,8 +43,8 @@ To build the TensorRT OSS components, ensure you meet the following package requ
 **Optional Packages**
 
 * Containerized builds
-  * [Docker](https://docs.docker.com/install/) >= 1.12
-  * [NVIDIA Docker](https://github.com/NVIDIA/nvidia-docker) >= 2.0
+  * [Docker](https://docs.docker.com/install/) >= 19.03
+  * [NVIDIA Docker](https://github.com/NVIDIA/nvidia-docker) >= 2.0 or `nvidia-container-toolkit`
 
 * Code formatting tools
   * [Clang-format](https://clang.llvm.org/docs/ClangFormat.html)
@@ -128,39 +128,38 @@ You should now have all expected files to build the container. Move these into t
 
 1. #### Generate the TensorRT build container.
 
-  The docker container can be built using the included Dockerfile. The build container is configured with the environment and packages required for building TensorRT OSS.
+  The docker container can be built using the included Dockerfiles and build script. The build container is configured with the environment and packages required for building TensorRT OSS.
 
   **Example: Ubuntu 18.04 with cuda-11.0**
 
   ```bash
-  docker build -f docker/ubuntu.Dockerfile --build-arg UBUNTU_VERSION=18.04 --build-arg CUDA_VERSION=11.0 --build-arg NVCR_SUFFIX=-rc --build-arg uid=$(id -u) --build-arg gid=$gid(id -g) --tag=tensorrt-ubuntu .
-  ```
-
-  **Example: CentOS/RedHat 7 with cuda-10.2**
-
-  ```bash
-  docker build -f docker/centos.Dockerfile --build-arg CENTOS_VERSION=7 --build-arg CUDA_VERSION=10.2 --build-arg uid=$(id -u) --build-arg gid=$gid(id -g) --tag=tensorrt-centos .
+  ./docker/build.sh --file docker/ubuntu --tag tensorrt-ubuntu --os 18.04 --cuda 11.0
   ```
 
   **Example: Ubuntu 16.04 with cuda-11.0**
 
   ```bash
-  docker build -f docker/ubuntu.Dockerfile --build-arg UBUNTU_VERSION=16.04 --build-arg CUDA_VERSION=11.0 --build-arg NVCR_SUFFIX=-rc --build-arg uid=$(id -u) --build-arg gid=$gid(id -g) --tag=tensorrt-ubuntu .
+  ./docker/build.sh --file docker/ubuntu --tag tensorrt-ubuntu1604 --os 16.04 --cuda 11.0
+  ```
+
+  **Example: CentOS/RedHat 7 with cuda-10.2**
+
+  ```bash
+  ./docker/build.sh --file docker/centos --tag tensorrt-centos --os 7 --cuda 10.2
   ```
 
    **Example: Cross compile for JetPack 4.4 with cuda-10.2**
    ```bash
-   docker build -f docker/ubuntu-cross-aarch64.Dockerfile --build-arg UBUNTU_VERSION=18.04 --build-arg CUDA_VERSION=10.2 --build-arg uid=$(id -u) --build-arg gid=$gid(id -g) --tag tensorrt-ubuntu-aarch64 .
-   `
+   ./docker/build.sh --file docker/ubuntu-cross-aarch64 --tag tensorrt-ubuntu-jetpack --os 18.04 --cuda 10.2
    ```
 
 2. #### Launch the TensorRT build container.
 
 	```bash
-	docker run --gpus all -v $TRT_RELEASE:/tensorrt -v $TRT_SOURCE:/workspace/TensorRT -it tensorrt-ubuntu:latest
+	./docker/launch.sh --tag tensorrt-ubuntu --gpu all --release $TRT_RELEASE --source $TRT_SOURCE
 	```
 
-	> NOTE: To run TensorRT/CUDA programs within the build container, install [nvidia-docker](#prerequisites). Add `--gpu <NUM GPUS>` to the `docker run` command.
+	> NOTE: To run TensorRT/CUDA programs in the build container, install [NVIDIA Docker support](#prerequisites). Docker versions < 19.03 require `nvidia-docker2` and `--runtime=nvidia` flag for docker run commands. On versions >= 19.03, you need the `nvidia-container-toolkit` package and `--gpus <NUM_GPUS>` flag.
 
 
 ## Building The TensorRT OSS Components

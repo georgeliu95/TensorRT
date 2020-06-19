@@ -13,9 +13,9 @@
 # limitations under the License.
 
 ARG CUDA_VERSION=10.2
-ARG UBUNTU_VERSION=18.04
+ARG OS_VERSION=18.04
 ARG NVCR_SUFFIX=
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION}${NVCR_SUFFIX}
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}${NVCR_SUFFIX}
 
 LABEL maintainer="NVIDIA CORPORATION"
 
