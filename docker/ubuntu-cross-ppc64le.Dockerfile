@@ -76,7 +76,7 @@ RUN	 wget http://cuda-repo/release-candidates/Libraries/cuDNN/v8.0/8.0.2.5_20200
 	 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/ppc64el/cuda-nvrtc-11-0_11.0.167-1_ppc64el.deb && \
 	 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/ppc64el/cuda-nvrtc-dev-11-0_11.0.167-1_ppc64el.deb && \
 	 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/ppc64el/cuda-nvcc-11-0_11.0.167-1_ppc64el.deb && \
-	 https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/ppc64el/cuda-nvprof-11-0_11.0.167-1_ppc64el.deb
+	 wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/ppc64el/cuda-nvprof-11-0_11.0.167-1_ppc64el.deb
 
 # Unpack cudnn
 #RUN dpkg -x libcudnn8_8.0.2.5-1+cuda11.0_ppc64el.deb / && \
