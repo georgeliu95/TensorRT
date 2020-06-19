@@ -89,8 +89,13 @@ else()
       61
       70
       75
-      80
     )
+  if (CUDA_VERSION VERSION_GREATER_EQUAL 11.0)
+    # Ampere GPU (SM80) support is only available in CUDA versions > 11.0
+    list(APPEND GPU_ARCHS 80)
+  else()
+    message(WARNING "Detected CUDA version is < 11.0. SM80 not supported.")
+  endif()
   message(STATUS "GPU_ARCHS is not defined. Generating CUDA code for default SMs: ${GPU_ARCHS}")
 endif()
 set(BERT_GENCODES)
@@ -145,15 +150,8 @@ find_library(CUDNN_LIB cudnn HINTS
     ${CUDA_TOOLKIT_ROOT_DIR} ${CUDNN_ROOT_DIR} PATH_SUFFIXES lib64 lib)
 find_library(CUBLAS_LIB cublas HINTS
     ${CUDA_TOOLKIT_ROOT_DIR} PATH_SUFFIXES lib64 lib lib/stubs)
-# CUBLASLT libraries are only available in CUDA versions > 10. Check for CUDA version here and
-# remove dependency on the libarary and unset BERT_GENCODES.
-if (CUDA_VERSION VERSION_LESS_EQUAL 10.0)
-    message(WARNING "Detected CUDA version is <= 10.0! Removing BERT plugins from compilation list.")
-    unset(BERT_GENCODES)
-else()
-    find_library(CUBLASLT_LIB cublasLt HINTS
-        ${CUDA_TOOLKIT_ROOT_DIR} PATH_SUFFIXES lib64 lib lib/stubs)
-endif()
+find_library(CUBLASLT_LIB cublasLt HINTS
+    ${CUDA_TOOLKIT_ROOT_DIR} PATH_SUFFIXES lib64 lib lib/stubs)
 if(BUILD_PARSERS)
     configure_protobuf(${PROTOBUF_VERSION})
 endif()
