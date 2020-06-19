@@ -43,8 +43,8 @@ To build the TensorRT OSS components, ensure you meet the following package requ
 **Optional Packages**
 
 * Containerized builds
-  * [Docker](https://docs.docker.com/install/) >= 1.12
-  * [NVIDIA Docker](https://github.com/NVIDIA/nvidia-docker) >= 2.0
+  * [Docker](https://docs.docker.com/install/) >= 19.03
+  * [NVIDIA Docker](https://github.com/NVIDIA/nvidia-docker) >= 2.0 or `nvidia-container-toolkit`
 
 * Code formatting tools
   * [Clang-format](https://clang.llvm.org/docs/ClangFormat.html)
@@ -85,9 +85,9 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	Download and extract the latest *TensorRT 7.1 GA package for Ubuntu 18.04 and CUDA 11.0*
 	```bash
 	cd ~/Downloads
-	# Download TensorRT-7.1.3.3.Ubuntu-18.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
-	tar -xvzf TensorRT-7.1.3.3.Ubuntu-18.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
-	export TRT_RELEASE=`pwd`/TensorRT-7.1.3.3
+	# Download TensorRT-7.1.3.4.Ubuntu-18.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
+	tar -xvzf TensorRT-7.1.3.4.Ubuntu-18.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
+	export TRT_RELEASE=`pwd`/TensorRT-7.1.3.4
 	```
 
 	**Example: CentOS/RedHat 7 with cuda-10.2**
@@ -95,9 +95,9 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	Download and extract the *TensorRT 7.1 GA for CentOS/RedHat 7 and CUDA 10.2 tar package*
 	```bash
 	cd ~/Downloads
-	# Download TensorRT-7.1.3.3.CentOS-8.0.x86_64-gnu.cuda-10.2.cudnn8.0.tar.gz
-	tar -xvzf TensorRT-7.1.3.3.CentOS-8.0.x86_64-gnu.cuda-10.2.cudnn8.0.tar.gz
-	export TRT_RELEASE=`pwd`/TensorRT-7.1.3.3
+	# Download TensorRT-7.1.3.4.CentOS-8.0.x86_64-gnu.cuda-10.2.cudnn8.0.tar.gz
+	tar -xvzf TensorRT-7.1.3.4.CentOS-8.0.x86_64-gnu.cuda-10.2.cudnn8.0.tar.gz
+	export TRT_RELEASE=`pwd`/TensorRT-7.1.3.4
 	```
 
 	**Example: Ubuntu 16.04 with cuda-11.0**
@@ -105,9 +105,9 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	Download and extract the *TensorRT 7.1 GA for Ubuntu 16.04 and CUDA 11.0 tar package*
 	```bash
 	cd ~/Downloads
-	# Download TensorRT-7.1.3.3.Ubuntu-16.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
-	tar -xvzf TensorRT-7.1.3.3.Ubuntu-16.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
-	export TRT_RELEASE=`pwd`/TensorRT-7.1.3.3
+	# Download TensorRT-7.1.3.4.Ubuntu-16.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
+	tar -xvzf TensorRT-7.1.3.4.Ubuntu-16.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
+	export TRT_RELEASE=`pwd`/TensorRT-7.1.3.4
 	```
 
 3. #### Download JetPack packages for cross-compilation.[OPTIONAL]
@@ -128,39 +128,38 @@ You should now have all expected files to build the container. Move these into t
 
 1. #### Generate the TensorRT build container.
 
-  The docker container can be built using the included Dockerfile. The build container is configured with the environment and packages required for building TensorRT OSS.
+  The docker container can be built using the included Dockerfiles and build script. The build container is configured with the environment and packages required for building TensorRT OSS.
 
   **Example: Ubuntu 18.04 with cuda-11.0**
 
   ```bash
-  docker build -f docker/ubuntu.Dockerfile --build-arg UBUNTU_VERSION=18.04 --build-arg CUDA_VERSION=11.0 --tag=tensorrt-ubuntu .
-  ```
-
-  **Example: CentOS/RedHat 7 with cuda-10.2**
-
-  ```bash
-  docker build -f docker/centos.Dockerfile --build-arg CENTOS_VERSION=7 --build-arg CUDA_VERSION=10.2 --tag=tensorrt-centos .
+  ./docker/build.sh --file docker/ubuntu --tag tensorrt-ubuntu --os 18.04 --cuda 11.0
   ```
 
   **Example: Ubuntu 16.04 with cuda-11.0**
 
   ```bash
-  docker build -f docker/ubuntu.Dockerfile --build-arg UBUNTU_VERSION=16.04 --build-arg CUDA_VERSION=11.0 --build-arg uid=$(id -u) --build-arg gid=$gid(id -g) --tag=tensorrt-ubuntu .
+  ./docker/build.sh --file docker/ubuntu --tag tensorrt-ubuntu1604 --os 16.04 --cuda 11.0
+  ```
+
+  **Example: CentOS/RedHat 7 with cuda-10.2**
+
+  ```bash
+  ./docker/build.sh --file docker/centos --tag tensorrt-centos --os 7 --cuda 10.2
   ```
 
    **Example: Cross compile for JetPack 4.4 with cuda-10.2**
    ```bash
-   docker build -f docker/ubuntu-cross-aarch64.Dockerfile --build-arg UBUNTU_VERSION=18.04 --build-arg CUDA_VERSION=10.2 --tag tensorrt-ubuntu-aarch64 .
-   `
+   ./docker/build.sh --file docker/ubuntu-cross-aarch64 --tag tensorrt-ubuntu-jetpack --os 18.04 --cuda 10.2
    ```
 
 2. #### Launch the TensorRT build container.
 
 	```bash
-	docker run --gpus all -v $TRT_RELEASE:/tensorrt -v $TRT_SOURCE:/workspace/TensorRT -it tensorrt-ubuntu:latest
+	./docker/launch.sh --tag tensorrt-ubuntu --gpu all --release $TRT_RELEASE --source $TRT_SOURCE
 	```
 
-	> NOTE: To run TensorRT/CUDA programs within the build container, install [nvidia-docker](#prerequisites). Add `--gpu <NUM GPUS>` to the `docker run` command.
+	> NOTE: To run TensorRT/CUDA programs in the build container, install [NVIDIA Docker support](#prerequisites). Docker versions < 19.03 require `nvidia-docker2` and `--runtime=nvidia` flag for docker run commands. On versions >= 19.03, you need the `nvidia-container-toolkit` package and `--gpus <NUM_GPUS>` flag.
 
 
 ## Building The TensorRT OSS Components
@@ -170,20 +169,20 @@ You should now have all expected files to build the container. Move these into t
 	```bash
 	cd $TRT_SOURCE
 	mkdir -p build && cd build
-	cmake .. -DTRT_LIB_DIR=$TRT_RELEASE/lib -DTRT_BIN_DIR=`pwd`/out
+	cmake .. -DTRT_LIB_DIR=$TRT_RELEASE/lib -DTRT_OUT_DIR=`pwd`/out
 	make -j$(nproc)
 	```
 
 	> NOTE:
 	> 1. The default CUDA version used by CMake is 11.0. To override this, for example to 10.2, append `-DCUDA_VERSION=10.2` to the cmake command.
 	> 2. Samples may fail to link on CentOS7. To work around this create the following symbolic link:
-	> `ln -s $TRT_BIN_DIR/libnvinfer_plugin.so $TRT_BIN_DIR/libnvinfer_plugin.so.7`
+	> `ln -s $TRT_OUT_DIR/libnvinfer_plugin.so $TRT_OUT_DIR/libnvinfer_plugin.so.7`
 
 	The required CMake arguments are:
 
 	- `TRT_LIB_DIR`: Path to the TensorRT installation directory containing libraries.
 
-	- `TRT_BIN_DIR`: Output directory where generated build artifacts will be copied.
+	- `TRT_OUT_DIR`: Output directory where generated build artifacts will be copied.
 
 	The following CMake build parameters are *optional*:
 
@@ -192,6 +191,8 @@ You should now have all expected files to build the container. Move these into t
 	- `CUDA_VERISON`: The version of CUDA to target, for example [`11.0`].
 
 	- `CUDNN_VERSION`: The version of cuDNN to target, for example [`8.0`].
+
+	- `NVCR_SUFFIX`: Optional nvcr/cuda image suffix. Set to "-rc" for CUDA11 RC builds until general availability. Blank by default.
 
 	- `PROTOBUF_VERSION`:  The version of Protobuf to use, for example [`3.8.x`]. Note: Changing this will not configure CMake to use a system version of Protobuf, it will configure CMake to download and try building that version.
 
@@ -204,12 +205,6 @@ You should now have all expected files to build the container. Move these into t
 	- `BUILD_SAMPLES`: Specify if the samples should be built, for example [`ON`] | `OFF`.
 
 	Other build options with limited applicability:
-
-	- `NVINTERNAL`: Used by TensorRT team for internal builds. Values consists of [`OFF`] | `ON`.
-
-	- `PROTOBUF_INTERNAL_VERSION`: The version of protobuf to use, for example [`10.0`].  Only applicable if `NVINTERNAL` is also enabled.
-
-	- `NVPARTNER`: For use by NVIDIA partners with exclusive source access.  Values consists of [`OFF`] | `ON`.
 
 	- `CUB_VERSION`: The version of CUB to use, for example [`1.8.0`].
 

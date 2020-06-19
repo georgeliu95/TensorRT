@@ -223,7 +223,7 @@ enum class TensorFormat : int
     //! For DLA usage, the tensor sizes are limited to C,H,W in the range [1,8192].
     //!
     kLINEAR = 0,
-    kNCHW TRT_DEPRECATED_ENUM = kLINEAR, //! <-- Deprecated, used for backward compatibility
+    kNCHW TRT_DEPRECATED_ENUM = kLINEAR, //!< Deprecated name of kLINEAR, provided for backwards compatibility
 
     //! Two wide channel vectorized row major format. This format is bound to
     //! FP16. It is only available for dimensions >= 3.
@@ -232,7 +232,7 @@ enum class TensorFormat : int
     //! [N][(C+1)/2][H][W][2], with the tensor coordinates (n, c, h, w)
     //! mapping to array subscript [n][c/2][h][w][c%2].
     kCHW2 = 1,
-    kNC2HW2 TRT_DEPRECATED_ENUM = kCHW2, //! <-- Deprecated, used for backward compatibility
+    kNC2HW2 TRT_DEPRECATED_ENUM = kCHW2, //!< Deprecated name of kCHW2, provided for backwards compatibility
 
     //! Eight channel format where C is padded to a multiple of 8. This format
     //! is bound to FP16. It is only available for dimensions >= 3.
@@ -241,7 +241,7 @@ enum class TensorFormat : int
     //! [N][H][W][(C+7)/8*8], with the tensor coordinates (n, h, w, c)
     //! mapping to array subscript [n][h][w][c].
     kHWC8 = 2,
-    kNHWC8 TRT_DEPRECATED_ENUM = kHWC8, //! <-- Deprecated, used for backward compatibility
+    kNHWC8 TRT_DEPRECATED_ENUM = kHWC8, //!< Deprecated name of kHWC8, provided for backwards compatibility
 
     //! Four wide channel vectorized row major format. This format is bound to
     //! INT8 or FP16. It is only available for dimensions >= 3.
