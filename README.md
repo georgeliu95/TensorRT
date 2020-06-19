@@ -153,7 +153,7 @@ You should now have all expected files to build the container. Move these into t
 2. #### Launch the TensorRT build container.
 
 	```bash
-	./docker/launch.sh --tag tensorrt-ubuntu --gpu all --release $TRT_RELEASE --source $TRT_SOURCE
+	./docker/launch.sh --tag tensorrt-ubuntu --gpus all --release $TRT_RELEASE --source $TRT_SOURCE
 	```
 
 	> NOTE: To run TensorRT/CUDA programs in the build container, install [NVIDIA Docker support](#prerequisites). Docker versions < 19.03 require `nvidia-docker2` and `--runtime=nvidia` flag for docker run commands. On versions >= 19.03, you need the `nvidia-container-toolkit` package and `--gpus <NUM_GPUS>` flag.
