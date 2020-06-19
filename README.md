@@ -85,9 +85,9 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	Download and extract the latest *TensorRT 7.1 GA package for Ubuntu 18.04 and CUDA 11.0*
 	```bash
 	cd ~/Downloads
-	# Download TensorRT-7.1.3.3.Ubuntu-18.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
-	tar -xvzf TensorRT-7.1.3.3.Ubuntu-18.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
-	export TRT_RELEASE=`pwd`/TensorRT-7.1.3.3
+	# Download TensorRT-7.1.3.4.Ubuntu-18.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
+	tar -xvzf TensorRT-7.1.3.4.Ubuntu-18.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
+	export TRT_RELEASE=`pwd`/TensorRT-7.1.3.4
 	```
 
 	**Example: CentOS/RedHat 7 with cuda-10.2**
@@ -95,9 +95,9 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	Download and extract the *TensorRT 7.1 GA for CentOS/RedHat 7 and CUDA 10.2 tar package*
 	```bash
 	cd ~/Downloads
-	# Download TensorRT-7.1.3.3.CentOS-8.0.x86_64-gnu.cuda-10.2.cudnn8.0.tar.gz
-	tar -xvzf TensorRT-7.1.3.3.CentOS-8.0.x86_64-gnu.cuda-10.2.cudnn8.0.tar.gz
-	export TRT_RELEASE=`pwd`/TensorRT-7.1.3.3
+	# Download TensorRT-7.1.3.4.CentOS-8.0.x86_64-gnu.cuda-10.2.cudnn8.0.tar.gz
+	tar -xvzf TensorRT-7.1.3.4.CentOS-8.0.x86_64-gnu.cuda-10.2.cudnn8.0.tar.gz
+	export TRT_RELEASE=`pwd`/TensorRT-7.1.3.4
 	```
 
 	**Example: Ubuntu 16.04 with cuda-11.0**
@@ -105,9 +105,9 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	Download and extract the *TensorRT 7.1 GA for Ubuntu 16.04 and CUDA 11.0 tar package*
 	```bash
 	cd ~/Downloads
-	# Download TensorRT-7.1.3.3.Ubuntu-16.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
-	tar -xvzf TensorRT-7.1.3.3.Ubuntu-16.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
-	export TRT_RELEASE=`pwd`/TensorRT-7.1.3.3
+	# Download TensorRT-7.1.3.4.Ubuntu-16.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
+	tar -xvzf TensorRT-7.1.3.4.Ubuntu-16.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
+	export TRT_RELEASE=`pwd`/TensorRT-7.1.3.4
 	```
 
 3. #### Download JetPack packages for cross-compilation.[OPTIONAL]

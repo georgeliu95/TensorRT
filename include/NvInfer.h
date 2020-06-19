@@ -639,7 +639,7 @@ public:
     //!
     //! \brief Whether the tensor is a shape tensor.
     //!
-    //! A shape tensor is a tensor that is related to shape calculations. 
+    //! A shape tensor is a tensor that is related to shape calculations.
     //! It must be 0D or 1D, have type Int32 or Bool, and its shape must be determinable at build time.
     //! Furthermore, it must be needed as a shape tensor, either marked as a network shape
     //! output via markOutputForShapes(), or as an input that is required to be a shape
@@ -2473,21 +2473,6 @@ public:
     //!
     virtual Dims getPaddingNd() const TRTNOEXCEPT = 0;
 
-    //! \brief Set the multi-dimension dilation of the deconvolution.
-    //!
-    //! Default: (1, 1, ..., 1)
-    //!
-    //! \see getDilationNd()
-    //!
-    virtual void setDilationNd(Dims dilation) TRTNOEXCEPT = 0;
-
-    //!
-    //! \brief Get the multi-dimension dilation of the deconvolution.
-    //!
-    //! \see setDilationNd()
-    //!
-    virtual Dims getDilationNd() const TRTNOEXCEPT = 0;
-
     //!
     //! \brief Append or replace an input of this layer with a specific tensor
     //!
@@ -2507,6 +2492,21 @@ public:
     //! If this function is called with a value greater than 0, then the function getNbInputs() changes
     //!
     void setInput(int index, ITensor& tensor) _TENSORRT_OVERRIDE TRTNOEXCEPT = 0;
+
+    //! \brief Set the multi-dimension dilation of the deconvolution.
+    //!
+    //! Default: (1, 1, ..., 1)
+    //!
+    //! \see getDilationNd()
+    //!
+    virtual void setDilationNd(Dims dilation) TRTNOEXCEPT = 0;
+
+    //!
+    //! \brief Get the multi-dimension dilation of the deconvolution.
+    //!
+    //! \see setDilationNd()
+    //!
+    virtual Dims getDilationNd() const TRTNOEXCEPT = 0;
 };
 
 //!
@@ -4877,8 +4877,8 @@ public:
     //!
     //! \param input The input tensor to the layer.
     //! \param nbOutputs The number of outputs of the layer.
-    //! \param kernelWeights The kernel weights for the convolution.
-    //! \param biasWeights The optional bias weights for the convolution.
+    //! \param kernelWeights The kernel weights for the fully connected layer.
+    //! \param biasWeights The optional bias weights for the fully connected layer.
     //!
     //! \see IFullyConnectedLayer
     //!
@@ -6461,56 +6461,6 @@ public:
     virtual bool getFlag(BuilderFlag builderFlag) const TRTNOEXCEPT = 0;
 
     //!
-    //! \brief Set the quantization flags.
-    //!
-    //! The flags are listed in the QuantizationFlag enum.
-    //! The flags set configuration options to quantize the network in int8.
-    //!
-    //! \param flags The quantization flags.
-    //!
-    //! \note This function will override the previous set flags, rather than bitwise ORing the new flag.
-    //!
-    //! \see getQuantizationFlags()
-    //!
-    virtual void setQuantizationFlags(QuantizationFlags flags) TRTNOEXCEPT = 0;
-
-    //!
-    //! \brief Get the quantization flags.
-    //!
-    //! \return The quantization flags as a bitmask.
-    //!
-    //! \see setQuantizationFlag()
-    //!
-    virtual QuantizationFlags getQuantizationFlags() const TRTNOEXCEPT = 0;
-
-    //!
-    //! \brief clear a quantization flag.
-    //!
-    //! Clears the quantization flag from the enabled quantization flags.
-    //!
-    //! \see setQuantizationFlags()
-    //!
-    virtual void clearQuantizationFlag(QuantizationFlag flag) TRTNOEXCEPT = 0;
-
-    //!
-    //! \brief Set a single quantization flag.
-    //!
-    //! Add the input quantization flag to the already enabled quantization flags.
-    //!
-    //! \see setQuantizationFlags()
-    //!
-    virtual void setQuantizationFlag(QuantizationFlag flag) TRTNOEXCEPT = 0;
-
-    //!
-    //! \brief Returns true if the quantization flag is set.
-    //!
-    //! \see getQuantizationFlags()
-    //!
-    //! \return True if quantization flag is set, false if unset.
-    //!
-    virtual bool getQuantizationFlag(QuantizationFlag flag) const TRTNOEXCEPT = 0;
-
-    //!
     //! \brief Set the device that this layer must execute on.
     //! \param deviceType that this layer must execute on.
     //! If DeviceType is not set or is reset, TensorRT will use the default DeviceType set in the builder.
@@ -6628,24 +6578,6 @@ public:
     virtual int addOptimizationProfile(const IOptimizationProfile* profile) noexcept = 0;
 
     //!
-    //! \brief Add a calibration profile.
-    //!
-    //! Calibration optimization profile must be set if int8 calibration is used to set scales for a network with runtime dimensions.
-    //!
-    //! \param profile The new calibration profile, which must satisfy profile->isValid() == true or be nullptr.
-    //! MIN and MAX values will be overwritten by kOPT.
-    //! \return True if the calibration profile was set correctly.
-    //!
-    virtual bool setCalibrationProfile(const IOptimizationProfile* profile) noexcept = 0;
-
-    //!
-    //! \brief Get the current calibration profile.
-    //!
-    //! \return A pointer to the current calibration profile or nullptr if calibration profile is unset.
-    //!
-    virtual const IOptimizationProfile* getCalibrationProfile() noexcept = 0;
-
-    //!
     //! \brief Get number of optimization profiles.
     //!
     //! This is one higher than the index of the last optimization profile that has be defined (or
@@ -6691,6 +6623,73 @@ public:
     //!
     virtual IAlgorithmSelector* getAlgorithmSelector() const TRTNOEXCEPT = 0;
 
+    //!
+    //! \brief Add a calibration profile.
+    //!
+    //! Calibration optimization profile must be set if int8 calibration is used to set scales for a network with runtime dimensions.
+    //!
+    //! \param profile The new calibration profile, which must satisfy profile->isValid() == true or be nullptr.
+    //! MIN and MAX values will be overwritten by kOPT.
+    //! \return True if the calibration profile was set correctly.
+    //!
+    virtual bool setCalibrationProfile(const IOptimizationProfile* profile) noexcept = 0;
+
+    //!
+    //! \brief Get the current calibration profile.
+    //!
+    //! \return A pointer to the current calibration profile or nullptr if calibration profile is unset.
+    //!
+    virtual const IOptimizationProfile* getCalibrationProfile() noexcept = 0;
+
+    //!
+    //! \brief Set the quantization flags.
+    //!
+    //! The flags are listed in the QuantizationFlag enum.
+    //! The flags set configuration options to quantize the network in int8.
+    //!
+    //! \param flags The quantization flags.
+    //!
+    //! \note This function will override the previous set flags, rather than bitwise ORing the new flag.
+    //!
+    //! \see getQuantizationFlags()
+    //!
+    virtual void setQuantizationFlags(QuantizationFlags flags) TRTNOEXCEPT = 0;
+
+    //!
+    //! \brief Get the quantization flags.
+    //!
+    //! \return The quantization flags as a bitmask.
+    //!
+    //! \see setQuantizationFlag()
+    //!
+    virtual QuantizationFlags getQuantizationFlags() const TRTNOEXCEPT = 0;
+
+    //!
+    //! \brief clear a quantization flag.
+    //!
+    //! Clears the quantization flag from the enabled quantization flags.
+    //!
+    //! \see setQuantizationFlags()
+    //!
+    virtual void clearQuantizationFlag(QuantizationFlag flag) TRTNOEXCEPT = 0;
+
+    //!
+    //! \brief Set a single quantization flag.
+    //!
+    //! Add the input quantization flag to the already enabled quantization flags.
+    //!
+    //! \see setQuantizationFlags()
+    //!
+    virtual void setQuantizationFlag(QuantizationFlag flag) TRTNOEXCEPT = 0;
+
+    //!
+    //! \brief Returns true if the quantization flag is set.
+    //!
+    //! \see getQuantizationFlags()
+    //!
+    //! \return True if quantization flag is set, false if unset.
+    //!
+    virtual bool getQuantizationFlag(QuantizationFlag flag) const TRTNOEXCEPT = 0;
 };
 
 
