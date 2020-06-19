@@ -89,6 +89,16 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	export TRT_RELEASE=`pwd`/TensorRT-7.1.3.4
 	```
 
+	**Example: Ubuntu 18.04 with cuda-11.0 on PowerPC**
+
+	Download and extract the latest *TensorRT 7.1 GA package for Ubuntu 18.04 and CUDA 11.0*
+	```bash
+	cd ~/Downloads
+	# Download TensorRT-7.1.3.3.Ubuntu-18.04.powerpc64le-gnu.cuda-11.0.cudnn8.0.tar.gz
+	tar -xvzf TensorRT-7.1.3.3.Ubuntu-18.04.powerpc64le-gnu.cuda-11.0.cudnn8.0.tar.gz
+	export TRT_RELEASE=`pwd`/TensorRT-7.1.3.3
+	```
+
 	**Example: CentOS/RedHat 7 with cuda-10.2**
 
 	Download and extract the *TensorRT 7.1 GA for CentOS/RedHat 7 and CUDA 10.2 tar package*
@@ -150,6 +160,12 @@ You should now have all expected files to build the container. Move these into t
    ./docker/build.sh --file docker/ubuntu-cross-aarch64 --tag tensorrt-ubuntu-jetpack --os 18.04 --cuda 10.2
    ```
 
+   **Example: Cross compile for PowerPC with cuda-11.0**
+   ```bash
+   ./docker/build.sh --file docker/ubuntu-cross-ppc64 --tag tensorrt-ubuntu-ppc --os 18.04 --cuda 11.0
+   ```
+
+
 2. #### Launch the TensorRT build container.
 
 	```bash
@@ -162,7 +178,7 @@ You should now have all expected files to build the container. Move these into t
 ## Building The TensorRT OSS Components
 
 * Generate Makefiles and build.
-
+  **Build Example**
 	```bash
 	cd $TRT_SOURCE
 	mkdir -p build && cd build
