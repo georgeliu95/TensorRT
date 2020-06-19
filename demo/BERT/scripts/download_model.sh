@@ -60,12 +60,15 @@ mkdir -p /workspace/TensorRT/demo/BERT/models/fine-tuned
 cd /workspace/TensorRT/demo/BERT/models/fine-tuned
 
 # Download the BERT fine-tuned model
+echo "Downloading BERT-${FW} ${MODEL} checkpoints with precision ${FT_PRECISION} and sequence length ${SEQ_LEN} and fine-tuned for SQuAD ${VERSION} from NGC"
 if [ "${FW}" = 'tf' ]; then
-    echo "Downloading BERT-${MODEL} with fine-tuned precision ${FT_PRECISION} and sequence length ${SEQ_LEN} from NGC"
     ngc registry model download-version nvidia/bert_tf_${VERSION}_${MODEL}_${FT_PRECISION}_${SEQ_LEN}:2
+elif [ "${FW}" = 'pyt' ]; then
+    if [ "${MODEL}" != 'large' ] || [ "${VERSION}" != 'v1_1' ]; then
+        echo "Skipping. Currently only BERT-large checkpoint fine-tuned for SQuAD v1.1 available in QAT (PyTorch) workflow."
+    else
+        ngc registry model download-version nvidia/bert_pyt_onnx_large_qa_squad11_amp_fake_quant:1
+    fi
 else
-    echo "Downloading BERT-${FW} QAT ONNX model from NGC"
-    ngc registry model download-version nvidia/bert_pyt_onnx_large_qa_squad11_amp_fake_quant:1
+    echo "Invalid framework specified for checkpoint. Run download_model.sh -h for help."
 fi
-
-
