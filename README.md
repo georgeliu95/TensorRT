@@ -178,7 +178,7 @@ You should now have all expected files to build the container. Move these into t
 ## Building The TensorRT OSS Components
 
 * Generate Makefiles and build.
-  **Build Example**
+
 	```bash
 	cd $TRT_SOURCE
 	mkdir -p build && cd build
