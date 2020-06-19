@@ -106,7 +106,7 @@ This demo BERT application can be run within the TensorRT Open Source build cont
    cd $TRT_SOURCE
    export LD_LIBRARY_PATH=`pwd`/build/out:$LD_LIBRARY_PATH:/tensorrt/lib
    mkdir -p build && cd build
-   cmake .. -DTRT_LIB_DIR=$TRT_RELEASE/lib -DTRT_BIN_DIR=`pwd`/out
+   cmake .. -DTRT_LIB_DIR=$TRT_RELEASE/lib -DTRT_OUT_DIR=`pwd`/out
    make -j$(nproc)
 
    pip3 install /tensorrt/python/tensorrt-7.1*-cp36-none-linux_x86_64.whl

@@ -169,20 +169,20 @@ You should now have all expected files to build the container. Move these into t
 	```bash
 	cd $TRT_SOURCE
 	mkdir -p build && cd build
-	cmake .. -DTRT_LIB_DIR=$TRT_RELEASE/lib -DTRT_BIN_DIR=`pwd`/out
+	cmake .. -DTRT_LIB_DIR=$TRT_RELEASE/lib -DTRT_OUT_DIR=`pwd`/out
 	make -j$(nproc)
 	```
 
 	> NOTE:
 	> 1. The default CUDA version used by CMake is 11.0. To override this, for example to 10.2, append `-DCUDA_VERSION=10.2` to the cmake command.
 	> 2. Samples may fail to link on CentOS7. To work around this create the following symbolic link:
-	> `ln -s $TRT_BIN_DIR/libnvinfer_plugin.so $TRT_BIN_DIR/libnvinfer_plugin.so.7`
+	> `ln -s $TRT_OUT_DIR/libnvinfer_plugin.so $TRT_OUT_DIR/libnvinfer_plugin.so.7`
 
 	The required CMake arguments are:
 
 	- `TRT_LIB_DIR`: Path to the TensorRT installation directory containing libraries.
 
-	- `TRT_BIN_DIR`: Output directory where generated build artifacts will be copied.
+	- `TRT_OUT_DIR`: Output directory where generated build artifacts will be copied.
 
 	The following CMake build parameters are *optional*:
 
