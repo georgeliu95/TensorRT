@@ -44,7 +44,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     pv \
     bzip2 \
     unzip \
-		build-essential \
 		g++-powerpc64le-linux-gnu
 
 RUN cd /usr/local/bin &&\
