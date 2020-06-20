@@ -49,9 +49,6 @@ RUN cd /usr/local/bin &&\
 RUN pip3 install --upgrade pip
 RUN pip3 install setuptools>=41.0.0
 
-# Install nvcc
-RUN yum -y install cuda-nvcc-* cuda-nvprof-*
-
 # Install Cmake
 RUN cd /tmp && \
     wget https://github.com/Kitware/CMake/releases/download/v3.14.4/cmake-3.14.4-Linux-x86_64.sh && \

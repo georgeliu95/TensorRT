@@ -130,24 +130,24 @@ You should now have all expected files to build the container. Move these into t
   **Example: Ubuntu 18.04 with cuda-11.0**
 
   ```bash
-  ./docker/build.sh --file docker/ubuntu --tag tensorrt-ubuntu --os 18.04 --cuda 11.0
+  ./docker/build.sh --file docker/ubuntu.Dockerfile --tag tensorrt-ubuntu --os 18.04 --cuda 11.0
   ```
 
   **Example: Ubuntu 16.04 with cuda-11.0**
 
   ```bash
-  ./docker/build.sh --file docker/ubuntu --tag tensorrt-ubuntu1604 --os 16.04 --cuda 11.0
+  ./docker/build.sh --file docker/ubuntu.Dockerfile --tag tensorrt-ubuntu1604 --os 16.04 --cuda 11.0
   ```
 
   **Example: CentOS/RedHat 7 with cuda-10.2**
 
   ```bash
-  ./docker/build.sh --file docker/centos --tag tensorrt-centos --os 7 --cuda 10.2
+  ./docker/build.sh --file docker/centos.Dockerfile --tag tensorrt-centos --os 7 --cuda 10.2
   ```
 
    **Example: Cross compile for JetPack 4.4 with cuda-10.2**
    ```bash
-   ./docker/build.sh --file docker/ubuntu-cross-aarch64 --tag tensorrt-ubuntu-jetpack --os 18.04 --cuda 10.2
+   ./docker/build.sh --file docker/ubuntu-cross-aarch64.Dockerfile --tag tensorrt-ubuntu-jetpack --os 18.04 --cuda 10.2
    ```
 
 2. #### Launch the TensorRT build container.
