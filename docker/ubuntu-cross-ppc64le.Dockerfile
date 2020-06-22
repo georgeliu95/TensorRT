@@ -78,7 +78,7 @@ RUN dpkg -x libcublas-11-0_11.0.0.191-1_ppc64el.deb cublas && \
 # Unpack Cudart
 RUN dpkg -x cuda-cudart-11-0_11.0.171-1_ppc64el.deb cudart && \
     dpkg -x cuda-cudart-dev-11-0_11.0.171-1_ppc64el.deb cudart && \
-		cp -r cudart/* /
+    cp -r cudart/* /
 
 # Unpack RT
 RUN dpkg -x cuda-nvrtc-11-0_11.0.167-1_ppc64el.deb rt && \
@@ -88,7 +88,7 @@ RUN dpkg -x cuda-nvrtc-11-0_11.0.167-1_ppc64el.deb rt && \
 # Unpack Cudnn
 RUN dpkg -x libcudnn8_8.0.2.5-1+cuda11.0_ppc64el.deb cudnn && \
     dpkg -x libcudnn8-dev_8.0.2.5-1+cuda11.0_ppc64el.deb cudnn && \
-		cp -r cudnn/* /
+    cp -r cudnn/* /
 
 # Unpack NVCC, and copy headers
 RUN dpkg -x cuda-nvcc-11-0_11.0.167-1_ppc64el.deb nvcc && \
