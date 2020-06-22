@@ -126,7 +126,7 @@ target_link_libraries(${SHARED_TARGET}
     ${CUDART_LIB}
     ${CUDNN_LIB}
     nvinfer
-		${CMAKE_DL_LIBS}
+    ${CMAKE_DL_LIBS}
 )
 
 ################################## STATIC LIBRARY #######################################

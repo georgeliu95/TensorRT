@@ -53,7 +53,7 @@ RUN cd /usr/local/bin &&\
     ln -s /usr/bin/python3 python &&\
     ln -s /usr/bin/pip3 pip
  	RUN cd /tmp && \
-		  wget https://github.com/Kitware/CMake/releases/download/v3.14.4/cmake-3.14.4-Linux-x86_64.sh && \
+      wget https://github.com/Kitware/CMake/releases/download/v3.14.4/cmake-3.14.4-Linux-x86_64.sh && \
 			chmod +x cmake-3.14.4-Linux-x86_64.sh && \
 	    ./cmake-3.14.4-Linux-x86_64.sh --prefix=/usr/local --exclude-subdir --skip-license && \
 	    rm ./cmake-3.14.4-Linux-x86_64.sh
@@ -73,7 +73,7 @@ RUN	 wget http://cuda-repo/release-candidates/Libraries/cuDNN/v8.0/8.0.2.5_20200
 # Unpack Cublas
 RUN dpkg -x libcublas-11-0_11.0.0.191-1_ppc64el.deb cublas && \
     dpkg -x libcublas-dev-11-0_11.0.0.191-1_ppc64el.deb cublas && \
-		cp -r cublas/* /
+    cp -r cublas/* /
 
 # Unpack Cudart
 RUN dpkg -x cuda-cudart-11-0_11.0.171-1_ppc64el.deb cudart && \
