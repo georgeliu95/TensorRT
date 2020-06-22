@@ -233,6 +233,7 @@ As mentioned in the [Quick Start Guide](#quick-start-guide), two options are pro
     ```
 
 2. Build an engine:
+
     **Turing and Ampere GPUs**
     ```bash
     # QKVToContextPlugin and SkipLayerNormPlugin supported with INT8 I/O. To enable, use -imh and -iln builder flags respectively.
@@ -265,6 +266,7 @@ As mentioned in the [Quick Start Guide](#quick-start-guide), two options are pro
     ```
 
 2. Build an engine:
+
     **Turing and Ampere GPUs**
     ```bash
     # QKVToContextPlugin and SkipLayerNormPlugin supported with INT8 I/O. To enable, use -imh and -iln builder flags respectively.
