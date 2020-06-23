@@ -301,6 +301,11 @@ class Graph(object):
 
         # Next build a graph with just the constants, and evaluate - no need to evaluate constants
         outputs_to_evaluate = [tensor for tensor in graph_constants.values() if isinstance(tensor, Variable)]
+
+        if not outputs_to_evaluate:
+            G_LOGGER.warning("Could not find any operations in this graph that can be folded. This could mean that constant folding has already been run on this graph. Skipping.")
+            return self
+
         output_names = [out.name for out in outputs_to_evaluate]
 
         temp_graph.outputs = outputs_to_evaluate

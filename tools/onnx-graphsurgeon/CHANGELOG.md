@@ -2,6 +2,11 @@
 
 Dates are in YYYY-MM-DD format.
 
+## vNext
+
+### Fixed
+- `fold_constants()` will no longer fail if there is nothing to fold in the graph
+
 
 ## v0.2.3
 ### Added

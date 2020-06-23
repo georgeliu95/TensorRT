@@ -694,3 +694,20 @@ class TestGraph(object):
         assert graph.nodes[0].inputs[1] == e
         # Value should be computed correctly
         assert np.all(graph.nodes[0].inputs[1].values == np.ones(shape=(1, 3), dtype=np.float32) * 3)
+
+
+    def test_fold_constants_no_foldable_constants(self):
+        inp0 = Variable("input0", shape=(1, 3), dtype=np.float32)
+        inp1 = Variable("input1", shape=(1, 3), dtype=np.float32)
+        out = Variable("output", shape=(1, 3), dtype=np.float32)
+
+        nodes = [
+            Node("Add", inputs=[inp0, inp1], outputs=[out])
+        ]
+
+        graph = Graph(nodes=nodes, inputs=[inp0, inp1], outputs=[out])
+
+        graph.fold_constants().cleanup()
+
+        assert len(graph.nodes) == 1
+        assert graph.nodes[0].inputs == [inp0, inp1]
