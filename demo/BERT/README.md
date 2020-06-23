@@ -253,7 +253,7 @@ As mentioned in the [Quick Start Guide](#quick-start-guide), two options are pro
     python3 squad/evaluate-v1.1.py  squad/dev-v1.1.json  ./predictions.json 90
     ```
 ### Evaluating QAT (quantization aware training) Int8 Accuracy Using The SQuAD Dataset
-1.  Download ONNX checkpoints for a BERT Large FP16 SQuAD v1.1 model with a sequence length of 384:
+1.  Download checkpoint for BERT Large FP16 SQuAD v1.1 model with sequence length of 384:
     ```bash
     bash scripts/download_model.sh pyt v1_1
     ```
