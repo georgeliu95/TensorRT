@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-arg_dockerfile=docker/ubuntu
+arg_dockerfile=docker/ubuntu.Dockerfile
 arg_imagename=tensorrt-ubuntu
 arg_osversion=18.04
 arg_cudaversion=11.0
@@ -47,7 +47,7 @@ extra_args=""
 if [ "$arg_cudaversion" = "11.0" ]; then
     extra_args="$extra_args --build-arg NVCR_SUFFIX=-rc"
 fi
-docker_args="-f $arg_dockerfile.Dockerfile --build-arg OS_VERSION=$arg_osversion --build-arg CUDA_VERSION=$arg_cudaversion $extra_args --build-arg uid=$(id -u) --build-arg gid=$(id -g) --tag=$arg_imagename ."
+docker_args="-f $arg_dockerfile --build-arg OS_VERSION=$arg_osversion --build-arg CUDA_VERSION=$arg_cudaversion $extra_args --build-arg uid=$(id -u) --build-arg gid=$(id -g) --tag=$arg_imagename ."
 
 echo "Building container:"
 echo "> docker build $docker_args"
