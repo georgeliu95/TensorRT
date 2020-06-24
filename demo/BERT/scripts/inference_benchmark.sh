@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Usage: run_benchmark(batch_sizes, model_variant: (base/large), precision: (fp16/fp32), sequence_length, max_batch_size, gpu_arch)
+# Usage: run_benchmark(batch_sizes, model_variant: (base/large), precision: (int8/int8-qat/fp16/fp32), sequence_length, max_batch_size, gpu_arch)
 run_benchmark() {
 BATCH_SIZES="${1}"
 
