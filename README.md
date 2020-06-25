@@ -241,4 +241,5 @@ You should now have all expected files to build the container. Move these into t
 ## Known Issues
 
 #### TensorRT 7.1
+* [demo/BERT](demo/BERT) has a known accuracy regression for Volta GPUs; F1 score dropped (from 90 in TensorRT 7.0) to 85. A fix is underway.
 * See [Release Notes](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/tensorrt-7.html#rel_7-1-3).
