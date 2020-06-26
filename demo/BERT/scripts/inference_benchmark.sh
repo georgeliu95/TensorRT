@@ -70,11 +70,17 @@ if [ ! -f ${ENGINE_NAME} ]; then
 fi;
 
 if [ -f ${CUDAGRAPH_PERFBIN} ]; then
-    echo "Running benchmark with CUDA graph acceleration: perf ${BATCH_SIZES} -s ${SEQUENCE_LENGTH} -e ${ENGINE_NAME} -w 100 -i 1000 --enable_graph"
-    ${CUDAGRAPH_PERFBIN} ${BATCH_SIZES} -s ${SEQUENCE_LENGTH} -e ${ENGINE_NAME} -w 100 -i 1000 --enable_graph
+    if [ "${GPU_ARCH}" == "Ampere"]; then
+	# Use more iterations for faster GPUs
+	NUM_ITERATIONS=2000
+    else
+	NUM_ITERATIONS=1000
+    fi;
+    echo "Running benchmark with CUDA graph acceleration: perf ${BATCH_SIZES} -s ${SEQUENCE_LENGTH} -e ${ENGINE_NAME} -w 100 -i ${NUM_ITERATIONS} --enable_graph"
+    ${CUDAGRAPH_PERFBIN} ${BATCH_SIZES} -s ${SEQUENCE_LENGTH} -e ${ENGINE_NAME} -w 100 -i ${NUM_ITERATIONS} --enable_graph
 else
-    echo "Running benchmark: perf.py ${BATCH_SIZES} -s ${SEQUENCE_LENGTH} -e ${ENGINE_NAME}"
-    python3 perf.py ${BATCH_SIZES} -s ${SEQUENCE_LENGTH} -e ${ENGINE_NAME}
+    echo "Running benchmark: perf.py ${BATCH_SIZES} -s ${SEQUENCE_LENGTH} -e ${ENGINE_NAME} -w 100 -i ${NUM_ITERATIONS}"
+    python3 perf.py ${BATCH_SIZES} -s ${SEQUENCE_LENGTH} -e ${ENGINE_NAME} -w 100 -i ${NUM_ITERATIONS}
 fi;
 echo
 }
