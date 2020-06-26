@@ -17,7 +17,6 @@
 # Usage: run_benchmark(batch_sizes, model_variant: (base/large), precision: (int8/int8-qat/fp16/fp32), sequence_length, max_batch_size, gpu_arch)
 run_benchmark() {
 BATCH_SIZES="${1}"
-
 MODEL_VARIANT="${2}"
 PRECISION="${3}"
 SEQUENCE_LENGTH="${4}"
@@ -34,6 +33,7 @@ SQUAD_DIR="/workspace/TensorRT/demo/BERT/squad"
 ENGINE_NAME="/workspace/TensorRT/demo/BERT/engines/bert_${MODEL_VARIANT}_${PRECISION}_bs${MAX_BATCH}_seqlen${SEQUENCE_LENGTH}_benchmark.engine"
 # QAT Checkpoint - available only for BERT-Large
 QAT_CHECKPOINT="/workspace/TensorRT/demo/BERT/models/fine-tuned/bert_pyt_onnx_large_qa_squad11_amp_fake_quant_v1/bert_large_v1_1_fake_quant.onnx"
+CUDAGRAPH_PERFBIN="/workspace/TensorRT/demo/BERT/build/perf"
 
 echo "==== Benchmarking BERT ${MODEL_VARIANT} ${PRECISION} SEQLEN ${SEQUENCE_LENGTH} on ${GPU_ARCH} ===="
 if [ ! -f ${ENGINE_NAME} ]; then
@@ -69,7 +69,13 @@ if [ ! -f ${ENGINE_NAME} ]; then
     python3 builder.py ${BUILDER_ARGS}
 fi;
 
-python3 perf.py ${BATCH_SIZES} -s ${SEQUENCE_LENGTH} -e ${ENGINE_NAME}
+if [ ! -f ${CUDAGRAPH_PERFBIN} ]; then
+    echo "Running benchmark with CUDA graph acceleration: perf ${BATCH_SIZES} -s ${SEQUENCE_LENGTH} -e ${ENGINE_NAME} -w 100 -i 1000 --enable_graph"
+    ${CUDAGRAPH_PERFBIN} ${BATCH_SIZES} -s ${SEQUENCE_LENGTH} -e ${ENGINE_NAME} -w 100 -i 1000 --enable_graph
+else
+    echo "Running benchmark: perf.py ${BATCH_SIZES} -s ${SEQUENCE_LENGTH} -e ${ENGINE_NAME}"
+    python3 perf.py ${BATCH_SIZES} -s ${SEQUENCE_LENGTH} -e ${ENGINE_NAME}
+fi;
 echo
 }
 
