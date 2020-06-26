@@ -69,13 +69,14 @@ if [ ! -f ${ENGINE_NAME} ]; then
     python3 builder.py ${BUILDER_ARGS}
 fi;
 
+
+if [ "${GPU_ARCH}" == "Ampere"]; then
+    # Use more iterations for faster GPUs
+    NUM_ITERATIONS=2000
+else
+    NUM_ITERATIONS=1000
+fi;
 if [ -f ${CUDAGRAPH_PERFBIN} ]; then
-    if [ "${GPU_ARCH}" == "Ampere"]; then
-	# Use more iterations for faster GPUs
-	NUM_ITERATIONS=2000
-    else
-	NUM_ITERATIONS=1000
-    fi;
     echo "Running benchmark with CUDA graph acceleration: perf ${BATCH_SIZES} -s ${SEQUENCE_LENGTH} -e ${ENGINE_NAME} -w 100 -i ${NUM_ITERATIONS} --enable_graph"
     ${CUDAGRAPH_PERFBIN} ${BATCH_SIZES} -s ${SEQUENCE_LENGTH} -e ${ENGINE_NAME} -w 100 -i ${NUM_ITERATIONS} --enable_graph
 else
