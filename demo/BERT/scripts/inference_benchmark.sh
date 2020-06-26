@@ -70,7 +70,7 @@ if [ ! -f ${ENGINE_NAME} ]; then
 fi;
 
 
-if [ "${GPU_ARCH}" == "Ampere"]; then
+if [ "${GPU_ARCH}" == "Ampere" ]; then
     # Use more iterations for faster GPUs
     NUM_ITERATIONS=2000
 else
