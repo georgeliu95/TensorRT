@@ -69,7 +69,7 @@ if [ ! -f ${ENGINE_NAME} ]; then
     python3 builder.py ${BUILDER_ARGS}
 fi;
 
-if [ ! -f ${CUDAGRAPH_PERFBIN} ]; then
+if [ -f ${CUDAGRAPH_PERFBIN} ]; then
     echo "Running benchmark with CUDA graph acceleration: perf ${BATCH_SIZES} -s ${SEQUENCE_LENGTH} -e ${ENGINE_NAME} -w 100 -i 1000 --enable_graph"
     ${CUDAGRAPH_PERFBIN} ${BATCH_SIZES} -s ${SEQUENCE_LENGTH} -e ${ENGINE_NAME} -w 100 -i 1000 --enable_graph
 else
