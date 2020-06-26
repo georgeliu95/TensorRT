@@ -183,7 +183,7 @@ run_benchmark "-b 128" "base" "fp32" "384" "128" "${arg_gpu}"
 
 ## INT8-QAT
 # run_benchmark "-b 1 -b 2 -b 4 -b 8 -b 12 -b 16 -b 24 -b 32" "large" "int8-qat" "128" "32" "${arg_gpu}"
-irun_benchmark "-b 1" "large" "int8-qat" "128" "1" "${arg_gpu}"
+run_benchmark "-b 1" "large" "int8-qat" "128" "1" "${arg_gpu}"
 run_benchmark "-b 2" "large" "int8-qat" "128" "2" "${arg_gpu}"
 run_benchmark "-b 4" "large" "int8-qat" "128" "4" "${arg_gpu}"
 run_benchmark "-b 8" "large" "int8-qat" "128" "8" "${arg_gpu}"
