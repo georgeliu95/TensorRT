@@ -88,8 +88,8 @@ This demo BERT application can be run within the TensorRT Open Source build cont
 1. Build and launch the TensorRT-OSS build container. On x86 with Ubuntu 18.04 for example:
     ```bash
     cd <TensorRT-OSS>
-    docker build -f docker/ubuntu.Dockerfile --build-arg uid=$(id -u) --build-arg gid=$(id -g) --build-arg UBUNTU_VERSION=18.04 --build-arg CUDA_VERSION=11.0 --tag=tensorrt-ubuntu .
-    docker run --gpus all -v $TRT_RELEASE:/tensorrt -v $TRT_SOURCE:/workspace/TensorRT -it tensorrt-ubuntu:latest
+    ./docker/build.sh --file docker/ubuntu.Dockerfile --tag tensorrt-ubuntu --os 18.04 --cuda 11.0
+    ./docker/launch.sh --tag tensorrt-ubuntu --gpus all --release $TRT_RELEASE --source $TRT_SOURCE
     ```
 
     **Note:** After this point, all commands should be run from within the container.
