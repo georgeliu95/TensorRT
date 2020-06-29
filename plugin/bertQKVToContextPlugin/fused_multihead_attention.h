@@ -17,6 +17,7 @@
 #pragma once
 #include "cudaDriverWrapper.h"
 #include "cuda_runtime_api.h"
+#include <mutex>
 #include <assert.h>
 #include <stdint.h>
 #include <unordered_map>
@@ -161,7 +162,7 @@ static const struct FusedMultiHeadAttentionKernelMetaInfo
 
 struct FusedMultiHeadAttentionXMMAKernel
 {
-    uint64_t hashID(unsigned int s, unsigned int d) const
+    inline uint64_t hashID(unsigned int s, unsigned int d) const
     {
         return (uint64_t) s << 32 | d;
     }
@@ -208,7 +209,7 @@ struct FusedMultiHeadAttentionXMMAKernel
         return !mFunctions.empty();
     }
 
-    void run(Fused_multihead_attention_params& params, size_t s, size_t d, cudaStream_t ss)
+    void run(Fused_multihead_attention_params& params, size_t s, size_t d, cudaStream_t ss) const
     {
         const auto findIter = mFunctions.find(hashID(s, d));
         if (findIter != mFunctions.end())
@@ -220,6 +221,10 @@ struct FusedMultiHeadAttentionXMMAKernel
             cuErrCheck(mDriver.cuLaunchKernel(func, params.h, params.b, 1, kernelMeta.mThreadsPerCTA, 1, 1,
                            kernelMeta.mSharedMemBytes, ss, kernelParams, nullptr),
                 mDriver);
+        }
+        else
+        {
+            ASSERT(0);
         }
     }
 
@@ -235,4 +240,51 @@ struct FusedMultiHeadAttentionXMMAKernel
     };
     std::unordered_map<uint64_t, FusedMultiHeadAttentionKernelInfo> mFunctions;
 };
+
+
+class FusedMultiHeadAttentionXMMAKernelFactory
+{
+public:
+    ~FusedMultiHeadAttentionXMMAKernelFactory()
+    {
+        for (auto kernelPair : mKernels)
+        {
+            delete kernelPair.second;
+        }
+        mKernels.clear();
+    }
+
+    const FusedMultiHeadAttentionXMMAKernel* getXMMAKernels(Data_type type, unsigned int sm)
+    {
+        static std::mutex s_mutex;
+        std::lock_guard<std::mutex> lg(s_mutex);
+
+        const auto id = hashID(type, sm);
+        const auto findIter = mKernels.find(id);
+        if (findIter == mKernels.end())
+        {
+            const FusedMultiHeadAttentionXMMAKernel* newKernel = new FusedMultiHeadAttentionXMMAKernel{type, sm};
+            mKernels.insert(std::make_pair(id, newKernel));
+            return newKernel;
+        }
+        return findIter->second;
+    }
+
+    static FusedMultiHeadAttentionXMMAKernelFactory& Get()
+    {
+        static FusedMultiHeadAttentionXMMAKernelFactory s_factory;
+        return s_factory;
+    }
+
+private:
+    FusedMultiHeadAttentionXMMAKernelFactory(){}
+
+    inline uint64_t hashID(Data_type type, unsigned int sm) const
+    {
+        return (uint64_t) type << 32 | sm;
+    }
+
+    std::unordered_map<uint64_t, const FusedMultiHeadAttentionXMMAKernel*> mKernels;
+};
+
 } // namespace bert
