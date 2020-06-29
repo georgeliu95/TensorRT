@@ -574,7 +574,7 @@ public:
     mhaImpl(FusedMHARunnerFP16* interface)
         : interface(interface)
         , sm(interface->mSm)
-        , xmmaKernel(DATA_TYPE_FP16, sm)
+        , xmmaKernel(FusedMultiHeadAttentionXMMAKernelFactory::Get().getXMMAKernels(DATA_TYPE_FP16, sm))
     {
         memset(&params, 0, sizeof(params));
     }
@@ -644,21 +644,21 @@ public:
 
         params.o_ptr = output;
 
-        xmmaKernel.run(params, interface->mS, 64, stream);
+        xmmaKernel->run(params, interface->mS, 64, stream);
 
         CHECK(cudaPeekAtLastError());
     }
 
     bool isValid() const
     {
-        return xmmaKernel.isValid();
+        return xmmaKernel->isValid();
     }
 
 private:
     FusedMHARunnerFP16* interface;
     Fused_multihead_attention_params params;
     int sm;
-    FusedMultiHeadAttentionXMMAKernel xmmaKernel;
+    const FusedMultiHeadAttentionXMMAKernel* xmmaKernel;
     size_t xmmas_m;
     size_t xmmas_n;
     size_t threads_per_cta;
@@ -708,7 +708,7 @@ public:
     mhaImpl(FusedMHARunnerInt8* interface)
         : interface(interface)
         , sm(interface->mSm)
-        , xmmaKernel(DATA_TYPE_INT8, sm)
+        , xmmaKernel(FusedMultiHeadAttentionXMMAKernelFactory::Get().getXMMAKernels(DATA_TYPE_INT8, sm))
         , mDqProbs(interface->mDqProbs)
     {
         memset(&params, 0, sizeof(params));
@@ -783,14 +783,14 @@ public:
 
         params.o_ptr = output;
 
-        xmmaKernel.run(params, interface->mS, 64, stream);
+        xmmaKernel->run(params, interface->mS, 64, stream);
         CHECK(cudaPeekAtLastError());
 
     }
 
     bool isValid() const
     {
-        return xmmaKernel.isValid();
+        return xmmaKernel->isValid();
     }
 
 private:
@@ -799,7 +799,7 @@ private:
     FusedMHARunnerInt8* interface;
     Fused_multihead_attention_params params;
     int sm;
-    FusedMultiHeadAttentionXMMAKernel xmmaKernel;
+    const FusedMultiHeadAttentionXMMAKernel* xmmaKernel;
     size_t xmmas_m;
     size_t xmmas_n;
     size_t threads_per_cta;
