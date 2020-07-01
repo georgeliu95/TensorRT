@@ -574,7 +574,7 @@ public:
     mhaImpl(FusedMHARunnerFP16* interface)
         : interface(interface)
         , sm(interface->mSm)
-        , xmmaKernel(FusedMultiHeadAttentionXMMAKernelFactory::Get().getXMMAKernels(DATA_TYPE_FP16, sm))
+        , xmmaKernel(FusedMHAKernelFactory::Get().getXMMAKernels(DATA_TYPE_FP16, sm))
     {
         memset(&params, 0, sizeof(params));
     }
@@ -708,7 +708,7 @@ public:
     mhaImpl(FusedMHARunnerInt8* interface)
         : interface(interface)
         , sm(interface->mSm)
-        , xmmaKernel(FusedMultiHeadAttentionXMMAKernelFactory::Get().getXMMAKernels(DATA_TYPE_INT8, sm))
+        , xmmaKernel(FusedMHAKernelFactory::Get().getXMMAKernels(DATA_TYPE_INT8, sm))
         , mDqProbs(interface->mDqProbs)
     {
         memset(&params, 0, sizeof(params));
