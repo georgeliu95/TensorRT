@@ -108,15 +108,16 @@ This demo BERT application can be run within the TensorRT Open Source build cont
     **Note:** After this point, all commands should be run from within the container.
 
 2. Build the TensorRT Plugins library from source and install the TensorRT python bindings:
-   ```bash
-   cd $TRT_SOURCE
-   export LD_LIBRARY_PATH=`pwd`/build/out:$LD_LIBRARY_PATH:/tensorrt/lib
-   mkdir -p build && cd build
-   cmake .. -DTRT_LIB_DIR=$TRT_RELEASE/lib -DTRT_OUT_DIR=`pwd`/out
-   make -j$(nproc)
+    ```bash
+    cd $TRT_SOURCE
+    export LD_LIBRARY_PATH=`pwd`/build/out:$LD_LIBRARY_PATH:/tensorrt/lib
+    mkdir -p build && cd build
+    cmake .. -DTRT_LIB_DIR=$TRT_RELEASE/lib -DTRT_OUT_DIR=`pwd`/out
+    make -j$(nproc)
 
-   pip3 install /tensorrt/python/tensorrt-7.1*-cp36-none-linux_x86_64.whl
-   ```
+    pip3 install /tensorrt/python/tensorrt-7.1*-cp36-none-linux_x86_64.whl
+    ```
+    **Note:** While the workflow and Performance Data presented here are based on plugin library built from source, the BERT sample is also expected to work with pre-compiled libraries shipped with TensorRT releases.
 
 3. Download the SQuAD dataset and BERT checkpoints:
     ```bash
