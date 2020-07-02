@@ -15,8 +15,8 @@
  */
 
 #ifndef _MSC_VER
-#include <unistd.h>
 #include <sys/time.h>
+#include <unistd.h>
 #endif
 
 #include <assert.h>
@@ -449,7 +449,8 @@ bool SampleMaskRCNN::infer()
     auto tEnd = std::chrono::high_resolution_clock::now();
     float totalHost = std::chrono::duration<float, std::milli>(tEnd - tStart).count();
     sample::gLogInfo << "Run for 10 times with Batch Size " << mParams.batchSize << std::endl;
-    sample::gLogInfo << "Average inference time is " << (totalHost / 10) / mParams.batchSize << " ms/frame" << std::endl;
+    sample::gLogInfo << "Average inference time is " << (totalHost / 10) / mParams.batchSize << " ms/frame"
+                     << std::endl;
 
     if (!status)
     {
@@ -590,9 +591,9 @@ bool SampleMaskRCNN::verifyOutput(const samplesCommon::BufferManager& buffers)
             MaskRCNNUtils::addBBoxPPM(mOriginalPPMs[p], binfo[roi_id], resized_mask);
 
             sample::gLogInfo << "Detected " << MaskRCNNConfig::CLASS_NAMES[binfo[roi_id].label] << " in"
-                     << mOriginalPPMs[p].fileName << " with confidence " << binfo[roi_id].prob * 100.f
-                     << " and coordinates (" << binfo[roi_id].box.x1 << ", " << binfo[roi_id].box.y1 << ", "
-                     << binfo[roi_id].box.x2 << ", " << binfo[roi_id].box.y2 << ")" << std::endl;
+                             << mOriginalPPMs[p].fileName << " with confidence " << binfo[roi_id].prob * 100.f
+                             << " and coordinates (" << binfo[roi_id].box.x1 << ", " << binfo[roi_id].box.y1 << ", "
+                             << binfo[roi_id].box.x2 << ", " << binfo[roi_id].box.y2 << ")" << std::endl;
         }
         sample::gLogInfo << "The results are stored in current directory: " << std::to_string(p) + ".ppm" << std::endl;
         MaskRCNNUtils::writePPMFile(std::to_string(p) + ".ppm", mOriginalPPMs[p]);

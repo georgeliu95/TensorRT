@@ -19,8 +19,8 @@
 
 #include <iostream>
 
-#include "NvInfer.h"
 #include "NvCaffeParser.h"
+#include "NvInfer.h"
 #include "NvOnnxParser.h"
 #include "NvUffParser.h"
 
@@ -87,7 +87,8 @@ bool saveEngine(const nvinfer1::ICudaEngine& engine, const std::string& fileName
 //!
 //! \return Pointer to the engine created or nullptr if the creation failed
 //!
-TrtUniquePtr<nvinfer1::ICudaEngine> getEngine(const ModelOptions& model, const BuildOptions& build, const SystemOptions& sys, std::ostream& err);
+TrtUniquePtr<nvinfer1::ICudaEngine> getEngine(
+    const ModelOptions& model, const BuildOptions& build, const SystemOptions& sys, std::ostream& err);
 
 } // namespace sample
 

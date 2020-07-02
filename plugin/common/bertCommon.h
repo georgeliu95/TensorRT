@@ -24,6 +24,7 @@
 #include "NvInferRuntimeCommon.h"
 #include "cublas_v2.h"
 #include "cuda_fp16.h"
+#include "plugin.h"
 #include "pluginLogger.h"
 
 #include <algorithm>
@@ -34,28 +35,6 @@
 #include <vector>
 
 #define TRT_UNUSED (void)
-
-#define CHECK(status)                                                                                                  \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        auto ret = (status);                                                                                           \
-        if (ret != 0)                                                                                                  \
-        {                                                                                                              \
-            std::cerr << "Cuda failure: " << cudaGetErrorString(ret) << " (" << ret << ")" << std::endl;               \
-            abort();                                                                                                   \
-        }                                                                                                              \
-    } while (0)
-
-#define CHECK_CUBLAS(status)                                                                                           \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        auto ret = (status);                                                                                           \
-        if (ret != 0)                                                                                                  \
-        {                                                                                                              \
-            std::cerr << "CUBLAS failure: " << ret << std::endl;                                                       \
-            abort();                                                                                                   \
-        }                                                                                                              \
-    } while (0)
 
 using half = __half;
 
@@ -106,8 +85,8 @@ inline T* deserToDev(const char*& buffer, size_t nbElem)
 {
     void* dev{nullptr};
     const size_t len = sizeof(T) * nbElem;
-    CHECK(cudaMalloc(&dev, len));
-    CHECK(cudaMemcpy(dev, buffer, len, cudaMemcpyHostToDevice));
+    CUASSERT(cudaMalloc(&dev, len));
+    CUASSERT(cudaMemcpy(dev, buffer, len, cudaMemcpyHostToDevice));
 
     buffer += len;
     return static_cast<T*>(dev);
@@ -117,7 +96,7 @@ template <typename T>
 inline void serFromDev(char*& buffer, const T* data, size_t nbElem)
 {
     const size_t len = sizeof(T) * nbElem;
-    CHECK(cudaMemcpy(buffer, static_cast<const void*>(data), len, cudaMemcpyDeviceToHost));
+    CUASSERT(cudaMemcpy(buffer, static_cast<const void*>(data), len, cudaMemcpyDeviceToHost));
     buffer += len;
 }
 
@@ -126,8 +105,8 @@ inline T* devToDev(const T* data, size_t nbElem)
 {
     void* dev{nullptr};
     const size_t len = sizeof(T) * nbElem;
-    CHECK(cudaMalloc(&dev, len));
-    CHECK(cudaMemcpy(dev, static_cast<const void*>(data), len, cudaMemcpyDeviceToDevice));
+    CUASSERT(cudaMalloc(&dev, len));
+    CUASSERT(cudaMemcpy(dev, static_cast<const void*>(data), len, cudaMemcpyDeviceToDevice));
     return static_cast<T*>(dev);
 }
 
@@ -229,7 +208,7 @@ struct CudaDeleter
 {
     void operator()(T* buf)
     {
-        CHECK(cudaFree(buf));
+        CUASSERT(cudaFree(buf));
     }
 };
 
@@ -340,8 +319,8 @@ inline void copyToDevice(WeightsWithOwnership& hostWeights, size_t nbBytes, cuda
     if (hostWeights.values)
     {
         void* cudaMem{nullptr};
-        CHECK(cudaMalloc(&cudaMem, nbBytes));
-        CHECK(cudaMemcpy(cudaMem, hostWeights.values, nbBytes, cudaMemcpyHostToDevice));
+        CUASSERT(cudaMalloc(&cudaMem, nbBytes));
+        CUASSERT(cudaMemcpy(cudaMem, hostWeights.values, nbBytes, cudaMemcpyHostToDevice));
         cudaWeights.reset(static_cast<T*>(cudaMem));
     }
 }
@@ -354,7 +333,7 @@ inline void convertAndCopyToDevice(const nvinfer1::Weights& src, float* destDev)
     if (src.type == nvinfer1::DataType::kFLOAT)
     {
         gLogVerbose << "Float Weights(Host) => Float Array(Device)" << std::endl;
-        CHECK(cudaMemcpy(destDev, src.values, nbBytes, cudaMemcpyHostToDevice));
+        CUASSERT(cudaMemcpy(destDev, src.values, nbBytes, cudaMemcpyHostToDevice));
     }
     else
     {
@@ -367,7 +346,7 @@ inline void convertAndCopyToDevice(const nvinfer1::Weights& src, float* destDev)
             tmp[it] = __half2float(values[it]);
         }
 
-        CHECK(cudaMemcpy(destDev, &tmp[0], nbBytes, cudaMemcpyHostToDevice));
+        CUASSERT(cudaMemcpy(destDev, &tmp[0], nbBytes, cudaMemcpyHostToDevice));
     }
 }
 
@@ -378,7 +357,7 @@ inline void convertAndCopyToDevice(const nvinfer1::Weights& src, half* destDev)
     if (src.type == nvinfer1::DataType::kHALF)
     {
         gLogVerbose << "Half Weights(Host) => Half Array(Device)" << std::endl;
-        CHECK(cudaMemcpy(destDev, src.values, nbBytes, cudaMemcpyHostToDevice));
+        CUASSERT(cudaMemcpy(destDev, src.values, nbBytes, cudaMemcpyHostToDevice));
     }
     else
     {
@@ -390,7 +369,7 @@ inline void convertAndCopyToDevice(const nvinfer1::Weights& src, half* destDev)
         {
             tmp[it] = __float2half(values[it]);
         }
-        CHECK(cudaMemcpy(destDev, &tmp[0], nbBytes, cudaMemcpyHostToDevice));
+        CUASSERT(cudaMemcpy(destDev, &tmp[0], nbBytes, cudaMemcpyHostToDevice));
     }
 }
 
@@ -398,19 +377,23 @@ inline nvinfer1::DataType fieldTypeToDataType(const nvinfer1::PluginFieldType ft
 {
     switch (ftype)
     {
-    case nvinfer1::PluginFieldType::kFLOAT32: {
+    case nvinfer1::PluginFieldType::kFLOAT32:
+    {
         gLogVerbose << "PluginFieldType is Float32" << std::endl;
         return nvinfer1::DataType::kFLOAT;
     }
-    case nvinfer1::PluginFieldType::kFLOAT16: {
+    case nvinfer1::PluginFieldType::kFLOAT16:
+    {
         gLogVerbose << "PluginFieldType is Float16" << std::endl;
         return nvinfer1::DataType::kHALF;
     }
-    case nvinfer1::PluginFieldType::kINT32: {
+    case nvinfer1::PluginFieldType::kINT32:
+    {
         gLogVerbose << "PluginFieldType is Int32" << std::endl;
         return nvinfer1::DataType::kINT32;
     }
-    case nvinfer1::PluginFieldType::kINT8: {
+    case nvinfer1::PluginFieldType::kINT8:
+    {
         gLogVerbose << "PluginFieldType is Int8" << std::endl;
         return nvinfer1::DataType::kINT8;
     }

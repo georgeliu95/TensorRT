@@ -33,7 +33,8 @@ class PriorBox : public IPluginV2Ext
 public:
     PriorBox(PriorBoxParameters param);
 
-    PriorBox(PriorBoxParameters param, int H, int W);
+    PriorBox(
+        PriorBoxParameters param, int numPriors, int H, int W, Weights minSize, Weights maxSize, Weights aspectRatios);
 
     PriorBox(const void* buffer, size_t length);
 
@@ -91,6 +92,7 @@ private:
     Weights deserializeToDevice(const char*& hostBuffer, size_t count);
 
     PriorBoxParameters mParam;
+    bool mOwnsParamMemory;
     int numPriors, H, W;
     Weights minSize, maxSize, aspectRatios; // not learnable weights
     std::string mPluginNamespace;
@@ -114,19 +116,8 @@ public:
     IPluginV2Ext* deserializePlugin(const char* name, const void* serialData, size_t serialLength) override;
 
 private:
-    template <typename T>
-    T* allocMemory(int size = 1)
-    {
-        mTmpAllocs.reserve(mTmpAllocs.size() + 1);
-        T* tmpMem = static_cast<T*>(malloc(sizeof(T) * size));
-        mTmpAllocs.push_back(tmpMem);
-        return tmpMem;
-    }
-
-private:
     static PluginFieldCollection mFC;
     static std::vector<PluginField> mPluginAttributes;
-    std::vector<void*> mTmpAllocs;
 };
 } // namespace plugin
 } // namespace nvinfer1

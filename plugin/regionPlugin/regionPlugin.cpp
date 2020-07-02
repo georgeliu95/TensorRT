@@ -377,9 +377,7 @@ int Region::initialize()
     return STATUS_SUCCESS;
 }
 
-void Region::terminate()
-{
-}
+void Region::terminate() {}
 
 const char* Region::getPluginType() const
 {

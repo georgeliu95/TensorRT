@@ -218,7 +218,7 @@ TRTParsedArgs parseArgs(int argc, const char* const* argv, const std::vector<TRT
             if (nextArg.size() >= 1 && nextArg[0] == '-')
             {
                 sample::gLogWarning << "Warning: Using '" << nextArg << "' as a value for '" << argStr
-                            << "', Should this be its own flag?" << std::endl;
+                                    << "', Should this be its own flag?" << std::endl;
             }
 
             parsedArgs.values[idx].second.push_back(nextArg);

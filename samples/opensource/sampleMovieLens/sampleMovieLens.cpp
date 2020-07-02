@@ -458,14 +458,15 @@ bool SampleMovieLens::teardown()
 void SampleMovieLens::printOutputParams(OutputParams& outParams)
 {
     sample::gLogVerbose << "User Id                            :   " << outParams.userId << std::endl;
-    sample::gLogVerbose << "Expected Predicted Max Rating Item :   " << outParams.expectedPredictedMaxRatingItem << std::endl;
+    sample::gLogVerbose << "Expected Predicted Max Rating Item :   " << outParams.expectedPredictedMaxRatingItem
+                        << std::endl;
     sample::gLogVerbose << "Expected Predicted Max Rating Prob :   " << outParams.expectedPredictedMaxRatingItemProb
-                << std::endl;
+                        << std::endl;
     sample::gLogVerbose << "Total TopK Items : " << outParams.itemProbPairVec.size() << std::endl;
     for (unsigned int i = 0; i < outParams.itemProbPairVec.size(); ++i)
     {
         sample::gLogVerbose << outParams.itemProbPairVec.at(i).first << " : " << outParams.itemProbPairVec.at(i).second
-                    << std::endl;
+                            << std::endl;
     }
 }
 
@@ -499,8 +500,8 @@ bool SampleMovieLens::verifyOutput(
             float expectedProb = mParams.userToExpectedItemProbMap.at(userIdx).at(k).second;
             int predictedItem = mParams.userToItemsMap.at(userIdx).at(predictedIdx);
             sample::gLogVerbose << "|" << std::setw(10) << userIdx << " | " << std::setw(10) << predictedItem << " | "
-                        << std::setw(15) << expectedProb << " | " << std::setw(15) << predictedProb << " | "
-                        << std::endl;
+                                << std::setw(15) << expectedProb << " | " << std::setw(15) << predictedProb << " | "
+                                << std::endl;
         }
     }
 
@@ -510,8 +511,9 @@ bool SampleMovieLens::verifyOutput(
         int maxPredictedIdx = topKItemNumber[i * mParams.topKMovies];
         int maxExpectedItem = mParams.userToExpectedItemProbMap.at(userIdx).at(0).first;
         int maxPredictedItem = mParams.userToItemsMap.at(userIdx).at(maxPredictedIdx);
-        sample::gLogInfo << "| User :" << std::setw(4) << userIdx << "  |  Expected Item :" << std::setw(5) << maxExpectedItem
-                 << "  |  Predicted Item :" << std::setw(5) << maxPredictedItem << " | " << std::endl;
+        sample::gLogInfo << "| User :" << std::setw(4) << userIdx << "  |  Expected Item :" << std::setw(5)
+                         << maxExpectedItem << "  |  Predicted Item :" << std::setw(5) << maxPredictedItem << " | "
+                         << std::endl;
     }
 
     return pass;

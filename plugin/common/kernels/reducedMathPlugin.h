@@ -15,12 +15,12 @@
  */
 #ifndef _REDUCED_MATH_PLUGIN_H
 #define _REDUCED_MATH_PLUGIN_H
-//Dynamically strength-reduced div and mod
+// Dynamically strength-reduced div and mod
 //
-//Ideas taken from Sean Baxter's MGPU library.
-//These classes provide for reduced complexity division and modulus
-//on integers, for the case where the same divisor or modulus will
-//be used repeatedly.
+// Ideas taken from Sean Baxter's MGPU library.
+// These classes provide for reduced complexity division and modulus
+// on integers, for the case where the same divisor or modulus will
+// be used repeatedly.
 
 namespace nvinfer1
 {
@@ -48,20 +48,18 @@ __host__ __device__ inline int div_up(int a, int b)
     return (a - 1) / b + 1;
 }
 
-} //end namespace detail
+} // end namespace detail
 
 class reduced_divisor
 {
 public:
     reduced_divisor() {}
-    __host__ __forceinline__
-    reduced_divisor(int _y)
+    __host__ __forceinline__ reduced_divisor(int _y)
         : y(_y)
     {
         detail::find_divisor(y, mul_coeff, shift_coeff);
     }
-    __host__ __device__ __forceinline__
-    reduced_divisor(unsigned _mul_coeff, unsigned _shift_coeff, int _y)
+    __host__ __device__ __forceinline__ reduced_divisor(unsigned _mul_coeff, unsigned _shift_coeff, int _y)
         : mul_coeff(_mul_coeff)
         , shift_coeff(_shift_coeff)
         , y(_y)

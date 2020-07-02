@@ -14,17 +14,15 @@
  * limitations under the License.
  */
 
-
 #ifndef TRT_COORDCONV_PLUGIN_H
 #define TRT_COORDCONV_PLUGIN_H
 
 #include "NvInferPlugin.h"
-#include <cuda_runtime.h>
 #include "kernel.h"
 #include "plugin.h"
+#include <cuda_runtime.h>
 #include <string>
 #include <vector>
-
 
 namespace nvinfer1
 {
@@ -35,7 +33,7 @@ class CoordConvACPlugin : public IPluginV2Ext
 {
 public:
     CoordConvACPlugin();
-    
+
     CoordConvACPlugin(DataType iType, int iC, int iH, int iW, int oC, int oH, int oW);
 
     CoordConvACPlugin(const void* data, size_t length);

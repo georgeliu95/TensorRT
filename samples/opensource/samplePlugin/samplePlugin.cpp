@@ -281,7 +281,8 @@ bool SamplePlugin::infer()
     // The output correctness is not used to determine the test result.
     if (!outputCorrect && mParams.dlaCore != -1)
     {
-        sample::gLogInfo << "Warning: infer result is not correct. It maybe caused by dummy scales in INT8 mode." << std::endl;
+        sample::gLogInfo << "Warning: infer result is not correct. It maybe caused by dummy scales in INT8 mode."
+                         << std::endl;
     }
 
     return true;

@@ -17,13 +17,15 @@
 #ifndef TRT_SAMPLE_UTILS_H
 #define TRT_SAMPLE_UTILS_H
 
+#include <fstream>
 #include <iostream>
 #include <memory>
-#include <fstream>
-#include <random>
 #include <numeric>
+#include <random>
 #include <unordered_map>
 #include <vector>
+
+#include <cuda.h>
 #if CUDA_VERSION < 10000
 #include <half.h>
 #else
@@ -32,14 +34,17 @@
 
 #include "NvInfer.h"
 
-#include "sampleDevice.h"
 #include "logger.h"
+#include "sampleDevice.h"
 
 namespace sample
 {
 
 template <typename T>
-inline T roundUp(T m, T n) { return ((m + n - 1) / n) * n; }
+inline T roundUp(T m, T n)
+{
+    return ((m + n - 1) / n) * n;
+}
 
 inline int volume(const nvinfer1::Dims& d)
 {
@@ -55,8 +60,7 @@ inline int volume(nvinfer1::Dims dims, int vecDim, int comps, int batch)
     return volume(dims) * std::max(batch, 1);
 }
 
-inline
-std::ostream& operator<<(std::ostream& os, const nvinfer1::Dims& dims)
+inline std::ostream& operator<<(std::ostream& os, const nvinfer1::Dims& dims)
 {
     for (int i = 0; i < dims.nbDims; ++i)
     {
@@ -65,8 +69,7 @@ std::ostream& operator<<(std::ostream& os, const nvinfer1::Dims& dims)
     return os;
 }
 
-inline
-std::ostream& operator<<(std::ostream& os, const std::vector<int>& vec)
+inline std::ostream& operator<<(std::ostream& os, const std::vector<int>& vec)
 {
     for (int i = 0, e = static_cast<int>(vec.size()); i < e; ++i)
     {
@@ -75,8 +78,7 @@ std::ostream& operator<<(std::ostream& os, const std::vector<int>& vec)
     return os;
 }
 
-inline 
-nvinfer1::Dims toDims(const std::vector<int>& vec)
+inline nvinfer1::Dims toDims(const std::vector<int>& vec)
 {
     int limit = static_cast<int>(nvinfer1::Dims::MAX_DIMS);
     if (static_cast<int>(vec.size()) > limit)
@@ -162,7 +164,7 @@ struct Binding
 
     void fill(const std::string& fileName)
     {
-        std::ifstream file(fileName, std::ios::in|std::ios::binary);
+        std::ifstream file(fileName, std::ios::in | std::ios::binary);
         if (file.is_open())
         {
             file.read(static_cast<char*>(buffer.getHostBuffer()), buffer.getSize());
@@ -194,10 +196,10 @@ struct Binding
             fillBuffer<float>(buffer.getHostBuffer(), volume, -1.0, 1.0);
             break;
         }
-        case nvinfer1::DataType::kHALF:
-        {
+        case nvinfer1::DataType::kHALF: {
 #if CUDA_VERSION < 10000
-            fillBuffer<half_float::half>(buffer.getHostBuffer(), volume, static_cast<half_float::half>(-1.0), static_cast<half_float::half>(-1.0));
+            fillBuffer<half_float::half>(buffer.getHostBuffer(), volume, static_cast<half_float::half>(-1.0),
+                static_cast<half_float::half>(-1.0));
 #else
             fillBuffer<__half>(buffer.getHostBuffer(), volume, -1.0, 1.0);
 #endif
@@ -230,8 +232,7 @@ struct Binding
             dumpBuffer<float>(buffer.getHostBuffer(), volume, separator, os);
             break;
         }
-        case nvinfer1::DataType::kHALF:
-        {
+        case nvinfer1::DataType::kHALF: {
 #if CUDA_VERSION < 10000
             dumpBuffer<half_float::half>(buffer.getHostBuffer(), volume, separator, os);
 #else
@@ -241,23 +242,22 @@ struct Binding
         }
         }
     }
-
 };
 
 class Bindings
 {
 public:
-
-    void addBinding(int b, const std::string& name, bool isInput, int volume, nvinfer1::DataType dataType, const std::string& fileName = "")
+    void addBinding(int b, const std::string& name, bool isInput, int volume, nvinfer1::DataType dataType,
+        const std::string& fileName = "")
     {
         while (mBindings.size() <= static_cast<size_t>(b))
         {
-             mBindings.emplace_back();
-             mDevicePointers.emplace_back();
+            mBindings.emplace_back();
+            mDevicePointers.emplace_back();
         }
         mNames[name] = b;
         mBindings[b].isInput = isInput;
-        mBindings[b].buffer.allocate(volume * dataTypeSize(dataType));
+        mBindings[b].buffer.allocate(static_cast<size_t>(volume) * static_cast<size_t>(dataTypeSize(dataType)));
         mBindings[b].volume = volume;
         mBindings[b].dataType = dataType;
         mDevicePointers[b] = mBindings[b].buffer.getDeviceBuffer();
@@ -274,7 +274,10 @@ public:
         }
     }
 
-    void** getDeviceBuffers() { return mDevicePointers.data(); }
+    void** getDeviceBuffers()
+    {
+        return mDevicePointers.data();
+    }
 
     void transferInputToDevice(TrtCudaStream& stream)
     {
@@ -338,7 +341,8 @@ public:
         dumpBindings(context, all, os);
     }
 
-    void dumpBindings(const nvinfer1::IExecutionContext& context, bool (*predicate)(const Binding& b), std::ostream& os) const
+    void dumpBindings(
+        const nvinfer1::IExecutionContext& context, bool (*predicate)(const Binding& b), std::ostream& os) const
     {
         for (const auto& n : mNames)
         {
@@ -387,7 +391,6 @@ public:
     }
 
 private:
-
     std::unordered_map<std::string, int> mNames;
     std::vector<Binding> mBindings;
     std::vector<void*> mDevicePointers;
@@ -396,10 +399,14 @@ private:
 template <typename T>
 struct TrtDestroyer
 {
-    void operator()(T* t) { t->destroy(); }
+    void operator()(T* t)
+    {
+        t->destroy();
+    }
 };
 
-template <typename T> using TrtUniquePtr = std::unique_ptr<T, TrtDestroyer<T> >;
+template <typename T>
+using TrtUniquePtr = std::unique_ptr<T, TrtDestroyer<T>>;
 
 } // namespace sample
 

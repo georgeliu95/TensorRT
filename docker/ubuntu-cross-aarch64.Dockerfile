@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_VERSION=10.0
-ARG UBUNTU_VERSION=18.04
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${UBUNTU_VERSION}
+ARG CUDA_VERSION=10.2
+ARG OS_VERSION=18.04
+ARG NVCR_SUFFIX=
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}${NVCR_SUFFIX}
 
 LABEL maintainer="NVIDIA CORPORATION"
 
@@ -24,6 +25,7 @@ RUN groupadd -r -f -g ${gid} trtuser && useradd -r -u ${uid} -g ${gid} -ms /bin/
 RUN usermod -aG sudo trtuser
 RUN echo 'trtuser:nvidia' | chpasswd
 RUN mkdir -p /workspace && chown trtuser /workspace
+
 # Install requried libraries
 RUN apt-get update && apt-get install -y software-properties-common
 RUN add-apt-repository ppa:ubuntu-toolchain-r/test
@@ -36,18 +38,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     python3-dev \
-    python3-setuptools \
     python3-wheel \
     sudo \
     ssh \
     pbzip2 \
     pv \
     bzip2 \
-    unzip
+    unzip \
+    build-essential
 
 RUN cd /usr/local/bin &&\
     ln -s /usr/bin/python3 python &&\
     ln -s /usr/bin/pip3 pip
+RUN pip3 install --upgrade pip
+RUN pip3 install setuptools>=41.0.0
 
 # Install Cmake
 RUN cd /tmp && \
@@ -56,6 +60,12 @@ RUN cd /tmp && \
     ./cmake-3.14.4-Linux-x86_64.sh --prefix=/usr/local --exclude-subdir --skip-license && \
     rm ./cmake-3.14.4-Linux-x86_64.sh
 
+# Install PyPI packages
+COPY requirements.txt /tmp/requirements.txt
+RUN pip3 install -r /tmp/requirements.txt
+
+# Download NGC client
+RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_bat_linux.zip && unzip ngccli_bat_linux.zip && chmod u+x ngc && rm ngccli_bat_linux.zip ngc.md5 && echo "no-apikey\nascii\nno-org\nno-team\nno-ace\n" | ngc config set
 
 COPY docker/jetpack_files /pdk_files
 COPY scripts/stubify.sh /pdk_files
@@ -78,7 +88,6 @@ RUN  dpkg -x /pdk_files/libcudnn[7-8]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/cudn
     && ln -s /pdk_files/cudnn/usr/include/aarch64-linux-gnu/cudnn_v[7-9].h /usr/include/cudnn.h
 
 # Unpack libnvinfer
-#
 RUN dpkg -x /pdk_files/libnvinfer[0-7]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
     && dpkg -x /pdk_files/libnvinfer-dev_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \
     && dpkg -x /pdk_files/libnvparsers[6-7]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/tensorrt \

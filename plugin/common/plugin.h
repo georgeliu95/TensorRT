@@ -18,11 +18,10 @@
 #include "NvInferPlugin.h"
 #include <cuda_runtime.h>
 #include <iostream>
-#include <sstream>
 #include <memory>
+#include <sstream>
 #include <string>
 
-#ifndef TRT_LEGACY_PLUGIN_H
 // Enumerator for status
 typedef enum
 {
@@ -76,8 +75,7 @@ T read(const char*& buffer)
 } // namespace nvinfer1
 
 #ifndef DEBUG
-#ifndef TRT_CHECK_MACROS_H
-#ifndef TRT_TUT_HELPERS_H
+#ifndef CHECK_MACROS_PLUGIN_H
 #define ASSERT(assertion)                                                                                              \
     {                                                                                                                  \
         if (!(assertion))                                                                                              \
@@ -197,9 +195,7 @@ T read(const char*& buffer)
         printf(__VA_ARGS__);                                                                                           \
     } while (0)
 
-#endif // TRT_TUT_HELPERS_H
-#endif // TRT_CHECK_MACROS_H
-#endif // TRT_LEGACY_PLUGIN_H
+#endif // CHECK_MACROS_H
 #endif
 
 #endif // TRT_PLUGIN_H

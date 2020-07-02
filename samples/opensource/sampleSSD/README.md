@@ -240,7 +240,7 @@ Due to the size of the SSD Caffe model, it is not included in the product bundle
         ```sh
         tar xvf models_VGGNet_VOC0712_SSD_300x300.tar.gz
         cp models/VGGNet/VOC0712/SSD_300x300/VGG_VOC0712_SSD_300x300_iter_120000.caffemodel <TensorRT root directory>/data/ssd
-        cp models/VGGNet/VOC0712/SSD_300x300/test.prototxt <TensorRT root directory>/data/ssd/ssd.prototxt
+        cp models/VGGNet/VOC0712/SSD_300x300/deploy.prototxt <TensorRT root directory>/data/ssd/ssd.prototxt
         ```
     4.  In `ssd.prototxt`, change all `Flatten` layers to `Reshape` operations (e.g. `type:Reshape`) as TensorRT enables `Flatten` by `Reshape`, and add `reshape_param` (like below) to each of them:
         ```
@@ -257,7 +257,7 @@ Due to the size of the SSD Caffe model, it is not included in the product bundle
 
 4.  Generate the INT8 calibration batches. The script selects 500 random JPEG images from the PASCAL VOC dataset and converts them to PPM images. These 500 PPM images are used to generate INT8 calibration batches.
     ```sh
-    <TensorRT root directory>/samples/sampleSSD/prepareINT8CalibrationBatches.sh
+    <TensorRT root directory>/samples/sampleSSD/PrepareINT8CalibrationBatches.sh
     ```
     **Note:** Do not move the batch files from the `<TensorRT root directory>/data/ssd/batches` directory.
 

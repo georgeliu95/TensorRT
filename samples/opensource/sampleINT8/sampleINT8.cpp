@@ -245,8 +245,9 @@ bool SampleINT8::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
         samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
         if (mParams.batchSize > builder->getMaxDLABatchSize())
         {
-            sample::gLogError << "Requested batch size " << mParams.batchSize << " is greater than the max DLA batch size of "
-                      << builder->getMaxDLABatchSize() << ". Reducing batch size accordingly." << std::endl;
+            sample::gLogError << "Requested batch size " << mParams.batchSize
+                              << " is greater than the max DLA batch size of " << builder->getMaxDLABatchSize()
+                              << ". Reducing batch size accordingly." << std::endl;
             return false;
         }
     }
@@ -280,8 +281,8 @@ bool SampleINT8::infer(std::vector<float>& score, int firstScoreBatch, int nbSco
         return false;
     }
 
-    MNISTBatchStream batchStream(
-        mParams.batchSize, nbScoreBatches + firstScoreBatch, "train-images-idx3-ubyte", "train-labels-idx1-ubyte", mParams.dataDirs);
+    MNISTBatchStream batchStream(mParams.batchSize, nbScoreBatches + firstScoreBatch, "train-images-idx3-ubyte",
+        "train-labels-idx1-ubyte", mParams.dataDirs);
     batchStream.skip(firstScoreBatch);
 
     Dims outputDims = context->getEngine().getBindingDimensions(
@@ -345,7 +346,7 @@ bool SampleINT8::infer(std::vector<float>& score, int firstScoreBatch, int nbSco
 
     sample::gLogInfo << "Top1: " << score[0] << ", Top5: " << score[1] << std::endl;
     sample::gLogInfo << "Processing " << imagesRead << " images averaged " << totalTime / imagesRead << " ms/image and "
-             << totalTime / batchStream.getBatchesRead() << " ms/batch." << std::endl;
+                     << totalTime / batchStream.getBatchesRead() << " ms/batch." << std::endl;
 
     return true;
 }
@@ -507,18 +508,18 @@ int main(int argc, char** argv)
     std::vector<std::string> dataTypeNames = {"FP32", "FP16", "INT8"};
     std::vector<std::string> topNames = {"Top1", "Top5"};
     std::vector<DataType> dataTypes = {DataType::kFLOAT, DataType::kHALF, DataType::kINT8};
-    std::vector<std::vector<float> > scores(3, std::vector<float>(2, 0.0f));
+    std::vector<std::vector<float>> scores(3, std::vector<float>(2, 0.0f));
     for (size_t i = 0; i < dataTypes.size(); i++)
     {
-        sample::gLogInfo << dataTypeNames[i] << " run:" << nbScoreBatches << " batches of size " << batchSize << " starting at "
-                 << firstScoreBatch << std::endl;
+        sample::gLogInfo << dataTypeNames[i] << " run:" << nbScoreBatches << " batches of size " << batchSize
+                         << " starting at " << firstScoreBatch << std::endl;
 
         if (!sample.build(dataTypes[i]))
         {
             if (!sample.isSupported(dataTypes[i]))
             {
-                sample::gLogWarning << "Skipping " << dataTypeNames[i] << " since the platform does not support this data type."
-                            << std::endl;
+                sample::gLogWarning << "Skipping " << dataTypeNames[i]
+                                    << " since the platform does not support this data type." << std::endl;
                 continue;
             }
             return sample::gLogger.reportFail(sampleTest);
@@ -535,20 +536,20 @@ int main(int argc, char** argv)
 
     if ((scores[0][0] < goldenMNIST) || (scores[0][1] < goldenMNIST))
     {
-        sample::gLogError << "FP32 accuracy is less than 99%: Top1 = " << scores[0][0] 
-                  << ", Top5 = " << scores[0][1] << "." << std::endl;
+        sample::gLogError << "FP32 accuracy is less than 99%: Top1 = " << scores[0][0] << ", Top5 = " << scores[0][1]
+                          << "." << std::endl;
         return sample::gLogger.reportFail(sampleTest);
     }
-    
+
     for (unsigned i = 0; i < topNames.size(); i++)
     {
         for (unsigned j = 1; j < dataTypes.size(); j++)
         {
             if (scores[j][i] != 0.0f && !isApproximatelyEqual(scores[0][i], scores[j][i], tolerance))
             {
-                sample::gLogError << "FP32(" << scores[0][i] << ") and " 
-                    << dataTypeNames[j] << "(" << scores[j][i]
-                    << ") " << topNames[i] << " accuracy differ by more than " << tolerance << "." << std::endl;
+                sample::gLogError << "FP32(" << scores[0][i] << ") and " << dataTypeNames[j] << "(" << scores[j][i]
+                                  << ") " << topNames[i] << " accuracy differ by more than " << tolerance << "."
+                                  << std::endl;
                 return sample::gLogger.reportFail(sampleTest);
             }
         }

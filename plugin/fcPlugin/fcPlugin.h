@@ -383,7 +383,7 @@ inline cublasLtMatmulAlgo_t gemmSearch(
     void* workspace;
     CHECK(cudaMalloc(&workspace, workspaceSize));
     cublasLtHandle_t lt;
-    CHECK_CUBLAS(cublasLtCreate(&lt));
+    CUBLASASSERT(cublasLtCreate(&lt));
     LtGemmSearch(lt, g, workspace, workspaceSize, perfResults);
     cudaDeviceSynchronize();
     cublasLtDestroy(lt);
@@ -410,7 +410,7 @@ inline cublasLtMatmulAlgo_t gemmSearch(Gemm<T>& g, const size_t workspaceSize, s
     void* workspace;
     CHECK(cudaMalloc(&workspace, workspaceSize));
     cublasLtHandle_t lt;
-    CHECK_CUBLAS(cublasLtCreate(&lt));
+    CUBLASASSERT(cublasLtCreate(&lt));
     LtGemmSearch(lt, g, workspace, workspaceSize, perfResults);
     cudaDeviceSynchronize();
     cublasLtDestroy(lt);
@@ -490,13 +490,13 @@ private:
 
 protected:
     // To prevent compiler warnings.
-    using nvinfer1::IPluginV2DynamicExt::getOutputDimensions;
-    using nvinfer1::IPluginV2DynamicExt::isOutputBroadcastAcrossBatch;
     using nvinfer1::IPluginV2DynamicExt::canBroadcastInputAcrossBatch;
-    using nvinfer1::IPluginV2DynamicExt::supportsFormat;
     using nvinfer1::IPluginV2DynamicExt::configurePlugin;
-    using nvinfer1::IPluginV2DynamicExt::getWorkspaceSize;
     using nvinfer1::IPluginV2DynamicExt::enqueue;
+    using nvinfer1::IPluginV2DynamicExt::getOutputDimensions;
+    using nvinfer1::IPluginV2DynamicExt::getWorkspaceSize;
+    using nvinfer1::IPluginV2DynamicExt::isOutputBroadcastAcrossBatch;
+    using nvinfer1::IPluginV2DynamicExt::supportsFormat;
 };
 
 class FCPluginDynamicCreator : public nvinfer1::IPluginCreator

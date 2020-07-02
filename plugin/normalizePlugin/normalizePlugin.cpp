@@ -62,8 +62,8 @@ Normalize::Normalize(
 
 Normalize::Normalize(const void* buffer, size_t length)
 {
-    const char *d = static_cast<const char*>(buffer);
-    const char *a = d;
+    const char* d = static_cast<const char*>(buffer);
+    const char* a = d;
     C = read<int>(d);
     H = read<int>(d);
     W = read<int>(d);
@@ -96,9 +96,7 @@ int Normalize::initialize()
     return 0;
 }
 
-void Normalize::terminate()
-{
-}
+void Normalize::terminate() {}
 
 size_t Normalize::getWorkspaceSize(int maxBatchSize) const
 {

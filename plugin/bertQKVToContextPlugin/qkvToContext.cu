@@ -353,7 +353,7 @@ std::pair<int, int> tuneBatchedGemm(const int B, const int S, const int numHeads
         cudaEventRecord(start, stream);
         for (int r = 0; r < nruns; r++)
         {
-            CHECK_CUBLAS(cublasGemmStridedBatchedEx<T>(cublas, CUBLAS_OP_T, CUBLAS_OP_N, S, S, headSize, T(1.f), kptr,
+            CUBLASASSERT(cublasGemmStridedBatchedEx<T>(cublas, CUBLAS_OP_T, CUBLAS_OP_N, S, S, headSize, T(1.f), kptr,
                 ldQKV, strideQKV, qptr, ldQKV, strideQKV, T(0.f), qkptr, S, omatSize, numMats, algo));
         }
 
@@ -371,7 +371,7 @@ std::pair<int, int> tuneBatchedGemm(const int B, const int S, const int numHeads
         cudaEventRecord(start, stream);
         for (int r = 0; r < nruns; r++)
         {
-            CHECK_CUBLAS(cublasGemmStridedBatchedEx<T>(cublas, CUBLAS_OP_N, CUBLAS_OP_N, headSize, S, S, 1.f, vptr,
+            CUBLASASSERT(cublasGemmStridedBatchedEx<T>(cublas, CUBLAS_OP_N, CUBLAS_OP_N, headSize, S, S, 1.f, vptr,
                 ldQKV, strideQKV, qkptr, S, omatSize, 0.f, output, ldOut, strideOut, numMats, algo));
         }
 
@@ -429,12 +429,12 @@ UnfusedMHARunner::UnfusedMHARunner(const nvinfer1::DataType type, const int numH
     , mAlgoBatchedEx1(CUBLAS_GEMM_DEFAULT_TENSOR_OP)
     , mAlgoBatchedEx2(CUBLAS_GEMM_DEFAULT_TENSOR_OP)
 {
-    CHECK_CUBLAS(cublasCreate(&mCublas));
+    CUBLASASSERT(cublasCreate(&mCublas));
 }
 
 UnfusedMHARunner::~UnfusedMHARunner()
 {
-    CHECK_CUBLAS(cublasDestroy(mCublas));
+    CUBLASASSERT(cublasDestroy(mCublas));
 }
 
 size_t UnfusedMHARunner::getSerializationSize() const
@@ -470,7 +470,7 @@ void UnfusedMHARunner::setup(const int S, const int B)
 
 size_t UnfusedMHARunner::getWorkspaceSize() const
 {
-    return 2UL * mWordSize * mOmatSize * mNumMats * getElementSize(mType);
+    return 2UL * mWordSize * mOmatSize * mNumMats;
 }
 
 void UnfusedMHARunner::run(const PluginTensorDesc& inputDesc, const PluginTensorDesc& outputDesc, const void* qkvPtr,
@@ -495,7 +495,7 @@ void UnfusedMHARunner::run(const PluginTensorDesc& inputDesc, const PluginTensor
         half* pptr = qkptr + mOmatSize * mNumMats;
         half alpha = 1.f;
         half beta = 0.f;
-        CHECK_CUBLAS(::cublasGemmStridedBatchedEx(mCublas, CUBLAS_OP_T, CUBLAS_OP_N, mS, mS, mHeadSize, &alpha, kptr,
+        CUBLASASSERT(::cublasGemmStridedBatchedEx(mCublas, CUBLAS_OP_T, CUBLAS_OP_N, mS, mS, mHeadSize, &alpha, kptr,
             CUDA_R_16F, mLdQKV, mStrideQKV, qptr, CUDA_R_16F, mLdQKV, mStrideQKV, &beta, qkptr, CUDA_R_16F, mS,
             mOmatSize, mNumMats, CUDA_R_16F, static_cast<cublasGemmAlgo_t>(mAlgoBatchedEx1)));
 
@@ -510,7 +510,7 @@ void UnfusedMHARunner::run(const PluginTensorDesc& inputDesc, const PluginTensor
         }
 
         // compute P*V (as V*P)
-        CHECK_CUBLAS(cublasGemmStridedBatchedEx(mCublas, CUBLAS_OP_N, CUBLAS_OP_N, mHeadSize, mS, mS, &alpha, vptr,
+        CUBLASASSERT(cublasGemmStridedBatchedEx(mCublas, CUBLAS_OP_N, CUBLAS_OP_N, mHeadSize, mS, mS, &alpha, vptr,
             CUDA_R_16F, mLdQKV, mStrideQKV, pptr, CUDA_R_16F, mS, mOmatSize, &beta, output, CUDA_R_16F, mLdOut,
             mStrideOut, mNumMats, CUDA_R_16F, static_cast<cublasGemmAlgo_t>(mAlgoBatchedEx2)));
     }
@@ -523,7 +523,7 @@ void UnfusedMHARunner::run(const PluginTensorDesc& inputDesc, const PluginTensor
         float* qkptr = static_cast<float*>(workspace);
         float* pptr = qkptr + mOmatSize * mNumMats;
         float* outptr = static_cast<float*>(output);
-        CHECK_CUBLAS(cublasGemmStridedBatched<float>(mCublas, CUBLAS_OP_T, CUBLAS_OP_N, mS, mS, mHeadSize, 1.f, kptr,
+        CUBLASASSERT(cublasGemmStridedBatched<float>(mCublas, CUBLAS_OP_T, CUBLAS_OP_N, mS, mS, mHeadSize, 1.f, kptr,
             mLdQKV, mStrideQKV, qptr, mLdQKV, mStrideQKV, 0.f, qkptr, mS, mOmatSize, mNumMats));
 
         // apply softmax
@@ -536,9 +536,14 @@ void UnfusedMHARunner::run(const PluginTensorDesc& inputDesc, const PluginTensor
             computeScaledSoftmax<float>(stream, mS, mB, mNumHeads, mRsqrtHeadSize, qkptr, pptr);
         }
 
-        CHECK_CUBLAS(cublasGemmStridedBatched<float>(mCublas, CUBLAS_OP_N, CUBLAS_OP_N, mHeadSize, mS, mS, 1.f, vptr,
+        CUBLASASSERT(cublasGemmStridedBatched<float>(mCublas, CUBLAS_OP_N, CUBLAS_OP_N, mHeadSize, mS, mS, 1.f, vptr,
             mLdQKV, mStrideQKV, pptr, mS, mOmatSize, 0.f, outptr, mLdOut, mStrideOut, mNumMats));
     }
+}
+
+bool UnfusedMHARunner::isValid() const
+{
+    return mType != DataType::kINT8;
 }
 
 static inline void set_alpha(uint32_t& alpha, float norm, Data_type dtype)
@@ -569,8 +574,8 @@ public:
     mhaImpl(FusedMHARunnerFP16* interface)
         : interface(interface)
         , sm(interface->mSm)
+        , xmmaKernel(FusedMHAKernelFactory::Get().getXMMAKernels(DATA_TYPE_FP16, sm))
     {
-        assert((sm == kSM_AMPERE || sm == kSM_TURING) && "Unsupported architecture");
         memset(&params, 0, sizeof(params));
     }
 
@@ -639,15 +644,21 @@ public:
 
         params.o_ptr = output;
 
-        run_fused_multihead_attention(params, DATA_TYPE_FP16, interface->mS, 64, sm, stream);
+        xmmaKernel->run(params, interface->mS, 64, stream);
 
         CHECK(cudaPeekAtLastError());
+    }
+
+    bool isValid() const
+    {
+        return xmmaKernel->isValid();
     }
 
 private:
     FusedMHARunnerFP16* interface;
     Fused_multihead_attention_params params;
     int sm;
+    const FusedMultiHeadAttentionXMMAKernel* xmmaKernel;
     size_t xmmas_m;
     size_t xmmas_n;
     size_t threads_per_cta;
@@ -683,6 +694,11 @@ void FusedMHARunnerFP16::run(const PluginTensorDesc& inputDesc, const PluginTens
     pimpl->run(inputDesc, outputDesc, qkvPtr, maskPtr, output, workspace, stream);
 }
 
+bool FusedMHARunnerFP16::isValid() const
+{
+    return pimpl->isValid();
+}
+
 // Int8 starts here: TODO refactor the duplicate stuff
 
 class FusedMHARunnerInt8::mhaImpl
@@ -692,9 +708,9 @@ public:
     mhaImpl(FusedMHARunnerInt8* interface)
         : interface(interface)
         , sm(interface->mSm)
+        , xmmaKernel(FusedMHAKernelFactory::Get().getXMMAKernels(DATA_TYPE_INT8, sm))
         , mDqProbs(interface->mDqProbs)
     {
-        assert((sm == kSM_AMPERE || sm == kSM_TURING) && "Unsupported architecture");
         memset(&params, 0, sizeof(params));
 
     }
@@ -767,9 +783,14 @@ public:
 
         params.o_ptr = output;
 
-        run_fused_multihead_attention(params, DATA_TYPE_INT8, interface->mS, 64, sm, stream);
+        xmmaKernel->run(params, interface->mS, 64, stream);
         CHECK(cudaPeekAtLastError());
 
+    }
+
+    bool isValid() const
+    {
+        return xmmaKernel->isValid();
     }
 
 private:
@@ -778,6 +799,7 @@ private:
     FusedMHARunnerInt8* interface;
     Fused_multihead_attention_params params;
     int sm;
+    const FusedMultiHeadAttentionXMMAKernel* xmmaKernel;
     size_t xmmas_m;
     size_t xmmas_n;
     size_t threads_per_cta;
@@ -812,6 +834,11 @@ void FusedMHARunnerInt8::run(const PluginTensorDesc& inputDesc, const PluginTens
     const void* maskPtr, void* output, void* workspace, cudaStream_t stream)
 {
     pimpl->run(inputDesc, outputDesc,qkvPtr, maskPtr, output, workspace, stream);
+}
+
+bool FusedMHARunnerInt8::isValid() const
+{
+    return pimpl->isValid();
 }
 
 } // namespace bert

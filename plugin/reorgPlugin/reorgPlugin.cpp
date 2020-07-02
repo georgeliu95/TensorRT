@@ -25,10 +25,10 @@ PluginFieldCollection ReorgPluginCreator::mFC{};
 std::vector<PluginField> ReorgPluginCreator::mPluginAttributes;
 
 Reorg::Reorg(int C, int H, int W, int stride)
-    : C(C),
-      H(H),
-      W(W), 
-      stride(stride)
+    : C(C)
+    , H(H)
+    , W(W)
+    , stride(stride)
 {
 }
 

@@ -365,8 +365,8 @@ bool SampleFasterRCNN::verifyOutput(const samplesCommon::BufferManager& buffers)
                 const std::string storeName
                     = classes[c] + "-" + std::to_string(scores[idx * outputClsSize + c]) + ".ppm";
                 sample::gLogInfo << "Detected " << classes[c] << " in " << mPPMs[i].fileName << " with confidence "
-                         << scores[idx * outputClsSize + c] * 100.0f << "% "
-                         << " (Result stored in " << storeName << ")." << std::endl;
+                                 << scores[idx * outputClsSize + c] * 100.0f << "% "
+                                 << " (Result stored in " << storeName << ")." << std::endl;
 
                 const samplesCommon::BBox b{bbox[idx * outputBBoxSize + c * 4], bbox[idx * outputBBoxSize + c * 4 + 1],
                     bbox[idx * outputBBoxSize + c * 4 + 2], bbox[idx * outputBBoxSize + c * 4 + 3]};

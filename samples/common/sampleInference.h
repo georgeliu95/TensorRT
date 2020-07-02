@@ -17,15 +17,15 @@
 #ifndef TRT_SAMPLE_INFERENCE_H
 #define TRT_SAMPLE_INFERENCE_H
 
-#include <memory>
 #include <iostream>
-#include <vector>
+#include <memory>
 #include <string>
+#include <vector>
 
 #include "NvInfer.h"
 
-#include "sampleUtils.h"
 #include "sampleReporting.h"
+#include "sampleUtils.h"
 
 namespace sample
 {
@@ -46,7 +46,8 @@ bool setUpInference(InferenceEnvironment& iEnv, const InferenceOptions& inferenc
 //!
 //! \brief Run inference and collect timing
 //!
-void runInference(const InferenceOptions& inference, InferenceEnvironment& iEnv, int device, std::vector<InferenceTrace>& trace);
+void runInference(
+    const InferenceOptions& inference, InferenceEnvironment& iEnv, int device, std::vector<InferenceTrace>& trace);
 
 } // namespace sample
 

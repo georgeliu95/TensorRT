@@ -45,19 +45,19 @@ Specifically, this sample:
 The model file can be converted to a TensorRT network using the ONNX parser. The parser can be initialized with the
 network definition that the parser will write to and the logger object.
 
-`auto parser = nvonnxparser::createParser(*network, gLogger.getTRTLogger());`
+`auto parser = nvonnxparser::createParser(*network, sample::gLogger.getTRTLogger());`
 
 Plugins library needs to be added to the code to parse custom layers implemented as Plugins
 
-`initLibNvInferPlugins(&gLogger, "ONNXTRT_NAMESPACE");`
+`initLibNvInferPlugins(&sample::gLogger, "ONNXTRT_NAMESPACE");`
 
 The ONNX model file is then passed onto the parser along with the logging level
 
 ```
-if (!parser->parseFromFile(model_file, static_cast<int>(gLogger.getReportableSeverity())))
+if (!parser->parseFromFile(model_file, static_cast<int>(sample::gLogger.getReportableSeverity())))
 {
 	  string msg("failed to parse onnx file");
-	  gLogger->log(nvinfer1::ILogger::Severity::kERROR, msg.c_str());
+	  sample::gLogger->log(nvinfer1::ILogger::Severity::kERROR, msg.c_str());
 	  exit(EXIT_FAILURE);
 }
 ```
@@ -72,7 +72,7 @@ After the TensorRT network is constructed by parsing the model, the TensorRT eng
 ### Building the engine
 
 To build the engine, create the builder and pass a logger created for TensorRT which is used for reporting errors, warnings and informational messages in the network:
-`IBuilder* builder = createInferBuilder(gLogger);`
+`IBuilder* builder = createInferBuilder(sample::gLogger);`
 
 To build the engine from the generated TensorRT network, issue the following call:
 `nvinfer1::ICudaEngine* engine = builder->buildCudaEngine(*network);`

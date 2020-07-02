@@ -24,20 +24,23 @@ const int NUM_COORDCONV_CHANNELS = 2;
 
 namespace
 {
-const char* COORDCONV_AC_PLUGIN_VERSION{"001"};
-const char* COORDCONV_AC_PLUGIN_NAME{"CoordConvAC_TRT"};
+const char* COORDCONV_AC_PLUGIN_VERSION{"1"};
+const char* COORDCONV_AC_PLUGIN_NAME{"CoordConvAC"};
 } // namespace
 
 PluginFieldCollection CoordConvACPluginCreator::mFC{};
 std::vector<PluginField> CoordConvACPluginCreator::mPluginAttributes;
 
-CoordConvACPlugin::CoordConvACPlugin()
-{
-}
+CoordConvACPlugin::CoordConvACPlugin() {}
 
-CoordConvACPlugin::CoordConvACPlugin(nvinfer1::DataType iType, 
-        int iC, int iH, int iW, int oC, int oH, int oW)
-    : iType(iType), iC(iC), iH(iH), iW(iW), oC(oC), oH(oH), oW(oW)
+CoordConvACPlugin::CoordConvACPlugin(nvinfer1::DataType iType, int iC, int iH, int iW, int oC, int oH, int oW)
+    : iType(iType)
+    , iC(iC)
+    , iH(iH)
+    , iW(iW)
+    , oC(oC)
+    , oH(oH)
+    , oW(oW)
 {
 }
 
@@ -66,7 +69,7 @@ int CoordConvACPlugin::initialize()
 void CoordConvACPlugin::terminate() {}
 
 Dims CoordConvACPlugin::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
-{   
+{
     // CHW
     nvinfer1::Dims dimsOutput;
     dimsOutput.nbDims = inputs->nbDims;
@@ -84,7 +87,7 @@ size_t CoordConvACPlugin::getWorkspaceSize(int maxBatchSize) const
 
 size_t CoordConvACPlugin::getSerializationSize() const
 {
-    // iC, iH, iW, oC, oH, oW    
+    // iC, iH, iW, oC, oH, oW
     return sizeof(int) * 6;
 }
 
@@ -160,7 +163,8 @@ nvinfer1::DataType CoordConvACPlugin::getOutputDataType(
     return inputTypes[0];
 }
 
-bool CoordConvACPlugin::isOutputBroadcastAcrossBatch(int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const
+bool CoordConvACPlugin::isOutputBroadcastAcrossBatch(
+    int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const
 {
     return false;
 }
@@ -170,11 +174,8 @@ bool CoordConvACPlugin::canBroadcastInputAcrossBatch(int inputIndex) const
     return false;
 }
 
-
 // Plugin creator
-CoordConvACPluginCreator::CoordConvACPluginCreator()
-{
-}
+CoordConvACPluginCreator::CoordConvACPluginCreator() {}
 
 const char* CoordConvACPluginCreator::getPluginName() const
 {

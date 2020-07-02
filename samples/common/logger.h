@@ -21,14 +21,14 @@
 
 namespace sample
 {
-    extern Logger gLogger;
-    extern LogStreamConsumer gLogVerbose;
-    extern LogStreamConsumer gLogInfo;
-    extern LogStreamConsumer gLogWarning;
-    extern LogStreamConsumer gLogError;
-    extern LogStreamConsumer gLogFatal;
+extern Logger gLogger;
+extern LogStreamConsumer gLogVerbose;
+extern LogStreamConsumer gLogInfo;
+extern LogStreamConsumer gLogWarning;
+extern LogStreamConsumer gLogError;
+extern LogStreamConsumer gLogFatal;
 
-    void setReportableSeverity(Logger::Severity severity);
-}
+void setReportableSeverity(Logger::Severity severity);
+} // namespace sample
 
 #endif // LOGGER_H

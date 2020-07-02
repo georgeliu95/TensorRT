@@ -49,5 +49,5 @@ size_t detectionInferenceWorkspaceSize(bool shareLocation, int N, int C1, int C2
         sortScoresPerImageWorkspaceSize(N, numClasses * topK, DT_SCORE));
     return calculateTotalWorkspaceSize(wss, 7);
 }
-}
-}
+} // namespace plugin
+} // namespace nvinfer1
