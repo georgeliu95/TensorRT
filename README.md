@@ -199,6 +199,15 @@ You should now have all expected files to build the container. Move these into t
 	cmake .. -DTRT_LIB_DIR=$TRT_RELEASE/lib -DTRT_OUT_DIR=`pwd`/out
 	make -j$(nproc)
 	```
+	
+  **Example: Cross compile for QNX with cuda-10.2**
+
+	```bash
+	cd $TRT_SOURCE
+	mkdir -p build && cd build
+	cmake .. -DTRT_LIB_DIR=$TRT_RELEASE/lib -DTRT_OUT_DIR=`pwd`/out -DCMAKE_TOOLCHAIN_FILE=$TRT_SOURCE/cmake/toolchains/cmake_qnx.toolchain
+	make -j$(nproc)
+	```
 
 	> NOTE:
 	> 1. The default CUDA version used by CMake is 11.0. To override this, for example to 10.2, append `-DCUDA_VERSION=10.2` to the cmake command.
