@@ -120,9 +120,9 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	export TRT_RELEASE=`pwd`/TensorRT-7.1.3.4
 	```
 
-	**Example: QNX with cuda-10.2**
+	**Example: Ubuntu18.04 cross compile QNX with cuda-10.2**
 
-	Download and extract the *TensorRT 7.1 for QNX and CUDA 10.2 tar package*
+	Download and extract the *TensorRT 7.1 GA for QNX and CUDA 10.2 tar package*
 	```bash
 	cd ~/Downloads
 	tar -xvzf TensorRT-7.1.3.4.Ubuntu-18.04.aarch64-qnx.cuda-10.2.cudnn7.6.tar.gz
