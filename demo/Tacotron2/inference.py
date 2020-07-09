@@ -34,16 +34,19 @@ def parse_args(parser):
     Parse commandline arguments.
     """
     parser.add_argument('-i', '--input', type=str, required=True,
-                        help='full path to the input text (phareses separated by new line)')
+                        help='Full path to the input text (phareses separated by new line)')
     parser.add_argument('-o', '--output', required=True,
-                        help='output folder to save audio (file per phrase)')
-    parser.add_argument('--suffix', type=str, default="", help="output filename suffix")
+                        help='Output folder to save audio (file per phrase)')
+    parser.add_argument('--suffix', type=str, default="",
+                        help="Output filename suffix")
     parser.add_argument('--tacotron2', type=str,
-                        help='full path to the Tacotron2 model checkpoint file')
+                        help='Full path to the Tacotron2 model checkpoint file')
     parser.add_argument('--waveglow', type=str,
-                        help='full path to the WaveGlow model checkpoint file')
-    parser.add_argument('-s', '--sigma-infer', default=0.9, type=float)
-    parser.add_argument('-d', '--denoising-strength', default=0.01, type=float)
+                        help='Full path to the WaveGlow model checkpoint file')
+    parser.add_argument('-s', '--sigma-infer', default=0.9, type=float,
+                        help='Standard deviation of the Gaussian distribution')
+    parser.add_argument('-d', '--denoising-strength', default=0.01, type=float,
+                        help='Denoising strength for removing model bias')
     parser.add_argument('-sr', '--sampling-rate', default=22050, type=int,
                         help='Sampling rate')
 

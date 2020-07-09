@@ -16,7 +16,7 @@ import tensorrt as trt
 
 
 def is_dimension_dynamic(dim):
-    return dim is None or dim <= 0
+    return dim is None or dim == -1
 
 
 def is_shape_dynamic(shape):

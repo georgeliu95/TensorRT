@@ -29,7 +29,7 @@ def parse_args(parser):
     Parse commandline arguments.
     """
     parser.add_argument('--tacotron2', type=str,
-                        help='full path to the Tacotron2 model checkpoint file')
+                        help='Full path to the Tacotron2 model checkpoint file')
     parser.add_argument('-o', '--output', type=str, required=True,
                         help='Directory for the exported Tacotron 2 ONNX model')
     parser.add_argument('--fp16', action='store_true',
@@ -45,8 +45,8 @@ def encoder_infer(self, x, input_lengths):
 
     x = x.transpose(1, 2)
 
-    input_lengths_cpu = input_lengths[:] # TODO
-    input_lengths_cpu = input_lengths_cpu.cpu().numpy() # TODO
+    input_lengths_cpu = input_lengths[:]
+    input_lengths_cpu = input_lengths_cpu.cpu().numpy()
     x = nn.utils.rnn.pack_padded_sequence(
         x, input_lengths_cpu, batch_first=True)
 

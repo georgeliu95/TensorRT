@@ -36,11 +36,13 @@ def parse_args(parser):
     Parse commandline arguments.
     """
     parser.add_argument('--tacotron2', type=str,
-                        help='full path to the Tacotron2 model checkpoint file')
+                        help='Full path to the Tacotron2 model checkpoint file')
     parser.add_argument('--waveglow', type=str,
-                        help='full path to the WaveGlow model checkpoint file')
-    parser.add_argument('-s', '--sigma-infer', default=0.6, type=float)
-    parser.add_argument('-d', '--denoising-strength', default=0.01, type=float)
+                        help='Full path to the WaveGlow model checkpoint file')
+    parser.add_argument('-s', '--sigma-infer', default=0.6, type=float,
+                        help='Standard deviation of the Gaussian distribution')
+    parser.add_argument('-d', '--denoising-strength', default=0.01, type=float,
+                        help='Denoising strength for removing model bias')
     parser.add_argument('-sr', '--sampling-rate', default=22050, type=int,
                         help='Sampling rate')
 

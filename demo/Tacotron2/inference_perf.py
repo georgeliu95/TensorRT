@@ -35,8 +35,9 @@ def parse_args(parser):
     parser.add_argument('-sr', '--sampling-rate', default=22050, type=int,
                         help='Sampling rate')
     parser.add_argument('--amp-run', action='store_true',
-                        help='inference with AMP')
-    parser.add_argument('-bs', '--batch-size', type=int, default=1)
+                        help='Inference with Automatic Mixed Precision')
+    parser.add_argument('-bs', '--batch-size', type=int, default=1,
+                        help='Batch size')
     parser.add_argument('-o', '--output', type=str, required=True,
                         help='Directory to save results')
     parser.add_argument('--log-file', type=str, default='nvlog.json',

@@ -26,12 +26,13 @@ def parse_args(parser):
     Parse commandline arguments.
     """
     parser.add_argument('--waveglow', type=str, required=True,
-                        help='full path to the WaveGlow model checkpoint file')
+                        help='Full path to the WaveGlow model checkpoint file')
     parser.add_argument('-o', '--output', type=str, required=True,
                         help='Directory for the exported WaveGlow ONNX model')
     parser.add_argument('--fp16', action='store_true',
-                        help='inference with AMP')
-    parser.add_argument('-s', '--sigma-infer', default=0.6, type=float)
+                        help='Inference with Automatic Mixed Precision')
+    parser.add_argument('-s', '--sigma-infer', default=0.6, type=float,
+                        help='Standard deviation of the Gaussian distribution')
 
     return parser
 

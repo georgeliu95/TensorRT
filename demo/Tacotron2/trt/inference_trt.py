@@ -36,28 +36,29 @@ def parse_args(parser):
     Parse commandline arguments.
     """
     parser.add_argument('-i', '--input', type=str, required=True,
-                        help='full path to the input text (phareses separated by new line)')
+                        help='Full path to the input text (phareses separated by new line)')
     parser.add_argument('-o', '--output', required=True,
-                        help='output folder to save audio (file per phrase)')
+                        help='Output folder to save audio (file per phrase)')
     parser.add_argument('--encoder', type=str, required=True,
-                        help='full path to the Encoder engine')
+                        help='Full path to the Encoder engine')
     parser.add_argument('--decoder', type=str, required=True,
-                        help='full path to the DecoderIter engine')
+                        help='Full path to the DecoderIter engine')
     parser.add_argument('--postnet', type=str, required=True,
-                        help='full path to the Postnet engine')
+                        help='Full path to the Postnet engine')
     parser.add_argument('--waveglow', type=str, required=True,
-                        help='full path to the WaveGlow engine')
+                        help='Full path to the WaveGlow engine')
     parser.add_argument('--waveglow-ckpt', type=str, default="",
-                        help='full path to the WaveGlow model checkpoint file')
+                        help='Full path to the WaveGlow model checkpoint file')
     parser.add_argument('--log-file', type=str, default='nvlog.json',
                         help='Filename for logging')
-    parser.add_argument('-d', '--denoising-strength', default=0.01, type=float)
+    parser.add_argument('-d', '--denoising-strength', default=0.01, type=float,
+                        help='Denoising strength for removing model bias')
     parser.add_argument('-sr', '--sampling-rate', default=22050, type=int,
                         help='Sampling rate')
     parser.add_argument('--stft-hop-length', type=int, default=256,
                         help='STFT hop length for estimating audio length from mel size')
     parser.add_argument('--fp16', action='store_true',
-                        help='inference with FP16')
+                        help='Inference with FP16 precision')
 
     return parser
 
