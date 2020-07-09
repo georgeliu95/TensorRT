@@ -40,6 +40,9 @@ To build the TensorRT OSS components, ensure you meet the following package requ
 * Cross compilation for Jetson platforms requires JetPack's host component installation
   * [JetPack](https://developer.nvidia.com/embedded/jetpack) >= 4.4
 
+* Cross compilation for QNX requires the qnx developer toolchain
+  * [QNX](https://blackberry.qnx.com/en)
+
 **Optional Packages**
 
 * Containerized builds
@@ -115,6 +118,17 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	cd ~/Downloads
 	tar -xvzf TensorRT-7.1.3.4.Ubuntu-16.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
 	export TRT_RELEASE=`pwd`/TensorRT-7.1.3.4
+	```
+
+	**Example: QNX with cuda-10.2**
+
+	Download and extract the *TensorRT 7.1 for QNX and CUDA 10.2 tar package*
+	```bash
+	cd ~/Downloads
+	tar -xvzf TensorRT-7.1.3.4.Ubuntu-18.04.aarch64-qnx.cuda-10.2.cudnn7.6.tar.gz
+	export TRT_RELEASE=`pwd`/TensorRT-7.1.3.4
+	export QNX_HOST=/path/to/qnx/toolchain/host/linux/x86_64
+	export QNX_TARGET=/path/to/qnx/toolchain/target/qnx7
 	```
 
 3. #### Download JetPack packages for cross-compilation.[OPTIONAL]
