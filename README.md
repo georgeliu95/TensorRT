@@ -40,6 +40,9 @@ To build the TensorRT OSS components, ensure you meet the following package requ
 * Cross compilation for Jetson platforms requires JetPack's host component installation
   * [JetPack](https://developer.nvidia.com/embedded/jetpack) >= 4.4
 
+* Cross compilation for QNX requires the qnx developer toolchain
+  * [QNX](https://blackberry.qnx.com/en)
+
 **Optional Packages**
 
 * Containerized builds
@@ -117,6 +120,17 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	export TRT_RELEASE=`pwd`/TensorRT-7.1.3.4
 	```
 
+	**Example: Ubuntu18.04 cross compile QNX with cuda-10.2**
+
+	Download and extract the *TensorRT 7.1 GA for QNX and CUDA 10.2 tar package*
+	```bash
+	cd ~/Downloads
+	tar -xvzf TensorRT-7.1.3.4.Ubuntu-18.04.aarch64-qnx.cuda-10.2.cudnn7.6.tar.gz
+	export TRT_RELEASE=`pwd`/TensorRT-7.1.3.4
+	export QNX_HOST=/path/to/qnx/toolchain/host/linux/x86_64
+	export QNX_TARGET=/path/to/qnx/toolchain/target/qnx7
+	```
+
 3. #### Download JetPack packages for cross-compilation.[OPTIONAL]
 
 Using the SDK manager, download the host componets of the PDK version or Jetpack specified in the name of the Dockerfile. To do this:
@@ -183,6 +197,15 @@ You should now have all expected files to build the container. Move these into t
 	cd $TRT_SOURCE
 	mkdir -p build && cd build
 	cmake .. -DTRT_LIB_DIR=$TRT_RELEASE/lib -DTRT_OUT_DIR=`pwd`/out
+	make -j$(nproc)
+	```
+	
+  **Example: Cross compile for QNX with cuda-10.2**
+
+	```bash
+	cd $TRT_SOURCE
+	mkdir -p build && cd build
+	cmake .. -DTRT_LIB_DIR=$TRT_RELEASE/lib -DTRT_OUT_DIR=`pwd`/out -DCMAKE_TOOLCHAIN_FILE=$TRT_SOURCE/cmake/toolchains/cmake_qnx.toolchain
 	make -j$(nproc)
 	```
 
