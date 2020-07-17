@@ -8,5 +8,5 @@
 	branch = 1.8.0
 [submodule "parsers/onnx"]
 	path = parsers/onnx
-	url = https://gitlab-master.nvidia.com/TensorRT/Public/onnx.git
-	branch = release/7.1-staging
+	url = https://github.com/onnx/onnx-tensorrt.git
+	branch = 7.1
