@@ -145,7 +145,7 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 
 	Download and extract the *TensorRT 7.1 GA for Windows and CUDA 11.0 zip package* and add *msbuild* to *PATH*
 	```powershell
-	cd ~/Downloads
+	cd ~\Downloads
 	Expand-Archive .\TensorRT-7.1.3.4.Windows10.x86_64.cuda-11.0.cudnn8.0.zip
 	$Env:TRT_RELEASE_PATH = '$(Get-Location)\TensorRT-7.1.3.4'
 	$Env:PATH += 'C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\MSBuild\15.0\Bin\'
