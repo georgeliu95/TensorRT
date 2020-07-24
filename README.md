@@ -151,9 +151,7 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	$Env:PATH += 'C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\MSBuild\15.0\Bin\'
 	```
 
-3. #### Download JetPack packages for cross-compilation.[OPTIONAL]
-
-3. #### Download toolchain for cross-compilation. [OPTIONAL]
+3. #### Download JetPack toolchain for cross-compilation.[OPTIONAL]
 
     **JetPack example**
 
