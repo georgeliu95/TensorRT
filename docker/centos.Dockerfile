@@ -66,7 +66,7 @@ RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.
 # Install Cudnn
 RUN wget https://developer.download.nvidia.com/compute/machine-learning/repos/rhel7/x86_64/libcudnn8-8.0.2.39-1.cuda10.2.x86_64.rpm && \
     wget https://developer.download.nvidia.com/compute/machine-learning/repos/rhel7/x86_64/libcudnn8-devel-8.0.2.39-1.cuda10.2.x86_64.rpm && \ 
-		yum -y install libcudnn8-8.0.2.39-1.cuda10.2.x86_64.rpm libcudnn8-devel-8.0.2.39-1.cuda10.2.x86_64.rpm
+    yum -y install libcudnn8-8.0rm libcudnn8-8.0.2.39-1.cuda10.2.x86_64.rpm libcudnn8-devel-8.0.2.39-1.cuda10.2.x86_64.rpm
 
 
 # Set environment and working directory
