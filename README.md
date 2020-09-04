@@ -65,7 +65,7 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 
 - [ONNX-TensorRT](https://github.com/onnx/onnx-tensorrt) v7.1
 - [CUB](http://nvlabs.github.io/cub/) v1.8.0
-- [Protobuf](https://github.com/protocolbuffers/protobuf.git) v3.8.x
+- [Protobuf](https://github.com/protocolbuffers/protobuf.git) v3.0.0
 
 
 ## Downloading The TensorRT Components
@@ -87,7 +87,7 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	git clone -b master https://github.com/nvidia/TensorRT TensorRT
 	cd TensorRT
 	git submodule update --init --recursive
-	$Env:TRT_RELEASE_PATH = $(Get-Location)
+	$Env:TRT_SOURCE = $(Get-Location)
 	```
 
 2. #### Download the TensorRT binary release.
@@ -147,7 +147,7 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	```powershell
 	cd ~\Downloads
 	Expand-Archive .\TensorRT-7.1.3.4.Windows10.x86_64.cuda-11.0.cudnn8.0.zip
-	$Env:TRT_RELEASE_PATH = '$(Get-Location)\TensorRT-7.1.3.4'
+	$Env:TRT_RELEASE = '$(Get-Location)\TensorRT-7.1.3.4'
 	$Env:PATH += 'C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\MSBuild\15.0\Bin\'
 	```
 
@@ -155,10 +155,10 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 
     **JetPack example**
 
-    Using the SDK manager, download the host componets of the PDK version or Jetpack specified in the name of the Dockerfile. To do this:
+    Using the SDK manager, download the host components of the PDK version or Jetpack specified in the name of the Dockerfile. To do this:
     1. [**SDK Manager Step 01**] Log into the SDK manager
-    2. [**SDK Manager Step 01**] Select the correct platform and Target OS System  (should be corresponding to the name of the Dockerfile you are building (e.g. Jetson AGX Xavier, `Linux Jetpack 4.4`), then click `Continue`
-    3. [**SDK Manager Step 02**] Under `Download & Install Options` make note of or change the download folder **and Select Download now. Install later.** then agree to the license terms and click `Continue`
+    2. [**SDK Manager Step 02**] Select the correct platform and Target OS System  (should be corresponding to the name of the Dockerfile you are building (e.g. Jetson AGX Xavier, `Linux Jetpack 4.4`), then click `Continue`
+    3. [**SDK Manager Step 03**] Under `Download & Install Options` make note of or change the download folder **and Select Download now. Install later.** then agree to the license terms and click `Continue`
     You should now have all expected files to build the container. Move these into the `docker/jetpack_files` folder.
 
 ## Setting Up The Build Environment
@@ -205,7 +205,7 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	./docker/launch.sh --tag tensorrt-ubuntu --gpus all --release $TRT_RELEASE --source $TRT_SOURCE
 	```
 
-	> NOTE: To run TensorRT/CUDA programs in the build container, install [NVIDIA Docker support](#prerequisites). Docker versions < 19.03 require `nvidia-docker2` and `--runtime=nvidia` flag for docker run commands. On versions >= 19.03, you need the `nvidia-container-toolkit` package and `--gpus <NUM_GPUS>` flag.
+	> NOTE: To run TensorRT/CUDA programs in the build container, install [NVIDIA Docker support](#prerequisites). Docker versions < 19.03 require `nvidia-docker2` and `--runtime=nvidia` flag for docker run commands. On versions >= 19.03, you need the `nvidia-container-toolkit` package and `--gpus all` flag.
 
 
 ## Building The TensorRT OSS Components
@@ -269,7 +269,7 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 
 	- `NVCR_SUFFIX`: Optional nvcr/cuda image suffix. Set to "-rc" for CUDA11 RC builds until general availability. Blank by default.
 
-	- `PROTOBUF_VERSION`:  The version of Protobuf to use, for example [`3.8.x`]. Note: Changing this will not configure CMake to use a system version of Protobuf, it will configure CMake to download and try building that version.
+	- `PROTOBUF_VERSION`:  The version of Protobuf to use, for example [`3.0.0`]. Note: Changing this will not configure CMake to use a system version of Protobuf, it will configure CMake to download and try building that version.
 
 	- `CMAKE_TOOLCHAIN_FILE`: The path to a toolchain file for cross compilation.
 
@@ -289,8 +289,17 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
         - Titan V, Tesla V100: `-DGPU_ARCHS="70"`
         - Multiple SMs: `-DGPU_ARCHS="80 75"`
 
-    - `TRT_PLATFORM_ID`: Bare-metal build (unlike containerized cross-compilation) on non Linux/x86 platforms must explicitly specify the target platform. Currently supported options: `x86_64` (default), `aarch64`
+	- `TRT_PLATFORM_ID`: Bare-metal build (unlike containerized cross-compilation) on non Linux/x86 platforms must explicitly specify the target platform. Currently supported options: `x86_64` (default), `aarch64`
 
+### (Optional - recommended) installing the tensorrt python API bindings
+
+whl files for the TensorRT python API are in the `python` directory of the TensorRT release
+
+*Example* install for python3:
+
+```
+pip3 install $TRT_RELEASE/python/tensorrt-7.1.3.4-cp36-none-linux_x86_64.whl
+```
 
 ## Useful Resources
 
@@ -305,5 +314,4 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 ## Known Issues
 
 #### TensorRT 7.1
-* [demo/BERT](demo/BERT) has a known accuracy regression for Volta GPUs; F1 score dropped (from 90 in TensorRT 7.0) to 85. A fix is underway.
 * See [Release Notes](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/tensorrt-7.html#rel_7-1-3).
