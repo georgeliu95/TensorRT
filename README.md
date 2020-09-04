@@ -65,7 +65,7 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 
 - [ONNX-TensorRT](https://github.com/onnx/onnx-tensorrt) v7.1
 - [CUB](http://nvlabs.github.io/cub/) v1.8.0
-- [Protobuf](https://github.com/protocolbuffers/protobuf.git) v3.8.x
+- [Protobuf](https://github.com/protocolbuffers/protobuf.git) v3.0.0
 
 
 ## Downloading The TensorRT Components
@@ -155,10 +155,10 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 
     **JetPack example**
 
-    Using the SDK manager, download the host componets of the PDK version or Jetpack specified in the name of the Dockerfile. To do this:
+    Using the SDK manager, download the host components of the PDK version or Jetpack specified in the name of the Dockerfile. To do this:
     1. [**SDK Manager Step 01**] Log into the SDK manager
-    2. [**SDK Manager Step 01**] Select the correct platform and Target OS System  (should be corresponding to the name of the Dockerfile you are building (e.g. Jetson AGX Xavier, `Linux Jetpack 4.4`), then click `Continue`
-    3. [**SDK Manager Step 02**] Under `Download & Install Options` make note of or change the download folder **and Select Download now. Install later.** then agree to the license terms and click `Continue`
+    2. [**SDK Manager Step 02**] Select the correct platform and Target OS System  (should be corresponding to the name of the Dockerfile you are building (e.g. Jetson AGX Xavier, `Linux Jetpack 4.4`), then click `Continue`
+    3. [**SDK Manager Step 03**] Under `Download & Install Options` make note of or change the download folder **and Select Download now. Install later.** then agree to the license terms and click `Continue`
     You should now have all expected files to build the container. Move these into the `docker/jetpack_files` folder.
 
 ## Setting Up The Build Environment
@@ -269,7 +269,7 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 
 	- `NVCR_SUFFIX`: Optional nvcr/cuda image suffix. Set to "-rc" for CUDA11 RC builds until general availability. Blank by default.
 
-	- `PROTOBUF_VERSION`:  The version of Protobuf to use, for example [`3.8.x`]. Note: Changing this will not configure CMake to use a system version of Protobuf, it will configure CMake to download and try building that version.
+	- `PROTOBUF_VERSION`:  The version of Protobuf to use, for example [`3.0.0`]. Note: Changing this will not configure CMake to use a system version of Protobuf, it will configure CMake to download and try building that version.
 
 	- `CMAKE_TOOLCHAIN_FILE`: The path to a toolchain file for cross compilation.
 
