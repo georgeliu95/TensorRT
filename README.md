@@ -87,7 +87,7 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	git clone -b master https://github.com/nvidia/TensorRT TensorRT
 	cd TensorRT
 	git submodule update --init --recursive
-	$Env:TRT_RELEASE_PATH = $(Get-Location)
+	$Env:TRT_SOURCE = $(Get-Location)
 	```
 
 2. #### Download the TensorRT binary release.
@@ -147,7 +147,7 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	```powershell
 	cd ~\Downloads
 	Expand-Archive .\TensorRT-7.1.3.4.Windows10.x86_64.cuda-11.0.cudnn8.0.zip
-	$Env:TRT_RELEASE_PATH = '$(Get-Location)\TensorRT-7.1.3.4'
+	$Env:TRT_RELEASE = '$(Get-Location)\TensorRT-7.1.3.4'
 	$Env:PATH += 'C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\MSBuild\15.0\Bin\'
 	```
 
@@ -295,10 +295,10 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 
 whl files for the TensorRT python API are in the `python` directory of the TensorRT release
 
-*Example* install for python 3.6:
+*Example* install for python3:
 
 ```
-pip install $TRT_RELEASE/python/tensorrt-7.1.3.4-cp36-none-linux_x86_64.whl
+pip3 install $TRT_RELEASE/python/tensorrt-7.1.3.4-cp36-none-linux_x86_64.whl
 ```
 
 ## Useful Resources
@@ -314,5 +314,4 @@ pip install $TRT_RELEASE/python/tensorrt-7.1.3.4-cp36-none-linux_x86_64.whl
 ## Known Issues
 
 #### TensorRT 7.1
-* [demo/BERT](demo/BERT) has a known accuracy regression for Volta GPUs; F1 score dropped (from 90 in TensorRT 7.0) to 85. A fix is underway.
 * See [Release Notes](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/tensorrt-7.html#rel_7-1-3).
