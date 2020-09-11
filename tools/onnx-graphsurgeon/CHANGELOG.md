@@ -6,6 +6,7 @@ Dates are in YYYY-MM-DD format.
 
 ### Fixed
 - `fold_constants()` will no longer fail if there is nothing to fold in the graph
+- `cleanup()` will now properly remove the producer nodes of graph inputs.
 
 
 ## v0.2.3
