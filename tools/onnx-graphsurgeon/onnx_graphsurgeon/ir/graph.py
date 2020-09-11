@@ -173,6 +173,8 @@ class Graph(object):
         Removes unused nodes and tensors from the graph.
         A node or tensor is considered unused if it does not contribute to any of the graph outputs.
 
+        Additionally, any producer nodes of graph input tensors are removed from the graph.
+
         Note: This function will never modify graph output tensors.
 
         Optional Args:
@@ -183,6 +185,10 @@ class Graph(object):
             self
         """
         with self.node_ids():
+            # Graph inputs cannot have producers
+            for inp in self.inputs:
+                inp.inputs.clear()
+
             used_node_ids, used_tensors = self._get_used_node_ids()
 
             inputs = []

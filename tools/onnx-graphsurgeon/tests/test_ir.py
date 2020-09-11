@@ -618,6 +618,18 @@ class TestGraph(object):
         assert graph.outputs[0] == graph_output # Graoh outputs will never be removed
 
 
+    def test_cleanup_graph_input_producers(self):
+        graph, _ = toposort_linear_graph()
+        tensor_map = graph.tensors()
+        assert "x" in tensor_map
+
+        graph.inputs = [tensor_map["intermediate0"]]
+
+        graph.cleanup()
+        cleaned_tensor_map = graph.tensors()
+        assert "x" not in cleaned_tensor_map
+
+
     def test_cleanup_independent_path(self):
         graph, _ = toposort_linear_graph()
         # Build out a path totally unrelated to rest of the graph
