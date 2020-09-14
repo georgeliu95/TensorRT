@@ -43,8 +43,6 @@ class Model(object):
         return onnx.load(self.path)
 
     def assert_equal(self, graph: Graph):
-
-
         assert graph.inputs == self.inputs
         G_LOGGER.debug("Graph inputs matched")
 
@@ -146,3 +144,12 @@ def scan_model():
     attrs["num_scan_inputs"] = 1
     scan_node = Node(op="Scan", inputs=inputs, outputs=outputs, attrs=attrs)
     return Model(path, inputs=inputs, outputs=outputs, nodes=[scan_node], opset=OnnxImporter.get_opset(model))
+
+
+def initializer_is_output_model():
+    path = os.path.join(TEST_ROOT, "models", "initializer_is_output.onnx")
+    model = onnx.load(path)
+
+    X = Constant(name="X", values=np.ones((64, 64), dtype=np.float32))
+
+    return Model(path, inputs=[], outputs=[X], nodes=[], opset=OnnxImporter.get_opset(model))

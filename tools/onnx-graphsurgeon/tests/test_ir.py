@@ -552,6 +552,15 @@ class TestGraph(object):
             assert tensor is tensors[name]
 
 
+    # Check that tensors includes tensors not attached to nodes
+    def test_tensors_includes_non_node_tensors(self):
+        X = Constant("X", values=np.ones(shape=(64, 64), dtype=np.float32))
+        graph = Graph(inputs=[], outputs=[X])
+        tensor_map = graph.tensors()
+        assert "X" in tensor_map
+        assert tensor_map["X"] == X
+
+
     def test_tensors_check_duplicates(self):
         inputs = [Variable(name="x")]
         outputs = [Variable(name="x")] # Distinct tensors with the same name

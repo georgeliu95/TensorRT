@@ -292,9 +292,17 @@ class Graph(object):
                         .format(id(tensor_map[tensor.name]), tensor_map[tensor.name], id(tensor), tensor))
                 tensor_map[tensor.name] = tensor
 
+        # I/O tensors may not be attached to nodes.
+        for io_tensor in self.inputs:
+            add_to_tensor_map(io_tensor)
+
         for node in self.nodes:
             for tensor in node.inputs + node.outputs:
                 add_to_tensor_map(tensor)
+
+        for io_tensor in self.outputs:
+            add_to_tensor_map(io_tensor)
+
         return tensor_map
 
 
