@@ -128,7 +128,7 @@ if __name__ == '__main__':
         num_binding_per_profile = engine.num_bindings // engine.num_optimization_profiles
         for idx in range(engine.num_optimization_profiles):
             profile_shape = engine.get_profile_shape(profile_index = idx, binding = idx * num_binding_per_profile)
-            if profile_shape[0][1] <= args.batch_size and profile_shape[2][1] >= args.batch_size:
+            if profile_shape[0][1] <= args.batch_size and profile_shape[2][1] >= args.batch_size and profile_shape[0][0] <= max_seq_length and profile_shape[2][0] >= max_seq_length:
                 selected_profile = idx
                 break
         if selected_profile == -1:
