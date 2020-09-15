@@ -22,6 +22,7 @@
 #include <sstream>
 #include <string>
 
+#ifndef TRT_LEGACY_PLUGIN_H
 // Enumerator for status
 typedef enum
 {
@@ -40,9 +41,15 @@ namespace plugin
 class BasePlugin : public IPluginV2
 {
 protected:
-    void setPluginNamespace(const char* libNamespace) override { mNamespace = libNamespace; }
+    void setPluginNamespace(const char* libNamespace) override
+    {
+        mNamespace = libNamespace;
+    }
 
-    const char* getPluginNamespace() const override { return mNamespace.c_str(); }
+    const char* getPluginNamespace() const override
+    {
+        return mNamespace.c_str();
+    }
 
     std::string mNamespace;
 };
@@ -206,6 +213,6 @@ T read(const char*& buffer)
     } while (0)
 
 #endif // CHECK_MACROS_H
-#endif
-
+#endif // CHECK_MACROS_PLUGIN_H
+#endif // DEBUG
 #endif // TRT_PLUGIN_H

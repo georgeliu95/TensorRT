@@ -76,7 +76,7 @@ The following software version configuration has been tested:
 |Software|Version|
 |--------|-------|
 |Python|3.6.9|
-|TensorRT|7.1.3.4|
+|TensorRT|7.2.0.13|
 |CUDA|11.0.171|
 
 
@@ -115,7 +115,7 @@ This demo BERT application can be run within the TensorRT Open Source build cont
     cmake .. -DTRT_LIB_DIR=$TRT_RELEASE/lib -DTRT_OUT_DIR=`pwd`/out
     make -j$(nproc)
 
-    pip3 install /tensorrt/python/tensorrt-7.1*-cp36-none-linux_x86_64.whl
+    pip3 install /tensorrt/python/tensorrt-7.2*-cp36-none-linux_x86_64.whl
     ```
     **Note:** While the workflow and Performance Data presented here are based on plugin library built from source, the BERT sample is also expected to work with pre-compiled libraries shipped with TensorRT releases.
 

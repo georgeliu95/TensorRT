@@ -445,9 +445,6 @@ bool SampleINT8API::prepareInput(const samplesCommon::BufferManager& buffers)
     std::string magic{""};
 
     std::vector<uint8_t> fileData(channels * height * width);
-    // Prepardde PPM Buffer to read the input image
-    // samplesCommon::PPM<channels, height, width> ppm;
-    // samplesCommon::readPPMFile(mParams.imageFileName, ppm);
 
     std::ifstream infile(mParams.imageFileName, std::ifstream::binary);
     assert(infile.is_open() && "Attempting to read from a file that is not open.");
@@ -578,8 +575,6 @@ sample::Logger::TestResult SampleINT8API::build()
     config->setInt8Calibrator(nullptr);
 
     // force layer to execute with required precision
-    // NVBUG: http://nvbugs/2725746
-    // config->setFlag(BuilderFlag::kSTRICT_TYPES);
     setLayerPrecision(network);
 
     // set INT8 Per Tensor Dynamic range

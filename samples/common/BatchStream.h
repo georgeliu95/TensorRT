@@ -43,7 +43,7 @@ public:
         const std::vector<std::string>& directories)
         : mBatchSize{batchSize}
         , mMaxBatches{maxBatches}
-        , mDims{3, 1, 28, 28} //!< We already know the dimensions of MNIST images.
+        , mDims{3, {1, 28, 28}} //!< We already know the dimensions of MNIST images.
     {
         readDataFile(locateFile(dataFile, directories));
         readLabelsFile(locateFile(labelsFile, directories));

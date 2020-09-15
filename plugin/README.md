@@ -35,3 +35,4 @@
 | [resizeNearestPlugin](resizeNearestPlugin) | ResizeNearest_TRT | 1 |
 | [skipLayerNormPlugin](skipLayerNormPlugin) | CustomSkipLayerNormPluginDynamic | 1 |
 | [specialSlicePlugin](specialSlicePlugin) | SpecialSlice_TRT | 1 |
+| [splitPlugin](splitPlugin) | Split | 1 |

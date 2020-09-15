@@ -57,7 +57,7 @@ namespace nvonnxparser
 {
 
 template <typename T>
-inline int EnumMax();
+inline int32_t EnumMax();
 
 /** \enum ErrorCode
  *
@@ -75,8 +75,9 @@ enum class ErrorCode : int
     kUNSUPPORTED_GRAPH = 7,
     kUNSUPPORTED_NODE = 8
 };
+
 template <>
-inline int EnumMax<ErrorCode>()
+inline int32_t EnumMax<ErrorCode>()
 {
     return 9;
 }
