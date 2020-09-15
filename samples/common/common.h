@@ -222,8 +222,8 @@ private:
     std::map<std::string, Record> mProfile;
 };
 
-// Locate path to file, given its filename or filepath suffix and possible dirs it might lie in
-// Function will also walk back MAX_DEPTH dirs from CWD to check for such a file path
+//! Locate path to file, given its filename or filepath suffix and possible dirs it might lie in.
+//! Function will also walk back MAX_DEPTH dirs from CWD to check for such a file path.
 inline std::string locateFile(const std::string& filepathSuffix, const std::vector<std::string>& directories)
 {
     const int MAX_DEPTH{10};
@@ -241,14 +241,19 @@ inline std::string locateFile(const std::string& filepathSuffix, const std::vect
 #endif
         }
         else
+        {
             filepath = dir + filepathSuffix;
+        }
 
         for (int i = 0; i < MAX_DEPTH && !found; i++)
         {
-            std::ifstream checkFile(filepath);
+            const std::ifstream checkFile(filepath);
             found = checkFile.is_open();
             if (found)
+            {
                 break;
+            }
+
             filepath = "../" + filepath; // Try again in parent dir
         }
 
@@ -260,14 +265,16 @@ inline std::string locateFile(const std::string& filepathSuffix, const std::vect
         filepath.clear();
     }
 
+    // Could not find the file
     if (filepath.empty())
     {
-        std::string directoryList = std::accumulate(directories.begin() + 1, directories.end(), directories.front(),
+        const std::string dirList = std::accumulate(directories.begin() + 1, directories.end(), directories.front(),
             [](const std::string& a, const std::string& b) { return a + "\n\t" + b; });
-        std::cout << "Could not find " << filepathSuffix << " in data directories:\n\t" << directoryList << std::endl;
+        std::cout << "Could not find " << filepathSuffix << " in data directories:\n\t" << dirList << std::endl;
         std::cout << "&&&& FAILED" << std::endl;
         exit(EXIT_FAILURE);
     }
+
     return filepath;
 }
 
@@ -702,11 +709,13 @@ inline void writePPMFileWithBBox(const std::string& filename, PPM<C, H, W>& ppm,
             << "\n"
             << ppm.w << " " << ppm.h << "\n"
             << ppm.max << "\n";
+
     auto round = [](float x) -> int { return int(std::floor(x + 0.5f)); };
     const int x1 = std::min(std::max(0, round(int(bbox.x1))), W - 1);
     const int x2 = std::min(std::max(0, round(int(bbox.x2))), W - 1);
     const int y1 = std::min(std::max(0, round(int(bbox.y1))), H - 1);
     const int y2 = std::min(std::max(0, round(int(bbox.y2))), H - 1);
+
     for (int x = x1; x <= x2; ++x)
     {
         // bbox top border
@@ -718,6 +727,7 @@ inline void writePPMFileWithBBox(const std::string& filename, PPM<C, H, W>& ppm,
         ppm.buffer[(y2 * ppm.w + x) * 3 + 1] = 0;
         ppm.buffer[(y2 * ppm.w + x) * 3 + 2] = 0;
     }
+
     for (int y = y1; y <= y2; ++y)
     {
         // bbox left border
@@ -729,6 +739,7 @@ inline void writePPMFileWithBBox(const std::string& filename, PPM<C, H, W>& ppm,
         ppm.buffer[(y * ppm.w + x2) * 3 + 1] = 0;
         ppm.buffer[(y * ppm.w + x2) * 3 + 2] = 0;
     }
+
     outfile.write(reinterpret_cast<char*>(ppm.buffer), ppm.w * ppm.h * 3);
 }
 

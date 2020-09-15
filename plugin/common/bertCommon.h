@@ -42,6 +42,65 @@ constexpr uint32_t BDIM = 1; // batch dimension
 constexpr uint32_t SDIM = 0; // seq len dimension
 constexpr uint32_t HDIM = 2; // hidden dimension
 
+constexpr int32_t kSM_72 = 72;
+constexpr int32_t kSM_75 = 75;
+constexpr int32_t kSM_80 = 80;
+constexpr int32_t kSM_86 = 86;
+
+// For full mask mode, we must produce the compressed mask format expected by the fused attention path. Currently, only
+// two sequence lengths are supported. We hard code the sizes here.
+// The number of threads per CTA: warps_m * warps_n * warps_k * 32;
+constexpr size_t threadsPerCta128 = 2 * 2 * 32;
+constexpr size_t threadsPerCta384 = 1 * 8 * 32;
+
+// The number of xmmas in the M dimension. We use one uint32_t per XMMA in the M dimension: (s + 16*warps_m - 1)
+// / (16*warps_m);
+constexpr size_t xmmasM128 = 4;
+constexpr size_t xmmasM384 = 24;
+
+// Packed mask size per batch. Layout is XMMAS_M * THREADS_PER_CTA.
+constexpr size_t unfusedMaskSize = 1;
+constexpr size_t packedMaskSize64 = xmmasM128 * threadsPerCta128;
+constexpr size_t packedMaskSize96 = xmmasM128 * threadsPerCta128;
+constexpr size_t packedMaskSize128 = xmmasM128 * threadsPerCta128;
+constexpr size_t packedMaskSize384 = xmmasM384 * threadsPerCta384;
+
+inline int getSMVersion()
+{
+    int device{-1};
+    CHECK(cudaGetDevice(&device));
+    cudaDeviceProp props;
+    CHECK(cudaGetDeviceProperties(&props, device));
+    return props.major * 10 + props.minor;
+}
+
+inline int getMHAMaskPackedSize(int smVersion, nvinfer1::DataType dataType, int sequenceLength)
+{
+    // this code must match EmbLayerNormPluginDynamic::getOutputDimensions in embLayerNormPlugin.cpp
+    int packedSize = unfusedMaskSize;
+    if ((smVersion == kSM_75 || smVersion == kSM_80 || smVersion == kSM_86)
+        && (dataType == nvinfer1::DataType::kINT8 || dataType == nvinfer1::DataType::kHALF))
+    {
+        if (sequenceLength == 64)
+        {
+            packedSize = (dataType == nvinfer1::DataType::kHALF ? packedMaskSize64 : packedSize);
+        }
+        else if (sequenceLength == 96)
+        {
+            packedSize = (dataType == nvinfer1::DataType::kHALF ? packedMaskSize96 : packedSize);
+        }
+        else if (sequenceLength == 128)
+        {
+            packedSize = packedMaskSize128;
+        }
+        else if (sequenceLength == 384)
+        {
+            packedSize = packedMaskSize384;
+        }
+    }
+    return packedSize;
+}
+
 inline unsigned int getElementSize(nvinfer1::DataType t)
 {
     switch (t)

@@ -117,4 +117,3 @@ pluginStatus_t anchorGridInference(
     CSC(cudaGetLastError(), STATUS_FAILURE);
     return STATUS_SUCCESS;
 }
-
