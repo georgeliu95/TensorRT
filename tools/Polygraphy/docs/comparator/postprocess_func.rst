@@ -1,4 +1,5 @@
 =========================
 Postprocessing Functions
 =========================
-.. autoclass:: polygraphy.comparator.comparator.PostprocessFunc
+
+.. automodule:: polygraphy.comparator.postprocess

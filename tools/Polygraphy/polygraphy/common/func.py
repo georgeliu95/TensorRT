@@ -14,6 +14,7 @@ def extend(extend_func):
 
     This is best illustrated with an example:
     ::
+
         def x(a0, a1, a2):
             rv0 = [a0, a1, a2]
             rv1 = None
@@ -31,6 +32,7 @@ def extend(extend_func):
 
     In this case, ``extend`` is essentially syntactic sugar for:
     ::
+
         def y(a0, a1, a2):
             rv0, rv1 = x(a0, a1, a2)
 
@@ -50,6 +52,7 @@ def extend(extend_func):
     being extended. Thus, the following implementation of ``x`` would behave just like
     the one mentioned above:
     ::
+
         def x(a0, a1, a2):
             ret = (rv0, rv1)
             return ret # Tuple will be unpacked, and `y` still sees 2 parameters

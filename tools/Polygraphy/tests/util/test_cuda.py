@@ -1,7 +1,8 @@
-from polygraphy.util.cuda import DeviceBuffer
-import numpy as np
+import ctypes
 
+import numpy as np
 import pytest
+from polygraphy.util.cuda import DeviceBuffer, Stream
 
 
 class ResizeTestCase(object):
@@ -18,11 +19,48 @@ RESIZES = [
     ResizeTestCase((2, 2, 2), 8, (9, 9), 81), # Resize to larger buffer
 ]
 
-@pytest.mark.parametrize("shapes", RESIZES)
-def test_device_buffer_resize(shapes):
-    buf = DeviceBuffer(shapes.old)
-    assert buf.allocated_nbytes == shapes.old_bytes
-    assert buf.shape == shapes.old
-    buf.resize(shapes.new)
-    assert buf.allocated_nbytes == shapes.new_bytes
-    assert buf.shape == shapes.new
+class TestDeviceBuffer(object):
+    @pytest.mark.parametrize("shapes", RESIZES)
+    def test_device_buffer_resize(self, shapes):
+        buf = DeviceBuffer(shapes.old)
+        assert buf.allocated_nbytes == shapes.old_bytes
+        assert buf.shape == shapes.old
+        buf.resize(shapes.new)
+        assert buf.allocated_nbytes == shapes.new_bytes
+        assert buf.shape == shapes.new
+
+
+    def test_device_buffer_memcpy_async(self):
+        stream = Stream()
+        arr = np.ones((1, 384), dtype=np.int32)
+
+        buf = DeviceBuffer()
+        buf.resize(arr.shape)
+        buf.copy_from(arr)
+
+        new_arr = np.empty((1, 384), dtype=np.int32)
+        buf.copy_to(new_arr, stream)
+
+        stream.synchronize()
+
+        assert np.all(new_arr == arr)
+
+
+    def test_device_buffer_memcpy_sync(self):
+        arr = np.ones((1, 384), dtype=np.int32)
+
+        buf = DeviceBuffer()
+        buf.resize(arr.shape)
+        buf.copy_from(arr)
+
+        new_arr = np.empty((1, 384), dtype=np.int32)
+        buf.copy_to(new_arr)
+
+        assert np.all(new_arr == arr)
+
+
+class TestStream(object):
+    def test_handle_is_ctypes_ptr(self):
+        # If the handle is not a c_void_p (e.g. just an int), then it may cause segfaults when used.
+        stream = Stream()
+        assert isinstance(stream.handle, ctypes.c_void_p)
