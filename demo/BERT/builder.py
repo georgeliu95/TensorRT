@@ -668,6 +668,12 @@ def main():
     args.batch_size = args.batch_size or [1]
     args.sequence_length = args.sequence_length or [128]
 
+    cc = pycuda.autoinit.device.compute_capability()
+    if cc[0] * 10 + cc[1] < 75 and args.force_int8_multihead:
+        raise RuntimeError("The option --force-int8-multihead only support Turing+ GPU.")
+    if cc[0] * 10 + cc[1] < 72 and args.force_int8_skipln:
+        raise RuntimeError("The option --force-int8-skipln only support Xavier+ GPU.")
+
     bert_config_path = os.path.join(args.config_dir, "bert_config.json")
     TRT_LOGGER.log(TRT_LOGGER.INFO, "Using configuration file: {:}".format(bert_config_path))
 
