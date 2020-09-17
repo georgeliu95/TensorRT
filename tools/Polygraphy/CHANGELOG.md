@@ -2,5 +2,5 @@
 
 Dates are in YYYY-MM-DD format.
 
-## v0.20.4 (2020-09-14)
+## v0.20.5 (2020-09-16)
 - Initial public release of Polygraphy

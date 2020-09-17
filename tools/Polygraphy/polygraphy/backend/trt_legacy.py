@@ -325,7 +325,7 @@ class TrtLegacyRunner(BaseRunner):
         # We will not run with smaller batch sizes than whatever the builder chose.
         bindings = [buf.device.address() for buf in self.input_buffers.values()] + [buf.device.address() for buf in self.output_buffers.values()]
         status = self.context.execute_async(batch_size=self.context.engine.max_batch_size, bindings=bindings,
-                                            stream_handle=self.stream.handle())
+                                            stream_handle=self.stream.address())
         if not status:
             G_LOGGER.critical("Model execution failed. Please see the log messages above for details")
 

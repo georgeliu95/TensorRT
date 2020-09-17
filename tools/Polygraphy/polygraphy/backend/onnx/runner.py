@@ -9,13 +9,14 @@ import time
 import os
 
 
-
-
 class OnnxTfRunner(BaseRunner):
     """
-    Runs an ONNX model using ONNX-TF
+    Runs an ONNX model using the TensorFlow backend for ONNX.
     """
     def __init__(self, model, name=None):
+        """
+        Creates an ONNX-TF runner.
+        """
         super().__init__(name=name, prefix="onnxtf-runner")
         import polygraphy.backend.tf # To set logging callback
         self._model = model
