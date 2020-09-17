@@ -148,13 +148,21 @@ if __name__ == '__main__':
             eval_time_elapsed += (time.time() - eval_start_time)
 
 
-            for index, batch in enumerate(h_output):
-                # Data Post-processing
+            # Data Post-processing
+            if len(h_output.shape) == 1:
+                S = int(h_output.shape[0] / 2)
                 networkOutputs.append(_NetworkOutput(
-                    start_logits = np.array(batch.squeeze()[:, 0]),
-                    end_logits = np.array(batch.squeeze()[:, 1]),
+                    start_logits = np.array(h_output[0:S]),
+                    end_logits = np.array(h_output[S:S*2]),
                     feature_index = feature_index
                     ))
+            else:
+                for index, batch in enumerate(h_output):
+                    networkOutputs.append(_NetworkOutput(
+                        start_logits = np.array(batch.squeeze()[:, 0]),
+                        end_logits = np.array(batch.squeeze()[:, 1]),
+                        feature_index = feature_index
+                        ))
 
         eval_time_elapsed /= len(features)
 
