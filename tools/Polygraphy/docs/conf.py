@@ -19,7 +19,7 @@ autodoc_default_options = {
     "members": True,
     "show-inheritance": True,
     "exclude-members": "activate_impl, deactivate_impl, BaseNetworkFromOnnx, BaseDataLoader",
-    "special-members": "__call__, __getitem__",
+    "special-members": "__call__, __getitem__, __bool__",
 }
 
 autodoc_member_order = "bysource"

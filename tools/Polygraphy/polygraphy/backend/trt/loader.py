@@ -20,6 +20,7 @@ class LoadPlugins(BaseLoadModel):
         another loader is that you can control the order of execution when lazily evaluating.
 
         For immediate evaluation, call the loader. For example:
+
         ::
             # Note the `()` at the end
             LoadPlugins(plugins=["/path/to/my/plugin.so", "/path/to/my/other_plugin.so"])()
@@ -409,6 +410,9 @@ class EngineFromNetwork(BaseLoadModel):
             config, _ = misc.try_call(self._config, builder, network)
             G_LOGGER.info("Building engine using builder configuration: {:}".format(trt_util.str_from_config(config)))
             engine = builder.build_engine(network, config)
+            if not engine:
+                G_LOGGER.critical("Invalid Engine. Please ensure the engine was built correctly")
+
             return engine
 
 

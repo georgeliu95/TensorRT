@@ -47,6 +47,8 @@ follow the naming convention: `<Target>From<Source>`, e.g. `OnnxFromTfGraph`, `N
 1. Create a separate branch for your feature or bug fix
 2. Make your changes
 3. Run Tests:
-    - Install prerequisite packages with: `python3 -m pip install -r tests/requirements.txt`
+    - Install prerequisite packages with:
+        - `python3 -m pip install -r tests/requirements.txt`
+        - `python3 -m pip install -r docs/requirements.txt`
     - Run tests with: `make test`
 4. Commit, push, and submit a merge request to the main branch

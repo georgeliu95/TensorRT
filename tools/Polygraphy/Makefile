@@ -1,6 +1,7 @@
 .PHONY: test test_noparallel clean build install_venv install docs
 
-test:
+# Tests also check that docs can build
+test: docs
 	python3 -m pytest tests/ -v -x -nauto
 
 test_noparallel:
@@ -23,4 +24,4 @@ install: install_common
 
 docs:
 	mkdir -p build/docs
-	sphinx-build docs build/docs/
+	sphinx-build docs build/docs/ -j auto -W
