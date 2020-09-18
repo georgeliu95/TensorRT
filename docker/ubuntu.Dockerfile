@@ -15,7 +15,10 @@
 ARG CUDA_VERSION=11.0
 ARG OS_VERSION=18.04
 ARG NVCR_SUFFIX=
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${OS_VERSION}${NVCR_SUFFIX}
+
+# TRT-12006 - Update after CUDA 11.1 GA.
+# FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${OS_VERSION}${NVCR_SUFFIX}
+FROM gitlab-master.nvidia.com:5005/dl/dgx/cuda:11.1-devel-ubuntu18.04--master
 
 LABEL maintainer="NVIDIA CORPORATION"
 
@@ -47,6 +50,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     fakeroot \
     dh-make \
     build-essential
+
+# TRT-12006 - update hack after cuda 11 GA
+# RUN apt-get remove -y tensorrt libnvinfer7
+# RUN pip3 uninstall tensorrt
+#RUN cd /usr/local/bin &&\
+#    ln -s /usr/bin/python3 python &&\
+#    ln -s /usr/bin/pip3 pip
 
 RUN . /etc/os-release &&\
     if [ "$VERSION_ID" = "16.04" ]; then \
