@@ -181,7 +181,7 @@ def str_from_onnx_graph(graph, layer_info, attr_info, tensors, indent_level=0):
                 if attr_str == "STRING":
                     processed = processed.decode()
                 elif attr_str == "TENSOR":
-                    processed = "Tensor: {:} [dtype={:}, shape={:}]".format(processed.name, processed.dtype, processed.shape)
+                    processed = "Tensor: {:} [dtype={:}, shape={:}]".format(processed.name, get_dtype(processed), get_shape(processed))
                 elif attr_str == "GRAPH":
                     processed = "\n" + str_from_onnx_graph(processed, layer_info, attr_info, tensors, indent_level=indent_level + 2)
                 elif attr_str == "FLOATS" or attr_str == "INTS":

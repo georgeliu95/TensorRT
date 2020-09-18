@@ -74,19 +74,25 @@ def wrapper():
 
 class Stream(object):
     def __init__(self):
-        self._handle = wrapper().create_stream()
+        self.handle = wrapper().create_stream()
 
 
     def free(self):
-        wrapper().destroy_stream(self._handle)
+        wrapper().destroy_stream(self.handle)
 
 
     def synchronize(self):
-        wrapper().stream_synchronize(self._handle)
+        wrapper().stream_synchronize(self.handle)
 
 
-    def handle(self):
-        return self._handle.value
+    def address(self):
+        return self.handle.value
+
+
+def try_get_stream_handle(stream):
+    if stream is None:
+        return None
+    return stream.handle
 
 
 class DeviceBuffer(object):
@@ -142,7 +148,7 @@ class DeviceBuffer(object):
             self.resize(host_buffer.shape)
             buffer = np.ascontiguousarray(host_buffer.ravel())
             host_ptr = buffer.ctypes.data_as(ctypes.c_void_p)
-            wrapper().htod(dst=self._ptr, src=host_ptr, nbytes=host_buffer.nbytes, stream=stream.handle() if stream else None)
+            wrapper().htod(dst=self._ptr, src=host_ptr, nbytes=host_buffer.nbytes, stream=try_get_stream_handle(stream))
 
 
     def copy_to(self, host_buffer, stream=None):
@@ -163,7 +169,7 @@ class DeviceBuffer(object):
             self._check_dtype_matches(host_buffer)
             host_buffer.resize(self.shape, refcheck=False)
             host_ptr = host_buffer.ctypes.data_as(ctypes.c_void_p)
-            wrapper().dtoh(dst=host_ptr, src=self._ptr, nbytes=nbytes, stream=stream.handle() if stream else None)
+            wrapper().dtoh(dst=host_ptr, src=self._ptr, nbytes=nbytes, stream=try_get_stream_handle(stream))
         return host_buffer
 
 

@@ -38,12 +38,12 @@ class TrtRunner(BaseRunner):
         # If engine is a callable, then we own the engine
         self.engine, self.owning = misc.try_call(self._engine)
 
+        if not self.engine:
+            G_LOGGER.critical("Invalid Engine. Please ensure the engine was built correctly")
+
         if not self.owning:
             G_LOGGER.verbose("Engine was provided directly instead of via a Callable. This runner will not assume ownership. "
                            "Please ensure the engine is freed.")
-
-        if not self.engine:
-            G_LOGGER.critical("Invalid Engine. Please ensure the engine was built correctly")
 
         self.buffers = Buffers.from_engine(self.engine)
         self.stream = cuda.Stream()
@@ -68,7 +68,6 @@ class TrtRunner(BaseRunner):
 
         self.buffers.free()
         self.stream.free()
-
 
 
     def infer(self, feed_dict):
@@ -108,7 +107,7 @@ class TrtRunner(BaseRunner):
         start = time.time()
         self.buffers.copy_inputs(feed_dict, self.stream)
         # Need to offset bindings in case the active profile is not 0.
-        status = self.context.execute_async_v2(bindings=[0] * start_binding + self.buffers.bindings(), stream_handle=self.stream.handle())
+        status = self.context.execute_async_v2(bindings=[0] * start_binding + self.buffers.bindings(), stream_handle=self.stream.address())
         if not status:
             G_LOGGER.critical("Model execution failed. Please see the log messages above for details")
 

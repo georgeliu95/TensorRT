@@ -1,4 +1,5 @@
 ====================
 Comparison Functions
 ====================
-.. autoclass:: polygraphy.comparator.comparator.CompareFunc
+
+.. automodule:: polygraphy.comparator.compare
