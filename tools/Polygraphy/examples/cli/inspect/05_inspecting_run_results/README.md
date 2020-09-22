@@ -19,18 +19,14 @@ polygraphy inspect results onnxrt_results.pkl
 This will display something like:
 
 ```
-[I] ==== Run Results ====
-    Total Runners: 3
+[I] ==== Run Results (3 runners) ====
 
-    ---- Runner: onnxrt-runner-N0-09/04/20-21:23:11 ----
-    Number of Iterations: 1
-        Iteration: 0 | y [dtype=float32, shape=(1, 1, 2, 2)]
+    ---- Runner: onnxrt-runner-N0-09/17/20-10:21:38 (1 iterations) ----
+    {y [dtype=float32, shape=(1, 1, 2, 2)]}
 
-    ---- Runner: onnxrt-runner-N1-09/04/20-21:23:11 ----
-    Number of Iterations: 1
-        Iteration: 0 | y [dtype=float32, shape=(1, 1, 2, 2)]
+    ---- Runner: onnxrt-runner-N1-09/17/20-10:21:38 (1 iterations) ----
+    {y [dtype=float32, shape=(1, 1, 2, 2)]}
 
-    ---- Runner: onnxrt-runner-N2-09/04/20-21:23:11 ----
-    Number of Iterations: 1
-        Iteration: 0 | y [dtype=float32, shape=(1, 1, 2, 2)]
+    ---- Runner: onnxrt-runner-N2-09/17/20-10:21:38 (1 iterations) ----
+    {y [dtype=float32, shape=(1, 1, 2, 2)]}
 ```

@@ -79,7 +79,19 @@ def get_output_metadata(network):
     return outputs
 
 
-def str_from_network(network, layer_info=True, attr_info=True):
+def str_from_network(network, mode="full"):
+    """
+    Converts a TensorRT network to a human-readable representation
+
+    Args:
+        network (trt.INetworkDefinition): The network.
+        mode (str): Controls what is displayed for each layer. Choices: ["none", "basic", "attrs", "full"]
+
+    Returns:
+        str
+    """
+    import numpy as np
+
     try:
         LAYER_TYPE_CLASS_MAPPING = get_layer_class_mapping()
     except AttributeError:
@@ -128,7 +140,7 @@ def str_from_network(network, layer_info=True, attr_info=True):
     output_metadata = get_output_metadata(network)
     network_str += "---- {:} Network Outputs ----\n{:}\n\n".format(len(output_metadata), output_metadata)
     network_str += "---- {:} Layers ----\n".format(network.num_layers)
-    if layer_info:
+    if mode != "none":
         for index, layer in enumerate(network):
             if layer.type in LAYER_TYPE_CLASS_MAPPING:
                 layer.__class__ = LAYER_TYPE_CLASS_MAPPING[layer.type]
@@ -136,18 +148,33 @@ def str_from_network(network, layer_info=True, attr_info=True):
             input_info = get_layer_input_metadata(layer)
             output_info = get_layer_output_metadata(layer)
 
-            network_str += "Layer {:<4} | {:} [Op: {:}]\n{tab}{:}\n{tab}-> {:}\n".format(
-                                index, layer.name, layer.type, input_info, output_info, tab=constants.TAB)
-            if attr_info:
+            network_str += misc.str_from_layer("Layer", index, layer.name, layer.type, input_info, output_info)
+
+            if mode in ["attrs", "full"]:
                 # Exclude special attributes, as well as any attributes of the base layer class (those can be displayed above).
                 attrs = [attr for attr in dir(layer) if not is_special_attribute(attr) and not hasattr(trt.ILayer, attr) and is_valid_attribute(attr, layer)]
+                if attrs:
+                    network_str += misc.indent_block("---- Attributes ----\n")
                 for attr in attrs:
-                    network_str += "{:}{:}.{:} = {:}\n".format(constants.TAB, layer.name, attr, getattr(layer, attr))
+                    val = getattr(layer, attr)
+                    if mode == "full" or not isinstance(val, np.ndarray):
+                        network_str += misc.indent_block("{:}.{:} = {:}\n".format(layer.name, attr, val))
             network_str += "\n"
     else:
-        network_str += "(Use --layer-info to display)"
+        network_str += "(Use --mode to display)"
 
-    return "\n".join(network_str.splitlines())
+    return misc.indent_block(network_str, level=0)
+
+
+def _get_network_outputs(network):
+    return [network.get_output(index).name for index in range(network.num_outputs)]
+
+
+def check_outputs_not_found(not_found, all_outputs):
+    if not_found:
+        all_outputs = misc.unique_list(all_outputs)
+        G_LOGGER.critical("The following outputs: {:} were not found. "
+                          "Note: Available tensors: {:}".format(not_found, all_outputs))
 
 
 def mark_outputs(network, outputs):
@@ -165,12 +192,9 @@ def mark_outputs(network, outputs):
                 if not tensor.is_network_output:
                     network.mark_output(tensor)
 
-    marked_outputs = set([network.get_output(index).name for index in range(network.num_outputs)])
+    marked_outputs = set(_get_network_outputs(network))
     not_found = outputs - marked_outputs
-    if not_found:
-        all_outputs = misc.unique_list(all_outputs)
-        G_LOGGER.critical("The following outputs: {:} were not found in the network. "
-                          "Note: Available tensors: {:}".format(not_found, all_outputs))
+    check_outputs_not_found(not_found, all_outputs)
 
 
 def mark_layerwise(network):
@@ -189,20 +213,39 @@ def mark_layerwise(network):
             in_loop = True
         elif layer.type in LOOP_END_LAYERS:
             in_loop = False
-        for index in range(layer.num_outputs):
-            out = layer.get_output(index)
-            if not out.is_network_output and not in_loop and layer.type not in EXCLUDE_OUTPUT_LAYERS:
-                G_LOGGER.verbose("Marking {:} as an output".format(out.name))
-                network.mark_output(out)
-                num_tensors_marked += 1
+
+        def should_mark_layer():
+            return not in_loop and layer.type not in EXCLUDE_OUTPUT_LAYERS
+
+        if should_mark_layer():
+            for index in range(layer.num_outputs):
+                tensor = layer.get_output(index)
+                if not tensor.is_network_output:
+                    G_LOGGER.verbose("Marking {:} as an output".format(tensor.name))
+                    network.mark_output(tensor)
+                    num_tensors_marked += 1
     G_LOGGER.verbose("Marking {:} tensors as outputs".format(num_tensors_marked))
 
 
+def unmark_outputs(network, outputs):
+    outputs = set(outputs)
+
+    unmarked_outputs = set()
+    for layer in network:
+        for index in range(layer.num_outputs):
+            tensor = layer.get_output(index)
+            if tensor.is_network_output and tensor.name in outputs:
+                network.unmark_output(tensor)
+                unmarked_outputs.add(tensor.name)
+    not_found = outputs - unmarked_outputs
+    check_outputs_not_found(not_found, _get_network_outputs(network))
+
+
 def str_from_config(config):
-    config_str = "max_workspace_size={:} bytes ({:.2f} MB), ".format(config.max_workspace_size, config.max_workspace_size / (1024.0 ** 2))
+    config_str = "max_workspace_size={:} bytes ({:.2f} MB) | ".format(config.max_workspace_size, config.max_workspace_size / (1024.0 ** 2))
     with contextlib.suppress(AttributeError): config_str += "tf32={:}, ".format(config.get_flag(trt.BuilderFlag.TF32))
-    config_str += "fp16={:}, int8={:}, strict_types={:}".format(config.get_flag(trt.BuilderFlag.FP16),
-                        config.get_flag(trt.BuilderFlag.INT8), config.get_flag(trt.BuilderFlag.STRICT_TYPES))
+    config_str += "fp16={:}, int8={:}, strict_types={:} | {:} profiles".format(config.get_flag(trt.BuilderFlag.FP16),
+                        config.get_flag(trt.BuilderFlag.INT8), config.get_flag(trt.BuilderFlag.STRICT_TYPES), config.num_optimization_profiles)
     return config_str
 
 
@@ -343,8 +386,8 @@ def str_from_engine(engine):
         for offset in range(bindings_per_profile):
             binding = profile_index * bindings_per_profile + offset
             name =  "[Name: {:}]".format(engine.get_binding_name(binding))
-            engine_str += constants.TAB + "Binding Index: {:} {:} {:<{max_width}}".format(
-                                binding, "(Input) " if engine.binding_is_input(binding) else "(Output)", name, max_width=max_width)
+            engine_str += misc.indent_block("Binding Index: {:} {:} {:<{max_width}}".format(
+                                binding, "(Input) " if engine.binding_is_input(binding) else "(Output)", name, max_width=max_width))
 
             if engine.binding_is_input(binding):
                 if engine.is_shape_binding(binding):
@@ -355,7 +398,7 @@ def str_from_engine(engine):
             else:
                 engine_str += " | Shape: {:}".format(tuple(output_metadata[engine[offset]][1]))
         engine_str += "\n"
-    return "\n".join(engine_str.splitlines())
+    return misc.indent_block(engine_str, level=0)
 
 
 def get_bindings_per_profile(engine):

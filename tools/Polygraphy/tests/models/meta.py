@@ -73,4 +73,5 @@ ONNX_MODELS = {
 
     "scan": Model(path=model_path("scan.onnx"), LoaderType=BytesFromPath, check_runner=no_check_implemented),
     "dim_param": Model(path=model_path("dim_param.onnx"), LoaderType=BytesFromPath, check_runner=no_check_implemented),
+    "tensor_attr": Model(path=model_path("tensor_attr.onnx"), LoaderType=BytesFromPath, check_runner=no_check_implemented),
 }

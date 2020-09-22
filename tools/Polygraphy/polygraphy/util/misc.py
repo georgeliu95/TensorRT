@@ -374,7 +374,38 @@ def try_match_shape(arr, shape):
     return arr
 
 
-def log_module_info(module, name=None):
-    name = default_value(name, module.__name__)
-    G_LOGGER.verbose("Loaded Module: {:} | Version: {:} | Path: {:}".format(name, module.__version__,
-                    list(map(os.path.realpath, module.__path__))))
+def str_from_module_info(module, name=None):
+    name = default_value(name, "Loaded Module: {:<14}".format(module.__name__))
+    paths = str(list(map(os.path.realpath, module.__path__)))
+    return "{:} | Version: {:<8} | Path: {:}".format(name, str(module.__version__), paths)
+
+
+def log_module_info(module, name=None, severity=G_LOGGER.VERBOSE):
+    G_LOGGER.log(str_from_module_info(module, name), severity=severity)
+
+
+def str_from_layer(prefix, index, name, op, input_info, output_info):
+    layer_str = "{:} {:<4} | {:} [Op: {:}]\n".format(prefix, index, name, op)
+    layer_str += "{tab}{:}".format(input_info, tab=constants.TAB)
+    if input_info and output_info:
+        layer_str += "\n" + constants.TAB
+    else:
+        layer_str += " "
+    layer_str += "-> {:}\n".format(output_info)
+    return layer_str
+
+
+def indent_block(block, level=1):
+    """
+    Indents the provided block of text.
+
+    Args:
+        block (str): The text to indent.
+        level (int): The number of tabs to indent with.
+
+    Returns:
+        str: The indented block.
+    """
+    tab = constants.TAB * level
+    sep = "\n{:}".format(tab)
+    return tab + sep.join(str(block).splitlines())

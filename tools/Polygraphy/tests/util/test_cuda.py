@@ -19,6 +19,7 @@ RESIZES = [
     ResizeTestCase((2, 2, 2), 8, (9, 9), 81), # Resize to larger buffer
 ]
 
+
 class TestDeviceBuffer(object):
     @pytest.mark.parametrize("shapes", RESIZES)
     def test_device_buffer_resize(self, shapes):
@@ -57,6 +58,15 @@ class TestDeviceBuffer(object):
         buf.copy_to(new_arr)
 
         assert np.all(new_arr == arr)
+
+
+    def test_device_buffer_free(self):
+        buf = DeviceBuffer(shape=(64, 64), dtype=np.float32)
+        assert buf.allocated_nbytes == 64 * 64 * np.float32().itemsize
+
+        buf.free()
+        assert buf.allocated_nbytes == 0
+        assert buf.shape == tuple()
 
 
 class TestStream(object):

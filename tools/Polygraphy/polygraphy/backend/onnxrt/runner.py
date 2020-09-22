@@ -8,7 +8,6 @@ from polygraphy.common import TensorMetadata
 from polygraphy.util import misc
 
 
-
 class OnnxrtRunner(BaseRunner):
     """
     Runs inference using an ONNX-Runtime inference session.
@@ -21,7 +20,6 @@ class OnnxrtRunner(BaseRunner):
         """
         super().__init__(name=name, prefix="onnxrt-runner")
         self._sess = sess
-        self.output_names = []
 
 
     def activate_impl(self):
@@ -34,7 +32,7 @@ class OnnxrtRunner(BaseRunner):
 
     def infer(self, feed_dict):
         start = time.time()
-        inference_outputs = self.sess.run(self.output_names, feed_dict)
+        inference_outputs = self.sess.run(None, feed_dict)
         end = time.time()
 
         out_dict = OrderedDict()

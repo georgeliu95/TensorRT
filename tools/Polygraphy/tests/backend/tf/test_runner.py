@@ -8,11 +8,6 @@ import pytest
 import os
 
 
-
-
-
-
-
 class TestTfRunner(object):
     def test_can_name_runner(self):
         NAME = "runner"

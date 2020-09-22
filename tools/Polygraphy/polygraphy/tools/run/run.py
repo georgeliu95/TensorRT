@@ -143,12 +143,17 @@ def add_comparator(script, args, data_loader_name, cmd_run):
     if args.load_results:
         G_LOGGER.verbose("Will load runner results from: {:}".format(args.load_results))
         script.add_import(imports=["misc"], frm="polygraphy.util")
-        script.append_suffix(Script.format_str("for load_output in {:}:\n    results.update(misc.pickle_load(load_output))", args.load_results))
+        script.append_suffix(Script.format_str("\n# Load results\nfor load_output in {:}:\n{:}results.update(misc.pickle_load(load_output))", args.load_results, Inline(constants.TAB)))
 
     if args.save_results:
         G_LOGGER.verbose("Will save runner results to: {:}".format(args.save_results))
         script.add_import(imports=["misc"], frm="polygraphy.util")
-        script.append_suffix(Script.format_str("misc.pickle_save({:}, results)", args.save_results))
+        script.append_suffix(Script.format_str("\n# Save results\nmisc.pickle_save({:}, results)", args.save_results))
+
+    top_k = args_util.get(args, "top_k")
+    if top_k is not None:
+        script.add_import(imports=["PostprocessFunc"], frm="polygraphy.comparator")
+        script.append_suffix(Script.format_str("\n# Postprocessing - Apply Top-{:}\nresults = Comparator.postprocess(results, PostprocessFunc.topk_func(k={:}))", top_k, top_k))
 
     script.append_suffix("\nsuccess = True")
 
@@ -216,7 +221,7 @@ class Run(Tool):
                             type=argparse.FileType("w"), dest="gen_script")
         args_util.add_model_args(parser)
         args_util.add_runner_args(parser)
-        args_util.add_comparator_args(parser)
+        args_util.add_comparator_args(parser, top_k=True)
         args_util.add_dataloader_args(parser)
         args_util.add_trt_args(parser, network_api=True)
         args_util.add_trt_legacy_args(parser)

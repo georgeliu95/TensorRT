@@ -8,22 +8,28 @@ debugging inference with deep learning models. See the help output
 for details.
 """
 import argparse
-import sys
 import os
+import sys
 
 G_SCRIPT_FILE = os.path.realpath(__file__)
 G_ROOT_DIR = os.path.join(os.path.dirname(G_SCRIPT_FILE), os.pardir)
 sys.path.insert(0, G_ROOT_DIR)
 
-from polygraphy.tools.util import args as args_util
-from polygraphy.tools import TOOL_REGISTRY
+
+import polygraphy
 from polygraphy.logger import G_LOGGER
+from polygraphy.tools import TOOL_REGISTRY
+from polygraphy.tools.util import args as args_util
+from polygraphy.util import misc
+
 
 # All CLI tools should exit on errors rather than re-raising
 G_LOGGER.exit_on_errors = True
 
 def main():
     parser = argparse.ArgumentParser(description="Polygraphy: A Deep Learning Debugging Toolkit")
+    parser.add_argument("-v", "--version", action="version", version=misc.str_from_module_info(polygraphy, name="Polygraphy"))
+
     subparsers = parser.add_subparsers(title="Tools", dest="tools")
     subparsers.required = True
 
