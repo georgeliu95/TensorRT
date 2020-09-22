@@ -167,7 +167,7 @@ else:
 
 
 class ModifyNetwork(BaseLoadModel):
-    def __init__(self, network, outputs=None):
+    def __init__(self, network, outputs=None, exclude_outputs=None):
         """
         Functor that modifies a TensorRT ``INetworkDefinition``.
 
@@ -178,14 +178,17 @@ class ModifyNetwork(BaseLoadModel):
                     e.g., in the case of a parser. The first and second return values must
                     always be the builder and network respectively. ModifyNetwork will never take ownership of these.
 
-
-            outputs (List[str]):
+            outputs (Sequence[str]):
                     Names of tensors to mark as outputs. If provided, this will override the outputs
                     already marked in the network.
                     If a value of `constants.MARK_ALL` is used instead of a list, all tensors in the network are marked.
+            exclude_outputs (Sequence[str]):
+                Names of tensors to exclude as outputs. This can be useful in conjunction with
+                ``outputs=constants.MARK_ALL`` to omit outputs.
         """
         self._network = network
         self.outputs = outputs
+        self.exclude_outputs = exclude_outputs
 
 
     def __call__(self):
@@ -202,6 +205,9 @@ class ModifyNetwork(BaseLoadModel):
             trt_util.mark_layerwise(network)
         elif self.outputs is not None:
             trt_util.mark_outputs(network, self.outputs)
+
+        if self.exclude_outputs is not None:
+            trt_util.unmark_outputs(network, self.exclude_outputs)
 
         if parser is not None:
             return builder, network, parser
@@ -331,7 +337,8 @@ class CreateConfig(BaseLoadModel):
             calibration_profile = trt_util.build_default_profile(builder, network)
             config.add_optimization_profile(calibration_profile)
 
-        G_LOGGER.info("Configuring with profiles: {:}".format(self.profiles))
+        if self.profiles:
+            G_LOGGER.info("Configuring with profiles: {:}".format(self.profiles))
 
         config.max_workspace_size = int(self.max_workspace_size)
 
@@ -346,7 +353,6 @@ class CreateConfig(BaseLoadModel):
             config.set_flag(trt.BuilderFlag.INT8)
             if not network.has_explicit_precision:
                 if self.calibrator is not None:
-
                     input_metadata = trt_util.get_input_metadata_from_profile(calibration_profile, network)
                     with contextlib.suppress(AttributeError):
                         self.calibrator.reset(input_metadata)
@@ -404,14 +410,17 @@ class EngineFromNetwork(BaseLoadModel):
                 G_LOGGER.verbose("{:} were provided directly instead of via a Callable. This loader will not assume ownership. "
                                "Please ensure that they are freed.".format(provided))
 
-            G_LOGGER.super_verbose(lambda: "Displaying TensorRT Network:\n" + trt_util.str_from_network(network, layer_info=G_LOGGER.severity <= G_LOGGER.EXTRA_VERBOSE,
-                                   attr_info=G_LOGGER.severity <= G_LOGGER.SUPER_VERBOSE))
+            network_log_mode = "full" if G_LOGGER.severity <= G_LOGGER.ULTRA_VERBOSE else "attrs"
+            G_LOGGER.super_verbose(lambda: ("Displaying TensorRT Network:\n" + trt_util.str_from_network(network, mode=network_log_mode)))
 
             config, _ = misc.try_call(self._config, builder, network)
-            G_LOGGER.info("Building engine using builder configuration: {:}".format(trt_util.str_from_config(config)))
+            G_LOGGER.info("Building engine with configuration: {:}".format(trt_util.str_from_config(config)))
             engine = builder.build_engine(network, config)
             if not engine:
                 G_LOGGER.critical("Invalid Engine. Please ensure the engine was built correctly")
+
+            if hasattr(config.int8_calibrator, "free"):
+                config.int8_calibrator.free()
 
             return engine
 

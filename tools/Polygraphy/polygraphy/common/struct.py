@@ -40,5 +40,5 @@ class TensorMetadata(OrderedDict):
 
     def __str__(self):
         sep = ", "
-        elems = ["{:} [dtype={:}, shape={:}]".format(name, np.dtype(dtype).name, shape) for name, (dtype, shape) in self.items()]
-        return sep.join(elems)
+        elems = ["{:} [dtype={:}, shape={:}]".format(name, np.dtype(dtype).name, tuple(shape) if shape is not None else shape) for name, (dtype, shape) in self.items()]
+        return "{" + sep.join(elems) + "}"

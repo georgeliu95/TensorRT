@@ -2,6 +2,7 @@ from collections import OrderedDict
 
 import numpy as np
 from polygraphy.logger.logger import G_LOGGER, LogMode
+from polygraphy.common import constants
 from polygraphy.util import misc
 
 
@@ -103,10 +104,33 @@ class CompareFunc(object):
             """
             # Returns whether the outputs match
             def check_outputs_match(out0, out0_name, out1, out1_name):
-                def compute_amax(buffer):
-                    if not misc.is_empty_shape(buffer.shape):
-                        return np.amax(buffer)
-                    return 0
+                def compute_max(buffer):
+                    if misc.is_empty_shape(buffer.shape):
+                        return 0
+                    return np.amax(buffer)
+
+                # Returns index of max value
+                def compute_argmax(buffer):
+                    if misc.is_empty_shape(buffer.shape):
+                        return 0
+                    return np.unravel_index(np.argmax(buffer), buffer.shape)
+
+                def compute_min(buffer):
+                    if misc.is_empty_shape(buffer.shape):
+                        return 0
+                    return np.amin(buffer)
+
+                # Returns index of min value
+                def compute_argmin(buffer):
+                    if misc.is_empty_shape(buffer.shape):
+                        return 0
+                    return np.unravel_index(np.argmin(buffer), buffer.shape)
+
+                def compute_mean(buffer):
+                    if misc.is_empty_shape(buffer.shape):
+                        return 0
+                    return np.mean(buffer)
+
 
                 def compute_required():
                     # The purpose of this function is to determine the minimum tolerances such that
@@ -120,9 +144,13 @@ class CompareFunc(object):
                     try:
                         absdiff = np.abs(out0 - out1)
                         absout1 = np.abs(out1)
-                        required_atol = max(compute_amax(absdiff), 0.0)
-                        required_atol_if_rtol = max(compute_amax(absdiff - rtol * absout1), 0.0)
-                        required_rtol = max(compute_amax((absdiff - atol) / absout1), 0.0)
+                        required_atol = max(compute_max(absdiff), 0.0)
+                        required_atol_if_rtol = max(compute_max(absdiff - rtol * absout1), 0.0)
+                        # Suppress divide by 0 warnings
+                        with np.testing.suppress_warnings() as sup:
+                            sup.filter(RuntimeWarning)
+                            required_rtol = max(compute_max((absdiff - atol) / absout1), 0.0)
+
                         return required_atol, required_atol_if_rtol, required_rtol
                     except:
                         return None, None, None
@@ -130,7 +158,6 @@ class CompareFunc(object):
                 def log_mismatches(mismatches):
                     try:
                         with G_LOGGER.indent():
-                            G_LOGGER.error("Note: Use -vvv or set logging verbosity to SUPER_VERBOSE to display mismatches", mode=LogMode.ONCE)
                             G_LOGGER.super_verbose("Mismatches at:\n" + str(mismatches))
                             G_LOGGER.extra_verbose("Runner: {:40} | Mismatched values:\n{:}".format(run_result0.runner_name, out0[mismatches]))
                             G_LOGGER.extra_verbose("Runner: {:40} | Mismatched values:\n{:}".format(run_result1.runner_name, out1[mismatches]))
@@ -144,22 +171,30 @@ class CompareFunc(object):
                     G_LOGGER.warning("Failed to compare outputs with:\n{:}\nSkipping".format(err))
                     return False
 
-                required_atol, required_atol_if_rtol, required_rtol = compute_required()
-                log_msg = "Minimum required tolerances: [atol={:}] OR [rtol={:}, atol={:}] OR [rtol={:}, atol={:}]\n".format(
-                                required_atol, rtol, required_atol_if_rtol, required_rtol, atol)
-                G_LOGGER.super_verbose("Runner: {:40} | Output (dtype={:}, shape={:}):\n{:}".format(run_result0.runner_name, out0.dtype, out0.shape, out0))
-                G_LOGGER.super_verbose("Runner: {:40} | Output (dtype={:}, shape={:}):\n{:}".format(run_result1.runner_name, out1.dtype, out1.shape, out1))
+                G_LOGGER.super_verbose("Runner: {:40} | Output: {:} (dtype={:}, shape={:}):\n{:}".format(
+                                            run_result0.runner_name, out0_name, out0.dtype, out0.shape, misc.indent_block(out0)))
+                G_LOGGER.super_verbose("Runner: {:40} | Output: {:} (dtype={:}, shape={:}):\n{:}".format(
+                                            run_result1.runner_name, out1_name, out1.dtype, out1.shape, misc.indent_block(out1)))
 
                 failed = np.any(mismatches)
+
+                required_atol, required_atol_if_rtol, required_rtol = compute_required()
+                log_msg = "Required tolerances: [atol={:.5g}] OR [rtol={:.5g}, atol={:.5g}] OR [rtol={:.5g}, atol={:.5g}]".format(
+                                required_atol, rtol, required_atol_if_rtol, required_rtol, atol)
+                log_msg += "\n{:40} | Stats: mean={:.5g}, min={:.5g} at {:}, max={:.5g} at {:}\n{:40} | Stats: mean={:.5g}, min={:.5g} at {:}, max={:.5g} at {:}\n".format(
+                                run_result0.runner_name, compute_mean(out0), compute_min(out0), compute_argmin(out0), compute_max(out0), compute_argmax(out0),
+                                run_result1.runner_name, compute_mean(out1), compute_min(out1), compute_argmin(out1), compute_max(out1), compute_argmax(out1),
+                                )
+
                 if failed:
                     log_mismatches(mismatches)
-                    G_LOGGER.error(log_msg)
+                    G_LOGGER.info(log_msg)
                     G_LOGGER.error("FAILED | Difference exceeds tolerance (rtol={:}, atol={:})".format(rtol, atol))
                 else:
-                    G_LOGGER.info(log_msg)
+                    G_LOGGER.verbose(log_msg)
                     G_LOGGER.success("PASSED | Difference is within tolerance (rtol={:}, atol={:})".format(rtol, atol))
 
-                G_LOGGER.verbose("Finished comparing: '{:}' (dtype={:}, shape={:}) [{:}] and '{:}' (dtype={:}, shape={:}) [{:}]"
+                G_LOGGER.extra_verbose("Finished comparing: '{:}' (dtype={:}, shape={:}) [{:}] and '{:}' (dtype={:}, shape={:}) [{:}]"
                                 .format(out0_name, out0.dtype, out0.shape, run_result0.runner_name, out1_name, out1.dtype, out1.shape, run_result1.runner_name))
                 return OutputCompareResult(not failed, required_atol, required_rtol)
 
@@ -206,7 +241,7 @@ class CompareFunc(object):
                     output1 = run_result1[out1_name]
                     G_LOGGER.info("Comparing Output: '{:}' (dtype={:}, shape={:}) with '{:}' (dtype={:}, shape={:})".format(
                                         out0_name, output0.dtype, output0.shape, out1_name, output1.dtype, output1.shape))
-                    G_LOGGER.verbose("Note: Comparing {:} vs. {:}".format(run_result0.runner_name, run_result1.runner_name))
+                    G_LOGGER.extra_verbose("Note: Comparing {:} vs. {:}".format(run_result0.runner_name, run_result1.runner_name))
 
                     with G_LOGGER.indent():
                         if check_shapes and output0.shape != output1.shape:

@@ -35,9 +35,6 @@ class TestExportOnnxFromTf(object):
         assert model.opset_import[0].version == 9
 
 
-
-
-
 class TestModifyOnnx(object):
     def test_layerwise(self):
         loader = ModifyOnnx(OnnxFromPath(ONNX_MODELS["identity_identity"].path), outputs=constants.MARK_ALL)
@@ -47,6 +44,13 @@ class TestModifyOnnx(object):
 
     def test_custom_outputs(self):
         loader = ModifyOnnx(OnnxFromPath(ONNX_MODELS["identity_identity"].path), outputs=["identity_out_0"])
+        model = loader()
+        assert len(model.graph.output) == 1
+        assert model.graph.output[0].name == "identity_out_0"
+
+
+    def test_exclude_outputs_with_layerwise(self):
+        loader = ModifyOnnx(OnnxFromPath(ONNX_MODELS["identity_identity"].path), outputs=constants.MARK_ALL, exclude_outputs=["identity_out_2"])
         model = loader()
         assert len(model.graph.output) == 1
         assert model.graph.output[0].name == "identity_out_0"

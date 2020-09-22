@@ -7,7 +7,7 @@ For example:
 
 ```bash
 polygraphy inspect model ../../../models/identity.onnx \
-    --layer-info=basic --display-as=trt
+    --mode=basic --display-as=trt
 ```
 
 This will display something like:
@@ -17,15 +17,15 @@ This will display something like:
     Name: Unnamed Network 0 | Explicit Batch Network
 
     ---- 1 Network Inputs ----
-    x [dtype=float32, shape=(1, 1, 2, 2)]
+    {x [dtype=float32, shape=(1, 1, 2, 2)]}
 
     ---- 1 Network Outputs ----
-    y [dtype=float32, shape=(1, 1, 2, 2)]
+    {y [dtype=float32, shape=(1, 1, 2, 2)]}
 
     ---- 1 Layers ----
-    Layer 0    |  [Op: LayerType.IDENTITY]
-        x [dtype=float32, shape=(1, 1, 2, 2)]
-        -> y [dtype=float32, shape=(1, 1, 2, 2)]
+    Layer 0    | (Unnamed Layer* 0) [Identity] [Op: LayerType.IDENTITY]
+        {x [dtype=float32, shape=(1, 1, 2, 2)]}
+        -> {y [dtype=float32, shape=(1, 1, 2, 2)]}
 ```
 
-It is also possible to show detailed layer information, including layer attributes, using `--layer-info=full`.
+It is also possible to show detailed layer information, including layer attributes, using `--mode=full`.

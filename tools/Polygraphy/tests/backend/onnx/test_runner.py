@@ -3,8 +3,6 @@ from polygraphy.backend.onnx import OnnxTfRunner, OnnxFromPath, BytesFromOnnx
 from tests.models.meta import ONNX_MODELS
 
 
-
-
 class TestOnnxTfRunner(object):
     def test_can_name_runner(self):
         NAME = "runner"

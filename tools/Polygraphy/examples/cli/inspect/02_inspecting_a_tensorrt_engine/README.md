@@ -26,10 +26,10 @@ This will display something like:
     Name: Unnamed Network 0 | Explicit Batch Engine (2 layers)
 
     ---- 1 Engine Inputs ----
-    x [dtype=float32, shape=[1, 1, 2, 2]]
+    {x [dtype=float32, shape=(1, 1, 2, 2)]}
 
     ---- 1 Engine Outputs ----
-    y [dtype=float32, shape=[1, 1, 2, 2]]
+    {y [dtype=float32, shape=(1, 1, 2, 2)]}
 
     ---- Memory ----
     Workspace Memory: 0 bytes

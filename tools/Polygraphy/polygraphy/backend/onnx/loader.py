@@ -89,22 +89,25 @@ class OnnxFromTfGraph(BaseLoadModel):
 
 
 class ModifyOnnx(BaseLoadModel):
-    def __init__(self, model, do_shape_inference=None, outputs=None):
+    def __init__(self, model, do_shape_inference=None, outputs=None, exclude_outputs=None):
         """
         Functor that modifies an ONNX model.
 
         Args:
             model (Callable() -> onnx.ModelProto): A loader that can supply an ONNX model.
 
-
-            outputs (List[str]):
+            outputs (Sequence[str]):
                 Names of tensors to mark as outputs. If provided, this will override the
                 existing model outputs.
                 If a value of `constants.MARK_ALL` is used instead of a list, all tensors in the network are marked.
+            exclude_outputs (Sequence[str]):
+                Names of tensors to exclude as outputs. This can be useful in conjunction with
+                ``outputs=constants.MARK_ALL`` to omit outputs.
         """
         self._model = model
         self.do_shape_inference = misc.default_value(do_shape_inference, False)
         self.outputs = outputs
+        self.exclude_outputs = exclude_outputs
 
 
     def __call__(self):
@@ -124,6 +127,9 @@ class ModifyOnnx(BaseLoadModel):
             model = onnx_util.mark_layerwise(model)
         elif self.outputs is not None:
             model = onnx_util.mark_outputs(model, self.outputs)
+
+        if self.exclude_outputs is not None:
+            model = onnx_util.unmark_outputs(model, self.exclude_outputs)
 
         return onnx_util.check_model(model)
 

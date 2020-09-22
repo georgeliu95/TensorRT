@@ -51,14 +51,14 @@ class DataLoader(BaseDataLoader):
                     provided shape will be used to populate the values of the inputs, rather than to determine
                     their shape.
             int_range (Tuple[int]):
-                    A tuple containing exactly 2 integers, indicating the minimum and maximum integer values the
-                    data loader should generate. If either value in the tuple is None, the default will be used
+                    A tuple containing exactly 2 integers, indicating the minimum and maximum integer values (inclusive)
+                    the data loader should generate. If either value in the tuple is None, the default will be used
                     for that value.
                     If None is provided instead of a tuple, then the default values will be used for both the
                     minimum and maximum.
             float_range (Tuple[float]):
-                    A tuple containing exactly 2 floats, indicating the minimum and maximum float values the
-                    data loader should generate. If either value in the tuple is None, the default will be used
+                    A tuple containing exactly 2 floats, indicating the minimum and maximum float values (inclusive)
+                    the data loader should generate. If either value in the tuple is None, the default will be used
                     for that value.
                     If None is provided instead of a tuple, then the default values will be used for both the
                     minimum and maximum.

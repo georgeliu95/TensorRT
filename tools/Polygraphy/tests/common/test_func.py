@@ -1,5 +1,6 @@
 from polygraphy.common import func
 
+
 class TestExtend(object):
     def test_override_rv(self):
         def x():

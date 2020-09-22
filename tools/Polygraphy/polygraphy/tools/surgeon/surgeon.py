@@ -243,7 +243,7 @@ class STExtract(STSurgeonBase):
             graph.toposort()
 
         onnx_model = gs.export_onnx(graph)
-        G_LOGGER.info("Writing model to: {output}. To see more details about the model, use: polygraphy inspect model {output} --layer-info=basic".format(output=args.output))
+        G_LOGGER.info("Writing model to: {output}. To see more details about the model, use: polygraphy inspect model {output} --mode=basic".format(output=args.output))
         onnx.save(onnx_model, args.output)
 
 

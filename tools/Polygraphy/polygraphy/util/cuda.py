@@ -123,6 +123,8 @@ class DeviceBuffer(object):
 
     def free(self):
         wrapper().free(self._ptr)
+        self.shape = tuple()
+        self.allocated_nbytes = 0
         self._ptr = ctypes.c_void_p(None)
 
 
