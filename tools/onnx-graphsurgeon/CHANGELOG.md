@@ -2,14 +2,20 @@
 
 Dates are in YYYY-MM-DD format.
 
-## v0.2.4
+
+## v0.2.5 (2020-09-21)
+### Fixed
+- Fixed a bug where nodes including subgraphs whose inputs/outputs had the same names as the node's inputs/outputs would not be imported correctly.
+
+
+## v0.2.4 (2020-09-14)
 ### Fixed
 - `fold_constants()` will no longer fail if there is nothing to fold in the graph
 - `cleanup()` will now properly remove the producer nodes of graph inputs.
 - Fixed a bug where graph input/output tensors not attached to nodes would not be correctly exported.
 
 
-## v0.2.3
+## v0.2.3 (2020-06-17)
 ### Added
 - `Graph.register()` now accepts an `opsets` argument so that functions can be registered for specific opsets.
 
