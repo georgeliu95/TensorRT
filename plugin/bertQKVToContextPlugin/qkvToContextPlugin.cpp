@@ -197,7 +197,7 @@ bool QKVToContextPluginDynamic::supportsFormatCombination(
         bool isFormatSupported = in->format == TensorFormat::kLINEAR;
         if (mType == DataType::kINT8)
         {
-            if(in->dims.d[HDIM] % 32 == 0)
+            if (in->dims.d[HDIM] % 32 == 0)
             {
                 isFormatSupported = in->format == TensorFormat::kCHW32;
             }
@@ -240,7 +240,7 @@ bool QKVToContextPluginDynamic::supportsFormatCombination(
             bool isFormatSupported = out->format == TensorFormat::kLINEAR;
             if (mType == DataType::kINT8)
             {
-                if(out->dims.d[HDIM] % 32 == 0)
+                if (out->dims.d[HDIM] % 32 == 0)
                 {
                     isFormatSupported = out->format == TensorFormat::kCHW32;
                 }

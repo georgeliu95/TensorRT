@@ -14,33 +14,30 @@
  * limitations under the License.
  */
 
-#ifndef TRT_QKV_TO_CONTEXT_INTERLEAVED_PLUGIN_H
-#define TRT_QKV_TO_CONTEXT_INTERLEAVED_PLUGIN_H
-
-#include "NvInferPlugin.h"
-#include "cublas_v2.h"
-#include "fused_multihead_attention_v2.h"
+#ifndef TRT_SKIP_LAYER_NORM_INTERLEAVED_PLUGIN_H
+#define TRT_SKIP_LAYER_NORM_INTERLEAVED_PLUGIN_H
 #include <cuda.h>
+#include "NvInferPlugin.h"
+
+#include "bertCommon.h"
+#include <memory>
 #include <string>
 #include <vector>
 
 namespace bert
 {
-static constexpr int32_t kSM_XAVIER = 72;
-static constexpr int32_t kSM_TURING = 75;
-static constexpr int32_t kSM_AMPERE = 80;
 
-class QKVToContextInterleavedPlugin : public nvinfer1::IPluginV2DynamicExt
+class SkipLayerNormInterleavedPlugin : public nvinfer1::IPluginV2DynamicExt
 {
 public:
-    QKVToContextInterleavedPlugin(
-        const std::string name, const int hiddenSize, const int numHeads, const float dqProbs);
+    SkipLayerNormInterleavedPlugin(
+        const std::string name, const nvinfer1::Weights& beta, const nvinfer1::Weights& gamma);
 
-    QKVToContextInterleavedPlugin(const std::string name, const void* data, size_t length);
+    SkipLayerNormInterleavedPlugin(const std::string name, const void* data, size_t length);
 
-    // It doesn't make sense to make QKVToContextInterleavedPlugin without arguments, so we
+    // It doesn't make sense to make SkipLayerNormInterleavedPlugin without arguments, so we
     // delete default constructor.
-    QKVToContextInterleavedPlugin() = delete;
+    SkipLayerNormInterleavedPlugin() = delete;
 
     // IPluginV2DynamicExt Methods
     nvinfer1::IPluginV2DynamicExt* clone() const override;
@@ -70,24 +67,18 @@ public:
     void setPluginNamespace(const char* pluginNamespace) override;
     const char* getPluginNamespace() const override;
 
-protected:
-    void createMHARunner();
-    int getSMVersion() const;
-
 private:
     const std::string mLayerName;
     std::string mNamespace;
 
-    int mS;
-    int mB;
-    int mSM;
-    int mHeadSize;
-    int mHiddenSize;
-    int mNumHeads;
+    bert::cuda_unique_ptr<void> mGammaDev;
+    bert::cuda_unique_ptr<void> mBetaDev;
+    size_t mLd; // leading dim
+    bert::WeightsWithOwnership mGamma;
+    bert::WeightsWithOwnership mBeta;
 
-    const FusedMultiHeadAttentionXMMAKernelV2* mXmmaKernel;
-
-    float mDqProbs;
+    size_t mParamWordsize;
+    bool mParamsOnDevice;
 
 protected:
     // To prevent compiler warnings.
@@ -100,10 +91,10 @@ protected:
     using nvinfer1::IPluginV2DynamicExt::supportsFormat;
 };
 
-class QKVToContextInterleavedPluginCreator : public nvinfer1::IPluginCreator
+class SkipLayerNormInterleavedPluginCreator : public nvinfer1::IPluginCreator
 {
 public:
-    QKVToContextInterleavedPluginCreator();
+    SkipLayerNormInterleavedPluginCreator();
 
     const char* getPluginName() const override;
 
@@ -124,6 +115,5 @@ private:
     static std::vector<nvinfer1::PluginField> mPluginAttributes;
     std::string mNamespace;
 };
-
 } // namespace bert
-#endif // TRT_QKV_TO_CONTEXT_INTERLEAVED_PLUGIN_H
+#endif // TRT_SKIP_LAYER_NORM_INTERLEAVED_PLUGIN_H

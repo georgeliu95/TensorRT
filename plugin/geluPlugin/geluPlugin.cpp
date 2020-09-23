@@ -43,6 +43,7 @@ std::vector<PluginField> GeluPluginDynamicCreator::mPluginAttributes;
 
 REGISTER_TENSORRT_PLUGIN(GeluPluginDynamicCreator);
 
+
 GeluPluginDynamic::GeluPluginDynamic(const std::string name, const DataType type, const Weights& bias)
     : mLayerName(name)
     , mType(type)
@@ -56,6 +57,7 @@ GeluPluginDynamic::GeluPluginDynamic(const std::string name, const DataType type
         CHECK(cudaMemcpy(cudaMem, bias.values, getWeightsSize(bias, mType), cudaMemcpyHostToDevice));
         make_cuda_shared(mBiasDev, cudaMem);
     }
+
 }
 
 GeluPluginDynamic::GeluPluginDynamic(const std::string name, const void* data, size_t length)
@@ -68,10 +70,11 @@ GeluPluginDynamic::GeluPluginDynamic(const std::string name, const void* data, s
 
     if (mHasBias)
     {
-        assert(mLd > 0);
+        assert (mLd > 0);
         const char* d = static_cast<const char*>(data);
         make_cuda_shared(mBiasDev, deserToDev<char>(d, mLd * getElementSize(mType)));
     }
+
 }
 // IPluginV2DynamicExt Methods
 nvinfer1::IPluginV2DynamicExt* GeluPluginDynamic::clone() const

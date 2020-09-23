@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include "NvInfer.h"
 #include "bertCommon.h"
 #include "qkvToContextInt8InterleavedPlugin.h"
