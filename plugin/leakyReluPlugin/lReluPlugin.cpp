@@ -15,7 +15,7 @@
  */
 #include "lReluPlugin.h"
 #include "checkMacrosPlugin.h"
-#include "yolo.h"
+#include "kernel.h"
 
 using namespace nvinfer1;
 using nvinfer1::PluginType;
@@ -58,7 +58,7 @@ int LReLU::enqueue(int batchSize, const void* const* inputs, void** outputs, voi
 {
     const void* inputData = inputs[0];
     void* outputData = outputs[0];
-    yoloStatus_t status = lReLUInference(stream, mBatchDim * batchSize, mNegSlope, inputData, outputData);
+    pluginStatus_t status = lReLUInference(stream, mBatchDim * batchSize, mNegSlope, inputData, outputData);
     ASSERT(status == STATUS_SUCCESS);
     return status;
 }
