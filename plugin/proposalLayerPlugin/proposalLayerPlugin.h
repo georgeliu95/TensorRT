@@ -134,7 +134,6 @@ private:
     static PluginFieldCollection mFC;
     int mPreNMSTopK;
     int mKeepTopK;
-    float mScoreThreshold;
     float mIOUThreshold;
     static std::vector<PluginField> mPluginAttributes;
 };

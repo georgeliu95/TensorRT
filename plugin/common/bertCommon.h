@@ -22,12 +22,13 @@
 
 #include "NvInfer.h"
 #include "NvInferRuntimeCommon.h"
+#include "checkMacrosPlugin.h"
 #include "cublas_v2.h"
 #include "cuda_fp16.h"
 #include "plugin.h"
-#include "pluginLogger.h"
 
 #include <algorithm>
+#include <cassert>
 #include <cuda_runtime_api.h>
 #include <memory>
 #include <numeric>
@@ -37,6 +38,7 @@
 #define TRT_UNUSED (void)
 
 using half = __half;
+using namespace nvinfer1::plugin;
 
 constexpr uint32_t BDIM = 1; // batch dimension
 constexpr uint32_t SDIM = 0; // seq len dimension

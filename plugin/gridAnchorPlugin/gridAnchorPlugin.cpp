@@ -22,19 +22,19 @@
 #include <vector>
 
 using namespace nvinfer1;
+using nvinfer1::plugin::GridAnchorGenerator;
+using nvinfer1::plugin::GridAnchorPluginCreator;
 
 namespace
 {
-std::string GRID_ANCHOR_PLUGIN_NAMES[] = {"GridAnchor_TRT", "GridAnchorRect_TRT"};
-const char* GRID_ANCHOR_PLUGIN_VERSION = "1";
+const char* GRID_ANCHOR_PLUGIN_VERSION{"1"};
+const char* GRID_ANCHOR_PLUGIN_NAME{"GridAnchor_TRT"};
 } // namespace
+PluginFieldCollection GridAnchorPluginCreator::mFC{};
+std::vector<PluginField> GridAnchorPluginCreator::mPluginAttributes;
 
-PluginFieldCollection GridAnchorBasePluginCreator::mFC{};
-std::vector<PluginField> GridAnchorBasePluginCreator::mPluginAttributes;
-
-GridAnchorGenerator::GridAnchorGenerator(const GridAnchorParameters* paramIn, int numLayers, const char* name)
-    : mNumLayers(numLayers)
-    , mPluginName(name)
+GridAnchorGenerator::GridAnchorGenerator(const GridAnchorParameters* paramIn, int mNumLayers)
+    : mNumLayers(mNumLayers)
 {
     CUASSERT(cudaMallocHost((void**) &mNumPriors, mNumLayers * sizeof(int)));
     CUASSERT(cudaMallocHost((void**) &mDeviceWidths, mNumLayers * sizeof(Weights)));
@@ -121,8 +121,7 @@ GridAnchorGenerator::GridAnchorGenerator(const GridAnchorParameters* paramIn, in
     }
 }
 
-GridAnchorGenerator::GridAnchorGenerator(const void* data, size_t length, const char* name)
-    : mPluginName(name)
+GridAnchorGenerator::GridAnchorGenerator(const void* data, size_t length)
 {
     const char *d = reinterpret_cast<const char*>(data), *a = d;
     mNumLayers = read<int>(d);
@@ -277,7 +276,7 @@ bool GridAnchorGenerator::supportsFormat(DataType type, PluginFormat format) con
 
 const char* GridAnchorGenerator::getPluginType() const
 {
-    return mPluginName.c_str();
+    return GRID_ANCHOR_PLUGIN_NAME;
 }
 
 const char* GridAnchorGenerator::getPluginVersion() const
@@ -342,12 +341,12 @@ void GridAnchorGenerator::destroy()
 
 IPluginV2Ext* GridAnchorGenerator::clone() const
 {
-    IPluginV2Ext* plugin = new GridAnchorGenerator(mParam.data(), mNumLayers, mPluginName.c_str());
+    IPluginV2Ext* plugin = new GridAnchorGenerator(mParam.data(), mNumLayers);
     plugin->setPluginNamespace(mPluginNamespace.c_str());
     return plugin;
 }
 
-GridAnchorBasePluginCreator::GridAnchorBasePluginCreator()
+GridAnchorPluginCreator::GridAnchorPluginCreator()
 {
     mPluginAttributes.emplace_back(PluginField("minSize", nullptr, PluginFieldType::kFLOAT32, 1));
     mPluginAttributes.emplace_back(PluginField("maxSize", nullptr, PluginFieldType::kFLOAT32, 1));
@@ -360,22 +359,22 @@ GridAnchorBasePluginCreator::GridAnchorBasePluginCreator()
     mFC.fields = mPluginAttributes.data();
 }
 
-const char* GridAnchorBasePluginCreator::getPluginName() const
+const char* GridAnchorPluginCreator::getPluginName() const
 {
-    return mPluginName.c_str();
+    return GRID_ANCHOR_PLUGIN_NAME;
 }
 
-const char* GridAnchorBasePluginCreator::getPluginVersion() const
+const char* GridAnchorPluginCreator::getPluginVersion() const
 {
     return GRID_ANCHOR_PLUGIN_VERSION;
 }
 
-const PluginFieldCollection* GridAnchorBasePluginCreator::getFieldNames()
+const PluginFieldCollection* GridAnchorPluginCreator::getFieldNames()
 {
     return &mFC;
 }
 
-IPluginV2Ext* GridAnchorBasePluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
+IPluginV2Ext* GridAnchorPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
 {
     float minScale = 0.2F, maxScale = 0.95F;
     int numLayers = 6;
@@ -383,8 +382,6 @@ IPluginV2Ext* GridAnchorBasePluginCreator::createPlugin(const char* name, const 
     std::vector<int> fMapShapes;
     std::vector<float> layerVariances;
     const PluginField* fields = fc->fields;
-
-    const bool isFMapRect = (GRID_ANCHOR_PLUGIN_NAMES[1] == mPluginName);
     for (int i = 0; i < fc->nbFields; ++i)
     {
         const char* attrName = fields[i].name;
@@ -431,7 +428,6 @@ IPluginV2Ext* GridAnchorBasePluginCreator::createPlugin(const char* name, const 
         {
             ASSERT(fields[i].type == PluginFieldType::kINT32);
             int size = fields[i].length;
-            ASSERT(!isFMapRect || (size % 2 == 0));
             fMapShapes.reserve(size);
             const int* fMap = static_cast<const int*>(fields[i].data);
             for (int j = 0; j < size; j++)
@@ -446,8 +442,7 @@ IPluginV2Ext* GridAnchorBasePluginCreator::createPlugin(const char* name, const 
     std::vector<float> firstLayerAspectRatios;
 
     ASSERT(numLayers > 0);
-    const int numExpectedLayers = static_cast<int>(fMapShapes.size()) >> (isFMapRect ? 1 : 0);
-    ASSERT(numExpectedLayers == numLayers);
+    ASSERT((int) fMapShapes.size() == numLayers);
 
     int numFirstLayerARs = 3;
     // First layer only has the first 3 aspect ratios from aspectRatios
@@ -462,43 +457,30 @@ IPluginV2Ext* GridAnchorBasePluginCreator::createPlugin(const char* name, const 
     // One set of box parameters for one layer
     for (int i = 0; i < numLayers; i++)
     {
-        int hOffset = (isFMapRect ? i * 2 : i);
-        int wOffset = (isFMapRect ? i * 2 + 1 : i);
         // Only the first layer is different
         if (i == 0)
         {
             boxParams[i] = {minScale, maxScale, firstLayerAspectRatios.data(), (int) firstLayerAspectRatios.size(),
-                fMapShapes[hOffset], fMapShapes[wOffset],
+                fMapShapes[i], fMapShapes[i],
                 {layerVariances[0], layerVariances[1], layerVariances[2], layerVariances[3]}};
         }
         else
         {
-            boxParams[i] = {minScale, maxScale, aspectRatios.data(), (int) aspectRatios.size(), fMapShapes[hOffset],
-                fMapShapes[wOffset], {layerVariances[0], layerVariances[1], layerVariances[2], layerVariances[3]}};
+            boxParams[i] = {minScale, maxScale, aspectRatios.data(), (int) aspectRatios.size(), fMapShapes[i],
+                fMapShapes[i], {layerVariances[0], layerVariances[1], layerVariances[2], layerVariances[3]}};
         }
     }
 
-    GridAnchorGenerator* obj = new GridAnchorGenerator(boxParams.data(), numLayers, mPluginName.c_str());
+    GridAnchorGenerator* obj = new GridAnchorGenerator(boxParams.data(), numLayers);
     obj->setPluginNamespace(mNamespace.c_str());
     return obj;
 }
 
-IPluginV2Ext* GridAnchorBasePluginCreator::deserializePlugin(
-    const char* name, const void* serialData, size_t serialLength)
+IPluginV2Ext* GridAnchorPluginCreator::deserializePlugin(const char* name, const void* serialData, size_t serialLength)
 {
     // This object will be deleted when the network is destroyed, which will
     // call GridAnchor::destroy()
-    GridAnchorGenerator* obj = new GridAnchorGenerator(serialData, serialLength, mPluginName.c_str());
+    GridAnchorGenerator* obj = new GridAnchorGenerator(serialData, serialLength);
     obj->setPluginNamespace(mNamespace.c_str());
     return obj;
-}
-
-GridAnchorPluginCreator::GridAnchorPluginCreator()
-{
-    mPluginName = GRID_ANCHOR_PLUGIN_NAMES[0];
-}
-
-GridAnchorRectPluginCreator::GridAnchorRectPluginCreator()
-{
-    mPluginName = GRID_ANCHOR_PLUGIN_NAMES[1];
 }

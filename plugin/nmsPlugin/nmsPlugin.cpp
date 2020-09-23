@@ -215,10 +215,7 @@ void DetectionOutput::configurePlugin(const Dims* inputDims, int nbInputs, const
     const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
     const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize)
 {
-    // Number of input dimension should be 3
     ASSERT(nbInputs == 3);
-
-    // Number of output dimension wil be 2
     ASSERT(nbOutputs == 2);
 
     // Verify all the input dimensions

@@ -15,12 +15,12 @@
  */
 #include "lReluPlugin.h"
 #include "checkMacrosPlugin.h"
-#include "kernel.h"
+#include "yolo.h"
 
 using namespace nvinfer1;
 using nvinfer1::PluginType;
-using nvinfer1::plugin::LReLU;
 using nvinfer1::plugin::LReluPluginCreator;
+using nvinfer1::plugin::LReLU;
 
 static const char* LRELU_PLUGIN_VERSION{"1"};
 static const char* LRELU_PLUGIN_NAME{"LReLU_TRT"};
@@ -58,7 +58,7 @@ int LReLU::enqueue(int batchSize, const void* const* inputs, void** outputs, voi
 {
     const void* inputData = inputs[0];
     void* outputData = outputs[0];
-    pluginStatus_t status = lReLUInference(stream, mBatchDim * batchSize, mNegSlope, inputData, outputData);
+    yoloStatus_t status = lReLUInference(stream, mBatchDim * batchSize, mNegSlope, inputData, outputData);
     ASSERT(status == STATUS_SUCCESS);
     return status;
 }
