@@ -21,10 +21,10 @@
 #include <assert.h>
 #include <memory>
 #include <mutex>
+#include <set>
 #include <stdint.h>
 #include <unordered_map>
 #include <vector>
-#include <set>
 namespace bert
 {
 static inline size_t get_size_in_bytes(size_t n, Data_type dtype)
@@ -39,9 +39,7 @@ static inline size_t get_size_in_bytes(size_t n, Data_type dtype)
     case DATA_TYPE_INT4: return n / 2;
     case DATA_TYPE_BOOL: return n / 8;
     case DATA_TYPE_E8M7: return n * 2;
-    default:
-        assert(false);
-        return 0;
+    default: assert(false); return 0;
     }
 }
 

@@ -13,34 +13,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef TRT_EMB_LAYER_NORM_PLUGIN_H
+#define TRT_EMB_LAYER_NORM_PLUGIN_H
 
-#ifndef TRT_QKV_TO_CONTEXT_INTERLEAVED_PLUGIN_H
-#define TRT_QKV_TO_CONTEXT_INTERLEAVED_PLUGIN_H
+#include <cuda.h>
 
 #include "NvInferPlugin.h"
-#include "cublas_v2.h"
-#include "fused_multihead_attention_v2.h"
-#include <cuda.h>
+#include "NvInferRuntime.h"
+
+#include "bertCommon.h"
 #include <string>
 #include <vector>
-
 namespace bert
 {
-static constexpr int32_t kSM_XAVIER = 72;
-static constexpr int32_t kSM_TURING = 75;
-static constexpr int32_t kSM_AMPERE = 80;
 
-class QKVToContextInterleavedPlugin : public nvinfer1::IPluginV2DynamicExt
+template <typename T>
+int embSkipLayerNormVarSeqlen(cudaStream_t stream, int ld, int B, int S, const uint32_t* cuSeqlens, const int* inputIds,
+    const int* token_ids, const T* beta, const T* gamma, const T* wordEmb, const T* posEmb, const T* tokEmb, T* output);
+
+template <typename T>
+int embSkipLayerNorm2(cudaStream_t stream, int ld, int B, int S, const int* inputIds, const int* tokenIds,
+    const int* cuSeqlens, const float* beta, const float* gamma, const T* wordEmb, const T* posEmb, const T* tokEmb,
+    T* output);
+
+void cuSeqlensToPackedMask(const uint32_t S, const uint32_t B, const uint32_t warps_m, const uint32_t warps_n,
+    const uint32_t warps_k, const int* cuSeqlens, uint32_t* inputMaskX, cudaStream_t stream);
+
+class EmbLayerNormVarSeqlenPlugin : public nvinfer1::IPluginV2DynamicExt
 {
 public:
-    QKVToContextInterleavedPlugin(
-        const std::string name, const int hiddenSize, const int numHeads, const float dqProbs);
+    EmbLayerNormVarSeqlenPlugin(const std::string& name, const nvinfer1::DataType type, const nvinfer1::Weights& beta,
+        const nvinfer1::Weights& gamma, const nvinfer1::Weights& word_emb, const nvinfer1::Weights& pos_emb,
+        const nvinfer1::Weights& tok_emb);
 
-    QKVToContextInterleavedPlugin(const std::string name, const void* data, size_t length);
+    EmbLayerNormVarSeqlenPlugin(const std::string& name, const void* data, size_t length);
 
-    // It doesn't make sense to make QKVToContextInterleavedPlugin without arguments, so we
+    // It doesn't make sense to make EmbLayerNormVarSeqlenPlugin without arguments, so we
     // delete default constructor.
-    QKVToContextInterleavedPlugin() = delete;
+    EmbLayerNormVarSeqlenPlugin() = delete;
 
     // IPluginV2DynamicExt Methods
     nvinfer1::IPluginV2DynamicExt* clone() const override;
@@ -70,24 +80,25 @@ public:
     void setPluginNamespace(const char* pluginNamespace) override;
     const char* getPluginNamespace() const override;
 
-protected:
-    void createMHARunner();
-    int getSMVersion() const;
-
 private:
     const std::string mLayerName;
     std::string mNamespace;
 
-    int mS;
-    int mB;
-    int mSM;
-    int mHeadSize;
-    int mHiddenSize;
-    int mNumHeads;
-
-    const FusedMultiHeadAttentionXMMAKernelV2* mXmmaKernel;
-
-    float mDqProbs;
+    bert::cuda_unique_ptr<float> mGammaDev;
+    bert::cuda_unique_ptr<float> mBetaDev;
+    bert::cuda_unique_ptr<void> mWordEmbDev;
+    bert::cuda_unique_ptr<void> mTokEmbDev;
+    bert::cuda_unique_ptr<void> mPosEmbDev;
+    size_t mLd; // leading dim = hidden size
+    size_t mWordVocabSize;
+    size_t mPosVocabSize;
+    size_t mTokVocabSize;
+    bert::WeightsWithOwnership mBeta;
+    bert::WeightsWithOwnership mGamma;
+    bert::WeightsWithOwnership mWordEmb;
+    bert::WeightsWithOwnership mTokEmb;
+    bert::WeightsWithOwnership mPosEmb;
+    nvinfer1::DataType mType;
 
 protected:
     // To prevent compiler warnings.
@@ -100,10 +111,10 @@ protected:
     using nvinfer1::IPluginV2DynamicExt::supportsFormat;
 };
 
-class QKVToContextInterleavedPluginCreator : public nvinfer1::IPluginCreator
+class EmbLayerNormVarSeqlenPluginCreator : public nvinfer1::IPluginCreator
 {
 public:
-    QKVToContextInterleavedPluginCreator();
+    EmbLayerNormVarSeqlenPluginCreator();
 
     const char* getPluginName() const override;
 
@@ -124,6 +135,5 @@ private:
     static std::vector<nvinfer1::PluginField> mPluginAttributes;
     std::string mNamespace;
 };
-
 } // namespace bert
-#endif // TRT_QKV_TO_CONTEXT_INTERLEAVED_PLUGIN_H
+#endif // TRT_EMB_LAYER_NORM_PLUGIN_H
