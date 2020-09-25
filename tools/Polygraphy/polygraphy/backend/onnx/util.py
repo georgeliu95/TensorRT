@@ -42,6 +42,12 @@ def all_tensor_names(model):
     return all_outputs
 
 
+def check_outputs_not_found(not_found, all_outputs):
+    if not_found:
+        G_LOGGER.critical("The following outputs: {:} were not found. "
+                          "Note: Available tensors: {:}".format(not_found, all_outputs))
+
+
 def mark_outputs(model, outputs):
     import onnx
 
@@ -60,10 +66,7 @@ def mark_outputs(model, outputs):
         else:
             not_found.add(output)
 
-    if not_found:
-        G_LOGGER.critical("The following outputs: {:} were not found in the network. "
-                          "Note: Available tensors: {:}".format(not_found, all_outputs))
-
+    check_outputs_not_found(not_found, all_outputs)
     model.graph.output.extend(out_tensors)
     return model
 
@@ -71,6 +74,26 @@ def mark_outputs(model, outputs):
 def mark_layerwise(model):
     # Add all non-constant node outputs as graph outputs
     model = mark_outputs(model, all_tensor_names(model))
+    return model
+
+
+def unmark_outputs(model, outputs):
+    outputs = set(outputs)
+
+    cur_outputs = []
+    while model.graph.output:
+        cur_outputs.append(model.graph.output.pop())
+    cur_outputs = list(reversed(cur_outputs)) # Preserve ordering
+
+    unmarked_outputs = set()
+    for out in cur_outputs:
+        if out.name not in outputs:
+            model.graph.output.extend([out])
+        else:
+            unmarked_outputs.add(out.name)
+
+    not_found = outputs - unmarked_outputs
+    check_outputs_not_found(not_found, [t.name for t in model.graph.output])
     return model
 
 
@@ -101,6 +124,12 @@ def get_dtype(tensor):
     return None
 
 
+def get_values(tensor):
+    import onnx.numpy_helper
+
+    return onnx.numpy_helper.to_array(tensor)
+
+
 def get_tensor_metadata(tensors):
     metadata = TensorMetadata()
     for tensor in tensors:
@@ -119,12 +148,45 @@ def get_output_metadata(graph):
     return get_tensor_metadata(graph.output)
 
 
-def str_from_onnx_graph(graph, layer_info, attr_info, tensors, indent_level=0):
+def str_from_onnx(model, mode="full"):
+    """
+    Converts an ONNX Graph to a human-readable representation
+
+    Args:
+        graph (onnx.GraphProto): The onnx graph.
+        mode (str): Controls what is displayed. Choices: ["none", "basic", "attrs", "full"]
+
+    Returns:
+        str
+    """
+    def get_opset():
+        try:
+            return model.opset_import[0].version
+        except:
+            G_LOGGER.warning("Model does not contain opset information!")
+            return None
+
+    onnx_str = ""
+    onnx_str += "Name: {:} | Opset: {:}\n".format(model.graph.name, get_opset())
+    onnx_str += "\n"
+
+    onnx_str += str_from_onnx_graph(model.graph, mode=mode, tensors={})
+    return onnx_str
+
+
+def str_from_onnx_graph(graph, mode, tensors, indent_level=0):
     import onnx
 
     input_metadata = get_input_metadata(graph)
     output_metadata = get_output_metadata(graph)
     initializer_metadata = get_tensor_metadata(graph.initializer)
+
+    # Subgraph inputs should remain separate from each other, hence copy the tensors map
+    tensors = copy.copy(tensors)
+    tensors.update(get_tensor_metadata(graph.value_info))
+    tensors.update(initializer_metadata)
+    tensors.update(input_metadata)
+    tensors.update(output_metadata)
 
     graph_type = "Graph" if indent_level == 0 else "Subgraph"
 
@@ -133,18 +195,19 @@ def str_from_onnx_graph(graph, layer_info, attr_info, tensors, indent_level=0):
     onnx_str += "---- {:} {:} Outputs ----\n{:}\n\n".format(len(output_metadata), graph_type, output_metadata)
 
     onnx_str += "---- {:} Initializers ----\n".format(len(initializer_metadata))
-    if layer_info:
+    if mode == "full":
+        for init in graph.initializer:
+            onnx_str += "Initializer | {:} [dtype={:}, shape={:}] | Values:\n{:}\n\n".format(
+                            init.name, get_dtype(init), get_shape(init), misc.indent_block(str(get_values(init))))
+        if not graph.initializer:
+            onnx_str += "\n"
+    elif mode != "none":
         onnx_str += str(initializer_metadata)
+        onnx_str += "\n\n"
     else:
-        onnx_str += "(Use --layer-info to display)"
-    onnx_str += "\n\n"
+        onnx_str += "(Use --mode to display)"
+        onnx_str += "\n\n"
 
-    # Subgraph inputs should remain separate from each other, hence copy the tensors map
-    tensors = copy.copy(tensors)
-    tensors.update(get_tensor_metadata(graph.value_info))
-    tensors.update(initializer_metadata)
-    tensors.update(input_metadata)
-    tensors.update(output_metadata)
 
     def metadata_from_names(names):
         metadata = TensorMetadata()
@@ -154,7 +217,7 @@ def str_from_onnx_graph(graph, layer_info, attr_info, tensors, indent_level=0):
             if name in tensors:
                 dtype, shape = tensors[name]
             if name in initializer_metadata:
-                name = "{:} (initializer)".format(name)
+                name = "Initializer | {:}".format(name)
             metadata.add(name=name, dtype=dtype, shape=shape)
         return metadata
 
@@ -181,9 +244,12 @@ def str_from_onnx_graph(graph, layer_info, attr_info, tensors, indent_level=0):
                 if attr_str == "STRING":
                     processed = processed.decode()
                 elif attr_str == "TENSOR":
-                    processed = "Tensor: {:} [dtype={:}, shape={:}]".format(processed.name, get_dtype(processed), get_shape(processed))
+                    tensor_str = "Tensor: [dtype={:}, shape={:}]".format(get_dtype(processed), get_shape(processed))
+                    if mode == "full":
+                        tensor_str += " | Values:\n" + misc.indent_block(str(get_values(processed)))
+                    processed = tensor_str
                 elif attr_str == "GRAPH":
-                    processed = "\n" + str_from_onnx_graph(processed, layer_info, attr_info, tensors, indent_level=indent_level + 2)
+                    processed = "\n" + str_from_onnx_graph(processed, mode, tensors, indent_level=indent_level + 2)
                 elif attr_str == "FLOATS" or attr_str == "INTS":
                     # Proto hacky list to normal Python list
                     processed = [p for p in processed]
@@ -204,39 +270,23 @@ def str_from_onnx_graph(graph, layer_info, attr_info, tensors, indent_level=0):
 
 
     onnx_str += "---- {:} Nodes ----\n".format(len(graph.node))
-    if layer_info:
+    if mode != "none":
         for index, node in enumerate(graph.node):
             input_info = metadata_from_names(node.input)
             output_info = metadata_from_names(node.output)
 
-            onnx_str += "Node {:<4} | {:} [Op: {:}]\n{tab}{:}\n{tab}-> {:}\n".format(
-                                index, node.name, node.op_type, input_info, output_info, tab=constants.TAB)
-            if attr_info:
+            onnx_str += misc.str_from_layer("Node", index, node.name, node.op_type, input_info, output_info)
+
+            if mode in ["attrs", "full"]:
                 attrs = attrs_to_dict(node.attribute)
+                if attrs:
+                    onnx_str += misc.indent_block("---- Attributes ----") + "\n"
                 for key, val in attrs.items():
-                    onnx_str += "{:}{:}.{:} = {:}\n".format(constants.TAB, node.name, key, val)
+                    if node.name:
+                        onnx_str += "{:}.".format(node.name)
+                    onnx_str += misc.indent_block("{:} = {:}".format(key, val)) + "\n"
             onnx_str += "\n"
     else:
-        onnx_str += "(Use --layer-info to display)"
+        onnx_str += "(Use --mode to display)"
 
-
-    indent = constants.TAB * indent_level
-    sep = "\n" + indent
-    onnx_str = indent + sep.join(onnx_str.splitlines())
-    return onnx_str
-
-
-def str_from_onnx(model, layer_info=True, attr_info=True):
-    def get_opset():
-        try:
-            return model.opset_import[0].version
-        except:
-            G_LOGGER.warning("Model does not contain opset information!")
-            return None
-
-    onnx_str = ""
-    onnx_str += "Name: {:} | Opset: {:}\n".format(model.graph.name, get_opset())
-    onnx_str += "\n"
-
-    onnx_str += str_from_onnx_graph(model.graph, layer_info, attr_info, tensors={})
-    return onnx_str
+    return misc.indent_block(onnx_str, indent_level)

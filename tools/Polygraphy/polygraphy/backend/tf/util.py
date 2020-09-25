@@ -144,7 +144,7 @@ def get_graph_output_names(graph):
     return list(get_output_metadata(graph).keys())
 
 
-def str_from_graph(graph, layer_info=True, attr_info=True):
+def str_from_graph(graph, mode):
     graph_str = ""
     input_metadata = get_input_metadata(graph)
     output_metadata = get_output_metadata(graph)
@@ -152,11 +152,11 @@ def str_from_graph(graph, layer_info=True, attr_info=True):
     graph_str += "---- {:} Graph Inputs ----\n{:}\n\n".format(len(input_metadata), input_metadata)
     graph_str += "---- {:} Graph Outputs ----\n{:}\n\n".format(len(output_metadata), output_metadata)
     graph_str += "---- {:} Nodes ----\n".format(len(graph.as_graph_def().node))
-    if layer_info:
+    if mode == "basic":
         G_LOGGER.warning("Displaying layer information is unsupported for TensorFlow graphs. "
-                         "Please use --layer-info=full if you would like to see the raw nodes")
-        if attr_info:
+                         "Please use --mode=full if you would like to see the raw nodes")
+        if mode == "full":
             for node in graph.as_graph_def().node:
                 graph_str += str(node) + "\n"
         graph_str += "\n"
-    return "\n".join(graph_str.splitlines())
+    return misc.indent_block(graph_str, level=0)

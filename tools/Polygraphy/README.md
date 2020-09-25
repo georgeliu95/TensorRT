@@ -6,6 +6,7 @@
 - [Introduction](#introduction)
 - [Installation](#installation)
 - [Usage](#usage)
+- [Examples](#examples)
 - [Advanced](#advanced)
     - [Using The API](#using-the-api)
     - [Building API Docs](#building-api-docs)
@@ -69,6 +70,11 @@ For details on the various tools included in the Polygraphy toolkit, see the
 [tools directory](./polygraphy/tools).
 
 
+## Examples
+
+For examples of both the CLI and Python API, see the [examples directory](./examples).
+
+
 ## Advanced
 
 ### Using The API
@@ -98,4 +104,4 @@ To view the docs, open `build/docs/index.html` in a browser or HTML viewer.
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md)
+For information on how you can contribute to this project, see [CONTRIBUTING.md](./CONTRIBUTING.md)

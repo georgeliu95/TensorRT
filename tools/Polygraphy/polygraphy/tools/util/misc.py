@@ -121,8 +121,10 @@ def add_tf_config_loader(script, args):
 def get_modify_onnx_str(script, args, loader_name, disable_outputs=None):
     if disable_outputs:
         outputs = None
+        exclude_outputs = None
     else:
         outputs = _get_outputs_arg(script, args, "onnx_outputs")
+        exclude_outputs = args_util.get(args, "onnx_exclude_outputs")
 
     if hasattr(args, "shape_inference"):
         do_shape_inference = args_util.get(args, "shape_inference")
@@ -131,7 +133,7 @@ def get_modify_onnx_str(script, args, loader_name, disable_outputs=None):
 
     MODIFY_ONNX = "ModifyOnnx"
     modify_onnx_str = Script.invoke(MODIFY_ONNX, loader_name, do_shape_inference=do_shape_inference,
-                                    outputs=outputs)
+                                    outputs=outputs, exclude_outputs=exclude_outputs)
     if modify_onnx_str != Script.invoke(MODIFY_ONNX, loader_name):
         script.add_import(imports=[MODIFY_ONNX], frm="polygraphy.backend.onnx")
         return modify_onnx_str
@@ -226,7 +228,7 @@ def add_trt_network_loader(script, args):
         loader_name = script.add_loader(loader_str, "parse_network_from_onnx")
 
     MODIFY_NETWORK = "ModifyNetwork"
-    modify_network_str = Script.invoke(MODIFY_NETWORK, loader_name, outputs=outputs)
+    modify_network_str = Script.invoke(MODIFY_NETWORK, loader_name, outputs=outputs, exclude_outputs=args_util.get(args, "trt_exclude_outputs"))
     if modify_network_str != Script.invoke(MODIFY_NETWORK, loader_name):
         script.add_import(imports=[MODIFY_NETWORK], frm="polygraphy.backend.trt")
         loader_name = script.add_loader(modify_network_str, "modify_network")

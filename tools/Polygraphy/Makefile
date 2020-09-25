@@ -2,9 +2,9 @@
 
 # Tests also check that docs can build
 test: docs
-	python3 -m pytest tests/ -v -x -nauto
+	python3 -m pytest tests/ -v -x -nauto --dist=loadscope
 
-test_noparallel:
+test_noparallel: docs
 	python3 -m pytest tests/ -v -x
 
 clean:

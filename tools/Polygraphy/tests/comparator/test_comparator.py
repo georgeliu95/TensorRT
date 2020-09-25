@@ -14,9 +14,14 @@ import numpy as np
 import pytest
 
 
-
-
 class TestComparator(object):
+    def test_warmup_runs(self):
+        onnx_loader = ONNX_MODELS["identity"].loader
+        runner = OnnxrtRunner(SessionFromOnnxBytes(onnx_loader))
+        run_results = Comparator.run([runner], warm_up=2)
+        assert len(run_results[runner.name]) == 1
+
+
     def test_list_as_data_loader(self):
         onnx_loader = ONNX_MODELS["identity"].loader
         runner = OnnxrtRunner(SessionFromOnnxBytes(onnx_loader), name="onnx_runner")

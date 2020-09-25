@@ -51,14 +51,14 @@ class DataLoader(BaseDataLoader):
                     provided shape will be used to populate the values of the inputs, rather than to determine
                     their shape.
             int_range (Tuple[int]):
-                    A tuple containing exactly 2 integers, indicating the minimum and maximum integer values the
-                    data loader should generate. If either value in the tuple is None, the default will be used
+                    A tuple containing exactly 2 integers, indicating the minimum and maximum integer values (inclusive)
+                    the data loader should generate. If either value in the tuple is None, the default will be used
                     for that value.
                     If None is provided instead of a tuple, then the default values will be used for both the
                     minimum and maximum.
             float_range (Tuple[float]):
-                    A tuple containing exactly 2 floats, indicating the minimum and maximum float values the
-                    data loader should generate. If either value in the tuple is None, the default will be used
+                    A tuple containing exactly 2 floats, indicating the minimum and maximum float values (inclusive)
+                    the data loader should generate. If either value in the tuple is None, the default will be used
                     for that value.
                     If None is provided instead of a tuple, then the default values will be used for both the
                     minimum and maximum.
@@ -132,7 +132,7 @@ class DataLoader(BaseDataLoader):
             if is_shape_tensor(name, dtype):
                 buffer = np.array(shape, dtype=dtype)
                 G_LOGGER.info("Assuming {:} is a shape tensor. Setting input values to: {:}. If this is not correct, "
-                              "please set it correctly in 'input_metadata' or by providing --inputs".format(name, buffer), mode=LogMode.ONCE)
+                              "please set it correctly in 'input_metadata' or by providing --input-shapes".format(name, buffer), mode=LogMode.ONCE)
             elif np.issubdtype(dtype, np.integer):
                 # high is 1 greater than the max int drawn
                 buffer = rng.randint(low=self.int_range[0], high=self.int_range[1] + 1, size=shape, dtype=dtype)
@@ -164,6 +164,16 @@ class DataLoader(BaseDataLoader):
 
             static_shape = get_static_shape(name, shape)
             buffers[name] = generate_buffer(name, dtype, shape=static_shape)
+
+        # Warn about unused metadata
+        for name in self.user_input_metadata.keys():
+            if name not in self.input_metadata:
+                msg = "Input tensor: {:24} | Metadata was provided, but the input does not exist in one or more runners.".format(name)
+                close_match = misc.find_in_dict(name, self.input_metadata)
+                if close_match:
+                    msg += "\nMaybe you meant to set: {:}".format(close_match)
+                G_LOGGER.warning(msg)
+
         return buffers
 
 
