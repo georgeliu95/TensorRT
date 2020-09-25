@@ -39,6 +39,17 @@ class TensorMetadata(OrderedDict):
 
 
     def __str__(self):
+        def str_from_single_meta(name, dtype, shape):
+            ret = "{:}".format(name)
+            meta_items = []
+            if dtype is not None:
+                meta_items.append("dtype={:}".format(np.dtype(dtype).name))
+            if shape is not None:
+                meta_items.append("shape={:}".format(tuple(shape)))
+            if meta_items:
+                ret += " [" + ", ".join(meta_items) + "]"
+            return ret
+
         sep = ", "
-        elems = ["{:} [dtype={:}, shape={:}]".format(name, np.dtype(dtype).name, tuple(shape) if shape is not None else shape) for name, (dtype, shape) in self.items()]
+        elems = [str_from_single_meta(name, dtype, shape) for name, (dtype, shape) in self.items()]
         return "{" + sep.join(elems) + "}"

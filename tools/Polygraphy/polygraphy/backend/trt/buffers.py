@@ -21,7 +21,7 @@ class Buffers(object):
             dtype = trt.nptype(engine.get_binding_dtype(binding))
             buffers.device_buffers[binding] = cuda.DeviceBuffer(dtype=dtype)
             if not engine.binding_is_input(binding):
-                buffers.outputs[binding] = np.empty([], dtype=dtype)
+                buffers.outputs[binding] = np.empty(shape=tuple(), dtype=dtype)
         G_LOGGER.extra_verbose("Created device buffers: {:}".format(buffers.device_buffers))
         return buffers
 

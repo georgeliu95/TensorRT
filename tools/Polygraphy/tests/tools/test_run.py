@@ -85,17 +85,17 @@ class TestTrt(object):
 
     @pytest.mark.skipif(version(trt.__version__) < version("7.0"), reason="Unsupported for TRT 6")
     def test_trt_input_shape(self):
-        run_polygraphy_run([ONNX_MODELS["dynamic_identity"].path, "--trt", "--onnxrt", "--inputs", "X,1x2x4x4"])
+        run_polygraphy_run([ONNX_MODELS["dynamic_identity"].path, "--trt", "--onnxrt", "--input-shapes", "X,1x2x4x4"])
 
 
     @pytest.mark.skipif(version(trt.__version__) < version("7.0"), reason="Unsupported for TRT 6")
     def test_trt_dynamic_input_shape(self):
-        run_polygraphy_run([ONNX_MODELS["dynamic_identity"].path, "--trt", "--onnxrt", "--inputs", "X,1x2x-1x4"])
+        run_polygraphy_run([ONNX_MODELS["dynamic_identity"].path, "--trt", "--onnxrt", "--input-shapes", "X,1x2x-1x4"])
 
 
     @pytest.mark.skipif(version(trt.__version__) < version("7.0"), reason="Unsupported for TRT 6")
     def test_trt_explicit_profile(self):
-        run_polygraphy_run([ONNX_MODELS["dynamic_identity"].path, "--trt", "--onnxrt", "--inputs", "X,1x2x1x1", "--trt-min-shapes", "X,1x2x1x1", "--trt-opt-shapes", "X,1x2x1x1", "--trt-max-shapes", "X,1x2x1x1"])
+        run_polygraphy_run([ONNX_MODELS["dynamic_identity"].path, "--trt", "--onnxrt", "--input-shapes", "X,1x2x1x1", "--trt-min-shapes", "X,1x2x1x1", "--trt-opt-shapes", "X,1x2x1x1", "--trt-max-shapes", "X,1x2x1x1"])
 
 
     @pytest.mark.skipif(version(trt.__version__) < version("7.0"), reason="Unsupported for TRT 6")
@@ -105,7 +105,7 @@ class TestTrt(object):
 
     @pytest.mark.skipif(version(trt.__version__) < version("7.0"), reason="Unsupported for TRT 6")
     def test_trt_explicit_profile_opt_runtime_shapes_differ(self):
-        run_polygraphy_run([ONNX_MODELS["dynamic_identity"].path, "--trt", "--onnxrt", "--inputs", "X,1x2x2x2", "--trt-min-shapes", "X,1x2x1x1", "--trt-opt-shapes", "X,1x2x3x3", "--trt-max-shapes", "X,1x2x4x4"])
+        run_polygraphy_run([ONNX_MODELS["dynamic_identity"].path, "--trt", "--onnxrt", "--input-shapes", "X,1x2x2x2", "--trt-min-shapes", "X,1x2x1x1", "--trt-opt-shapes", "X,1x2x3x3", "--trt-max-shapes", "X,1x2x4x4"])
 
 
     @pytest.mark.skipif(version(trt.__version__) < version("7.0"), reason="Unsupported for TRT 6")

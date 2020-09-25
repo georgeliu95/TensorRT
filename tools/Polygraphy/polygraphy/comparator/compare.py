@@ -81,7 +81,7 @@ class CompareFunc(object):
         fail_fast = misc.default_value(fail_fast, False)
 
 
-        def compare_output(run_result0, run_result1):
+        def compare_output(iter_result0, iter_result1):
             """
             Compare the outputs of two runners from a single iteration.
 
@@ -91,8 +91,8 @@ class CompareFunc(object):
             If all output names are skipped, then this function raises an error.
 
             Args:
-                run_result0 (IterationResult): The result of the first runner.
-                run_result1 (IterationResult): The result of the second runner.
+                iter_result0 (IterationResult): The result of the first runner.
+                iter_result1 (IterationResult): The result of the second runner.
 
             Returns:
                 OrderedDict[str, OutputCompareResult]:
@@ -141,26 +141,26 @@ class CompareFunc(object):
                     # atol = absolute(out0 - out1)
                     # atol_if_rtol = absolute(out0 - out1)  - rtol * absolute(out1)
                     # rtol = (absolute(out0 - out1) - atol) / absolute(out1)
-                    try:
+                    if np.issubdtype(out0.dtype, np.bool_) and np.issubdtype(out1.dtype, np.bool_):
+                        absdiff = np.logical_xor(out0, out1)
+                    else:
                         absdiff = np.abs(out0 - out1)
-                        absout1 = np.abs(out1)
-                        required_atol = max(compute_max(absdiff), 0.0)
-                        required_atol_if_rtol = max(compute_max(absdiff - rtol * absout1), 0.0)
-                        # Suppress divide by 0 warnings
-                        with np.testing.suppress_warnings() as sup:
-                            sup.filter(RuntimeWarning)
-                            required_rtol = max(compute_max((absdiff - atol) / absout1), 0.0)
+                    absout1 = np.abs(out1)
+                    required_atol = max(compute_max(absdiff), 0.0)
+                    required_atol_if_rtol = max(compute_max(absdiff - rtol * absout1), 0.0)
+                    # Suppress divide by 0 warnings
+                    with np.testing.suppress_warnings() as sup:
+                        sup.filter(RuntimeWarning)
+                        required_rtol = max(compute_max((absdiff - atol) / absout1), 0.0)
+                    return required_atol, required_atol_if_rtol, required_rtol
 
-                        return required_atol, required_atol_if_rtol, required_rtol
-                    except:
-                        return None, None, None
 
                 def log_mismatches(mismatches):
                     try:
                         with G_LOGGER.indent():
                             G_LOGGER.super_verbose("Mismatches at:\n" + str(mismatches))
-                            G_LOGGER.extra_verbose("Runner: {:40} | Mismatched values:\n{:}".format(run_result0.runner_name, out0[mismatches]))
-                            G_LOGGER.extra_verbose("Runner: {:40} | Mismatched values:\n{:}".format(run_result1.runner_name, out1[mismatches]))
+                            G_LOGGER.extra_verbose("Runner: {:40} | Mismatched values:\n{:}".format(iter_result0.runner_name, out0[mismatches]))
+                            G_LOGGER.extra_verbose("Runner: {:40} | Mismatched values:\n{:}".format(iter_result1.runner_name, out1[mismatches]))
                     except:
                         G_LOGGER.warning("Failing to log mismatches - this may be because the outputs are of different shapes")
 
@@ -172,19 +172,26 @@ class CompareFunc(object):
                     return False
 
                 G_LOGGER.super_verbose("Runner: {:40} | Output: {:} (dtype={:}, shape={:}):\n{:}".format(
-                                            run_result0.runner_name, out0_name, out0.dtype, out0.shape, misc.indent_block(out0)))
+                                            iter_result0.runner_name, out0_name, out0.dtype, out0.shape, misc.indent_block(out0)))
                 G_LOGGER.super_verbose("Runner: {:40} | Output: {:} (dtype={:}, shape={:}):\n{:}".format(
-                                            run_result1.runner_name, out1_name, out1.dtype, out1.shape, misc.indent_block(out1)))
+                                            iter_result1.runner_name, out1_name, out1.dtype, out1.shape, misc.indent_block(out1)))
 
                 failed = np.any(mismatches)
 
-                required_atol, required_atol_if_rtol, required_rtol = compute_required()
-                log_msg = "Required tolerances: [atol={:.5g}] OR [rtol={:.5g}, atol={:.5g}] OR [rtol={:.5g}, atol={:.5g}]".format(
-                                required_atol, rtol, required_atol_if_rtol, required_rtol, atol)
-                log_msg += "\n{:40} | Stats: mean={:.5g}, min={:.5g} at {:}, max={:.5g} at {:}\n{:40} | Stats: mean={:.5g}, min={:.5g} at {:}, max={:.5g} at {:}\n".format(
-                                run_result0.runner_name, compute_mean(out0), compute_min(out0), compute_argmin(out0), compute_max(out0), compute_argmax(out0),
-                                run_result1.runner_name, compute_mean(out1), compute_min(out1), compute_argmin(out1), compute_max(out1), compute_argmax(out1),
-                                )
+                try:
+                    required_atol, required_atol_if_rtol, required_rtol = compute_required()
+                except Exception as err:
+                    required_atol, required_atol_if_rtol, required_rtol = None, None, None
+                    G_LOGGER.warning("Could not determine required tolerances due to an error:\n{:}".format(err))
+                    log_msg = ""
+                else:
+                    log_msg = "Required tolerances: [atol={:.5g}] OR [rtol={:.5g}, atol={:.5g}] OR [rtol={:.5g}, atol={:.5g}]\n".format(
+                                    required_atol, rtol, required_atol_if_rtol, required_rtol, atol)
+
+                log_msg += "Runner: {:40} | Stats: mean={:.5g}, min={:.5g} at {:}, max={:.5g} at {:}\n".format(
+                                iter_result0.runner_name, compute_mean(out0), compute_min(out0), compute_argmin(out0), compute_max(out0), compute_argmax(out0))
+                log_msg += "Runner: {:40} | Stats: mean={:.5g}, min={:.5g} at {:}, max={:.5g} at {:}\n".format(
+                                iter_result1.runner_name, compute_mean(out1), compute_min(out1), compute_argmin(out1), compute_max(out1), compute_argmax(out1))
 
                 if failed:
                     log_mismatches(mismatches)
@@ -195,7 +202,7 @@ class CompareFunc(object):
                     G_LOGGER.success("PASSED | Difference is within tolerance (rtol={:}, atol={:})".format(rtol, atol))
 
                 G_LOGGER.extra_verbose("Finished comparing: '{:}' (dtype={:}, shape={:}) [{:}] and '{:}' (dtype={:}, shape={:}) [{:}]"
-                                .format(out0_name, out0.dtype, out0.shape, run_result0.runner_name, out1_name, out1.dtype, out1.shape, run_result1.runner_name))
+                                .format(out0_name, out0.dtype, out0.shape, iter_result0.runner_name, out1_name, out1.dtype, out1.shape, iter_result1.runner_name))
                 return OutputCompareResult(not failed, required_atol, required_rtol)
 
 
@@ -205,43 +212,43 @@ class CompareFunc(object):
                 G_LOGGER.info("Strict shape checking disabled. Will attempt to match output shapes before comparisons")
 
 
-            def default_find_output_func(output_name, index, run_result):
-                found_name = misc.find_in_dict(output_name, run_result, index)
+            def default_find_output_func(output_name, index, iter_result):
+                found_name = misc.find_in_dict(output_name, iter_result, index)
                 if found_name is None:
                     return None
                 elif found_name != output_name:
-                    exact_match = misc.find_in_dict(found_name, run_result0)
+                    exact_match = misc.find_in_dict(found_name, iter_result0)
                     if exact_match == found_name:
                         G_LOGGER.verbose("Will not compare {:} with {:}, since the former already has an exact match: {:}".format(
                                             found_name, output_name, exact_match))
                         return None # If the found output is being compared against another output already, skip this non-exact match
                     G_LOGGER.warning("Output names did not match exactly. Assuming {:} output: {:} "
                                     "corresponds to output: {:}".format(
-                                        run_result.runner_name, found_name, output_name))
+                                        iter_result.runner_name, found_name, output_name))
                 return [found_name]
 
 
             nonlocal find_output_func
             find_output_func = misc.default_value(find_output_func, default_find_output_func)
 
-            for index, (out0_name, output0) in enumerate(run_result0.items()):
-                out1_names = misc.default_value(find_output_func(out0_name, index, run_result1), [])
+            for index, (out0_name, output0) in enumerate(iter_result0.items()):
+                out1_names = misc.default_value(find_output_func(out0_name, index, iter_result1), [])
 
                 if len(out1_names) > 1:
                     G_LOGGER.info("Will attempt to compare output: '{:}' [{:}] with multiple outputs: '{:}' [{:}]".format(
-                                    out0_name, run_result0.runner_name, list(out1_names), run_result1.runner_name))
+                                    out0_name, iter_result0.runner_name, list(out1_names), iter_result1.runner_name))
 
                 for out1_name in out1_names:
-                    if out1_name is None or out1_name not in run_result1:
+                    if out1_name is None or out1_name not in iter_result1:
                         G_LOGGER.warning("For output: '{:}' [{:}], skipping corresponding output: '{:}' [{:}], "
-                                         "since the output was not found".format(out0_name, run_result0.runner_name,
-                                                                                 out1_name, run_result1.runner_name))
+                                         "since the output was not found".format(out0_name, iter_result0.runner_name,
+                                                                                 out1_name, iter_result1.runner_name))
                         continue
 
-                    output1 = run_result1[out1_name]
+                    output1 = iter_result1[out1_name]
                     G_LOGGER.info("Comparing Output: '{:}' (dtype={:}, shape={:}) with '{:}' (dtype={:}, shape={:})".format(
                                         out0_name, output0.dtype, output0.shape, out1_name, output1.dtype, output1.shape))
-                    G_LOGGER.extra_verbose("Note: Comparing {:} vs. {:}".format(run_result0.runner_name, run_result1.runner_name))
+                    G_LOGGER.extra_verbose("Note: Comparing {:} vs. {:}".format(iter_result0.runner_name, iter_result1.runner_name))
 
                     with G_LOGGER.indent():
                         if check_shapes and output0.shape != output1.shape:
@@ -264,11 +271,11 @@ class CompareFunc(object):
                 G_LOGGER.error("FAILED | Mismatched outputs: {:}".format(mismatched_output_names))
 
             # This is useful for catching cases were Polygraphy does something wrong with the runner output buffers
-            if not output_status and (bool(run_result0.keys()) or bool(run_result1.keys())):
-                r0_name = run_result0.runner_name
-                r0_outs = list(run_result0.keys())
-                r1_name = run_result1.runner_name
-                r1_outs = list(run_result1.keys())
+            if not output_status and (bool(iter_result0.keys()) or bool(iter_result1.keys())):
+                r0_name = iter_result0.runner_name
+                r0_outs = list(iter_result0.keys())
+                r1_name = iter_result1.runner_name
+                r1_outs = list(iter_result1.keys())
                 G_LOGGER.critical("All outputs were skipped, no common outputs found! Note:\n{:} outputs: "
                                   "{:}\n{:} outputs: {:}".format(r0_name, r0_outs, r1_name, r1_outs))
 

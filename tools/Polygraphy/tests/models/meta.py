@@ -51,11 +51,11 @@ def check_dynamic_identity(runner, shapes):
 
 def check_empty_tensor_expand(runner, shapes):
     shape = shapes["new_shape"]
-    feed_dict = {"data": np.array([]), "new_shape": np.array(shape, dtype=np.int32)}
+    feed_dict = {"data": np.array((0, )), "new_shape": np.array(shape, dtype=np.int32)}
     outputs = runner.infer(feed_dict)
     # Empty tensor will still be empty after broadcast
-    assert outputs["expanded"].shape == tuple()
-
+    assert outputs["expanded"].shape == shape
+    assert misc.volume(outputs["expanded"].shape) == 0
 
 
 # scan
@@ -74,4 +74,5 @@ ONNX_MODELS = {
     "scan": Model(path=model_path("scan.onnx"), LoaderType=BytesFromPath, check_runner=no_check_implemented),
     "dim_param": Model(path=model_path("dim_param.onnx"), LoaderType=BytesFromPath, check_runner=no_check_implemented),
     "tensor_attr": Model(path=model_path("tensor_attr.onnx"), LoaderType=BytesFromPath, check_runner=no_check_implemented),
+    "identity_with_initializer": Model(path=model_path("identity_with_initializer.onnx"), LoaderType=BytesFromPath, check_runner=no_check_implemented),
 }

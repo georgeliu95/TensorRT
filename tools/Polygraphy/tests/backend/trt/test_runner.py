@@ -50,7 +50,7 @@ class TestTrtRunner(object):
     @pytest.mark.skipif(version(trt.__version__) < version("7.0"), reason="Unsupported for TRT 6")
     def test_empty_tensor_with_dynamic_input_shape_tensor(self):
         model = ONNX_MODELS["empty_tensor_expand"]
-        shapes = [(1, 1, 1, 3, 0), (2, 1, 1, 3, 0), (4, 1, 1, 3, 0)]
+        shapes = [(1, 2, 0, 3, 0), (2, 2, 0, 3, 0), (4, 2, 0, 3, 0)]
         network_loader = NetworkFromOnnxBytes(model.loader)
         profiles = [Profile().add("new_shape", *shapes)]
         config_loader = CreateConfig(profiles=profiles)
