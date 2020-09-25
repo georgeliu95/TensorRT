@@ -3,6 +3,14 @@
 Dates are in YYYY-MM-DD format.
 
 
+## v0.2.6 (2020-09-25)
+### Fixed
+- Fixed a bug where calling `graph.tensors()` would cause the inputs or outputs of some tensors to be modified.
+
+### Changed
+- Changed `SynchronizedList.__add__()` no longer modifies the left operand.
+
+
 ## v0.2.5 (2020-09-21)
 ### Fixed
 - Fixed a bug where nodes including subgraphs whose inputs/outputs had the same names as the node's inputs/outputs would not be imported correctly.

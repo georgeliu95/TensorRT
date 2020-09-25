@@ -129,9 +129,7 @@ class SynchronizedList(list):
 
 
     def __add__(self, other_list: List[object]):
-        new_list = SynchronizedList(self.parent_obj, self.field_name, self)
-        new_list += other_list
-        return new_list
+        return list(self) + list(other_list)
 
 
     def __iadd__(self, other_list: List[object]):
