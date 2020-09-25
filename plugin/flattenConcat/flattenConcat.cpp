@@ -23,15 +23,6 @@
 #include <utility>
 #include <vector>
 
-#define ASSERT(assertion)                                                                                              \
-    {                                                                                                                  \
-        if (!(assertion))                                                                                              \
-        {                                                                                                              \
-            std::cerr << "#assertion" << __FILE__ << "," << __LINE__ << std::endl;                                     \
-            abort();                                                                                                   \
-        }                                                                                                              \
-    }
-
 using namespace nvinfer1;
 using nvinfer1::plugin::FlattenConcat;
 using nvinfer1::plugin::FlattenConcatPluginCreator;

@@ -19,8 +19,8 @@
 
 using namespace nvinfer1;
 using nvinfer1::PluginType;
-using nvinfer1::plugin::LReLU;
 using nvinfer1::plugin::LReluPluginCreator;
+using nvinfer1::plugin::LReLU;
 
 static const char* LRELU_PLUGIN_VERSION{"1"};
 static const char* LRELU_PLUGIN_NAME{"LReLU_TRT"};

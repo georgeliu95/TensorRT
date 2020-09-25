@@ -114,6 +114,7 @@ private:
     DetectionOutputParameters params;
     static std::vector<PluginField> mPluginAttributes;
 };
+
 } // namespace plugin
 } // namespace nvinfer1
 

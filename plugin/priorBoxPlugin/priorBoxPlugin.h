@@ -31,10 +31,7 @@ namespace plugin
 class PriorBox : public IPluginV2Ext
 {
 public:
-    PriorBox(PriorBoxParameters param);
-
-    PriorBox(
-        PriorBoxParameters param, int numPriors, int H, int W, Weights minSize, Weights maxSize, Weights aspectRatios);
+    PriorBox(PriorBoxParameters param, int H = 0, int W = 0);
 
     PriorBox(const void* buffer, size_t length);
 
@@ -46,7 +43,7 @@ public:
 
     int initialize() override;
 
-    void terminate() override;
+    void terminate() override{};
 
     size_t getWorkspaceSize(int maxBatchSize) const override;
 
@@ -92,8 +89,7 @@ private:
     Weights deserializeToDevice(const char*& hostBuffer, size_t count);
 
     PriorBoxParameters mParam;
-    bool mOwnsParamMemory;
-    int numPriors, H, W;
+    int mNumPriors, mH, mW;
     Weights minSize, maxSize, aspectRatios; // not learnable weights
     std::string mPluginNamespace;
 };
