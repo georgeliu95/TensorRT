@@ -291,7 +291,6 @@ class TestNodeIO(object):
         nlist = nlist + self.tensors
         for tensor in self.tensors:
             assert tensor in nlist
-            assert getattr(tensor, tensor_field)[0] == self.node
 
     @pytest.mark.parametrize("field_names", [("inputs", "outputs"), ("outputs", "inputs")])
     def test_iadd(self, field_names):
@@ -540,16 +539,20 @@ class TestGraph(object):
         assert graph.nodes[-1].outputs == outputs
 
 
-    def test_tensors(self):
-        graph, nodes, tensors = tensors_linear_graph()
+    # Calling `tensors()` should not modify tensors in the graph.
+    def test_tensors_does_not_modify_tensors(self):
+        graph, _, _ = tensors_linear_graph()
         graph_tensors = graph.tensors()
-        for name, tensor in tensors.items():
-            assert name in graph_tensors
-            assert tensor is graph_tensors[name]
+        # Generate a new graph to compare against
+        _, _, tensors = tensors_linear_graph()
 
-        for name, tensor in graph_tensors.items():
-            assert name in tensors
-            assert tensor is tensors[name]
+        assert set(tensors.keys()) == set(graph_tensors.keys())
+
+        for name, tensor in tensors.items():
+            graph_tensor = graph_tensors[name]
+            assert tensor == graph_tensor
+            assert tensor.inputs == graph_tensor.inputs
+            assert tensor.outputs == graph_tensor.outputs
 
 
     # Check that tensors includes tensors not attached to nodes

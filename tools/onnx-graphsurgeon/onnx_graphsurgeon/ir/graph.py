@@ -290,7 +290,9 @@ class Graph(object):
                 if check_duplicates and tensor.name in tensor_map and not (tensor_map[tensor.name] is tensor):
                     G_LOGGER.critical("Found distinct tensors that share the same name:\n[id: {:}] {:}\n[id: {:}] {:}"
                         .format(id(tensor_map[tensor.name]), tensor_map[tensor.name], id(tensor), tensor))
+
                 tensor_map[tensor.name] = tensor
+
 
         # I/O tensors may not be attached to nodes.
         for io_tensor in self.inputs:
