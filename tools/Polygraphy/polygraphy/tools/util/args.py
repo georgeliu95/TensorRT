@@ -18,7 +18,7 @@ def add_model_args(parser, model_required=False, inputs="--inputs"):
                             "'caffe': Caffe prototxt [deprecated]}}", choices=["frozen", "keras", "ckpt", "onnx", "uff", "caffe", "engine"],
                             default=None)
     if inputs:
-        model_args.add_argument(inputs, help="Model input(s) and their shape(s). Format: {arg_name} <name>,<shape>. "
+        model_args.add_argument(inputs, inputs.replace("inputs", "input") + "-shapes", help="Model input(s) and their shape(s). Format: {arg_name} <name>,<shape>. "
                                 "For example: {arg_name} image:1,1x3x224x224 other_input,10".format(arg_name=inputs), nargs="+", default=None, dest="inputs")
 
 
@@ -32,7 +32,7 @@ def add_dataloader_args(parser):
     data_loader_args.add_argument("--float-max", help="Maximum float value for random float inputs", type=float, default=None)
 
 
-def add_comparator_args(parser, iters=True, accuracy=True, validate=True, read=True, write=True, fail_fast=True, subprocess=True):
+def add_comparator_args(parser, iters=True, accuracy=True, validate=True, read=True, write=True, fail_fast=True, subprocess=True, top_k=False):
     comparator_args = parser.add_argument_group("Comparator", "Options for changing result comparison behavior")
     if iters:
         comparator_args.add_argument("--warm-up", metavar="NUM", help="Number of warm-up runs before timing inference", type=int, default=None)
@@ -54,6 +54,8 @@ def add_comparator_args(parser, iters=True, accuracy=True, validate=True, read=T
     if subprocess:
         comparator_args.add_argument("--use-subprocess", help="Run runners in isolated subprocesses. Cannot be used with a debugger",
                                      action="store_true", default=None)
+    if top_k:
+        comparator_args.add_argument("--top-k", help="[EXPERIMENTAL] Apply Top-K (i.e. find indices of K largest values) to the outputs before comparing them.", type=int, default=None)
     return comparator_args
 
 
@@ -104,6 +106,8 @@ def add_trt_args(parser, write=True, config=True, outputs=True, network_api=Fals
     if outputs:
         trt_args.add_argument("--trt-outputs", help="Name(s) of TensorRT output(s). "
                               "Using '--trt-outputs mark all' indicates that all tensors should be used as outputs", nargs="+", default=None)
+        trt_args.add_argument("--trt-exclude-outputs", help="[EXPERIMENTAL] Name(s) of TensorRT output(s) to unmark as outputs. ",
+                              nargs="+", default=None)
     if network_api:
         trt_args.add_argument("--network-api", help="[EXPERIMENTAL] Generated script will include placeholder code for defining a TensorRT Network using "
                               "the network API. Only valid if --gen/--gen-script is also enabled.", action="store_true", default=None)
@@ -154,6 +158,7 @@ def add_onnx_args(parser, write=True, outputs=True, shape_inference_default=None
     if outputs:
         onnx_args.add_argument("--onnx-outputs", help="Name(s) of ONNX output(s). "
                                "Using '--onnx-outputs mark all' indicates that all tensors should be used as outputs", nargs="+", default=None)
+        onnx_args.add_argument("--onnx-exclude-outputs", help="[EXPERIMENTAL] Name(s) of ONNX output(s) to unmark as outputs.", nargs="+", default=None)
 
 
 def add_tf_onnx_args(parser):

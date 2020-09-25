@@ -6,8 +6,6 @@ from tests.models.meta import ONNX_MODELS
 import pytest
 
 
-
-
 class TestLoggerCallbacks(object):
     @pytest.mark.parametrize("sev", G_LOGGER.SEVERITY_LETTER_MAPPING.keys())
     def test_set_severity(self, sev):

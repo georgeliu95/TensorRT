@@ -9,7 +9,7 @@ def inspect_trt(args):
     from polygraphy.backend.trt import util as trt_util
 
     if args.model_type == "engine":
-        if args.layer_info:
+        if args.mode != "none":
             G_LOGGER.warning("Displaying layer information for TensorRT engines is not currently supported")
 
         with tool_util.get_trt_serialized_engine_loader(args)() as engine:
@@ -18,7 +18,7 @@ def inspect_trt(args):
     else:
         builder, network, parser = tool_util.get_trt_network_loader(args)()
         with builder, network, parser:
-            network_str = trt_util.str_from_network(network, layer_info=args.layer_info, attr_info=(args.layer_info == "full"))
+            network_str = trt_util.str_from_network(network, mode=args.mode)
             G_LOGGER.info("==== TensorRT Network ====\n{:}".format(network_str))
 
 
@@ -26,7 +26,7 @@ def inspect_onnx(args):
     from polygraphy.backend.onnx import util as onnx_util
 
     onnx_model = tool_util.get_onnx_model_loader(args)()
-    model_str = onnx_util.str_from_onnx(onnx_model, layer_info=args.layer_info, attr_info=(args.layer_info == "full"))
+    model_str = onnx_util.str_from_onnx(onnx_model, mode=args.mode)
     G_LOGGER.info("==== ONNX Model ====\n{:}".format(model_str))
 
 
@@ -34,7 +34,7 @@ def inspect_tf(args):
     from polygraphy.backend.tf import util as tf_util
 
     tf_graph, _ = tool_util.get_tf_model_loader(args)()
-    graph_str = tf_util.str_from_graph(tf_graph, layer_info=args.layer_info, attr_info=(args.layer_info == "full"))
+    graph_str = tf_util.str_from_graph(tf_graph, mode=args.mode)
     G_LOGGER.info("==== TensorFlow Graph ====\n{:}".format(graph_str))
 
 
@@ -49,9 +49,15 @@ class STModel(Tool):
 
 
     def add_parser_args(self, parser):
-        parser.add_argument("--display-as", help="Convert the model to the specified format before displaying", choices=["onnx", "trt"])
-        parser.add_argument("--layer-info", help="Display layers: {{'basic': Display layer inputs and outputs, "
-                            "'full': Display layer attributes, inputs, and ouptuts}}", choices=["basic", "full"])
+        parser.add_argument("--convert-to", "--display-as", help="Convert the model to the specified format before displaying",
+                            choices=["onnx", "trt"], dest="display_as")
+        parser.add_argument("--mode", "--layer-info", help="Display layers: {{"
+                            "'none': Display no layer information, "
+                            "'basic': Display layer inputs and outputs, "
+                            "'attrs': Display layer inputs, outputs and attributes, "
+                            "'full': Display layer inputs, outputs, attributes, and weights"
+                            "}}",
+                            choices=["none", "basic", "attrs", "full"], dest="mode", default="none")
         args_util.add_model_args(parser, model_required=True, inputs=False)
         args_util.add_trt_args(parser, write=False, config=False, outputs=False)
         args_util.add_tf_args(parser, tftrt=False, artifacts=False, runtime=False, outputs=False)
@@ -89,6 +95,7 @@ class STResults(Tool):
         parser.add_argument("results", help="Path to a file containing Comparator.run() results from Polygraphy")
         parser.add_argument("--all", help="Show information on all iterations present in the results instead of just the first",
                             action="store_true")
+        parser.add_argument("-s", "--show-values", help="Show values of output tensors instead of just metadata", action="store_true")
 
 
     def __call__(self, args):
@@ -102,23 +109,25 @@ class STResults(Tool):
 
 
         results_str = ""
-        results_str += "==== Run Results ====\n"
-        results_str += "Total Runners: {}".format(len(run_results))
-        results_str += "\n\n"
+        results_str += "==== Run Results ({:} runners) ====\n\n".format(len(run_results))
 
         for runner_name, iters in run_results.items():
-            results_str += "---- Runner: {:} ----\n".format(runner_name)
-            results_str += "Number of Iterations: {:}".format(len(iters))
-            results_str += "\n"
+            results_str += "---- Runner: {:} ({:} iterations) ----\n".format(runner_name, len(iters))
 
             for index, iter_result in enumerate(iters):
-                iter_meta = meta_from_iter_result(iter_result)
-                results_str += "{tab}Iteration: {:} | {:}\n".format(index, iter_meta, tab=constants.TAB)
+                if args.show_values:
+                    for name, arr in iter_result.items():
+                        results_str += "{:} [dtype={:}, shape={:}]\n{:}\n\n".format(name, arr.dtype, arr.shape, misc.indent_block(str(arr)))
+                else:
+                    iter_meta = meta_from_iter_result(iter_result)
+                    if len(iters) > 1 and args.all:
+                        results_str += misc.indent_block("Iteration: {:} | ".format(index))
+                    results_str += "{:}\n".format(iter_meta)
 
                 if not args.all:
                     break
             results_str += "\n"
-        results_str = "\n".join(results_str.splitlines())
+        results_str = misc.indent_block(results_str, level=0)
         G_LOGGER.info(results_str)
 
 

@@ -2,6 +2,7 @@ import ctypes
 
 import numpy as np
 import pytest
+from polygraphy.util import misc
 from polygraphy.util.cuda import DeviceBuffer, Stream
 
 
@@ -18,6 +19,7 @@ RESIZES = [
     ResizeTestCase((2, 2, 2), 8, (1, 1), 8), # Resize to smaller buffer
     ResizeTestCase((2, 2, 2), 8, (9, 9), 81), # Resize to larger buffer
 ]
+
 
 class TestDeviceBuffer(object):
     @pytest.mark.parametrize("shapes", RESIZES)
@@ -57,6 +59,28 @@ class TestDeviceBuffer(object):
         buf.copy_to(new_arr)
 
         assert np.all(new_arr == arr)
+
+
+    def test_device_buffer_free(self):
+        buf = DeviceBuffer(shape=(64, 64), dtype=np.float32)
+        assert buf.allocated_nbytes == 64 * 64 * np.float32().itemsize
+
+        buf.free()
+        assert buf.allocated_nbytes == 0
+        assert buf.shape == tuple()
+
+
+    def test_empty_tensor_to_host(self):
+        buf = DeviceBuffer(shape=(5, 2, 0, 3, 0), dtype=np.float32)
+        assert misc.volume(buf.shape) == 0
+
+        host_buf = np.empty(tuple(), dtype=np.float32)
+        assert misc.volume(host_buf.shape) == 1
+
+        host_buf = buf.copy_to(host_buf)
+        assert host_buf.shape == buf.shape
+        assert host_buf.nbytes == 0
+        assert misc.volume(host_buf.shape) == 0
 
 
 class TestStream(object):

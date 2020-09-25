@@ -29,7 +29,9 @@ def Calibrator(data_loader, cache=None, BaseClass=trt.IInt8MinMaxCalibrator,
         cache (Union[str, file-like]):
                 Path or file-like object to save/load the calibration cache.
                 By default, the calibration cache is not saved.
-        BaseClass (type): The type of calibrator to inherit from. Defaults to trt.IInt8MinMaxCalibrator.
+        BaseClass (type):
+                The type of calibrator to inherit from.
+                Defaults to trt.IInt8MinMaxCalibrator.
         batch_size (int):
                 [DEPRECATED] The size of each batch provided by the data loader.
     """
@@ -42,26 +44,25 @@ def Calibrator(data_loader, cache=None, BaseClass=trt.IInt8MinMaxCalibrator,
             BaseClass.__init__(self)
 
             self.data_loader = data_loader
-            self.cache = cache
+            self._cache = cache
             self.device_buffers = OrderedDict()
             self.reset()
-            G_LOGGER.verbose("Created calibrator [cache={:}]".format(self.cache))
+            G_LOGGER.verbose("Created calibrator [cache={:}]".format(self._cache))
 
-            self.cache_contents = None
-            self.cache_tried_already = False
             self.batch_size = misc.default_value(batch_size, 1)
 
 
         def reset(self, input_metadata=None):
             """
-            Reset this calibrator by attempting to rewind the data loader - note that
-            this doesn't work for generators.
+            Reset this calibrator for reuse.
+            The calibrator will clear any dynamic ranges cached from previous calibration runs, and will
+            attempt to rewind the data loader (note that generators cannot be rewound).
 
             Args:
                 input_metadata (TensorMetadata):
                         Mapping of input names to their data types and shapes.
                         Passed along to the data loader if provided. Generally should not be required
-                        unless using Polygraphy's included DataLoader for this calibrator.
+                        unless using Polygraphy's included `DataLoader` for this calibrator.
             """
             if input_metadata is not None:
                 with contextlib.suppress(AttributeError):
@@ -70,6 +71,10 @@ def Calibrator(data_loader, cache=None, BaseClass=trt.IInt8MinMaxCalibrator,
             # Attempt to reset data loader
             self.data_loader_iter = iter(self.data_loader)
             self.num_batches = 0
+
+            # Make sure calibrator will check the cache again when reset.
+            self.cache_contents = None
+            self.has_cached_scales = False
 
 
         def get_batch_size(self):
@@ -102,53 +107,63 @@ def Calibrator(data_loader, cache=None, BaseClass=trt.IInt8MinMaxCalibrator,
 
 
         def read_calibration_cache(self):
-            if self.cache is None:
-                return None
-
             def load_from_cache():
+                if self._cache is None:
+                    return None
+
                 try:
-                    return self.cache.read()
+                    if self._cache.seekable():
+                        self._cache.seek(0)
+                    return self._cache.read()
                 except AttributeError:
-                    if os.path.exists(self.cache):
-                        G_LOGGER.info("Reading calibration cache from: {:}".format(self.cache), mode=LogMode.ONCE)
-                        with open(self.cache, "rb") as f:
+                    if os.path.exists(self._cache):
+                        G_LOGGER.info("Reading calibration cache from: {:}".format(self._cache), mode=LogMode.ONCE)
+                        with open(self._cache, "rb") as f:
                             return f.read()
                 except:
                     # Cache is not readable
                     return None
 
 
-            if not self.cache_tried_already:
-                self.cache_tried_already = True
+            if not self.has_cached_scales:
                 self.cache_contents = load_from_cache()
-                if self.cache_contents is not None and not self.cache_contents:
+                if not self.cache_contents:
                     G_LOGGER.warning("Calibration cache was provided, but is empty. Will regenerate scales by running calibration.", mode=LogMode.ONCE)
                     self.cache_contents = None
+                else:
+                    self.has_cached_scales = True
             return self.cache_contents
 
 
         def write_calibration_cache(self, cache):
-            if self.cache is None:
+            self.cache_contents = cache.tobytes()
+            self.has_cached_scales = True
+
+            if self._cache is None:
                 return
 
-            cache = cache.tobytes()
             try:
-                bytes_written = self.cache.write(cache)
-                if bytes_written != len(cache):
+                if self._cache.seekable():
+                    self._cache.seek(0)
+                bytes_written = self._cache.write(self.cache_contents)
+                if bytes_written != len(self.cache_contents):
                     G_LOGGER.warning("Could not write entire cache. Note: cache contains {:} bytes, but only "
-                                        "{:} bytes were written".format(len(cache), bytes_written))
+                                        "{:} bytes were written".format(len(self.cache_contents), bytes_written))
             except AttributeError:
-                G_LOGGER.info("Writing calibration cache to: {:}".format(self.cache))
-                with open(self.cache, "wb") as f:
-                    f.write(cache)
+                G_LOGGER.info("Writing calibration cache to: {:}".format(self._cache))
+                with open(self._cache, "wb") as f:
+                    f.write(self.cache_contents)
             except:
                 # Cache is not writable
                 return
             else:
-                self.cache.flush()
+                self._cache.flush()
 
 
-        def __del__(self):
+        def free(self):
+            """
+            Free the device buffers allocated for this calibrator.
+            """
             for device_buffer in self.device_buffers.values():
                 device_buffer.free()
 

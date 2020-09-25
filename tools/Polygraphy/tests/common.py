@@ -1,5 +1,6 @@
 import os
 
+
 def version(version_str):
     return tuple([int(num) for num in version_str.split(".")])
 

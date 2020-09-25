@@ -13,8 +13,6 @@ import pytest
 import os
 
 
-
-
 @pytest.fixture(scope="session")
 def identity_engine():
     network_loader = NetworkFromOnnxBytes(ONNX_MODELS["identity"].loader)
@@ -111,76 +109,15 @@ class TestModifyNetwork(object):
     def test_custom_outputs(self, load_identity_identity):
         builder, network, parser = ModifyNetwork(load_identity_identity, outputs=["identity_out_0"])()
         with builder, network, parser:
+            assert network.num_outputs == 1
             assert network.get_output(0).name == "identity_out_0"
 
 
-class TestCalibrator(object):
-    def test_calibrator_iterable_data(self, identity_builder_network):
-        builder, network = identity_builder_network
-        NUM_BATCHES = 2
-
-        data = [{"x": np.ones((1, 1, 2, 2), dtype=np.float32)}] * NUM_BATCHES
-        calibrator = Calibrator(data)
-
-        create_config = CreateConfig(int8=True, calibrator=calibrator)
-        loader = EngineFromNetwork((builder, network), create_config)
-        with loader():
-            assert calibrator.num_batches == NUM_BATCHES
-
-
-    def test_calibrator_generator_data(self, identity_builder_network):
-        builder, network = identity_builder_network
-        NUM_BATCHES = 2
-
-        def generate_data():
-            for item in [np.ones((1, 1, 2, 2), dtype=np.float32)] * NUM_BATCHES:
-                yield {"x": item}
-        calibrator = Calibrator(generate_data())
-
-        create_config = CreateConfig(int8=True, calibrator=calibrator)
-        loader = EngineFromNetwork((builder, network), create_config)
-        with loader():
-            assert calibrator.num_batches == NUM_BATCHES
-
-
-    # We want the calibrator to inter-op with TRT APIs seamlessly
-    def test_calibrator_outside_polygraphy(self, identity_builder_network):
-        builder, network = identity_builder_network
-        NUM_BATCHES = 2
-
-        def generate_data():
-            for item in [np.ones((1, 1, 2, 2), dtype=np.float32)] * NUM_BATCHES:
-                yield {"x": item}
-        calibrator = Calibrator(generate_data())
-
-        config = builder.create_builder_config()
-        config.set_flag(trt.BuilderFlag.INT8)
-        config.int8_calibrator = calibrator
-
-        with builder.build_engine(network, config) as engine:
-            assert engine
-
-
-    def test_calibrator_with_path_name_cache(self, identity_builder_network):
-        builder, network = identity_builder_network
-        data = [{"x": np.ones((1, 1, 2, 2), dtype=np.float32)}]
-
-        with tempfile.NamedTemporaryFile() as cache:
-            create_config = CreateConfig(int8=True, calibrator=Calibrator(data, cache=cache.name))
-            with EngineFromNetwork((builder, network), create_config)():
-                check_file_non_empty(cache.name)
-
-
-    @pytest.mark.parametrize("mode", ["wb+", "rb", "wb"])
-    def test_calibrator_with_file_object_cache(self, identity_builder_network, mode):
-        builder, network = identity_builder_network
-        data = [{"x": np.ones((1, 1, 2, 2), dtype=np.float32)}]
-
-        with tempfile.NamedTemporaryFile(mode=mode) as cache:
-            create_config = CreateConfig(int8=True, calibrator=Calibrator(data, cache=cache))
-            with EngineFromNetwork((builder, network), create_config)():
-                if mode != "rb":
-                    check_file_non_empty(cache.name)
+    def test_exclude_outputs_with_layerwise(self, load_identity_identity):
+        builder, network, parser = ModifyNetwork(load_identity_identity, outputs=constants.MARK_ALL, exclude_outputs=["identity_out_2"])()
+        with builder, network, parser:
+            assert network.num_outputs == 1
+            assert network.get_output(0).name == "identity_out_0"
 
 
 class TestProfile(object):
@@ -284,10 +221,13 @@ class TestEngineFromNetwork(object):
 
     def test_can_build_with_calibrator(self, identity_builder_network):
         builder, network = identity_builder_network
-        create_config = CreateConfig(int8=True, calibrator=Calibrator(DataLoader()))
+        calibrator = Calibrator(DataLoader())
+        create_config = CreateConfig(int8=True, calibrator=calibrator)
         loader = EngineFromNetwork((builder, network), create_config)
         with loader():
             pass
+        # Calibrator buffers should be freed after the build
+        assert all([buf.allocated_nbytes == 0 for buf in calibrator.device_buffers.values()])
 
 
 class TestSaveEngine(object):

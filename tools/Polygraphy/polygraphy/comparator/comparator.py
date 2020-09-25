@@ -66,7 +66,7 @@ class Comparator(object):
         def execute_runner(runner, loader_cache):
             with runner as active_runner:
                 input_metadata = active_runner.get_input_metadata()
-                G_LOGGER.verbose("Runner: {:40} | Input Metadata:\n{:}".format(active_runner.name, input_metadata))
+                G_LOGGER.verbose("Runner: {:40} | Input Metadata:\n{:}".format(active_runner.name, misc.indent_block(input_metadata)))
                 loader_cache.set_input_metadata(input_metadata)
 
                 if warm_up:
@@ -77,7 +77,7 @@ class Comparator(object):
                         G_LOGGER.warning("{:} warm-up runs were requested, but data loader did not supply any data. "
                                          "Skipping warm-up runs".format(warm_up))
                     else:
-                        G_LOGGER.ultra_verbose("Warm-up Input Buffers: {:}".format(feed_dict))
+                        G_LOGGER.ultra_verbose("Warm-up Input Buffers:\n{:}".format(misc.indent_block(feed_dict)))
                         # First do a few warm-up runs, and don't time them.
                         for i in range(warm_up):
                             active_runner.infer(feed_dict=feed_dict)
@@ -86,7 +86,7 @@ class Comparator(object):
                 total_time = 0
                 run_results = []
                 for feed_dict in loader_cache:
-                    G_LOGGER.extra_verbose(lambda: "Runner: {:40} | Feeding inputs:\n{:}".format(active_runner.name, feed_dict))
+                    G_LOGGER.extra_verbose(lambda: "Runner: {:40} | Feeding inputs:\n{:}".format(active_runner.name, misc.indent_block(feed_dict)))
                     outputs = active_runner.infer(feed_dict=feed_dict)
 
                     runtime = active_runner.last_inference_time()
@@ -98,8 +98,9 @@ class Comparator(object):
                         for name, out in outputs.items():
                             output_metadata.add(name, out.dtype, out.shape)
 
-                    G_LOGGER.verbose("Runner: {:40} | Output Metadata:\n{:}".format(active_runner.name, output_metadata), mode=LogMode.ONCE)
-                    G_LOGGER.extra_verbose(lambda: "Runner: {:40} | Inference Time: {:.3f} ms | Received outputs:\n{:}".format(active_runner.name, runtime * 1000.0, outputs))
+                    G_LOGGER.verbose("Runner: {:40} | Output Metadata:\n{:}".format(active_runner.name, misc.indent_block(output_metadata)), mode=LogMode.ONCE)
+                    G_LOGGER.extra_verbose(lambda: "Runner: {:40} | Inference Time: {:.3f} ms | Received outputs:\n{:}".format(
+                                                        active_runner.name, runtime * 1000.0, misc.indent_block(outputs)))
 
                 G_LOGGER.info("Runner: {:40} | Completed {:} iterations.".format(active_runner.name, len(run_results)))
                 return run_results
@@ -156,7 +157,7 @@ class Comparator(object):
             else:
                 run_results[runner.name] = execute_runner(runner, loader_cache)
 
-        G_LOGGER.info("Successfully ran: {:}".format([r.name for r in runners]))
+        G_LOGGER.verbose("Successfully ran: {:}".format([r.name for r in runners]))
         return run_results
 
 
@@ -239,12 +240,13 @@ class Comparator(object):
                     if fail_fast and mismatched_outputs:
                         return accuracy_result
 
+                G_LOGGER.extra_verbose("Finished comparing {:} with {:}".format(runner0_name, runner1_name,))
+
                 passed, failed, total = accuracy_result.stats(runner_pair)
                 pass_rate = accuracy_result.percentage(runner_pair) * 100.0
-                G_LOGGER.verbose("Finished comparing {:} with {:}".format(runner0_name, runner1_name,))
                 if num_iters > 1 or len(comparisons) > 1:
-                    msg = "Accuracy Summary | Passed: {:}/{:} iterations | Pass Rate: {:}%".format(
-                            passed, total, pass_rate)
+                    msg = "Accuracy Summary | {:} vs. {:} | Passed: {:}/{:} iterations | Pass Rate: {:}%".format(
+                            runner0_name, runner1_name, passed, total, pass_rate)
                     if passed == total:
                         G_LOGGER.success(msg)
                     else:

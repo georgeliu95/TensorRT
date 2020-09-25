@@ -3,7 +3,7 @@
 The `surgeon extract` subtool can be used to extract a subgraph from a model with a single command.
 
 In this example, we'll extract a subgraph from a simple 2-layer identity model.
-We will assume that we have already used `inspect model` with `--layer-info` to determine that
+We will assume that we have already used `inspect model` with `--mode` to determine that
 the input tensor of the subgraph we want is `identity_out_0`, and the output tensor is `identity_out_2`.
 
 Additionally, we'll assume that we don't know what the shapes or types of these tensors are,
@@ -47,5 +47,5 @@ At this point, the model is ready for use. You can use `inspect` to confirm
 whether it looks correct:
 
 ```bash
-polygraphy inspect model subgraph.onnx --layer-info=basic
+polygraphy inspect model subgraph.onnx --mode=basic
 ```
