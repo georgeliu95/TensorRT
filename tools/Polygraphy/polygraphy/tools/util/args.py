@@ -18,7 +18,7 @@ def add_model_args(parser, model_required=False, inputs="--inputs"):
                             "'caffe': Caffe prototxt [deprecated]}}", choices=["frozen", "keras", "ckpt", "onnx", "uff", "caffe", "engine"],
                             default=None)
     if inputs:
-        model_args.add_argument(inputs, help="Model input(s) and their shape(s). Format: {arg_name} <name>,<shape>. "
+        model_args.add_argument(inputs, inputs.replace("inputs", "input") + "-shapes", help="Model input(s) and their shape(s). Format: {arg_name} <name>,<shape>. "
                                 "For example: {arg_name} image:1,1x3x224x224 other_input,10".format(arg_name=inputs), nargs="+", default=None, dest="inputs")
 
 

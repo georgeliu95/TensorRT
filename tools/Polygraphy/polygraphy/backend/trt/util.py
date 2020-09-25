@@ -154,11 +154,13 @@ def str_from_network(network, mode="full"):
                 # Exclude special attributes, as well as any attributes of the base layer class (those can be displayed above).
                 attrs = [attr for attr in dir(layer) if not is_special_attribute(attr) and not hasattr(trt.ILayer, attr) and is_valid_attribute(attr, layer)]
                 if attrs:
-                    network_str += misc.indent_block("---- Attributes ----\n")
+                    network_str += misc.indent_block("---- Attributes ----") + "\n"
                 for attr in attrs:
                     val = getattr(layer, attr)
                     if mode == "full" or not isinstance(val, np.ndarray):
-                        network_str += misc.indent_block("{:}.{:} = {:}\n".format(layer.name, attr, val))
+                        if layer.name:
+                            network_str += "{:}.".format(layer.name)
+                        network_str += misc.indent_block("{:} = {:}".format(attr, val)) + "\n"
             network_str += "\n"
     else:
         network_str += "(Use --mode to display)"

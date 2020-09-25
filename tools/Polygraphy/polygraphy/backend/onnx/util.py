@@ -197,13 +197,16 @@ def str_from_onnx_graph(graph, mode, tensors, indent_level=0):
     onnx_str += "---- {:} Initializers ----\n".format(len(initializer_metadata))
     if mode == "full":
         for init in graph.initializer:
-            onnx_str += "{:} [dtype={:}, shape={:}]\n{:}\n\n".format(
+            onnx_str += "Initializer | {:} [dtype={:}, shape={:}] | Values:\n{:}\n\n".format(
                             init.name, get_dtype(init), get_shape(init), misc.indent_block(str(get_values(init))))
+        if not graph.initializer:
+            onnx_str += "\n"
     elif mode != "none":
-            onnx_str += str(initializer_metadata)
+        onnx_str += str(initializer_metadata)
+        onnx_str += "\n\n"
     else:
         onnx_str += "(Use --mode to display)"
-    onnx_str += "\n\n"
+        onnx_str += "\n\n"
 
 
     def metadata_from_names(names):
@@ -214,7 +217,7 @@ def str_from_onnx_graph(graph, mode, tensors, indent_level=0):
             if name in tensors:
                 dtype, shape = tensors[name]
             if name in initializer_metadata:
-                name = "{:} (initializer)".format(name)
+                name = "Initializer | {:}".format(name)
             metadata.add(name=name, dtype=dtype, shape=shape)
         return metadata
 
@@ -241,11 +244,10 @@ def str_from_onnx_graph(graph, mode, tensors, indent_level=0):
                 if attr_str == "STRING":
                     processed = processed.decode()
                 elif attr_str == "TENSOR":
+                    tensor_str = "Tensor: [dtype={:}, shape={:}]".format(get_dtype(processed), get_shape(processed))
                     if mode == "full":
-                        prefix = "{:} ".format(get_values(processed))
-                    else:
-                        prefix = "Tensor: "
-                    processed = prefix + "[dtype={:}, shape={:}]".format(get_dtype(processed), get_shape(processed))
+                        tensor_str += " | Values:\n" + misc.indent_block(str(get_values(processed)))
+                    processed = tensor_str
                 elif attr_str == "GRAPH":
                     processed = "\n" + str_from_onnx_graph(processed, mode, tensors, indent_level=indent_level + 2)
                 elif attr_str == "FLOATS" or attr_str == "INTS":
@@ -278,9 +280,11 @@ def str_from_onnx_graph(graph, mode, tensors, indent_level=0):
             if mode in ["attrs", "full"]:
                 attrs = attrs_to_dict(node.attribute)
                 if attrs:
-                    onnx_str += misc.indent_block("---- Attributes ----\n")
+                    onnx_str += misc.indent_block("---- Attributes ----") + "\n"
                 for key, val in attrs.items():
-                    onnx_str += misc.indent_block("{:}.{:} = {:}\n".format(node.name, key, val))
+                    if node.name:
+                        onnx_str += "{:}.".format(node.name)
+                    onnx_str += misc.indent_block("{:} = {:}".format(key, val)) + "\n"
             onnx_str += "\n"
     else:
         onnx_str += "(Use --mode to display)"

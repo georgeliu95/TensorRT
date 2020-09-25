@@ -167,11 +167,17 @@ class DeviceBuffer(object):
             np.ndarray: The host buffer, possibly reallocated if the provided buffer was too small.
         """
         nbytes = misc.volume(self.shape) * np.dtype(self.dtype).itemsize
-        if nbytes:
-            self._check_dtype_matches(host_buffer)
+        self._check_dtype_matches(host_buffer)
+
+        try:
             host_buffer.resize(self.shape, refcheck=False)
+        except ValueError:
+            host_buffer = np.empty(self.shape, dtype=np.dtype(self.dtype))
+
+        if nbytes:
             host_ptr = host_buffer.ctypes.data_as(ctypes.c_void_p)
             wrapper().dtoh(dst=host_ptr, src=self._ptr, nbytes=nbytes, stream=try_get_stream_handle(stream))
+        host_buffer = host_buffer.reshape(self.shape)
         return host_buffer
 
 

@@ -13,23 +13,27 @@ def check_subprocess(status):
     assert not status.returncode
 
 
-def run_subtool(subtool, additional_opts):
-    cmd = [sys.executable, polygraphy, subtool] + additional_opts + ["-vvvvv"]
+def run_subtool(subtool, additional_opts, disable_verbose=False):
+    cmd = [sys.executable, polygraphy, subtool] + additional_opts
+    if not disable_verbose:
+        cmd += ["-vvvvv"]
     G_LOGGER.info("Running command: {:}".format(" ".join(cmd)))
-    check_subprocess(sp.run(cmd))
+    status = sp.run(cmd, stdout=sp.PIPE, stderr=sp.PIPE)
+    check_subprocess(status)
+    return status
 
 
-def run_polygraphy_run(additional_opts=[]):
-    run_subtool("run", additional_opts)
+def run_polygraphy_run(additional_opts=[], disable_verbose=False):
+    return run_subtool("run", additional_opts, disable_verbose)
 
 
-def run_polygraphy_inspect(additional_opts=[]):
-    run_subtool("inspect", additional_opts)
+def run_polygraphy_inspect(additional_opts=[], disable_verbose=False):
+    return run_subtool("inspect", additional_opts, disable_verbose)
 
 
-def run_polygraphy_precision(additional_opts=[]):
-    run_subtool("precision", additional_opts)
+def run_polygraphy_precision(additional_opts=[], disable_verbose=False):
+    return run_subtool("precision", additional_opts, disable_verbose)
 
 
-def run_polygraphy_surgeon(additional_opts=[]):
-    run_subtool("surgeon", additional_opts)
+def run_polygraphy_surgeon(additional_opts=[], disable_verbose=False):
+    return run_subtool("surgeon", additional_opts, disable_verbose)
