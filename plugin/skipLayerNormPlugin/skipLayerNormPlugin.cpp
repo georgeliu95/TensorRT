@@ -589,6 +589,21 @@ bool SkipLayerNormVarSeqlenPlugin::supportsFormatCombination(
     return in.format == prev.format;
 }
 
+void SkipLayerNormVarSeqlenPlugin::copyParamToDevice()
+{
+    if (!mParamsOnDevice)
+    {
+        const auto paramType = getParamWordType(mCfgType);
+        copyToDevice(mGamma, getWeightsSize(mGamma, paramType), mGammaDev);
+        copyToDevice(mBeta, getWeightsSize(mBeta, paramType), mBetaDev);
+        if (mHasBias)
+        {
+            copyToDevice(mBias, getWeightsSize(mBias, paramType), mBiasDev);
+        }
+        mParamsOnDevice = true;
+    }
+}
+
 void SkipLayerNormVarSeqlenPlugin::configurePlugin(
     const DynamicPluginTensorDesc* inputs, int nbInputs, const DynamicPluginTensorDesc* outputs, int nbOutputs)
 {
@@ -617,16 +632,7 @@ void SkipLayerNormVarSeqlenPlugin::configurePlugin(
     const auto paramType = getParamWordType(mCfgType);
     mParamWordsize = getElementSize(paramType);
 
-    if (!mParamsOnDevice)
-    {
-        copyToDevice(mGamma, getWeightsSize(mGamma, paramType), mGammaDev);
-        copyToDevice(mBeta, getWeightsSize(mBeta, paramType), mBetaDev);
-        if (mHasBias)
-        {
-            copyToDevice(mBias, getWeightsSize(mBias, paramType), mBiasDev);
-        }
-        mParamsOnDevice = true;
-    }
+    copyParamToDevice();
 }
 
 size_t SkipLayerNormVarSeqlenPlugin::getWorkspaceSize(
@@ -642,6 +648,9 @@ int SkipLayerNormVarSeqlenPlugin::enqueue(const PluginTensorDesc* inputDesc, con
     assert(inputVolume % mLd == 0 && "inconsistent dimensions");
     int status = -1;
     DataType iType = inputDesc->type;
+
+    // WAR to work with TRT6.0
+    copyParamToDevice();
 
     // Our plugin outputs only one tensor
     // Launch CUDA kernel wrapper and save its return value
