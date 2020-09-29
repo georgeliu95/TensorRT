@@ -3,6 +3,12 @@
 Dates are in YYYY-MM-DD format.
 
 
+## v0.2.7 (2020-09-29)
+### Changed
+- Changed the default value of `remove_unused_node_outputs` in `cleanup()` to `False`, as a value of `True` can lead to unintuitive behavior,
+    especially with looping constructs like `Scan` and `Loop`.
+
+
 ## v0.2.6 (2020-09-25)
 ### Fixed
 - Fixed a bug where calling `graph.tensors()` would cause the inputs or outputs of some tensors to be modified.
