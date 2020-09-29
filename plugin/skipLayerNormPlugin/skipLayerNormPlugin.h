@@ -173,6 +173,9 @@ public:
     void setPluginNamespace(const char* pluginNamespace) override;
     const char* getPluginNamespace() const override;
 
+protected:
+    void copyParamToDevice();
+
 private:
     const std::string mLayerName;
     std::string mNamespace;
