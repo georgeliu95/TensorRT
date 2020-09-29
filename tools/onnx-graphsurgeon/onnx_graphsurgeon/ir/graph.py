@@ -168,7 +168,7 @@ class Graph(object):
         return used_node_ids, used_tensors
 
 
-    def cleanup(self, remove_unused_node_outputs=True):
+    def cleanup(self, remove_unused_node_outputs=False):
         """
         Removes unused nodes and tensors from the graph.
         A node or tensor is considered unused if it does not contribute to any of the graph outputs.
@@ -179,7 +179,7 @@ class Graph(object):
 
         Optional Args:
             remove_unused_node_outputs (bool): Whether to remove unused output tensors of nodes. This will never remove
-                empty tensor outputs. If this is set to False, outputs of nodes kept in the graph will not be modified.
+                empty tensor outputs. Defaults to False.
 
         Returns:
             self
@@ -215,7 +215,10 @@ class Graph(object):
                     def is_hanging_tensor(tensor):
                         return not tensor.is_empty() and len(tensor.outputs) == 0 and tensor.name not in graph_output_names
 
-                    [node.outputs.remove(out) for out in node.outputs if is_hanging_tensor(out)]
+                    to_remove = [out for out in node.outputs if is_hanging_tensor(out)]
+                    for out in to_remove:
+                        if out in node.outputs:
+                            node.outputs.remove(out)
 
             self.nodes = nodes
             return self
