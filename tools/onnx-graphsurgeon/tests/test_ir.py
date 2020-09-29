@@ -615,7 +615,7 @@ class TestGraph(object):
         assert tensor.name not in tensor_map
 
 
-    def test_cleanup_intermediate_tensors(self):
+    def test_cleanup_remove_unused_node_outputs(self):
         graph, _  = toposort_linear_graph()
         graph.toposort()
         graph_output = graph.outputs[0]
@@ -625,7 +625,7 @@ class TestGraph(object):
         # Since it does not contribute to graph outputs, it should be removed.
         graph.nodes[1].outputs.append(dummy)
 
-        graph.cleanup()
+        graph.cleanup(remove_unused_node_outputs=True)
         assert dummy not in graph.nodes[1].outputs
         assert graph.outputs[0] == graph_output # Graoh outputs will never be removed
 
