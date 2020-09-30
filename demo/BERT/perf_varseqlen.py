@@ -68,7 +68,7 @@ def main():
         np.random.seed(args.random_seed)
         test_word_ids = np.random.randint(0, pseudo_vocab_size, (args.sequence_length * max(args.batch_size)), dtype=np.int32)
         test_segment_ids = np.random.randint(0, pseudo_type_vocab_size, (args.sequence_length * max(args.batch_size)), dtype=np.int32)
-        test_cu_seq_lens = np.arange(0, args.sequence_length * max(args.batch_size), args.sequence_length)
+        test_cu_seq_lens = np.arange(0, args.sequence_length * max(args.batch_size), args.sequence_length, dtype=np.int32)
 
         # Copy input h2d
         cuda.memcpy_htod(buffers[0].buf, test_word_ids.ravel())
