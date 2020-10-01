@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #ifndef CHECK_MACROS_PLUGIN_H
 #define CHECK_MACROS_PLUGIN_H
 

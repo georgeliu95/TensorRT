@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #include "checkMacrosPlugin.h"
 #include <cstdlib>
 #include <cublas_v2.h>
