@@ -15,6 +15,7 @@ To build the TensorRT OSS components, ensure you meet the following package requ
 
 * [CUDA](https://developer.nvidia.com/cuda-toolkit)
   * Recommended versions:
+  * cuda-11.1 + cuDNN-8.0
   * cuda-11.0 + cuDNN-8.0
   * cuda-10.2 + cuDNN-8.0
 
@@ -92,15 +93,15 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 
 2. #### Download the TensorRT binary release.
 
-	To build the TensorRT OSS, obtain the corresponding TensorRT 7.2 binary release from [NVidia Developer Zone](https://developer.nvidia.com/nvidia-tensorrt-7x-download). For a list of key features, known and fixed issues, refer to the [TensorRT 7.2 Release Notes](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/tensorrt-7.html#rel_7-2-0).
+	To build the TensorRT OSS, obtain the corresponding TensorRT 7.2.1 binary release from [NVidia Developer Zone](https://developer.nvidia.com/nvidia-tensorrt-7x-download). For a list of key features, known and fixed issues, refer to the [TensorRT 7.2 Release Notes](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/tensorrt-7.html#rel_7-2-1).
 
-	**Example: Ubuntu 18.04 with cuda-11.0**
+	**Example: Ubuntu 18.04 with cuda-11.1**
 
-	Download and extract the latest *TensorRT 7.2 GA package for Ubuntu 18.04 and CUDA 11.0*
+	Download and extract the latest *TensorRT 7.2 GA package for Ubuntu 18.04 and CUDA 11.1*
 	```bash
 	cd ~/Downloads
-	tar -xvzf TensorRT-7.2.0.13.Ubuntu-18.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
-	export TRT_RELEASE=`pwd`/TensorRT-7.2.0.13
+	tar -xvzf TensorRT-7.2.1.5.Ubuntu-18.04.x86_64-gnu.cuda-11.1.cudnn8.0.tar.gz
+	export TRT_RELEASE=`pwd`/TensorRT-7.2.1.5
 	```
 
 	**Example: Ubuntu 18.04 with cuda-11.0 on PowerPC**
@@ -108,9 +109,9 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	Download and extract the latest *TensorRT 7.2 GA package for Ubuntu 18.04 and CUDA 11.0*
 	```bash
 	cd ~/Downloads
-	# Download TensorRT-7.2.0.13.Ubuntu-18.04.powerpc64le-gnu.cuda-11.0.cudnn8.0.tar.gz
-	tar -xvzf TensorRT-7.2.0.13.Ubuntu-18.04.powerpc64le-gnu.cuda-11.0.cudnn8.0.tar.gz
-	export TRT_RELEASE=`pwd`/TensorRT-7.2.0.13
+	# Download TensorRT-7.2.1.5.Ubuntu-18.04.powerpc64le-gnu.cuda-11.0.cudnn8.0.tar.gz
+	tar -xvzf TensorRT-7.2.1.5.Ubuntu-18.04.powerpc64le-gnu.cuda-11.0.cudnn8.0.tar.gz
+	export TRT_RELEASE=`pwd`/TensorRT-7.2.1.5
 	```
 
 	**Example: CentOS/RedHat 7 with cuda-11.0**
@@ -118,17 +119,8 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	Download and extract the *TensorRT 7.2 GA for CentOS/RedHat 7 and CUDA 11.0 tar package*
 	```bash
 	cd ~/Downloads
-	tar -xvzf TensorRT-7.2.0.13.CentOS-8.0.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
-	export TRT_RELEASE=`pwd`/TensorRT-7.2.0.13
-	```
-
-	**Example: Ubuntu 16.04 with cuda-11.0**
-
-	Download and extract the *TensorRT 7.2 GA for Ubuntu 16.04 and CUDA 11.0 tar package*
-	```bash
-	cd ~/Downloads
-	tar -xvzf TensorRT-7.2.0.13.Ubuntu-16.04.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
-	export TRT_RELEASE=`pwd`/TensorRT-7.2.0.13
+	tar -xvzf TensorRT-7.2.1.5.CentOS-8.0.x86_64-gnu.cuda-11.0.cudnn8.0.tar.gz
+	export TRT_RELEASE=`pwd`/TensorRT-7.2.1.5
 	```
 
 	**Example: Ubuntu18.04 cross compile QNX with cuda-10.2**
@@ -136,8 +128,8 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	Download and extract the *TensorRT 7.2 GA for QNX and CUDA 10.2 tar package*
 	```bash
 	cd ~/Downloads
-	tar -xvzf TensorRT-7.2.0.13.Ubuntu-18.04.aarch64-qnx.cuda-10.2.cudnn7.6.tar.gz
-	export TRT_RELEASE=`pwd`/TensorRT-7.2.0.13
+	tar -xvzf TensorRT-7.2.1.5.Ubuntu-18.04.aarch64-qnx.cuda-10.2.cudnn7.6.tar.gz
+	export TRT_RELEASE=`pwd`/TensorRT-7.2.1.5
 	export QNX_HOST=/path/to/qnx/toolchain/host/linux/x86_64
 	export QNX_TARGET=/path/to/qnx/toolchain/target/qnx7
 	```
@@ -146,12 +138,12 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	Download and extract the *TensorRT 7.2 GA for Windows and CUDA 11.0 zip package* and add *msbuild* to *PATH*
 	```powershell
 	cd ~\Downloads
-	Expand-Archive .\TensorRT-7.2.0.13.Windows10.x86_64.cuda-11.0.cudnn8.0.zip
-	$Env:TRT_RELEASE = '$(Get-Location)\TensorRT-7.2.0.13'
+	Expand-Archive .\TensorRT-7.2.1.5.Windows10.x86_64.cuda-11.0.cudnn8.0.zip
+	$Env:TRT_RELEASE = '$(Get-Location)\TensorRT-7.2.1.5'
 	$Env:PATH += 'C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\MSBuild\15.0\Bin\'
 	```
 
-3. #### Download JetPack toolchain for cross-compilation.[OPTIONAL]
+3. #### Download JetPack toolchain for cross-compilation. [Optional]
 
     **JetPack example**
 
@@ -171,16 +163,15 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 
     The docker container can be built using the included Dockerfiles and build script. The build container is configured with the environment and packages required for building TensorRT OSS.
 
-    **Example: Ubuntu 18.04 with cuda-11.0**
+    **Example: Ubuntu 18.04 with cuda-11.1**
 
     ```bash
-    ./docker/build.sh --file docker/ubuntu.Dockerfile --tag tensorrt-ubuntu --os 18.04 --cuda 11.0
+    ./docker/build.sh --file docker/ubuntu.Dockerfile --tag tensorrt-ubuntu --os 18.04 --cuda 11.1
     ```
 
-    **Example: Ubuntu 16.04 with cuda-11.0**
-
+    **Example: Cross compile for PowerPC with cuda-11.0**
     ```bash
-    ./docker/build.sh --file docker/ubuntu.Dockerfile --tag tensorrt-ubuntu1604 --os 16.04 --cuda 11.0
+    ./docker/build.sh --file docker/ubuntu-cross-ppc64le.Dockerfile --tag tensorrt-ubuntu-ppc --os 18.04 --cuda 11.0
     ```
 
     **Example: CentOS/RedHat 7 with cuda-11.0**
@@ -192,11 +183,6 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
     **Example: Cross compile for JetPack 4.4 with cuda-10.2**
     ```bash
     ./docker/build.sh --file docker/ubuntu-cross-aarch64.Dockerfile --tag tensorrt-ubuntu-jetpack --os 18.04 --cuda 10.2
-    ```
-
-    **Example: Cross compile for PowerPC with cuda-11.0**
-    ```bash
-    ./docker/build.sh --file docker/ubuntu-cross-ppc64le.Dockerfile --tag tensorrt-ubuntu-ppc --os 18.04 --cuda 11.0
     ```
 
 2. #### Launch the TensorRT build container.
@@ -249,7 +235,7 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 	```
 
 	> NOTE:
-	> 1. The default CUDA version used by CMake is 11.0. To override this, for example to 10.2, append `-DCUDA_VERSION=10.2` to the cmake command.
+	> 1. The default CUDA version used by CMake is 11.1. To override this, for example to 10.2, append `-DCUDA_VERSION=10.2` to the cmake command.
 	> 2. Samples may fail to link on CentOS7. To work around this create the following symbolic link:
 	> `ln -s $TRT_OUT_DIR/libnvinfer_plugin.so $TRT_OUT_DIR/libnvinfer_plugin.so.7`
 
@@ -263,7 +249,7 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 
 	- `CMAKE_BUILD_TYPE`: Specify if binaries generated are for release or debug (contain debug symbols). Values consists of [`Release`] | `Debug`
 
-	- `CUDA_VERISON`: The version of CUDA to target, for example [`11.0`].
+	- `CUDA_VERISON`: The version of CUDA to target, for example [`11.1`].
 
 	- `CUDNN_VERSION`: The version of cuDNN to target, for example [`8.0`].
 
@@ -291,14 +277,14 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 
 	- `TRT_PLATFORM_ID`: Bare-metal build (unlike containerized cross-compilation) on non Linux/x86 platforms must explicitly specify the target platform. Currently supported options: `x86_64` (default), `aarch64`
 
-### (Optional - recommended) installing the tensorrt python API bindings
+### Install TensorRT python bindings. [Optional]
 
 whl files for the TensorRT python API are in the `python` directory of the TensorRT release
 
 *Example* install for python3:
 
 ```
-pip3 install $TRT_RELEASE/python/tensorrt-7.2.0.13-cp36-none-linux_x86_64.whl
+pip3 install $TRT_RELEASE/python/tensorrt-7.2.1.5-cp36-none-linux_x86_64.whl
 ```
 
 ## Useful Resources
@@ -313,5 +299,5 @@ pip3 install $TRT_RELEASE/python/tensorrt-7.2.0.13-cp36-none-linux_x86_64.whl
 
 ## Known Issues
 
-#### TensorRT 7.2
-* See [Release Notes](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/tensorrt-7.html#rel_7-2-0).
+#### TensorRT 7.2.1
+* See [Release Notes](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/tensorrt-7.html#rel_7-2-1).

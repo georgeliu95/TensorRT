@@ -194,6 +194,7 @@ int main(int argc, char** argv)
 
     printPerformanceReport(trace, options.reporting, static_cast<float>(options.inference.warmup),
         options.inference.batch, sample::gLogInfo);
+    printOutput(options.reporting, iEnv, sample::gLogInfo);
 
     if ((options.reporting.profile || !options.reporting.exportProfile.empty()) && options.inference.rerun)
     {
