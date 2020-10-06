@@ -12,13 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_VERSION=11.0
+ARG CUDA_VERSION=11.1
 ARG OS_VERSION=18.04
-ARG NVCR_SUFFIX=
 
-# TRT-12006 - Update after CUDA 11.1 GA.
-# FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${OS_VERSION}${NVCR_SUFFIX}
-FROM gitlab-master.nvidia.com:5005/dl/dgx/cuda:11.1-devel-ubuntu18.04--master
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${OS_VERSION}
 
 LABEL maintainer="NVIDIA CORPORATION"
 

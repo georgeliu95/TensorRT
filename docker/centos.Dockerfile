@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_VERSION=11.0
+ARG CUDA_VERSION=11.1
 ARG OS_VERSION=7
 ARG NVCR_SUFFIX=
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${OS_VERSION}${NVCR_SUFFIX}
