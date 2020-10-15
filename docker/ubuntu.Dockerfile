@@ -26,7 +26,6 @@ RUN usermod -aG sudo trtuser
 RUN echo 'trtuser:nvidia' | chpasswd
 RUN mkdir -p /workspace && chown trtuser /workspace
 
-# TRT-12006 TODO: Remove python2 installation
 # Install requried libraries
 RUN apt-get update && apt-get install -y software-properties-common
 RUN add-apt-repository ppa:ubuntu-toolchain-r/test
@@ -47,15 +46,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     lintian \
     fakeroot \
     dh-make \
-    build-essential \
-    python
-
-# TRT-12006 - update hack after cuda 11 GA
-# RUN apt-get remove -y tensorrt libnvinfer7
-# RUN pip3 uninstall tensorrt
-#RUN cd /usr/local/bin &&\
-#    ln -s /usr/bin/python3 python &&\
-#    ln -s /usr/bin/pip3 pip
+    build-essential
 
 RUN . /etc/os-release &&\
     if [ "$VERSION_ID" = "16.04" ]; then \
@@ -98,6 +89,7 @@ RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.
 # Set environment and working directory
 ENV TRT_RELEASE /tensorrt
 ENV TRT_SOURCE /workspace/TensorRT
+ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${TRT_SOURCE}/build/out:${TRT_RELEASE}/lib"
 WORKDIR /workspace
 
 USER trtuser
