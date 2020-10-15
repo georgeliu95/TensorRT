@@ -67,6 +67,9 @@ constexpr size_t packedMaskSize96 = xmmasM128 * threadsPerCta128;
 constexpr size_t packedMaskSize128 = xmmasM128 * threadsPerCta128;
 constexpr size_t packedMaskSize384 = xmmasM384 * threadsPerCta384;
 
+namespace bert
+{
+
 inline int getSMVersion()
 {
     int device{-1};
@@ -126,9 +129,6 @@ inline int64_t volume(const nvinfer1::Dims& d)
 {
     return std::accumulate(d.d, d.d + d.nbDims, 1, std::multiplies<int64_t>());
 }
-
-namespace bert
-{
 
 template <typename IntType>
 constexpr IntType ceildiv(IntType a, IntType b)
@@ -460,25 +460,6 @@ inline nvinfer1::DataType fieldTypeToDataType(const nvinfer1::PluginFieldType ft
     }
     default: throw std::invalid_argument("No corresponding datatype for plugin field type");
     }
-}
-
-inline unsigned int getElementSize(nvinfer1::DataType t)
-{
-    switch (t)
-    {
-    case nvinfer1::DataType::kINT32: return 4;
-    case nvinfer1::DataType::kFLOAT: return 4;
-    case nvinfer1::DataType::kHALF: return 2;
-    case nvinfer1::DataType::kBOOL:
-    case nvinfer1::DataType::kINT8: return 1;
-    }
-    throw std::runtime_error("Invalid DataType.");
-    return 0;
-}
-
-inline int64_t volume(const nvinfer1::Dims& d)
-{
-    return std::accumulate(d.d, d.d + d.nbDims, 1, std::multiplies<int64_t>());
 }
 
 } // namespace bert
