@@ -14,8 +14,7 @@
 
 ARG CUDA_VERSION=11.1
 ARG OS_VERSION=7
-ARG NVCR_SUFFIX=
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${OS_VERSION}${NVCR_SUFFIX}
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${OS_VERSION}
 
 LABEL maintainer="NVIDIA CORPORATION"
 
@@ -66,6 +65,7 @@ RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.
 # Set environment and working directory
 ENV TRT_RELEASE /tensorrt
 ENV TRT_SOURCE /workspace/TensorRT
+ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${TRT_SOURCE}/build/out:${TRT_RELEASE}/lib"
 WORKDIR /workspace
 
 USER trtuser
