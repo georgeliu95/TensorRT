@@ -24,10 +24,10 @@ import re
 copyright_year = "2020"
 
 extensions_p = (".py", ".sh", ".cmake", "CMakeLists")
-extensions_c = (".c", ".cpp", ".h", ".hpp")
+extensions_c = (".c", ".cpp", ".h", ".hpp", ".cu")
 
 pattern_p = """#\s*
-# Copyright \(c\) ([1-2][0-9]{3}), NVIDIA CORPORATION.\s+All rights reserved.\s*
+# Copyright \(c\) ([1-2][0-9]{3}),* NVIDIA CORPORATION.*
 #\s*
 # Licensed under the Apache License, Version 2.0 \(the "License"\);\s*
 # you may not use this file except in compliance with the License.\s*
@@ -40,7 +40,7 @@ pattern_p = """#\s*
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\s*
 # See the License for the specific language governing permissions and\s*
 # limitations under the License.\s*
-#\s*
+#
 """
 
 header_p = """#
@@ -61,7 +61,7 @@ header_p = """#
 """.format(year=copyright_year)
 
 pattern_c = """/\*\s*
- \* Copyright \(c\) ([1-2][0-9]{3}), NVIDIA CORPORATION.\s+All rights reserved.\s*
+ \* Copyright \(c\) ([1-2][0-9]{3}),* NVIDIA CORPORATION.*
  \*\s*
  \* Licensed under the Apache License, Version 2.0 \(the "License"\);\s*
  \* you may not use this file except in compliance with the License.\s*
@@ -74,7 +74,7 @@ pattern_c = """/\*\s*
  \* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\s*
  \* See the License for the specific language governing permissions and\s*
  \* limitations under the License.\s*
- \*/\s*
+ \*/
 """
 
 header_c = """/*
@@ -110,9 +110,7 @@ def update(filename, args):
     """
     Update copyright header for specified file
     """
-    if filename.endswith(("__init__.py")):
-        return
-    elif filename.endswith(extensions_p):
+    if filename.endswith(extensions_p):
         pattern = re.compile(pattern_p)
         header = header_p
         shebang = re.compile(r'^(\#\!.*\n)', re.MULTILINE)
