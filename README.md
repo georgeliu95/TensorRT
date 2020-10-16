@@ -93,7 +93,7 @@ NOTE: Along with the TensorRT OSS components, the following source packages will
 
 2. #### Download the TensorRT binary release.
 
-	To build the TensorRT OSS, obtain the corresponding TensorRT 7.2.1 binary release from [NVidia Developer Zone](https://developer.nvidia.com/nvidia-tensorrt-7x-download). For a list of key features, known and fixed issues, refer to the [TensorRT 7.2 Release Notes](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/tensorrt-7.html#rel_7-2-1).
+	To build the TensorRT OSS, obtain the corresponding TensorRT 7.2.1 binary release from [NVidia Developer Zone](https://developer.nvidia.com/nvidia-tensorrt-7x-download). For a list of key features, known and fixed issues, refer to the [TensorRT 7.2 Release Notes](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/tensorrt-7.html#tensorrt-7).
 
 	**Example: Ubuntu 18.04 with cuda-11.1**
 
