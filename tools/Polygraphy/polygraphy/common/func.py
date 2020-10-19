@@ -13,9 +13,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from polygraphy.logger import G_LOGGER
-
 import inspect
+
+from polygraphy.logger import G_LOGGER
 
 
 def make_iterable(obj):

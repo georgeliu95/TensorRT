@@ -33,6 +33,13 @@ using:
 python3 -m pip install -r polygraphy/backend/<name>/requirements.txt
 ```
 
+### Install From Package Index
+
+```bash
+python3 -m pip install nvidia-pyindex
+python3 -m pip install polygraphy
+```
+
 ### Building From Source
 
 #### Using Make Targets

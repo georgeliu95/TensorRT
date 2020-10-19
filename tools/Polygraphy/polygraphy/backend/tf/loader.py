@@ -14,15 +14,14 @@
 # limitations under the License.
 #
 # Sets up everything needed to perform inference in TensorFlow.
-from polygraphy.backend.base import BaseLoadModel
-from polygraphy.backend.tf import util as tf_util
-from polygraphy.logger.logger import G_LOGGER
-from polygraphy.common import constants
-from polygraphy.util import misc
-
 import os
 
 import tensorflow as tf
+from polygraphy.backend.base import BaseLoadModel
+from polygraphy.backend.tf import util as tf_util
+from polygraphy.common import constants
+from polygraphy.logger.logger import G_LOGGER
+from polygraphy.util import misc
 
 
 class OptimizeGraph(BaseLoadModel):
@@ -38,8 +37,8 @@ class OptimizeGraph(BaseLoadModel):
 
 
     def constfold(self, graphdef, output_names):
-        from tensorflow.core.protobuf import config_pb2, rewriter_config_pb2, meta_graph_pb2
-        from tensorflow.core.framework import graph_pb2
+        from tensorflow.core.protobuf import (config_pb2, meta_graph_pb2,
+                                              rewriter_config_pb2)
         from tensorflow.python.framework import importer, ops
         from tensorflow.python.grappler import tf_optimizer
         from tensorflow.python.training import saver
@@ -107,8 +106,6 @@ class OptimizeGraph(BaseLoadModel):
             output_graph_def = tf.graph_util.convert_variables_to_constants(sess, graphdef, output_names)
             output_graph_def = self.constfold(output_graph_def, output_names)
             return GraphFromFrozen(output_graph_def)()
-
-
 
 
 class GraphFromKeras(BaseLoadModel):
@@ -305,8 +302,6 @@ class ModifyGraph(BaseLoadModel):
             outputs = self.outputs
 
         return graph, outputs
-
-
 
 
 class SaveGraph(BaseLoadModel):

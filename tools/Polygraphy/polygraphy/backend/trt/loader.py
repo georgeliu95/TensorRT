@@ -13,18 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from polygraphy.backend.trt.calibrator import Calibrator
-from polygraphy.logger.logger import G_LOGGER, LogMode
-from polygraphy.backend.trt import util as trt_util
-from polygraphy.backend.base import BaseLoadModel
-from polygraphy.common import constants
-from polygraphy.util import misc
-
-from collections import OrderedDict
 import contextlib
-import os
+from collections import OrderedDict
 
 import tensorrt as trt
+from polygraphy.backend.base import BaseLoadModel
+from polygraphy.backend.trt import util as trt_util
+from polygraphy.common import constants
+from polygraphy.logger.logger import G_LOGGER
+from polygraphy.util import misc
 
 
 class LoadPlugins(BaseLoadModel):

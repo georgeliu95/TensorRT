@@ -1,13 +1,13 @@
 from polygraphy.backend.trt.loader import EngineFromBytes, NetworkFromOnnxBytes, NetworkFromOnnxPath, ModifyNetwork, Profile, CreateConfig, EngineFromNetwork, SaveEngine, LoadPlugins, CreateNetwork
 from polygraphy.backend.trt.runner import TrtRunner
 from polygraphy.backend.trt.calibrator import Calibrator
+from polygraphy.backend.trt.util import TRT_LOGGER
 
 
 def register_callback():
     from polygraphy.logger.logger import G_LOGGER
 
     def set_trt_logging_level(sev):
-        from polygraphy.backend.trt.util import TRT_LOGGER
         import tensorrt as trt
 
         if sev >= G_LOGGER.CRITICAL:

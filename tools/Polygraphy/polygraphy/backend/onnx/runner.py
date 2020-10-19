@@ -13,15 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from polygraphy.logger.logger import G_LOGGER, LogMode
-from polygraphy.backend.onnx import util as onnx_util
-from polygraphy.backend.base import BaseRunner
-from polygraphy.common import TensorMetadata
-from polygraphy.util import misc
-
-from collections import OrderedDict
 import time
-import os
+from collections import OrderedDict
+
+from polygraphy.backend.base import BaseRunner
+from polygraphy.backend.onnx import util as onnx_util
+from polygraphy.logger.logger import G_LOGGER
+from polygraphy.util import misc
 
 
 class OnnxTfRunner(BaseRunner):
@@ -33,7 +31,7 @@ class OnnxTfRunner(BaseRunner):
         Creates an ONNX-TF runner.
         """
         super().__init__(name=name, prefix="onnxtf-runner")
-        import polygraphy.backend.tf # To set logging callback
+        import polygraphy.backend.tf  # To set logging callback
         self._model = model
 
 
