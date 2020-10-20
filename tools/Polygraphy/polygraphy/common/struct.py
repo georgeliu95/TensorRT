@@ -13,12 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from polygraphy.logger import G_LOGGER
-
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 
 import numpy as np
 
+MetadataTuple = namedtuple("MetadataTuple", ["dtype", "shape"]) # Metadata for single tensor
 
 class TensorMetadata(OrderedDict):
     """
@@ -33,16 +32,12 @@ class TensorMetadata(OrderedDict):
             dtype (np.dtype): The data type of the input.
             shape (Tuple[int]):
                     The shape of the input. Dynamic dimensions may
-                    be indicated by negative values, or ``None``.
+                    be indicated by negative values, ``None``, or a string.
 
         Returns:
             The newly added entry.
         """
-        if shape is not None and any([not isinstance(dim, int) and dim is not None for dim in shape]):
-            G_LOGGER.critical("Input Tensor: {:} | One or more elements in shape: {:} could not be understood. "
-                              "Each shape value must be an integer or None".format(name, shape))
-
-        self[name] = (dtype, shape)
+        self[name] = MetadataTuple(dtype, shape)
         return self
 
 

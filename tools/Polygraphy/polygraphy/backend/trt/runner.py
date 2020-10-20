@@ -13,19 +13,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from polygraphy.backend.trt import util as trt_util
-from polygraphy.backend.trt.buffers import Buffers
-from polygraphy.backend.base import BaseRunner
-from polygraphy.logger.logger import G_LOGGER
-from polygraphy.util import misc, cuda
-
-from collections import OrderedDict
 import time
-import os
 
 import tensorrt as trt
-misc.log_module_info(trt)
+from polygraphy.backend.base import BaseRunner
+from polygraphy.backend.trt import util as trt_util
+from polygraphy.backend.trt.buffers import Buffers
+from polygraphy.logger.logger import G_LOGGER
+from polygraphy.util import cuda, misc
 
+misc.log_module_info(trt)
 
 
 class TrtRunner(BaseRunner):

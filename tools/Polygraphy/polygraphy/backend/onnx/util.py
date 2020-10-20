@@ -13,12 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from polygraphy.common import constants, TensorMetadata
+import copy
+from collections import OrderedDict
+
+from polygraphy.common import TensorMetadata
 from polygraphy.logger.logger import G_LOGGER
 from polygraphy.util import misc
-
-from collections import OrderedDict
-import copy
 
 
 def check_model(model):

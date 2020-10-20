@@ -13,15 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from polygraphy.logger.logger import G_LOGGER, LogMode
-from polygraphy.util.cuda import DeviceBuffer
-from polygraphy.util import misc
-
-from collections import OrderedDict
 import contextlib
 import os
+from collections import OrderedDict
 
 import tensorrt as trt
+from polygraphy.logger.logger import G_LOGGER, LogMode
+from polygraphy.util import misc
+from polygraphy.util.cuda import DeviceBuffer
 
 
 def Calibrator(data_loader, cache=None, BaseClass=trt.IInt8MinMaxCalibrator,

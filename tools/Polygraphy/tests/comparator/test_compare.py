@@ -23,4 +23,6 @@ class TestCompareFunc(object):
         iter_result1 = IterationResult(outputs={"output": np.ones((4, 4), dtype=np.bool)})
 
         compare_func = CompareFunc.basic_compare_func()
-        compare_func(iter_result0, iter_result1)
+        acc = compare_func(iter_result0, iter_result1)
+
+        assert not acc["output"]

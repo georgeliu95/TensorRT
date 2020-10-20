@@ -13,16 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from polygraphy.common.constants import DEFAULT_SHAPE_VALUE
-from polygraphy.logger.logger import G_LOGGER, LogMode
-from polygraphy.common import constants, TensorMetadata
-from polygraphy.util import misc
-
-from collections import OrderedDict
 import contextlib
 import ctypes
 
 import tensorrt as trt
+from polygraphy.common import TensorMetadata
+from polygraphy.common.constants import DEFAULT_SHAPE_VALUE
+from polygraphy.logger.logger import G_LOGGER, LogMode
+from polygraphy.util import misc
+
 TRT_LOGGER = trt.Logger()
 
 

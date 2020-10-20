@@ -17,7 +17,6 @@ import time
 from collections import OrderedDict
 
 import numpy as np
-
 from polygraphy.backend.base import BaseRunner
 from polygraphy.common import TensorMetadata
 from polygraphy.util import misc
