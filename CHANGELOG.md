@@ -1,8 +1,8 @@
 # TensorRT OSS Release Changelog
 
-## [7.2.1](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/tensorrt-7.html#rel_7-2-1) - 2020-10-19
+## [7.2.1](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/tensorrt-7.html#rel_7-2-1) - 2020-10-20
 ### Added
-- [Polygraphy](tools/Polygraphy) v0.20.12 - Deep Learning Inference Prototyping and Debugging Toolkit
+- [Polygraphy](tools/Polygraphy) v0.20.13 - Deep Learning Inference Prototyping and Debugging Toolkit
 - [PyTorch-Quantization Toolkit](tools/pytorch-quantization) v2.0.0
 - Updated BERT plugins for [variable sequence length inputs](demo/BERT#variable-sequence-length)
   - Optimized kernels for sequence lengths of 64 and 96 added
