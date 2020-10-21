@@ -3217,10 +3217,10 @@ constexpr inline int32_t EnumMax<RNNGateType>()
 class TRT_DEPRECATED IRNNv2Layer : public ILayer
 {
 public:
-    virtual int32_t getLayerCount() const TRTNOEXCEPT = 0;   //< Get the layer count of the RNN
-    virtual int32_t getHiddenSize() const TRTNOEXCEPT = 0;   //< Get the hidden size of the RNN
-    virtual int32_t getMaxSeqLength() const TRTNOEXCEPT = 0; //< Get the maximum sequence length of the RNN
-    virtual int32_t getDataLength() const TRTNOEXCEPT = 0;   //< Get the maximum data length of the RNN
+    virtual int32_t getLayerCount() const TRTNOEXCEPT = 0;   //!< Get the layer count of the RNN
+    virtual int32_t getHiddenSize() const TRTNOEXCEPT = 0;   //!< Get the hidden size of the RNN
+    virtual int32_t getMaxSeqLength() const TRTNOEXCEPT = 0; //!< Get the maximum sequence length of the RNN
+    virtual int32_t getDataLength() const TRTNOEXCEPT = 0;   //!< Get the maximum data length of the RNN
 
     //!
     //! \brief Specify individual sequence lengths in the batch with the ITensor pointed to by
@@ -4317,8 +4317,8 @@ protected:
 //!
 enum class ResizeMode : int32_t
 {
-    kNEAREST = 0, // ND (0 < N <= 8) nearest neighbor resizing.
-    kLINEAR = 1   // Can handle linear (1D), bilinear (2D), and trilinear (3D) resizing.
+    kNEAREST = 0, //!< ND (0 < N <= 8) nearest neighbor resizing.
+    kLINEAR = 1   //!< Can handle linear (1D), bilinear (2D), and trilinear (3D) resizing.
 };
 
 //! Maximum number of elements in ResizeMode enum. \see ResizeMode
@@ -4493,11 +4493,9 @@ constexpr inline int32_t EnumMax<LoopOutput>()
 //! Enum that describes kinds of trip limits.
 enum class TripLimit : int32_t
 {
-    // Tensor is scalar of type kINT32 that contains the trip count.
-    kCOUNT = 0,
 
-    // Tensor is a scalar of type kBOOL. Loop terminates when value is false.
-    kWHILE = 1
+    kCOUNT = 0, //!< Tensor is scalar of type kINT32 that contains the trip count.
+    kWHILE = 1  //!< Tensor is a scalar of type kBOOL. Loop terminates when value is false.
 };
 
 //! Maximum number of elements in TripLimit enum. \see DataType
