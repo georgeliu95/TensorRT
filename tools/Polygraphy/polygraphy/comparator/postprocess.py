@@ -14,8 +14,8 @@
 # limitations under the License.
 #
 import numpy as np
-
 from polygraphy.util import misc
+
 
 class PostprocessFunc(object):
     """

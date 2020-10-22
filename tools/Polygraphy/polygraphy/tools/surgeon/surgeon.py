@@ -16,20 +16,14 @@
 import json
 from collections import OrderedDict
 
-import numpy as np
 import onnx
 import onnx_graphsurgeon as gs
-
 from polygraphy.common import TensorMetadata, constants
 from polygraphy.logger import G_LOGGER
 from polygraphy.tools.base import Tool
 from polygraphy.tools.util import args as args_util
 from polygraphy.tools.util import misc as tool_util
 from polygraphy.util import misc
-
-NP_TYPE_FROM_STR = {np.dtype(dtype).name: np.dtype(dtype) for dtype in np.sctypeDict.values()}
-STR_FROM_NP_TYPE = {dtype: name for name, dtype in NP_TYPE_FROM_STR.items()}
-
 
 
 # Weights should be stored separately, JSON can just have a reference to a key.
@@ -45,7 +39,7 @@ class Config(OrderedDict):
             for tensor in tensors:
                 tensor_meta = {"name": tensor.name}
                 if tensor.dtype:
-                    tensor_meta["dtype"] = STR_FROM_NP_TYPE[tensor.dtype]
+                    tensor_meta["dtype"] = misc.STR_FROM_NP_TYPE[tensor.dtype]
                 if tensor.shape:
                     tensor_meta["shape"] = tensor.shape
                 meta.append(tensor_meta)
@@ -103,60 +97,20 @@ class STExtract(STSurgeonBase):
                             "Use 'auto' to make `extract` determine these automatically. Format: "
                             "--inputs <name>,<shape>,<dtype>. "
                             "For example: --inputs input0,1x3x224x224,float32 input1,auto,auto. "
-                            "If omitted, uses the current model inputs. Supported data types are: {:}".format(list(NP_TYPE_FROM_STR.keys())),
+                            "If omitted, uses the current model inputs. Supported data types are: {:}".format(list(misc.NP_TYPE_FROM_STR.keys())),
                             nargs="+", default=None)
 
         parser.add_argument("--outputs", dest="output_meta", help="Output metadata for subgraph (names and data types). "
                             "Use 'auto' to make `extract` determine these automatically. Format: "
                             "--outputs <name>,<dtype>. "
                             "For example: --outputs output0:float32 output1:auto. "
-                            "If omitted, uses the current model outputs. Supported data types are: {:}".format(list(NP_TYPE_FROM_STR.keys())),
+                            "If omitted, uses the current model outputs. Supported data types are: {:}".format(list(misc.NP_TYPE_FROM_STR.keys())),
                             nargs="+", default=None)
 
         super().add_parser_args(parser, gs=True, inputs="--model-inputs", shape_inference_default=True, data=True)
 
 
     def __call__(self, args):
-
-        def parse_meta(meta_arg, includes_shape=True):
-            meta = TensorMetadata()
-            SEP = ","
-            for tensor_meta_arg in meta_arg:
-                name_shape, _, dtype = tensor_meta_arg.rpartition(SEP)
-                if not name_shape:
-                    G_LOGGER.critical("Could not parse data type from argument: {:}. Is it separated by a comma "
-                                        "(,) from the tensor name?".format(tensor_meta_arg))
-
-                if dtype.lower() == "auto":
-                    dtype = None
-                else:
-                    if dtype not in NP_TYPE_FROM_STR:
-                        G_LOGGER.critical("Could not understand data type: {:}. Please use one of: {:} or `auto`"
-                                .format(dtype, list(NP_TYPE_FROM_STR.keys())))
-                    dtype = NP_TYPE_FROM_STR[dtype]
-
-                if includes_shape:
-                    name, _, shape = name_shape.rpartition(SEP)
-                    if not name:
-                        G_LOGGER.critical("Could not parse shape from: {:}. Is it separated by a comma "
-                                            "(,) from the tensor name?".format(tensor_meta_arg))
-
-                    if shape.lower() == "auto":
-                        shape = None
-                    else:
-                        try:
-                            shape = tuple([int(dim) for dim in shape.lower().split("x")])
-                        except:
-                            G_LOGGER.critical("Could not convert shape: '{:}' to a shape tuple. Please separate shape elements "
-                                              "with an `x`, e.g. 1x3x5x5, or use `auto`".format(shape))
-                else:
-                    name = name_shape
-                    shape = None
-
-                meta.add(name, dtype, shape)
-            return meta
-
-
         def missing_meta_tensors(input_metadata, output_metadata):
             names = []
             for name, (dtype, shape) in input_metadata.items():
@@ -187,12 +141,12 @@ class STExtract(STSurgeonBase):
         tensor_map = graph.tensors()
 
         if args.input_meta:
-            input_metadata = update_meta_from_tensor_map(parse_meta(args.input_meta), tensor_map)
+            input_metadata = update_meta_from_tensor_map(args_util.parse_meta(args.input_meta), tensor_map)
         else:
             input_metadata = meta_from_tensors(graph.inputs)
 
         if args.output_meta:
-            output_metadata = update_meta_from_tensor_map(parse_meta(args.output_meta, includes_shape=False), tensor_map)
+            output_metadata = update_meta_from_tensor_map(args_util.parse_meta(args.output_meta, includes_shape=False), tensor_map)
         else:
             output_metadata = meta_from_tensors(graph.outputs)
 
@@ -201,12 +155,12 @@ class STExtract(STSurgeonBase):
             # Use ONNX runtime with static shapes to infer shapes when all else fails
             # Returns a TensorMetadata for all tensors in the graph.
             def fallback_shape_inference(onnx_model):
-                from polygraphy.backend.onnx import BytesFromOnnx, util as onnx_util
-                from polygraphy.backend.onnxrt import OnnxrtRunner, SessionFromOnnxBytes
-                from polygraphy.comparator import DataLoader
+                from polygraphy.backend.onnx import BytesFromOnnx, ModifyOnnx
+                from polygraphy.backend.onnxrt import (OnnxrtRunner,
+                                                       SessionFromOnnxBytes)
 
-                onnx_model = onnx_util.mark_layerwise(onnx_model)
-                with OnnxrtRunner(SessionFromOnnxBytes(BytesFromOnnx(onnx_model))) as runner:
+                load_model = ModifyOnnx(onnx_model, outputs=constants.MARK_ALL)
+                with OnnxrtRunner(SessionFromOnnxBytes(BytesFromOnnx(load_model))) as runner:
                     data_loader = tool_util.get_data_loader(args)
                     data_loader.input_metadata = runner.get_input_metadata()
                     outputs = runner.infer(feed_dict=data_loader[0])
@@ -336,7 +290,7 @@ class STOperate(STSurgeonBase):
                     G_LOGGER.critical("Could not find shape information for tensor: {:}".format(tensor.name))
 
                 if "dtype" in tensor_meta:
-                    tensor.dtype = NP_TYPE_FROM_STR[tensor_meta["dtype"]]
+                    tensor.dtype = misc.NP_TYPE_FROM_STR[tensor_meta["dtype"]]
                 tensors.append(tensor)
             return tensors
 

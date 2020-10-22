@@ -13,15 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from collections import OrderedDict
 import argparse
 import copy
 import os
 
+from polygraphy.common import TensorMetadata, constants
 from polygraphy.logger.logger import G_LOGGER, LogMode
-from polygraphy.common import constants, TensorMetadata
 from polygraphy.util import misc
-
 
 # The functions in this file include flags to control the set of options that are generated.
 
@@ -203,15 +201,86 @@ def get(args, attr):
     return None
 
 
-def parse_shape(arg):
-    shapes = TensorMetadata()
-    if arg is None:
-        return shapes
-    for inp_arg in arg:
-        name, _, shape = inp_arg.rpartition(",")
-        shape = tuple([int(dim) for dim in shape.lower().split("x")])
-        shapes.add(name, dtype=None, shape=shape)
-    return shapes
+def parse_meta(meta_args, includes_shape=True, includes_dtype=True):
+    """
+    Parses a list of tensor metadata arguments of the form "<name>,<shape>,<dtype>"
+    `shape` and `dtype` are optional, but `dtype` must always come after `shape` if they are both enabled.
+
+    Args:
+        meta_args (List[str]): A list of tensor metadata arguments from the command-line.
+        includes_shape (bool): Whether the arguments include shape information.
+        includes_dtype (bool): Whether the arguments include dtype information.
+
+    Returns:
+        TensorMetadata: The parsed tensor metadata.
+    """
+    SEP = ","
+    SHAPE_SEP = "x"
+    meta = TensorMetadata()
+    for orig_tensor_meta_arg in meta_args:
+        tensor_meta_arg = orig_tensor_meta_arg
+
+        def pop_meta(name):
+            nonlocal tensor_meta_arg
+            tensor_meta_arg, _, val = tensor_meta_arg.rpartition(SEP)
+            if not tensor_meta_arg:
+                G_LOGGER.critical("Could not parse {:} from argument: {:}. Is it separated by a comma "
+                                    "(,) from the tensor name?".format(name, orig_tensor_meta_arg))
+            if val.lower() == "auto":
+                val = None
+            return val
+
+
+        def parse_dtype(dtype):
+            if dtype is not None:
+                if dtype not in misc.NP_TYPE_FROM_STR:
+                    G_LOGGER.critical("Could not understand data type: {:}. Please use one of: {:} or `auto`"
+                            .format(dtype, list(misc.NP_TYPE_FROM_STR.keys())))
+                dtype = misc.NP_TYPE_FROM_STR[dtype]
+            return dtype
+
+
+        def parse_shape(shape):
+            if shape is not None:
+                def parse_shape_dim(buf):
+                    try:
+                        buf = int(buf)
+                    except:
+                        pass
+                    return buf
+
+
+                parsed_shape = []
+                # Allow for quoted strings in shape dimensions
+                in_quotes = False
+                buf = ""
+                for char in shape.lower():
+                    if char in ["\"", "'"]:
+                        in_quotes = not in_quotes
+                    elif not in_quotes and char == SHAPE_SEP:
+                        parsed_shape.append(parse_shape_dim(buf))
+                        buf = ""
+                    else:
+                        buf += char
+                # For the last dimension
+                parsed_shape.append(parse_shape_dim(buf))
+                shape = tuple(parsed_shape)
+            return shape
+
+
+        name = None
+        dtype = None
+        shape = None
+
+        if includes_dtype:
+            dtype = parse_dtype(pop_meta("data type"))
+
+        if includes_shape:
+            shape = parse_shape(pop_meta("shape"))
+
+        name = tensor_meta_arg
+        meta.add(name, dtype, shape)
+    return meta
 
 
 # shapes is a TensorMetadata describing the runtime input shapes.
@@ -220,7 +289,7 @@ def parse_profile_shapes(shapes, min_args, opt_args, max_args):
     def get_shapes(lst, idx):
         default_shapes = copy.copy(shapes)
         if idx < len(lst):
-            default_shapes.update(parse_shape(lst[idx]))
+            default_shapes.update(parse_meta(lst[idx], includes_dtype=False))
         # Don't care about dtype, and need to override dynamic dimensions
         default_shapes = {name: misc.override_dynamic_shape(shape) for name, (_, shape) in default_shapes.items()}
 
@@ -345,10 +414,10 @@ def setup(args, unknown):
 
     args.model_type = determine_model_type(args)
 
-    if exist(["inputs"]):
-        args.inputs = parse_shape(args.inputs) # TensorMetadata
+    if get(args, "inputs"):
+        args.inputs = parse_meta(args.inputs, includes_dtype=False) # TensorMetadata
     else:
-        args.inputs = None
+        args.inputs = TensorMetadata()
 
     if exist(["trt_min_shapes", "trt_opt_shapes", "trt_max_shapes"]):
         args.profiles = parse_profile_shapes(args.inputs, args.trt_min_shapes, args.trt_opt_shapes, args.trt_max_shapes)

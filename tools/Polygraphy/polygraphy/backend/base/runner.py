@@ -18,7 +18,6 @@ from polygraphy.logger.logger import G_LOGGER, LogMode
 
 from collections import defaultdict
 import time
-import os
 
 
 class BaseRunner(object):

@@ -16,13 +16,10 @@
 import contextlib
 import copy
 import queue
-import sys
-import time
-from collections import OrderedDict, defaultdict
 from multiprocessing import Process, Queue
 
 import numpy as np
-from polygraphy.common import TensorMetadata, constants
+from polygraphy.common import TensorMetadata
 from polygraphy.comparator.compare import CompareFunc
 from polygraphy.comparator.data_loader import DataLoader, DataLoaderCache
 from polygraphy.comparator.struct import (AccuracyResult, IterationResult,

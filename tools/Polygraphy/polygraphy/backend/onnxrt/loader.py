@@ -13,10 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import onnxruntime
 from polygraphy.backend.base import BaseLoadModel
 from polygraphy.util import misc
 
-import onnxruntime
 misc.log_module_info(onnxruntime)
 
 class SessionFromOnnxBytes(BaseLoadModel):

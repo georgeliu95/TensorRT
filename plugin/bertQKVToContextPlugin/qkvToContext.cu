@@ -23,8 +23,8 @@
 #include <cassert>
 #include <cstring>
 #include <iostream>
-#include <vector>
 #include <tuple>
+#include <vector>
 
 #include "fused_multihead_attention_v2.h"
 using namespace nvinfer1;
@@ -57,7 +57,7 @@ __global__ void maskedSoftmax(const float rsqrtHeadSize, const T* input, T* outp
     float local[VPT];
 
     __shared__ float rZ;
-    __shared__ float fMax;
+    __shared__ float fMax[VPT];
 
     const int idx = (blockOffset + threadIdx.x) * VPT;
     T* myshm = &tmp.shm[threadIdx.x * VPT];
@@ -65,37 +65,34 @@ __global__ void maskedSoftmax(const float rsqrtHeadSize, const T* input, T* outp
 
     __syncthreads();
 
-    float maxElem = -FLT_MAX;
+#pragma unroll
+    for (int it = 0; it < VPT; it++)
+    {
+        local[it] = (threadIdx.x < lastValid) ? float(tmp.shm[it * TPB + threadIdx.x]) : -FLT_MAX;
+    }
+    __syncthreads();
 
 #pragma unroll
     for (int it = 0; it < VPT; it++)
     {
-        if (threadIdx.x < lastValid)
+        float maxElem = BlockReduce(tmp.reduce).Reduce(local[it], cub::Max());
+        if (threadIdx.x == 0)
         {
-            local[it] = float(tmp.shm[it * TPB + threadIdx.x]);
-            maxElem = fmaxf(maxElem, local[it]);
+            fMax[it] = maxElem;
         }
+        __syncthreads();
     }
-    __syncthreads();
 
-    maxElem = BlockReduce(tmp.reduce).Reduce(maxElem, cub::Max());
-    if (threadIdx.x == 0)
+#pragma unroll
+    for (int it = 0; it < VPT; it++)
     {
-        fMax = maxElem;
+        local[it] = (threadIdx.x < lastValid) ? myExp<float>(rsqrtHeadSize * (local[it] - fMax[it])) : 0.f;
     }
     __syncthreads();
 
 #pragma unroll
     for (int it = 0; it < VPT; it++)
     {
-        local[it] = (threadIdx.x < lastValid) ? myExp<float>(rsqrtHeadSize * (local[it] - fMax)) : 0.f;
-    }
-    __syncthreads();
-
-#pragma unroll
-    for (int it = 0; it < VPT; it++)
-    {
-
         const auto Z = BlockReduce(tmp.reduce).Reduce(local[it], cub::Sum());
 
         if (threadIdx.x == 0)
@@ -131,7 +128,7 @@ __global__ void softmax(const float rsqrtHeadSize, const T* input, T* output)
     __shared__ SMem tmp;
 
     __shared__ float rZ;
-    __shared__ float fMax;
+    __shared__ float fMax[VPT];
 
     const int idx = (TPB * blockIdx.x + threadIdx.x) * VPT;
     T* myshm = &tmp.shm[threadIdx.x * VPT];
@@ -139,27 +136,28 @@ __global__ void softmax(const float rsqrtHeadSize, const T* input, T* output)
 
     __syncthreads();
 
-    float maxElem = -FLT_MAX;
-
 #pragma unroll
     for (int it = 0; it < VPT; it++)
     {
         local[it] = float(tmp.shm[it * TPB + threadIdx.x]);
-        maxElem = fmaxf(maxElem, local[it]);
-    }
-    __syncthreads();
-
-    maxElem = BlockReduce(tmp.reduce).Reduce(maxElem, cub::Max());
-    if (threadIdx.x == 0)
-    {
-        fMax = maxElem;
     }
     __syncthreads();
 
 #pragma unroll
     for (int it = 0; it < VPT; it++)
     {
-        local[it] = myExp<float>(rsqrtHeadSize * (local[it] - fMax));
+        float maxElem = BlockReduce(tmp.reduce).Reduce(local[it], cub::Max());
+        if (threadIdx.x == 0)
+        {
+            fMax[it] = maxElem;
+        }
+        __syncthreads();
+    }
+
+#pragma unroll
+    for (int it = 0; it < VPT; it++)
+    {
+        local[it] = myExp<float>(rsqrtHeadSize * (local[it] - fMax[it]));
     }
     __syncthreads();
 

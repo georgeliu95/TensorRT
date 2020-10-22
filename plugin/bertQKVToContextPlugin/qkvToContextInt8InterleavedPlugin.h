@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@
 #ifndef TRT_QKV_TO_CONTEXT_INTERLEAVED_PLUGIN_H
 #define TRT_QKV_TO_CONTEXT_INTERLEAVED_PLUGIN_H
 
-#include "fused_multihead_attention_v2.h"
 #include "NvInferPlugin.h"
 #include "cublas_v2.h"
+#include "fused_multihead_attention_v2.h"
 #include <cuda.h>
 #include <string>
 #include <vector>
