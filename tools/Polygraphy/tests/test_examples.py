@@ -123,7 +123,7 @@ def test_cli_examples(example):
 
 CLI_INSPECT_EXAMPLES = [
     Example(["cli", "inspect", "01_inspecting_a_tensorrt_network"]),
-    Example(["cli", "inspect", "02_inspecting_a_tensorrt_engine"], artifact_names=["identity.engine"]),
+    Example(["cli", "inspect", "02_inspecting_a_tensorrt_engine"], artifact_names=["dynamic_identity.engine"]),
     Example(["cli", "inspect", "03_inspecting_an_onnx_model"]),
     Example(["cli", "inspect", "04_inspecting_a_tensorflow_graph"]),
     Example(["cli", "inspect", "05_inspecting_run_results"], artifact_names=["onnxrt_results.pkl"]),

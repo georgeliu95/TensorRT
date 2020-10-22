@@ -20,11 +20,14 @@ from polygraphy.common import constants
 from collections import OrderedDict
 import pickle
 import zlib
-import time
 import sys
 import os
 
 import numpy as np
+
+
+NP_TYPE_FROM_STR = {np.dtype(dtype).name: np.dtype(dtype) for dtype in np.sctypeDict.values()}
+STR_FROM_NP_TYPE = {dtype: name for name, dtype in NP_TYPE_FROM_STR.items()}
 
 
 def version(version_str):
@@ -130,7 +133,8 @@ def unpack_args(args, num):
 ##
 
 def is_dimension_dynamic(dim):
-    return dim is None or dim < 0
+    is_dim_str = not isinstance(dim, int)
+    return dim is None or is_dim_str or dim < 0
 
 
 def num_dynamic_dimensions(shape):

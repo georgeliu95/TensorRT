@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -197,7 +197,7 @@ bool QKVToContextPluginDynamic::supportsFormatCombination(
         bool isFormatSupported = in->format == TensorFormat::kLINEAR;
         if (mType == DataType::kINT8)
         {
-            if(in->dims.d[HDIM] % 32 == 0)
+            if (in->dims.d[HDIM] % 32 == 0)
             {
                 isFormatSupported = in->format == TensorFormat::kCHW32;
             }
@@ -240,7 +240,7 @@ bool QKVToContextPluginDynamic::supportsFormatCombination(
             bool isFormatSupported = out->format == TensorFormat::kLINEAR;
             if (mType == DataType::kINT8)
             {
-                if(out->dims.d[HDIM] % 32 == 0)
+                if (out->dims.d[HDIM] % 32 == 0)
                 {
                     isFormatSupported = out->format == TensorFormat::kCHW32;
                 }

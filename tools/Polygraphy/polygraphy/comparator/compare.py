@@ -17,7 +17,6 @@ from collections import OrderedDict
 
 import numpy as np
 from polygraphy.logger.logger import G_LOGGER, LogMode
-from polygraphy.common import constants
 from polygraphy.util import misc
 
 

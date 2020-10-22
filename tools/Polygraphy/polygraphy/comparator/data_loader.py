@@ -13,15 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from polygraphy.common.constants import DEFAULT_SHAPE_VALUE, DEFAULT_SEED
-from polygraphy.logger.logger import G_LOGGER, LogMode
-from polygraphy.util.format import FormatManager
-from polygraphy.util import misc
-
-from collections import OrderedDict
 import contextlib
+from collections import OrderedDict
 
 import numpy as np
+from polygraphy.common.constants import DEFAULT_SEED
+from polygraphy.logger.logger import G_LOGGER, LogMode
+from polygraphy.util import misc
 
 
 class BaseDataLoader(object):

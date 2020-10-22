@@ -14,18 +14,17 @@
 # limitations under the License.
 #
 # Sets up everything needed to perform inference in TensorFlow.
-from polygraphy.backend.base import BaseRunner, BaseLoadModel
+import os
+import time
+from collections import OrderedDict
+
+import tensorflow as tf
+from polygraphy.backend.base import BaseRunner
 from polygraphy.backend.tf import util as tf_util
 from polygraphy.logger.logger import G_LOGGER
 from polygraphy.util import misc
 
-from collections import OrderedDict
-import time
-import os
-
-import tensorflow as tf
 misc.log_module_info(tf)
-
 
 
 class TfRunner(BaseRunner):

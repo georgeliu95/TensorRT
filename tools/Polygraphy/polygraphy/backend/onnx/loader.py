@@ -13,13 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from polygraphy.logger.logger import G_LOGGER, LogMode
-from polygraphy.backend.onnx import util as onnx_util
 from polygraphy.backend.base import BaseLoadModel
+from polygraphy.backend.onnx import util as onnx_util
 from polygraphy.common import constants
+from polygraphy.logger.logger import G_LOGGER
 from polygraphy.util import misc
-
-import os
 
 
 # ONNX loaders return ONNX models in memory.
@@ -79,8 +77,8 @@ class OnnxFromTfGraph(BaseLoadModel):
         Returns:
             onnx.ModelProto: The ONNX model.
         """
-        import tf2onnx
         import tensorflow as tf
+        import tf2onnx
         from polygraphy.backend.tf import util as tf_util
 
         misc.log_module_info(tf2onnx)

@@ -236,7 +236,7 @@ ONNX_CASES = [
 ]
 
 @pytest.mark.parametrize("case", ONNX_CASES, ids=lambda case: "{:}-{:}".format(case[0], case[1]))
-def test_polygraphy_inspect_model_onnx(run_inspect_model, case):
+def test_polygraphy_inspect_model_onnx(case):
     model, mode, expected = case
     status = run_polygraphy_inspect(["model", ONNX_MODELS[model].path, "--mode={:}".format(mode)], disable_verbose=True)
 

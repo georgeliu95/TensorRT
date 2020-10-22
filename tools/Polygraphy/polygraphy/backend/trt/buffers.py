@@ -13,14 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from polygraphy.backend.trt import util as trt_util
-from polygraphy.logger.logger import G_LOGGER
-from polygraphy.util import misc, cuda
-
 from collections import OrderedDict
 
-import tensorrt as trt
 import numpy as np
+import tensorrt as trt
+from polygraphy.backend.trt import util as trt_util
+from polygraphy.logger.logger import G_LOGGER
+from polygraphy.util import cuda
 
 
 # This class always uses profile 0 binding names to refer to input and output buffers.
