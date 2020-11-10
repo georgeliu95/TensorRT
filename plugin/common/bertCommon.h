@@ -83,8 +83,9 @@ inline int getMHAMaskPackedSize(int smVersion, nvinfer1::DataType dataType, int 
 {
     // this code must match EmbLayerNormPluginDynamic::getOutputDimensions in embLayerNormPlugin.cpp
     int packedSize = unfusedMaskSize;
-    if ((smVersion == kSM_75 || smVersion == kSM_80 || smVersion == kSM_86)
-        && (dataType == nvinfer1::DataType::kINT8 || dataType == nvinfer1::DataType::kHALF))
+    if (((smVersion == kSM_75 || smVersion == kSM_80)
+            && (dataType == nvinfer1::DataType::kINT8 || dataType == nvinfer1::DataType::kHALF))
+        || (smVersion == kSM_86 && dataType == nvinfer1::DataType::kINT8))
     {
         if (sequenceLength == 64)
         {
