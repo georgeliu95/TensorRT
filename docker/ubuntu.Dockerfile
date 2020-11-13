@@ -15,7 +15,8 @@
 ARG CUDA_VERSION=11.1
 ARG OS_VERSION=18.04
 
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${OS_VERSION}
+# TODO: Change to official CUDA devel image once available.
+FROM gitlab-master.nvidia.com:5005/dl/dgx/cuda:11.1-devel-ubuntu20.04--master
 
 LABEL maintainer="NVIDIA CORPORATION"
 
@@ -25,6 +26,9 @@ RUN groupadd -r -f -g ${gid} trtuser && useradd -r -u ${uid} -g ${gid} -ms /bin/
 RUN usermod -aG sudo trtuser
 RUN echo 'trtuser:nvidia' | chpasswd
 RUN mkdir -p /workspace && chown trtuser /workspace
+
+# Required to build Ubuntu 20.04 without user prompts with DLFW container
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install requried libraries
 RUN apt-get update && apt-get install -y software-properties-common
