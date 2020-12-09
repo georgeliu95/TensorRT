@@ -36,6 +36,9 @@ This subfolder of the BERT TensorFlow repository, tested and maintained by NVIDI
 - [Experimental](#experimental)
   * [Variable sequence length](#variable-sequence-length)
       * [Run command lines](#run-command-lines)
+  * [Sparsity](#sparsity)
+      * [Commands](#commands)
+  * [Megatron BERT](#megatron)
 
 
 ## Model overview
@@ -96,6 +99,7 @@ This demo BERT application can be run within the TensorRT OSS build container. I
   * [pycuda](https://pypi.org/project/pycuda/) (tested 2019.1.2)
   * [onnx](https://pypi.org/project/onnx/1.7.0/) (tested 1.7.0)
   * [tensorflow](https://pypi.org/project/tensorflow/) >= 2.2
+  * [torch](https://pypi.org/project/torch/1.6.0/) 1.6.0
 * NVIDIA [Volta](https://www.nvidia.com/en-us/data-center/volta-gpu-architecture/), [Turing](https://www.nvidia.com/en-us/geforce/turing/) or [Ampere](https://www.nvidia.com/en-us/data-center/nvidia-ampere-gpu-architecture/) based GPU.
 
 
@@ -550,3 +554,30 @@ Note this is an experimental feature because we only support Xavier+ GPUs, also 
 
     We can use the same `inference_c.py` and `build/perf` to collect performance data with cuda graph enabled. The command line is the same as run without variable sequence length. 
 
+### Sparsity
+
+With an Ampere-based GPU, we can accelerate inference by leveraging structured sparsity. This feature can be used with the fixed or variable sequence length implementations. 
+
+#### Vanilla BERT
+
+Build an engine with an existing sparse checkpoint whose path is in `$CKPT_PATH`. The command we provide below assumes `$CKPT_PATH` points to an ONNX checkpoint, but you may instead use `-pt $CKPT_PATH` for a PyTorch checkpoint or `-m $CKPT_PATH` for a TensorFlow checkpoint. Use int8 with interleaving for the best performance.
+
+> NOTE: Temporary BERT checkpoint copy: [bert_sparse_ckpt_large_qa_squad2_qat_384.onnx](http://10.110.38.142/share/checkpoints/bert_sparse_ckpt_large_qa_squad2_qat_384.onnx)
+
+**Example: Sparse BERT Large SQuAD v2, sequence length 384**
+```bash
+python3 builder_varseqlen.py -c models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1 -b 1 -s 384 -o engines/bert_large_int8_varseq_sparse.engine --fp16 --int8 --strict -il -x $CKPT_PATH -v models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1/vocab.txt -sp
+```
+
+Running inference and collecting performance data is the same as without sparsity.
+
+### Megatron
+
+> NOTE: Temporary Megatron-BERT checkpoint copy: [megatron_sparse_ckpt_large_qa_squad2_qat_384.pkl](http://10.110.38.142/share/checkpoints/megatron_sparse_ckpt_large_qa_squad2_qat_384.pkl)
+
+To run the Megatron variant of BERT, use the `--megatron` flag and pass in a pickle file with a dictionary of weights via the `--pickle` option. Currently, only INT8 via quantization aware training with interleaving is supported. The other configuration options are the same as the non-Megatron variant.
+
+**Example: Sparse Megatron-BERT Large SQuAD v2, sequence length 384**
+```bash
+python3 builder_varseqlen.py -c models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1 -b 1 -s 384 -o engines/megatron_large_int8_varseq_sparse.engine --fp16 --int8 --strict -il --megatron --pickle $CKPT_PATH -v models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1/vocab.txt -sp
+```
