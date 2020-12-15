@@ -3,5 +3,4 @@ onnx==1.7.0
 onnxruntime==1.3.0
 pycuda==2019.1.2
 pytest
-# TODO: Missing compatible TF wheel w/ Ubuntu 20.04 + Python 3.8. No CI/CD tests depend on TF to run, so comment out for now.
-# tensorflow-gpu>=1.15.4, <2.0
+tensorflow-gpu>=2.2

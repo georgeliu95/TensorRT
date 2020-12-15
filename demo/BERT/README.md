@@ -95,7 +95,7 @@ This demo BERT application can be run within the TensorRT Open Source build cont
 * PyPI Packages:
   * [pycuda](https://pypi.org/project/pycuda/) 2019.1.2
   * [onnx](https://pypi.org/project/onnx/1.6.0/) 1.6.0
-  * [tensorflow](https://pypi.org/project/tensorflow/1.15.3/) 1.15
+  * [tensorflow](https://pypi.org/project/tensorflow/) >= 2.2
 * NVIDIA [Volta](https://www.nvidia.com/en-us/data-center/volta-gpu-architecture/), [Turing](https://www.nvidia.com/en-us/geforce/turing/) or [Ampere](https://www.nvidia.com/en-us/data-center/nvidia-ampere-gpu-architecture/) based GPU with NVIDIA Driver 450.37 or later.
 
 
@@ -168,7 +168,7 @@ This demo BERT application can be run within the TensorRT Open Source build cont
     
     ```bash
     mkdir -p build
-    cd build; cmake ..
+    cd build; cmake .. -DPYTHON_EXECUTABLE=$(which python)
     make; cd ..
     python3 inference_c.py -e /workspace/TensorRT/demo/BERT/engines/bert_large_128.engine --enable-graph -p "TensorRT is a high performance deep learning inference platform that delivers low latency and high throughput for apps such as recommenders, speech and image/video on NVIDIA GPUs. It includes parsers to import models, and plugins to support novel ops and layers before applying optimizations for inference. Today NVIDIA is open-sourcing parsers and plugins in TensorRT so that the deep learning community can customize and extend these components to take advantage of powerful TensorRT optimizations for your apps." -q "What is TensorRT?" -v /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_128_v19.03.1/vocab.txt
     ```
