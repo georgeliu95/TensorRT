@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION. All rights reserved.
+# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ RUN dpkg -i /pdk_files/cuda-repo-cross-aarch64*.deb /pdk_files/cuda-repo-ubuntu*
     && rm -rf /var/lib/apt/lists/*
 
 # Unpack cudnn
-RUN  dpkg -x /pdk_files/libcudnn[7-8]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/cudnn \ 
+RUN  dpkg -x /pdk_files/libcudnn[7-8]_*-1+cuda10.[0-9]_arm64.deb /pdk_files/cudnn \
     && dpkg -x /pdk_files/libcudnn[7-8]-dev_*-1+cuda10.[0-9]_arm64.deb /pdk_files/cudnn \
     && cd /pdk_files/cudnn/usr/include/aarch64-linux-gnu \
     && cd /pdk_files/cudnn/usr/lib/aarch64-linux-gnu \
