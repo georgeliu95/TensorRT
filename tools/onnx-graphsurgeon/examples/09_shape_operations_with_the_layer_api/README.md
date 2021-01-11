@@ -14,7 +14,7 @@ Specifically, two common cases are outlined:
 
 2. Collapsing some, but not all, dimensions of an input tensor that includes dynamic dimensions. The layers involved are:
     - `Shape`: to get the input shape.
-    - `Gather`: to get the first dimension of the input shape.
+    - `Gather`: to get the first 2 dimensions of the input shape.
     - `Gather`: to get the last 2 dimensions of the input shape.
     - `ReduceProd`: to compute the volume of the last 2 dimensions.
     - `Concat`: to combine the first dimension of the original shape with the volume of the other dimensions.
