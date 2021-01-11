@@ -63,8 +63,8 @@ flattened = graph.reshape(graph.inputs[0], volume)
 # To do so, we'll gather the last 2 dimensions, compute their volume with reduce_prod, and concatenate the
 # result with the first 2 dimensions.
 # NOTE: The code here is *not* specific to images, but we use NCHW notation to make it more readable.
-NC = graph.gather(input_shape, indices=np.array([0, 1], dtype=np.int64))
-HW = graph.gather(input_shape, indices=np.array([2, 3], dtype=np.int64))
+NC = graph.gather(input_shape, indices=[0, 1])
+HW = graph.gather(input_shape, indices=[2, 3])
 new_shape = graph.concat([NC, graph.reduce_prod(HW, axes=[0])])
 partially_flattened = graph.reshape(graph.inputs[0], new_shape)
 
