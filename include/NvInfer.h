@@ -6745,7 +6745,7 @@ public:
     //!
     //! \brief Set Algorithm Selector.
     //!
-    //! \param selector The algorithm slector to be set in the build config.
+    //! \param selector The algorithm selector to be set in the build config.
     virtual void setAlgorithmSelector(IAlgorithmSelector* selector) TRTNOEXCEPT = 0;
 
     //!
