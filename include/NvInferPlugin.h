@@ -34,6 +34,7 @@ extern "C"
     //! registration information \param libNamespace Namespace used to register all the plugins in this library
     //!
     TENSORRTAPI bool initLibNvInferPlugins(void* logger, const char* libNamespace);
+
 } // extern "C"
 
 #endif // NV_INFER_PLUGIN_H

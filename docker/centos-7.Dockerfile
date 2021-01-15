@@ -14,10 +14,14 @@
 
 ARG CUDA_VERSION=11.1
 ARG OS_VERSION=7
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${OS_VERSION}
 
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
 
+ENV TRT_VERSION 7.2.2.3
+SHELL ["/bin/bash", "-c"]
+
+# Setup user account
 ARG uid=1000
 ARG gid=1000
 RUN groupadd -r -f -g ${gid} trtuser && useradd -r -u ${uid} -g ${gid} -ms /bin/bash trtuser
@@ -25,28 +29,38 @@ RUN usermod -aG wheel trtuser
 RUN echo 'trtuser:nvidia' | chpasswd
 RUN mkdir -p /workspace && chown trtuser /workspace
 
-# Install requried libraries
+# Install requried packages
+RUN yum -y groupinstall "Development Tools"
 RUN yum -y install \
-    libcurl4-openssl-dev \
-    wget \
+    openssl-devel \
+    bzip2-devel \
+    libffi-devel \
     zlib-devel \
+    wget \
+    perl-core \
     git \
     pkg-config \
-    python3 \
-    python3-pip \
-    python3-dev \
-    python3-devel \
-    python3-wheel \
     unzip \
-    sudo \
-    make \
-    build-essential
+    sudo
 
-RUN cd /usr/local/bin &&\
-    ln -s /usr/bin/python3 python &&\
-    ln -s /usr/bin/pip3 pip
+# Install python3
+RUN cd /tmp &&\
+    curl -O https://www.python.org/ftp/python/3.8.3/Python-3.8.3.tgz &&\
+    tar -xzf Python-3.8.3.tgz && cd Python-3.8.3 &&\
+    ./configure --enable-optimizations && make altinstall &&\
+    rm -rf /tmp/Python-3.8.3
+
+# Install TensorRT
+RUN cd /tmp &&\
+    wget https://developer.download.nvidia.com/compute/machine-learning/repos/rhel7/x86_64/nvidia-machine-learning-repo-rhel7-1.0.0-1.x86_64.rpm &&\
+    rpm -Uvh nvidia-machine-learning-repo-*.rpm
+RUN yum install -y libnvinfer7 libnvparsers7 libnvinfer-plugin7 libnvinfer-devel libnvparsers-devel libnvinfer-plugin-devel python3-libnvinfer
+
+# Install PyPI packages
 RUN pip3 install --upgrade pip
 RUN pip3 install setuptools>=41.0.0
+COPY requirements.txt /tmp/requirements.txt
+RUN pip3 install -r /tmp/requirements.txt
 
 # Install Cmake
 RUN cd /tmp && \
@@ -55,17 +69,13 @@ RUN cd /tmp && \
     ./cmake-3.14.4-Linux-x86_64.sh --prefix=/usr/local --exclude-subdir --skip-license && \
     rm ./cmake-3.14.4-Linux-x86_64.sh
 
-# Install PyPI packages
-COPY requirements.txt /tmp/requirements.txt
-RUN pip3 install -r /tmp/requirements.txt
-
 # Download NGC client
 RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.zip && unzip ngccli_cat_linux.zip && chmod u+x ngc && rm ngccli_cat_linux.zip ngc.md5 && echo "no-apikey\nascii\n" | ngc config set
 
 # Set environment and working directory
-ENV TRT_RELEASE /tensorrt
-ENV TRT_SOURCE /workspace/TensorRT
-ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${TRT_SOURCE}/build/out:${TRT_RELEASE}/lib"
+ENV TRT_LIBPATH /usr/lib/x86_64-linux-gnu
+ENV TRT_OSSPATH /workspace/TensorRT
+ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${TRT_OSSPATH}/build/out:${TRT_LIBPATH}"
 WORKDIR /workspace
 
 USER trtuser

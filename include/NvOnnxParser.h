@@ -206,7 +206,7 @@ public:
     virtual void clearErrors() = 0;
 
     /** \brief Get description of all ONNX weights that can be refitted.
-     *
+     * 
      * \param weightsNames Where to write the weight names to
      * \param layerNames Where to write the layer names to
      * \param roles Where to write the roles to

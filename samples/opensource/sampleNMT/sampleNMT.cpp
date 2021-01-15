@@ -289,7 +289,7 @@ void printUsage()
     printf("  --verbose                            Output verbose-level messages by TensorRT\n");
     printf("  --max_workspace_size=<N>             Maximum workspace size (default = %d)\n", gMaxWorkspaceSize);
     printf(
-        "  --data_dir=<path_to_data_directory>  Path to the directory where data and weights are located (default = "
+        "  --datadir=<path_to_data_directory>  Path to the directory where data and weights are located (default = "
         "%s)\n",
         gDataDirectory.c_str());
     printf(
@@ -336,7 +336,7 @@ bool parseNMTArgs(samplesCommon::Args& args, int argc, char* argv[])
             continue;
         if (parseInt(argv[j], "max_workspace_size", gMaxWorkspaceSize))
             continue;
-        if (parseString(argv[j], "data_dir", gDataDirectory))
+        if (parseString(argv[j], "datadir", gDataDirectory))
             continue;
         if (parseBool(argv[j], "profile", gEnableProfiling))
             continue;
