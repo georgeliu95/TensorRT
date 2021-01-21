@@ -13,11 +13,5 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from . import classification
 
-
-"""``pytorch_quantization.calib`` provides Calibrator classes that
-collect data statistics and determine pytorch_quantization parameters.
-"""
-
-from .max import MaxCalibrator
-from .histogram import *
