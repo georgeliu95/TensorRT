@@ -64,8 +64,14 @@ To build the TensorRT-OSS components, you will first need the following software
 	git submodule update --init --recursive
 	```
 
-2. #### Download TensorRT GA build
-	Unless using the containerized build workflow, download and extract the TensorRT GA build from [NVIDIA Developer Zone](https://developer.nvidia.com/nvidia-tensorrt-download).
+2. #### Specify the TensorRT Release build
+
+    If using NVIDIA build containers, TensorRT is preinstalled:
+      ```bash
+      export TRT_LIBPATH=/usr/lib/x86_64-linux-gnu
+      ```
+
+    Else download and extract the TensorRT build from [NVIDIA Developer Zone](https://developer.nvidia.com/nvidia-tensorrt-download).
 
        **Example: Ubuntu 18.04 on x86-64 with cuda-11.1**
 
