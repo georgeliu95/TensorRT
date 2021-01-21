@@ -38,10 +38,11 @@ from pytorch_quantization import quant_modules
 
 import onnxruntime
 import numpy as np
+import models 
 
 from prettytable import PrettyTable
 
-# The following path assumes running in nvcr.io/nvidia/pytorch:20.08-py3
+# The following path assumes running in nvcr.io/nvidia/pytorch:20.08-py3 
 sys.path.insert(0,"/opt/pytorch/vision/references/classification/")
 
 # Import functions from torchvision reference
@@ -144,9 +145,13 @@ def prepare_model(
         quant_nn.QuantConvTranspose2d.set_default_quant_desc_weight(quant_desc_weight)
         quant_nn.QuantLinear.set_default_quant_desc_weight(quant_desc_weight)
 
-    quant_modules.initialize()
+    if model_name in models.__dict__:
+        model = models.__dict__[model_name](pretrained=pretrained, quantize=True)
+    else:
+        quant_modules.initialize()
+        model = torchvision.models.__dict__[model_name](pretrained=pretrained)
+        quant_modules.deactivate()
 
-    model = torchvision.models.__dict__[model_name](pretrained=pretrained)
     if not pretrained:
         if ckpt_path:
             checkpoint = torch.load(ckpt_path)
@@ -231,8 +236,13 @@ def main(cmdline_args):
         build_sensitivity_profile(model, criterion, data_loader_test)
 
     ## Finetune the model
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.0001)
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, args.num_finetune_epochs)
     for epoch in range(args.num_finetune_epochs):
-        finetune_model(model, data_loader_train)
+        # Training a single epch
+        train_one_epoch(model, criterion, optimizer, data_loader_train, "cuda", 0, 100)
+        lr_scheduler.step()
 
     if args.num_finetune_epochs > 0:
         ## Evaluate after finetuning
@@ -311,10 +321,7 @@ def export_onnx(model, onnx_filename, batch_onnx, per_channel_quantization):
     quant_nn.TensorQuantizer.use_fb_fake_quant = True # We have to shift to pytorch's fake quant ops before exporting the model to ONNX
 
     if per_channel_quantization:
-        # Before opset13 is supported by Pytorch and ONNX runtime, we'll have to use the work around that
-        # pretends opset12 supports per channel.
-        # Use scripts/patch_onnx_export.sh to patch pytorch.
-        opset_version = 12
+        opset_version = 13
     else:
         opset_version = 12
 
@@ -408,15 +415,6 @@ def compute_amax(model, **kwargs):
                     module.load_calib_amax(**kwargs)
             print(F"{name:40}: {module}")
     model.cuda()
-
-def finetune_model(model, data_loader):
-    """Finetune the model"""
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.0001)
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.1)
-
-    # Training a single epch
-    train_one_epoch(model, criterion, optimizer, data_loader, "cuda", 0, 100)
 
 def build_sensitivity_profile(model, criterion, data_loader_test):
     quant_layer_names = []
