@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-arg_dockerfile=docker/ubuntu.Dockerfile
+arg_dockerfile=docker/ubuntu-18.04.Dockerfile
 arg_imagename=tensorrt-ubuntu
 arg_cudaversion=11.1
 arg_help=0
