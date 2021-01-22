@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 
-arg_dockerfile=docker/ubuntu-20.04
 arg_tag=tensorrt-ubuntu20.04
 arg_gpus=all
 arg_help=0

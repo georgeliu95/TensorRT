@@ -133,7 +133,7 @@ For native builds, install the [prerequisite](#prerequisites) *System Packages*.
 2. #### Launch the TensorRT-OSS build container.
     **Example: Ubuntu 18.04 build container**
 	```bash
-	./docker/launch.sh --tag tensorrt-ubuntu --gpus all
+	./docker/launch.sh --tag tensorrt-ubuntu-1804 --gpus all
 	```
 	> NOTE:
 	1. Use the tag corresponding to the build container you generated in 
