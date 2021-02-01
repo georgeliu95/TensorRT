@@ -66,36 +66,36 @@ To build the TensorRT-OSS components, you will first need the following software
 
 2. #### Specify the TensorRT Release build
 
-    If using NVIDIA build containers, TensorRT is preinstalled:
-      ```bash
-      export TRT_LIBPATH=/usr/lib/x86_64-linux-gnu
-      ```
+    If using NVIDIA build containers, TensorRT is preinstalled under `/usr/lib/x86_64-linux-gnu`.
 
     Else download and extract the TensorRT build from [NVIDIA Developer Zone](https://developer.nvidia.com/nvidia-tensorrt-download).
 
-       **Example: Ubuntu 18.04 on x86-64 with cuda-11.1**
+    **Example: Ubuntu 18.04 on x86-64 with cuda-11.1**
 
-       ```bash
-       cd ~/Downloads
-       tar -xvzf TensorRT-7.2.2.3.Ubuntu-18.04.x86_64-gnu.cuda-11.1.cudnn8.0.tar.gz
-       export TRT_LIBPATH=`pwd`/TensorRT-7.2.2.3
-       ```
-       **Example: Ubuntu18.04 Cross-Compile for QNX with cuda-10.2**
+    ```bash
+    cd ~/Downloads
+    tar -xvzf TensorRT-7.2.2.3.Ubuntu-18.04.x86_64-gnu.cuda-11.1.cudnn8.0.tar.gz
+    export TRT_LIBPATH=`pwd`/TensorRT-7.2.2.3
+    ```
 
-       ```bash
-       cd ~/Downloads
-       tar -xvzf TensorRT-7.2.2.3.Ubuntu-18.04.aarch64-qnx.cuda-10.2.cudnn7.6.tar.gz
-       export TRT_LIBPATH=`pwd`/TensorRT-7.2.2.3
-       export QNX_HOST=/<path-to-qnx-toolchain>/host/linux/x86_64
-       export QNX_TARGET=/<path-to-qnx-toolchain>/target/qnx7
-       ```
-       **Example: Windows on x86-64 with cuda-11.0**
+    **Example: Ubuntu18.04 Cross-Compile for QNX with cuda-10.2**
 
-       ```powershell
-       cd ~\Downloads
-       Expand-Archive .\TensorRT-7.2.2.3.Windows10.x86_64.cuda-11.0.cudnn8.0.zip
-       $Env:TRT_LIBPATH = '$(Get-Location)\TensorRT-7.2.2.3'
-       $Env:PATH += 'C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\MSBuild\15.0\Bin\'
+    ```bash
+    cd ~/Downloads
+    tar -xvzf TensorRT-7.2.2.3.Ubuntu-18.04.aarch64-qnx.cuda-10.2.cudnn7.6.tar.gz
+    export TRT_LIBPATH=`pwd`/TensorRT-7.2.2.3
+    export QNX_HOST=/<path-to-qnx-toolchain>/host/linux/x86_64
+    export QNX_TARGET=/<path-to-qnx-toolchain>/target/qnx7
+    ```
+
+    **Example: Windows on x86-64 with cuda-11.0**
+
+    ```powershell
+    cd ~\Downloads
+    Expand-Archive .\TensorRT-7.2.2.3.Windows10.x86_64.cuda-11.0.cudnn8.0.zip
+    $Env:TRT_LIBPATH = '$(Get-Location)\TensorRT-7.2.2.3'
+    $Env:PATH += 'C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\MSBuild\15.0\Bin\'
+    ```
 
 
 3. #### (Optional) JetPack SDK for Jetson builds
