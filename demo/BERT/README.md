@@ -575,6 +575,8 @@ Running inference and collecting performance data is the same as without sparsit
 
 > NOTE: Temporary Megatron-BERT checkpoint copy: [megatron_sparse_ckpt_large_qa_squad2_qat_384.pkl](http://10.110.38.142/share/checkpoints/megatron_sparse_ckpt_large_qa_squad2_qat_384.pkl)
 
+> NOTE: Temporary Megatron-BERT checkpoint copy: [megatron_sparse_ckpt_large_qa_squad2_qat_384.pkl](http://10.110.38.142/share/checkpoints/megatron_sparse_ckpt_large_qa_squad2_qat_384.pkl)
+
 To run the Megatron variant of BERT, use the `--megatron` flag and pass in a pickle file with a dictionary of weights via the `--pickle` option. Currently, only INT8 via quantization aware training with interleaving is supported. The other configuration options are the same as the non-Megatron variant.
 
 **Example: Sparse Megatron-BERT Large SQuAD v2, sequence length 384**
