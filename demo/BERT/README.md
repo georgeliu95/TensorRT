@@ -94,7 +94,7 @@ This demo BERT application can be run within the TensorRT OSS build container. I
 * [NGC CLI](https://ngc.nvidia.com/setup/installers/cli) - for downloading BERT checkpoints from NGC.
 * PyPI Packages:
   * [pycuda](https://pypi.org/project/pycuda/) (tested 2019.1.2)
-  * [onnx](https://pypi.org/project/onnx/1.6.0/) (tested 1.7.0)
+  * [onnx](https://pypi.org/project/onnx/1.7.0/) (tested 1.7.0)
   * [tensorflow](https://pypi.org/project/tensorflow/) >= 2.2
 * NVIDIA [Volta](https://www.nvidia.com/en-us/data-center/volta-gpu-architecture/), [Turing](https://www.nvidia.com/en-us/geforce/turing/) or [Ampere](https://www.nvidia.com/en-us/data-center/nvidia-ampere-gpu-architecture/) based GPU.
 

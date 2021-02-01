@@ -54,7 +54,7 @@ RUN cd /tmp &&\
 RUN cd /tmp &&\
     wget https://developer.download.nvidia.com/compute/machine-learning/repos/rhel7/x86_64/nvidia-machine-learning-repo-rhel7-1.0.0-1.x86_64.rpm &&\
     rpm -Uvh nvidia-machine-learning-repo-*.rpm
-RUN yum install -y libnvinfer7 libnvparsers7 libnvinfer-plugin7 libnvinfer-devel libnvparsers-devel libnvinfer-plugin-devel python3-libnvinfer
+RUN yum install -y libnvinfer7 libnvparsers7 libnvinfer-plugin7 libnvonnxparsers7 libnvinfer-devel libnvparsers-devel libnvinfer-plugin-devel python3-libnvinfer
 
 # Install PyPI packages
 RUN pip3 install --upgrade pip
