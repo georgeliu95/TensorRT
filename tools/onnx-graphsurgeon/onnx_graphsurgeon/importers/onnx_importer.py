@@ -24,7 +24,7 @@ import onnx.numpy_helper
 from onnx_graphsurgeon.importers.base_importer import BaseImporter
 from onnx_graphsurgeon.ir.graph import Graph
 from onnx_graphsurgeon.ir.node import Node
-from onnx_graphsurgeon.ir.tensor import Constant, Tensor, Variable
+from onnx_graphsurgeon.ir.tensor import Constant, LazyValues, Tensor, Variable
 from onnx_graphsurgeon.logger.logger import G_LOGGER
 from onnx_graphsurgeon.util import misc
 
@@ -78,10 +78,9 @@ class OnnxImporter(BaseImporter):
 
     @staticmethod
     def import_tensor(onnx_tensor: Union[onnx.ValueInfoProto, onnx.TensorProto]) -> Tensor:
-        try:
-            values = onnx.numpy_helper.to_array(onnx_tensor)
-            return Constant(name=onnx_tensor.name, values=values)
-        except ValueError:
+        if isinstance(onnx_tensor, onnx.TensorProto):
+            return Constant(name=onnx_tensor.name, values=LazyValues(onnx_tensor))
+        else:
             return Variable(name=onnx_tensor.name, dtype=get_onnx_tensor_dtype(onnx_tensor), shape=get_onnx_tensor_shape(onnx_tensor))
 
 

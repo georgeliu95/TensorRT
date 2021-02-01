@@ -20,17 +20,23 @@ import onnx.numpy_helper
 from onnx_graphsurgeon.exporters.base_exporter import BaseExporter
 from onnx_graphsurgeon.ir.graph import Graph
 from onnx_graphsurgeon.ir.node import Node
-from onnx_graphsurgeon.ir.tensor import Constant, Tensor, Variable
+from onnx_graphsurgeon.ir.tensor import LazyValues, Constant, Tensor, Variable
 from onnx_graphsurgeon.logger.logger import G_LOGGER
 
 
 def dtype_to_onnx(dtype: np.dtype) -> int:
     return onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[np.dtype(dtype)]
 
+
 class OnnxExporter(BaseExporter):
     @staticmethod
     def export_tensor_proto(tensor: Constant) -> onnx.TensorProto:
-        onnx_tensor = onnx.numpy_helper.from_array(tensor.values)
+        # Do *not* load LazyValues into an intermediate numpy array - instead, use
+        # the original onnx.TensorProto directly.
+        if isinstance(tensor._values, LazyValues):
+            onnx_tensor = tensor._values.tensor
+        else:
+            onnx_tensor = onnx.numpy_helper.from_array(tensor.values)
         onnx_tensor.name = tensor.name
         return onnx_tensor
 

@@ -20,7 +20,7 @@ from onnx_graphsurgeon.logger.logger import G_LOGGER
 
 from onnx_models import identity_model, lstm_model, scan_model, dim_param_model, initializer_is_output_model
 
-from onnx_graphsurgeon.ir.tensor import Tensor, Constant, Variable
+from onnx_graphsurgeon.ir.tensor import Tensor, LazyValues, Constant, Variable
 from onnx_graphsurgeon.ir.graph import Graph
 from onnx_graphsurgeon.ir.node import Node
 
@@ -31,6 +31,18 @@ import pytest
 import onnx
 
 class TestOnnxExporter(object):
+    def test_export_constant_tensor_lazy_values_to_tensor_proto(self):
+        name = "constant_tensor"
+        shape = (3, 3, 3)
+        dtype = np.float32
+        onnx_tensor = onnx.numpy_helper.from_array(np.ones(shape=shape, dtype=dtype))
+        tensor = Constant(name=name, values=LazyValues(onnx_tensor))
+
+        # Exporter should *not* load LazyValues into a numpy array.
+        onnx_tensor = OnnxExporter.export_tensor_proto(tensor)
+        assert isinstance(tensor._values, LazyValues)
+
+
     def test_export_constant_tensor_to_tensor_proto(self):
         name = "constant_tensor"
         shape = (3, 224, 224)

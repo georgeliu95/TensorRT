@@ -3,6 +3,11 @@
 Dates are in YYYY-MM-DD format.
 
 
+## v0.2.9 (2021-02-01)
+### Changed
+- The `values` property of `Constant` tensors is now lazily loaded. This can greatly improve model loading times.
+
+
 ## v0.2.8 (2020-10-08)
 ### Fixed
 - Fixed a bug where graph inputs and outputs could be assigned `SynchronizedList` instances, and would therefore be modified if nodes in the graph were.
