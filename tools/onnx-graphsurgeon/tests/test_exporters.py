@@ -88,6 +88,37 @@ class TestOnnxExporter(object):
         assert tuple(onnx_shape) == shape
 
 
+    def test_export_variable_tensor_empty_dim_param(self):
+        shape = ("", 224, 224)
+
+        tensor = Variable(dtype=np.float32, shape=shape, name="variable_tensor")
+        onnx_tensor = OnnxExporter.export_value_info_proto(tensor, do_type_check=True)
+
+        onnx_shape = []
+        for dim in onnx_tensor.type.tensor_type.shape.dim:
+            onnx_shape.append(dim.dim_value if dim.HasField("dim_value") else dim.dim_param)
+        assert tuple(onnx_shape) == shape
+
+
+    # When a tensor shape is unknown, we should leave the shape field empty.
+    def test_export_variable_tensor_empty_shape(self):
+        shape = None
+
+        tensor = Variable(dtype=np.float32, shape=shape, name="variable_tensor")
+        onnx_tensor = OnnxExporter.export_value_info_proto(tensor, do_type_check=True)
+        assert not onnx_tensor.type.tensor_type.HasField("shape")
+
+
+    # When a tensor shape is unknown, we should leave the shape field empty.
+    def test_export_variable_tensor_scalar_shape(self):
+        shape = [None]
+
+        tensor = Variable(dtype=np.float32, shape=shape, name="variable_tensor")
+        onnx_tensor = OnnxExporter.export_value_info_proto(tensor, do_type_check=True)
+        assert not onnx_tensor.type.tensor_type.shape.dim[0].HasField("dim_param")
+        assert not onnx_tensor.type.tensor_type.shape.dim[0].HasField("dim_value")
+
+
     # TODO: Test subgraph export.
     def test_export_node(self):
         name = "TestNode"
