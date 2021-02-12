@@ -3,6 +3,13 @@
 Dates are in YYYY-MM-DD format.
 
 
+## v0.3.0 (2021-02-12)
+### Fixed
+- Fixed a bug where shapes including empty strings for `dim_param` would be treated as empty tensors.
+    They are now correctly imported as tensors with dynamic shapes.
+- Fixed a bug where variable tensors with unknown shapes would be imported as scalars.
+
+
 ## v0.2.9 (2021-02-01)
 ### Changed
 - The `values` property of `Constant` tensors is now lazily loaded. This can greatly improve model loading times.

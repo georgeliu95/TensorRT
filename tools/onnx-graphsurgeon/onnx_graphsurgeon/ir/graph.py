@@ -223,7 +223,7 @@ class Graph(object):
                 if inp in used_tensors:
                     inputs.append(inp)
                 else:
-                    G_LOGGER.debug("Removing unused input: {:}".format(inp))
+                    G_LOGGER.verbose("Removing unused input: {:}".format(inp))
             self.inputs = inputs
 
             nodes = []
