@@ -178,7 +178,7 @@ class Variable(Tensor):
         """
         Makes a shallow copy of this tensor, omitting input and output information.
 
-        Note: Generally, you should only ever make a deep copy of a Graph.
+        Note: Generally, you should only ever make a copy of a Graph.
         """
         return Variable(self.name, self.dtype, self.shape)
 
@@ -237,7 +237,7 @@ class Constant(Tensor):
         """
         Makes a shallow copy of this tensor, omitting input and output information.
 
-        Note: Generally, you should only ever make a deep copy of a Graph.
+        Note: Generally, you should only ever make a copy of a Graph.
         """
         return Constant(self.name, self.values)
 

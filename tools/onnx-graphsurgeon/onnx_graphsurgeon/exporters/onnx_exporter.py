@@ -57,7 +57,7 @@ class OnnxExporter(BaseExporter):
 
 
     @staticmethod
-    def export_node(node: Node) -> onnx.NodeProto:
+    def export_node(node: Node, do_type_check: bool) -> onnx.NodeProto:
         # Cannot pass in attrs directly as make_node will change the order
         onnx_node = onnx.helper.make_node(node.op, inputs=[t.name for t in node.inputs], outputs=[t.name for t in node.outputs], name=node.name)
         # Convert Tensors and Graphs to TensorProtos and GraphProtos respectively
@@ -65,7 +65,7 @@ class OnnxExporter(BaseExporter):
             if isinstance(val, Tensor):
                 val = OnnxExporter.export_tensor_proto(val)
             elif isinstance(val, Graph):
-                val = OnnxExporter.export_graph(val)
+                val = OnnxExporter.export_graph(val, do_type_check)
             onnx_node.attribute.extend([onnx.helper.make_attribute(key, val)])
         return onnx_node
 
@@ -80,7 +80,7 @@ class OnnxExporter(BaseExporter):
 
             do_type_check (bool): Whether to check that input and output tensors have data types defined, and fail if not.
         """
-        nodes = [OnnxExporter.export_node(node) for node in graph.nodes]
+        nodes = [OnnxExporter.export_node(node, do_type_check) for node in graph.nodes]
         inputs = [OnnxExporter.export_value_info_proto(inp, do_type_check) for inp in graph.inputs]
         outputs = [OnnxExporter.export_value_info_proto(out, do_type_check) for out in graph.outputs]
         tensor_map = graph.tensors()
