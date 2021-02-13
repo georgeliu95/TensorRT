@@ -135,7 +135,7 @@ class TestOnnxExporter(object):
         attrs["strings_attr"] = ["constant", "and", "variable"]
         node = Node(op=op, name=name, inputs=inputs, outputs=outputs, attrs=attrs)
 
-        onnx_node = OnnxExporter.export_node(node)
+        onnx_node = OnnxExporter.export_node(node, do_type_check=True)
         assert onnx_node.name == name
         assert onnx_node.op_type == op
         assert onnx_node.input == ["input"]

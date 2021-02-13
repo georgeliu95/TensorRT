@@ -447,6 +447,34 @@ TOPOSORT_TEST_CASES = [
     toposort_multi_tier_input_graph(),
 ]
 
+
+# Generates a graph where an outer node has no outputs except
+# within the subgraph. ONNX-GS should recognize that the node
+# is being used, and should not remove it during cleanup().
+@pytest.fixture(scope="module")
+def nested_graph():
+    inp = Variable("input")
+    id_out = Variable("id_out")
+    identity = Node(op="Identity", inputs=[inp], outputs=[id_out])
+
+    # Subgraph outputs come from the parent node, but nodes in the subgraph
+    # can use nodes from the outer graphs too.
+    subgraph_inputs = [Variable("subgraph_inp")]
+    subgraph_id_out = Variable("subgraph_id_out")
+    subgraph_outputs = [Variable("subgraph_out")]
+
+    subgraph_identity0 = Node(op="Identity", inputs=[id_out], outputs=[subgraph_id_out])
+    subgraph_identity1 = Node(op="Identity", inputs=[subgraph_id_out], outputs=subgraph_outputs)
+
+    subgraph = Graph(nodes=[subgraph_identity0, subgraph_identity1],
+                        inputs=subgraph_inputs, outputs=subgraph_outputs)
+
+    nested_out = Variable("nested_out")
+    nested_node = Node(op="Nested", attrs={"body": subgraph}, inputs=[inp], outputs=[nested_out])
+
+    yield Graph(nodes=[identity, nested_node], inputs=[inp], outputs=[nested_out])
+
+
 class TestGraph(object):
     def test_generate_name(self):
         graph = Graph()
@@ -679,20 +707,63 @@ class TestGraph(object):
         assert indep1.name not in tensor_map
 
 
-    def test_deep_copy(self):
+    def test_cleanup_nested_graph(self, nested_graph):
+        nested_node = nested_graph.nodes[1]
+        nested_inp = nested_node.inputs[0]
+        nested_out = nested_node.outputs[0]
+        subgraph = nested_node.attrs["body"]
+
+        assert "id_out" in nested_graph.tensors()
+        nested_graph.cleanup()
+        # Clean up should not remove a tensor whose only output node is a subgraph.
+        assert "id_out" in nested_graph.tensors()
+
+        # Clean up should not modify the nested nodes inputs or outputs
+        assert nested_node.inputs == [nested_inp]
+        assert nested_node.outputs == [nested_out]
+
+        # We should be able to clean up subgraphs too, and they should not reach into the outer graph.
+        subgraph.cleanup()
+        assert "id_out" in nested_graph.tensors()
+
+
+    def test_copy(self):
         def make_graph():
             graph, _ = toposort_multi_tier_output_graph()
             graph.outputs.pop()
+            # Deep copy should work with empty tensors
+            graph.nodes[0].inputs.append(Variable.empty())
+            graph.nodes[0].outputs.append(Variable.empty())
             return graph
 
         graph = make_graph()
-        new_graph = copy.deepcopy(graph)
+        new_graph = graph.copy()
         assert graph == new_graph
 
         # Running cleanup on the first graph should not affect the copy
         graph.cleanup()
         assert graph != new_graph
         assert new_graph == make_graph()
+
+
+    def test_copy_with_subgraph(self, nested_graph):
+        new_graph = nested_graph.copy()
+        assert new_graph == nested_graph
+
+        new_subgraph = new_graph.nodes[1].attrs["body"]
+        new_subgraph.nodes[0].outputs.clear()
+        new_subgraph.nodes[1].inputs.clear()
+
+        subgraph = nested_graph.nodes[1].attrs["body"]
+        assert subgraph.nodes[0].outputs
+        assert subgraph.nodes[1].inputs
+
+        new_graph.outputs.clear()
+        new_graph.cleanup()
+
+        assert nested_graph.outputs
+        assert len(nested_graph.nodes) == 2
+        assert len(subgraph.nodes) == 2
 
 
     def test_fold_constants(self):

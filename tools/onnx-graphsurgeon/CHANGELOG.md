@@ -3,6 +3,16 @@
 Dates are in YYYY-MM-DD format.
 
 
+## v0.3.1 (2021-02-12)
+### Fixed
+- Fixed a bug where `do_type_check` would not propagate to subgraphs.
+- Fixed a bug where `cleanup()` would incorrectly remove outer-level nodes if they were used only by inner-nodes of subgraphs.
+
+### Removed
+- Removed `__deepcopy__` from `Graph` as it wasn't deep-copying weights or attributes.
+    The method is now called `copy` and makes a shallow copy of everything except `Node`s and `Tensor` instances.
+
+
 ## v0.3.0 (2021-02-12)
 ### Fixed
 - Fixed a bug where shapes including empty strings for `dim_param` would be treated as empty tensors.
