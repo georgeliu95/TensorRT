@@ -3,6 +3,17 @@
 Dates are in YYYY-MM-DD format.
 
 
+## v0.3.2 (2021-02-13)
+### Added
+- Added support for folding `Shape` nodes in `fold_constants`. This requires that shape inference has been run
+    on the graph, and that the input to the `Shape` node has a static shape.
+    This behavior can be disabled by setting `fold_shapes=False`.
+
+### Changed
+- `cleanup`, `toposort`, and `fold_constants` are now recursively applied to subgraphs by default.
+    This behavior can be disabled by setting `recurse_subgraphs=False`.
+
+
 ## v0.3.1 (2021-02-12)
 ### Fixed
 - Fixed a bug where `do_type_check` would not propagate to subgraphs.
