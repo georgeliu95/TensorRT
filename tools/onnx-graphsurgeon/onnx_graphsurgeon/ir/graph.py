@@ -244,7 +244,7 @@ class Graph(object):
         return used_node_ids, used_tensors
 
 
-    def cleanup(self, remove_unused_node_outputs=False):
+    def cleanup(self, remove_unused_node_outputs=False, recurse_subgraphs=True):
         """
         Removes unused nodes and tensors from the graph.
         A node or tensor is considered unused if it does not contribute to any of the graph outputs.
@@ -256,10 +256,21 @@ class Graph(object):
         Args:
             remove_unused_node_outputs (bool): Whether to remove unused output tensors of nodes. This will never remove
                 empty-tensor (i.e. optional, but omitted) outputs. Defaults to False.
+            recurse_subgraphs (bool):
+                    Whether to recursively cleanup subgraphs.
+                    Defaults to True.
 
         Returns:
             self
         """
+        if recurse_subgraphs:
+            for node in self.nodes:
+                for attr in node.attrs.values():
+                    if isinstance(attr, Graph):
+                        attr.cleanup(remove_unused_node_outputs)
+
+        G_LOGGER.debug("Cleaning up {:}".format(self.name))
+
         with self.node_ids():
             # Graph inputs cannot have producers
             for inp in self.inputs:
@@ -300,13 +311,26 @@ class Graph(object):
             return self
 
 
-    def toposort(self):
+    def toposort(self, recurse_subgraphs=True):
         """
         Topologically sort the graph in place.
+
+        Args:
+            recurse_subgraphs (bool):
+                    Whether to recursively topologically sort subgraphs.
+                    Defaults to True.
 
         Returns:
             self
         """
+        if recurse_subgraphs:
+            for node in self.nodes:
+                for attr in node.attrs.values():
+                    if isinstance(attr, Graph):
+                        attr.toposort()
+
+        G_LOGGER.debug("Topologically sorting {:}".format(self.name))
+
         # Keeps track of a node and it's level in the graph hierarchy.
         # 0 corresponds to an input node, N corresponds to a node with N layers of inputs.
         class HierarchyDescriptor(object):
@@ -317,16 +341,18 @@ class Graph(object):
             def __lt__(self, other):
                 return self.level < other.level
 
-
         hierarchy_levels = {} # Dict[int, HierarchyDescriptor]
 
+        local_tensors = self._local_tensors()
+
         def get_hierarchy_level(node):
-            # Return all nodes that contribute to this node.
+            # Return all local nodes that contribute to this node.
             def get_input_nodes(node):
                 inputs = {}
                 for tensor in node.inputs:
-                    for inp_node in tensor.inputs:
-                        inputs[self._get_node_id(inp_node)] = inp_node
+                    if tensor.name in local_tensors:
+                        for inp_node in tensor.inputs:
+                            inputs[self._get_node_id(inp_node)] = inp_node
                 return inputs.values()
 
             if self._get_node_id(node) in hierarchy_levels:
@@ -388,7 +414,7 @@ class Graph(object):
         return tensor_map
 
 
-    def fold_constants(self):
+    def fold_constants(self, fold_shapes=True, recurse_subgraphs=True):
         """
         Folds constants in-place in the graph. The graph must be topologically sorted prior to
         calling this function (see `toposort()`).
@@ -399,32 +425,91 @@ class Graph(object):
         *Note: Due to how this function is implemented, the graph must be exportable to ONNX,
         and evaluable in ONNX-Runtime. Additionally, ONNX-Runtime must be installed.*
 
+        Args:
+            fold_shapes (bool):
+                    Whether to fold `Shape` nodes in the graph.
+                    This requires shapes to be inferred in the graph, and can only fold
+                    static shapes.
+                    Defaults to True.
+            recurse_subgraphs (bool):
+                    Whether to recursively fold constants in subgraphs.
+                    Defaults to True.
+
         Returns:
             self
         """
         import onnxruntime as rt
         from onnx_graphsurgeon.exporters.onnx_exporter import export_onnx
 
+        if recurse_subgraphs:
+            for node in self.nodes:
+                for attr in node.attrs.values():
+                    if isinstance(attr, Graph):
+                        attr.fold_constants(fold_shapes)
+
+        G_LOGGER.debug("Folding constants in {:}".format(self.name))
+
         temp_graph = self.copy()
 
-        # Since the graph is topologically sorted, this should find all constant nodes in the graph.
-        graph_constants = {tensor.name: tensor for tensor in temp_graph.tensors().values() if isinstance(tensor, Constant)}
-        for node in temp_graph.nodes:
-            if all([inp.name in graph_constants for inp in node.inputs]):
-                graph_constants.update({out.name: out for out in node.outputs})
+        temp_tensors = list(temp_graph.tensors().values())
 
-        # Next build a graph with just the constants, and evaluate - no need to evaluate constants
-        outputs_to_evaluate = [tensor for tensor in graph_constants.values() if isinstance(tensor, Variable)]
+        # We find graph constants in two passes:
+        # Pass 1 finds all Constant tensors in the graph, then walks over their outputs.
+        # Pass 2 searches for Shape nodes that have variable inputs (i.e. not marked const in pass 1)
+        #    and turns them into Constants iff the input has a statically known shape.
 
-        if not outputs_to_evaluate:
-            G_LOGGER.warning("Could not find any operations in this graph that can be folded. "
+        def update_foldable_outputs(graph_constants):
+            # Walks along the outputs of graph_constants to see if they can also be computed statically.
+            # Since the graph is topologically sorted, this should find all constant nodes in the graph.
+            for node in temp_graph.nodes:
+                if all([inp.name in graph_constants for inp in node.inputs]): # Nodes without inputs are always evaluated as constants.
+                    graph_constants.update({out.name: out for out in node.outputs})
+            return graph_constants
+
+        # Pass 1
+        graph_constants = {tensor.name: tensor for tensor in temp_tensors if isinstance(tensor, Constant)}
+        graph_constants = update_foldable_outputs(graph_constants)
+
+        # Pass 2
+
+        # Finds the static shape of a shape node output if possible, otherwise returns None.
+        def lower_shape(tensor):
+            if len(tensor.inputs) != 1:
+                return None
+
+            node = tensor.inputs[0]
+            if node.op != "Shape":
+                return None
+
+            inp = node.inputs[0] # Shape node must have 1 input or it's malformed.
+
+            # If the input was already found to be a constant, it will be folded anyway.
+            if inp.name in graph_constants:
+                return None
+
+            if inp.shape is None or misc.is_dynamic_shape(inp.shape):
+                return None
+            return np.array(inp.shape, dtype=np.int64)
+
+
+        if fold_shapes:
+            for tensor in temp_tensors:
+                shape_of = lower_shape(tensor)
+                if shape_of is not None:
+                    graph_constants[tensor.name] = tensor.to_constant(shape_of)
+                    graph_constants[tensor.name].inputs.clear()
+
+            graph_constants = update_foldable_outputs(graph_constants)
+
+        # Next build a graph with just the constants and evaluate
+        if not graph_constants:
+            G_LOGGER.warning("Could not find any operations in this graph ({:}) that can be folded. "
                              "This could mean that constant folding has already been run on this graph. "
-                             "Skipping.")
+                             "Skipping.".format(self.name))
             return self
 
-        output_names = [out.name for out in outputs_to_evaluate]
-
-        temp_graph.outputs = outputs_to_evaluate
+        output_names = list(graph_constants.keys())
+        temp_graph.outputs = list(graph_constants.values())
         temp_graph.cleanup()
 
         # Determining types is not trivial, and ONNX-RT does its own type inference.

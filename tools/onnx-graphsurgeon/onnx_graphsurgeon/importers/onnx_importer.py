@@ -189,34 +189,34 @@ class OnnxImporter(BaseImporter):
 
 
         # Import initializers contents into Constants.
-        G_LOGGER.debug("Importing initializers")
+        G_LOGGER.verbose("Importing initializers")
         for initializer in onnx_graph.initializer:
             get_tensor(initializer)
 
         # Import all tensors whose shapes are known. Tensors may be repeated, and some of these
         # duplicates may not include shape/dtype information, so overwrite is set to True
         # so that we can capture all the information available about the tensor
-        G_LOGGER.debug("Importing tensors with known shapes")
+        G_LOGGER.verbose("Importing tensors with known shapes")
         for tensor in onnx_graph.value_info:
             get_tensor(tensor, overwrite=True)
 
         # Import graph inputs and outputs. Initializers are not considered to be inputs.
         # Graph inputs and outputs can never come from the outer graph!
         initializer_names = set([tensor.name for tensor in onnx_graph.initializer])
-        G_LOGGER.debug("Importing graph inputs")
+        G_LOGGER.verbose("Importing graph inputs")
         graph_inputs = [] # List[Tensor]
         for inp in onnx_graph.input:
             if inp.name not in initializer_names:
                 tensor = get_tensor(inp, check_outer_graph=False)
                 graph_inputs.append(tensor)
 
-        G_LOGGER.debug("Importing graph outputs")
+        G_LOGGER.verbose("Importing graph outputs")
         graph_outputs = [] # List[Tensor]
         for out in onnx_graph.output:
             tensor = get_tensor(out, check_outer_graph=False)
             graph_outputs.append(tensor)
 
-        G_LOGGER.debug("Importing nodes")
+        G_LOGGER.verbose("Importing nodes")
         nodes = [] # List[Node]
         for onnx_node in onnx_graph.node:
             node = OnnxImporter.import_node(onnx_node, tensor_map, subgraph_tensor_map)
