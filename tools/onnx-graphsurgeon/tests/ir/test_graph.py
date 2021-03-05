@@ -41,7 +41,27 @@ def constant(self, values):
 
 @Graph.register()
 def identity(self, inp):
-    return self.layer(op="Identity", inputs=[inp], outputs=["identity_out"])[0]
+    out = self.layer(op="Identity", inputs=[inp], outputs=["identity_out"])[0]
+    out.dtype = inp.dtype
+    return out
+
+
+@Graph.register()
+def add(self, a, b, name=None):
+    outputs = [Variable(name=name)] if name else ["add_out"]
+    out = self.layer(op="Add", inputs=[a, b], outputs=outputs)[0]
+    out.dtype = a.dtype or b.dtype
+    return out
+
+
+# A fake op that can be used to ensure things work even when there is an invalid
+# node present in the model.
+@Graph.register()
+def fake(self, inp, name=None):
+    outputs = [Variable(name=name)] if name else ["fake_out"]
+    out = self.layer(op="Fake", inputs=[inp], outputs=outputs)[0]
+    out.dtype = inp.dtype
+    return out
 
 
 # Generates a graph where an outer node has no outputs except
@@ -85,11 +105,11 @@ class TestBasic(object):
 class TestRegister(object):
     def test_register(self):
         @Graph.register()
-        def add(self, a, b):
+        def fake_add(self, a, b):
             return self.layer(op="Add", inputs=[a, b], outputs=["add_out"])
 
         graph = Graph()
-        [output] = graph.add("a", "b")
+        [output] = graph.fake_add("a", "b")
         assert "add_out" in output.name
         assert len(graph.nodes) == 1
         assert graph.nodes[-1].op == "Add"
@@ -97,21 +117,21 @@ class TestRegister(object):
 
     def test_register_opset(self):
         @Graph.register(opsets=[11])
-        def add(self, a, b):
+        def fake_add(self, a, b):
             return self.layer(op="Add", inputs=[a, b], outputs=["add_out"])
 
         @Graph.register(opsets=[10])
-        def add(self, a, b):
+        def fake_add(self, a, b):
             return self.layer(op="Add-10", inputs=[a, b], outputs=["add_out"])
 
         graph = Graph()
-        [output] = graph.add("a", "b")
+        [output] = graph.fake_add("a", "b")
         assert "add_out" in output.name
         assert len(graph.nodes) == 1
         assert graph.nodes[-1].op == "Add"
 
         graph_opset10 = Graph(opset=10)
-        [output] = graph_opset10.add("a", "b")
+        [output] = graph_opset10.fake_add("a", "b")
         assert "add_out" in output.name
         assert len(graph_opset10.nodes) == 1
         assert graph_opset10.nodes[-1].op == "Add-10"
@@ -533,17 +553,16 @@ def simple_foldable():
     # output = input + c
     # Should fold to:
     # output = input + c
-    inp = Variable("input", shape=(1, 3), dtype=np.float32)
-    a = Constant("a", values=np.ones(shape=(1, 3), dtype=np.float32))
-    b = Constant("b", values=np.ones(shape=(1, 3), dtype=np.float32))
-    c = Variable("c", shape=(1, 3), dtype=np.float32)
-    out = Variable("output", shape=(1, 3), dtype=np.float32)
+    weights = np.ones(shape=(1, 3), dtype=np.float32)
 
-    nodes = [
-        Node("Add", inputs=[a, b], outputs=[c]),
-        Node("Add", inputs=[inp, c], outputs=[out]),
-    ]
-    yield Graph(nodes=nodes, inputs=[inp], outputs=[out])
+    graph = Graph()
+    inp = Variable("input", shape=(1, 3), dtype=np.float32)
+    c = graph.add(weights, weights, name="c")
+    out = graph.add(inp, c)
+
+    graph.inputs = [inp]
+    graph.outputs = [out]
+    yield graph
 
 
 @pytest.fixture
@@ -554,28 +573,49 @@ def one_hop_foldable():
     # output = input + e
     # Should fold to:
     # output = input + e
+    weights = np.ones(shape=(1, 3), dtype=np.float32)
+
+    graph = Graph()
     inp = Variable("input", shape=(1, 3), dtype=np.float32)
-    a = Constant("a", values=np.ones(shape=(1, 3), dtype=np.float32))
-    b = Constant("b", values=np.ones(shape=(1, 3), dtype=np.float32))
-    c = Variable("c", shape=(1, 3), dtype=np.float32)
-    d = Constant("d", values=np.ones(shape=(1, 3), dtype=np.float32))
-    e = Variable("e", shape=(1, 3), dtype=np.float32)
-    out = Variable("output", shape=(1, 3), dtype=np.float32)
+    c = graph.add(weights, weights, name="c")
+    e = graph.add(c, weights, name="e")
+    out = graph.add(inp, e)
 
-    nodes = [
-        Node("Add", inputs=[a, b], outputs=[c]),
-        Node("Add", inputs=[c, d], outputs=[e]),
-        Node("Add", inputs=[inp, e], outputs=[out]),
-    ]
+    graph.inputs = [inp]
+    graph.outputs = [out]
+    yield graph
 
-    yield Graph(nodes=nodes, inputs=[inp], outputs=[out])
+
+@pytest.fixture
+def foldable_with_invalid_node():
+    # Graph
+    # c = (a + b)
+    # e = fake(d)
+    # f = (e + c)
+    # out = inp + f
+    #
+    # c should be folded even though e is the output of an
+    # invalid node.
+    weights = np.ones(shape=(1, 3), dtype=np.float32)
+
+    graph = Graph()
+    inp = Variable("input", shape=(1, 3), dtype=np.float32)
+    c = graph.add(weights, weights, name="c")
+    e = graph.fake(weights, name="e")
+    f = graph.add(e, c, name="f")
+    out = graph.add(inp, f, name="output")
+
+    graph.inputs = [inp]
+    graph.outputs = [out]
+    yield graph
 
 
 class TestFoldConstants(object):
-    def test_basic(self, simple_foldable):
+    @pytest.mark.parametrize("partitioning", [None, "basic", "recursive"])
+    def test_basic(self, simple_foldable, partitioning):
         inp = simple_foldable.inputs[0]
 
-        simple_foldable.fold_constants().cleanup()
+        simple_foldable.fold_constants(partitioning=partitioning).cleanup()
 
         # Extra node should be removed
         assert len(simple_foldable.nodes) == 1
@@ -598,6 +638,24 @@ class TestFoldConstants(object):
 
         # Value should be computed correctly
         assert np.all(one_hop_foldable.nodes[0].inputs[1].values == np.ones(shape=(1, 3), dtype=np.float32) * 3)
+
+
+    def test_with_invalid_nodes(self, foldable_with_invalid_node):
+        foldable_with_invalid_node.fold_constants(partitioning="recursive").cleanup()
+
+        tensor_map = foldable_with_invalid_node.tensors()
+
+        assert len(foldable_with_invalid_node.nodes) == 3
+        assert foldable_with_invalid_node.nodes[0].op == "Fake"
+        assert foldable_with_invalid_node.nodes[1].op == "Add"
+        assert foldable_with_invalid_node.nodes[2].op == "Add"
+        assert np.all(tensor_map["c"].values == (np.ones(shape=(1, 3), dtype=np.float32) * 2))
+
+
+    def test_with_invalid_nodes_no_recursive(self, foldable_with_invalid_node):
+        # No folding should take place without recursive partitioning
+        original = foldable_with_invalid_node.copy()
+        assert foldable_with_invalid_node.fold_constants() == original
 
 
     def test_no_foldable_constants(self):

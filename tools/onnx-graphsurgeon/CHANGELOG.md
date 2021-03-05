@@ -3,6 +3,14 @@
 Dates are in YYYY-MM-DD format.
 
 
+## v0.3.3 (2021-03-04)
+### Fixed
+- Fixed a bug in `fold_constants` where it would fail if ONNX-Runtime could not run a node with constant inputs.
+    In such cases, the graph is now partitioned to exclude the node before running another pass of constant folding.
+- Fixed a bug where graph output tensors would still point to consumer nodes that had been removed from the graph.
+- Constant folding is now significantly faster in models with large weights.
+
+
 ## v0.3.2 (2021-02-13)
 ### Added
 - Added support for folding `Shape` nodes in `fold_constants`. This requires that shape inference has been run
