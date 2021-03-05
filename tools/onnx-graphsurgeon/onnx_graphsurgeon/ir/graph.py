@@ -16,12 +16,12 @@
 
 import copy
 from collections import OrderedDict, defaultdict
-from typing import Dict, Sequence, Set, Tuple
+from typing import Sequence
 
 import numpy as np
 from onnx_graphsurgeon.ir.node import Node
 from onnx_graphsurgeon.ir.tensor import Constant, Tensor, Variable
-from onnx_graphsurgeon.logger.logger import G_LOGGER
+from onnx_graphsurgeon.logger import G_LOGGER
 from onnx_graphsurgeon.util import misc
 
 
@@ -249,7 +249,8 @@ class Graph(object):
         Removes unused nodes and tensors from the graph.
         A node or tensor is considered unused if it does not contribute to any of the graph outputs.
 
-        Additionally, any producer nodes of graph input tensors are removed from the graph.
+        Additionally, any producer nodes of graph input tensors, as well as consumer nodes of graph output
+        tensors that are not in the graph, are removed from the graph.
 
         *Note: This function will never modify graph output tensors.*
 
@@ -272,7 +273,7 @@ class Graph(object):
         G_LOGGER.debug("Cleaning up {:}".format(self.name))
 
         with self.node_ids():
-            # Graph inputs cannot have producers
+            # Graph input producers must be removed first so used_node_ids is correct.
             for inp in self.inputs:
                 inp.inputs.clear()
 
@@ -295,7 +296,10 @@ class Graph(object):
                     node.outputs.clear()
                     G_LOGGER.verbose("Removing unused node: {:}".format(node))
 
-            # Last pass to remove any hanging tensors - tensors without outputs
+            for out in self.outputs:
+                out.outputs = [n_out for n_out in out.outputs if hasattr(n_out, "id") and n_out.id in used_node_ids]
+
+            # Remove any hanging tensors - tensors without outputs
             if remove_unused_node_outputs:
                 graph_output_names = set([tensor.name for tensor in self.outputs])
                 for node in nodes:
@@ -414,7 +418,7 @@ class Graph(object):
         return tensor_map
 
 
-    def fold_constants(self, fold_shapes=True, recurse_subgraphs=True):
+    def fold_constants(self, fold_shapes=True, recurse_subgraphs=True, partitioning=None):
         """
         Folds constants in-place in the graph. The graph must be topologically sorted prior to
         calling this function (see `toposort()`).
@@ -434,6 +438,17 @@ class Graph(object):
             recurse_subgraphs (bool):
                     Whether to recursively fold constants in subgraphs.
                     Defaults to True.
+            partitioning (Union[str, None]):
+                    Whether/How to partition the graph so that errors in folding one
+                    part of a model do not affect other parts. Available modes are:
+
+                    - None: Do not partition the graph. If inference fails, no constants are folded.
+                    - "basic": Partition the graph. If inference fails in one partition, other partitions will
+                            remain unaffected.
+                    - "recursive": Parition the graph recursively. If inference fails in a partition, the partition
+                            will be further paritioned.
+
+                    Defaults to None.
 
         Returns:
             self
@@ -441,17 +456,20 @@ class Graph(object):
         import onnxruntime as rt
         from onnx_graphsurgeon.exporters.onnx_exporter import export_onnx
 
+        PARTITIONING_MODES = [None, "basic", "recursive"]
+        if partitioning not in PARTITIONING_MODES:
+            G_LOGGER.critical("Argument for parameter 'partitioning' must be one of: {:}".format(PARTITIONING_MODES))
+
         if recurse_subgraphs:
             for node in self.nodes:
                 for attr in node.attrs.values():
                     if isinstance(attr, Graph):
-                        attr.fold_constants(fold_shapes)
+                        attr.fold_constants(fold_shapes=fold_shapes, partitioning=partitioning)
 
         G_LOGGER.debug("Folding constants in {:}".format(self.name))
 
-        temp_graph = self.copy()
-
-        temp_tensors = list(temp_graph.tensors().values())
+        graph_clone = self.copy()
+        clone_tensors = list(graph_clone.tensors().values())
 
         # We find graph constants in two passes:
         # Pass 1 finds all Constant tensors in the graph, then walks over their outputs.
@@ -461,13 +479,22 @@ class Graph(object):
         def update_foldable_outputs(graph_constants):
             # Walks along the outputs of graph_constants to see if they can also be computed statically.
             # Since the graph is topologically sorted, this should find all constant nodes in the graph.
-            for node in temp_graph.nodes:
+            for node in graph_clone.nodes:
                 if all([inp.name in graph_constants for inp in node.inputs]): # Nodes without inputs are always evaluated as constants.
                     graph_constants.update({out.name: out for out in node.outputs})
             return graph_constants
 
         # Pass 1
-        graph_constants = {tensor.name: tensor for tensor in temp_tensors if isinstance(tensor, Constant)}
+        graph_constants = {tensor.name: tensor for tensor in clone_tensors if isinstance(tensor, Constant)}
+
+        # Replaces outputs of Constant nodes with constant tensors
+        for tensor in clone_tensors:
+            if len(tensor.inputs) == 1:
+                node = tensor.inputs[0]
+                if node.op == "Constant":
+                    graph_constants[tensor.name] = tensor.to_constant(node.attrs["value"]._values) # Using ._values avoids copying
+                    graph_constants[tensor.name].inputs.clear()
+
         graph_constants = update_foldable_outputs(graph_constants)
 
         # Pass 2
@@ -491,9 +518,8 @@ class Graph(object):
                 return None
             return np.array(inp.shape, dtype=np.int64)
 
-
         if fold_shapes:
-            for tensor in temp_tensors:
+            for tensor in clone_tensors:
                 shape_of = lower_shape(tensor)
                 if shape_of is not None:
                     graph_constants[tensor.name] = tensor.to_constant(shape_of)
@@ -501,26 +527,84 @@ class Graph(object):
 
             graph_constants = update_foldable_outputs(graph_constants)
 
-        # Next build a graph with just the constants and evaluate
         if not graph_constants:
             G_LOGGER.warning("Could not find any operations in this graph ({:}) that can be folded. "
                              "This could mean that constant folding has already been run on this graph. "
                              "Skipping.".format(self.name))
             return self
 
-        output_names = list(graph_constants.keys())
-        temp_graph.outputs = list(graph_constants.values())
-        temp_graph.cleanup()
 
-        # Determining types is not trivial, and ONNX-RT does its own type inference.
-        sess = rt.InferenceSession(export_onnx(temp_graph, do_type_check=False).SerializeToString())
-        constant_values = sess.run(output_names, {})
+        def partition_and_infer(subgraph):
+            def get_out_node_ids():
+                # Gets the final output nodes - producer nodes of graph output tensors without other outputs.
+                with subgraph.node_ids():
+                    out_node_ids = set()
+                    for out in subgraph.outputs:
+                        if not out.outputs and not isinstance(out, Constant):
+                            for n_inp in out.inputs:
+                                out_node_ids.add(n_inp.id)
+                return out_node_ids
+
+            # Compute each output node in a separate subgraph.
+            out_node_ids = get_out_node_ids()
+            constant_values = {}
+
+            for index in out_node_ids: # Have to use index since 'node' is not in part
+                part = subgraph.copy()
+                out_node = part.nodes[index]
+                part.outputs = out_node.outputs
+                part.name = "Folding: {:}".format([out.name for out in part.outputs])
+                part.cleanup()
+                names = [out.name for out in part.outputs]
+
+                try:
+                    # Determining types is not trivial, and ONNX-RT does its own type inference.
+                    sess = rt.InferenceSession(export_onnx(part, do_type_check=False).SerializeToString())
+                    values = sess.run(names, {})
+                except Exception as err:
+                    G_LOGGER.warning("Inference failed for subgraph: {:}. Note: Error was:\n{:}".format(part.name, err))
+                    if partitioning == "recursive":
+                        G_LOGGER.verbose("Attempting to recursively partition subgraph")
+                        # Partition failed, peel off last node.
+                        # We only need to remove one node, so avoid doing an expensive call to cleanup()
+                        part.outputs = out_node.inputs
+                        del part.nodes[part.nodes.index(out_node)]
+                        out_node.outputs.clear()
+                        out_node.inputs.clear()
+
+                    constant_values.update(partition_and_infer(part))
+                else:
+                    constant_values.update({name: val for name, val in zip(names, values)})
+
+            return constant_values
+
+
+        # Next, evaluate the foldable variables with ONNX-Runtime
+        graph_clone.outputs = [t for t in graph_constants.values() if not isinstance(t, Constant)]
+        graph_clone.cleanup()
+
+        constant_values = {}
+        if partitioning:
+            constant_values = partition_and_infer(graph_clone)
+        else:
+            names = [t.name for t in graph_clone.outputs]
+            try:
+                sess = rt.InferenceSession(export_onnx(graph_clone, do_type_check=False).SerializeToString())
+                values = sess.run(names, {})
+                constant_values.update({name: val for name, val in zip(names, values)})
+            except:
+                pass
+
+        # Using ._values avoids a deep copy of the values.
+        constant_values.update({name: tensor._values for name, tensor in graph_constants.items() if isinstance(tensor, Constant)})
 
         # Finally, replace the Variables in the original graph with constants.
         graph_tensors = self.tensors()
-        for name, values in zip(output_names, constant_values):
-            graph_tensors[name].to_constant(values)
-            graph_tensors[name].inputs.clear() # Constants do not need inputs
+        for name, values in constant_values.items():
+            tensor = graph_tensors[name]
+            if not isinstance(tensor, Constant):
+                tensor.to_constant(values)
+                tensor.inputs.clear() # Constants do not need inputs
 
         return self
 
@@ -632,7 +716,7 @@ class Graph(object):
 
     def __str__(self):
         nodes_str = "\n".join([str(node) for node in self.nodes])
-        return "Graph {:} (Opset: {:})\nInputs: {:}\nNodes: {:}\nOutputs: {:}".format(
+        return "Graph {:} (Opset: {:})\nInputs: {:}\nNodes:\n{:}\nOutputs: {:}".format(
                 self.name, self.opset, self.inputs, nodes_str, self.outputs)
 
 
