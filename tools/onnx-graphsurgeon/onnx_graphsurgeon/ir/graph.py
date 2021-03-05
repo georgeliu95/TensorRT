@@ -571,6 +571,8 @@ class Graph(object):
                         del part.nodes[part.nodes.index(out_node)]
                         out_node.outputs.clear()
                         out_node.inputs.clear()
+                    else:
+                        G_LOGGER.info("You may see better results if you set partitioning='recursive'")
 
                     constant_values.update(partition_and_infer(part))
                 else:
@@ -592,8 +594,9 @@ class Graph(object):
                 sess = rt.InferenceSession(export_onnx(graph_clone, do_type_check=False).SerializeToString())
                 values = sess.run(names, {})
                 constant_values.update({name: val for name, val in zip(names, values)})
-            except:
-                pass
+            except Exception as err:
+                G_LOGGER.warning("Inference failed. You may want to try enabling partitioning to see better results. "
+                                 "Note: Error was:\n{:}".format(err))
 
         # Using ._values avoids a deep copy of the values.
         constant_values.update({name: tensor._values for name, tensor in graph_constants.items() if isinstance(tensor, Constant)})
