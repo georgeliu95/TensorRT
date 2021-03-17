@@ -18,7 +18,7 @@ ARG OS_VERSION=20.04
 FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 7.2.2.3
+ENV TRT_VERSION 7.2.3.4
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -70,7 +70,7 @@ RUN apt-get install -y libcudnn8-dev
 # Install TensorRT
 # TODO update with ML-repo when available
 RUN mkdir -p /tmp/tensorrt && cd /tmp/tensorrt && \
-    wget -r -np -nd -k http://cuda-repo/release-candidates/Libraries/TensorRT/v7.2/7.2.2.3-11a8ee72/11.1-r455/Ubuntu20_04-x64/deb/ && \
+    wget -r -np -nd -k http://cuda-repo/release-candidates/Libraries/TensorRT/v7.2/7.2.3.4-4226f6c2/11.1-r455/Ubuntu20_04-x64/deb/ && \
     dpkg -i libnvinfer7_*.deb libnvinfer-plugin7_*.deb libnvparsers7_*.deb libnvinfer-dev_*.deb libnvinfer-plugin-dev_*.deb libnvparsers-dev_*.deb && \
     rm -f *
 
