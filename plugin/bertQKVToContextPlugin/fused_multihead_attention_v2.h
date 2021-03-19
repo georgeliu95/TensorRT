@@ -391,7 +391,6 @@ static const struct FusedMultiHeadAttentionKernelMetaInfoV2
         fused_multihead_attention_v2_fp16_384_64_kernel_sm86_cubin_len,
         "fused_multihead_attention_v2_fp16_384_64_kernel_sm80", 65536, 256, 0, false},
 
-
     {DATA_TYPE_INT8, 128, 64, kSM_86, fused_multihead_attention_v2_int8_128_64_kernel_sm86_cubin,
         fused_multihead_attention_v2_int8_128_64_kernel_sm86_cubin_len,
         "fused_multihead_attention_v2_int8_128_64_kernel_sm80_interleaved_noloop", 20480, 128, 16, true},
