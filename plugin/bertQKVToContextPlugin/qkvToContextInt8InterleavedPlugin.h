@@ -18,6 +18,7 @@
 #define TRT_QKV_TO_CONTEXT_INTERLEAVED_PLUGIN_H
 
 #include "NvInferPlugin.h"
+#include "bertCommon.h"
 #include "cublas_v2.h"
 #include "fused_multihead_attention_v2.h"
 #include <cuda.h>
@@ -28,7 +29,8 @@ namespace bert
 {
 static constexpr int32_t kSM_XAVIER = 72;
 static constexpr int32_t kSM_TURING = 75;
-static constexpr int32_t kSM_AMPERE = 80;
+static constexpr int32_t kSM_AMPERE_100 = 80;
+static constexpr int32_t kSM_AMPERE_10X = 86;
 
 class QKVToContextInterleavedPlugin : public nvinfer1::IPluginV2DynamicExt
 {
