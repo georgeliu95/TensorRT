@@ -87,7 +87,7 @@ class Graph(object):
         return register_func
 
 
-    def __init__(self, nodes: Sequence[Node]=None, inputs: Sequence[Tensor]=None, outputs: Sequence[Tensor]=None, name=None, doc_string=None, opset=None):
+    def __init__(self, nodes: Sequence[Node]=None, inputs: Sequence[Tensor]=None, outputs: Sequence[Tensor]=None, name=None, doc_string=None, opset=None, import_domains=None):
         """
         Args:
             nodes (Sequence[Node]): A list of the nodes in this graph.
@@ -105,6 +105,7 @@ class Graph(object):
 
         self.doc_string = misc.default_value(doc_string, "")
         self.opset = misc.default_value(opset, Graph.DEFAULT_OPSET)
+        self.import_domains = misc.default_value(import_domains, None)
         # Printing graphs can be very expensive
         G_LOGGER.ultra_verbose(lambda: "Created Graph: {:}".format(self))
         # For layer() function
