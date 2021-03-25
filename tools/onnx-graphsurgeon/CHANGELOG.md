@@ -3,6 +3,13 @@
 Dates are in YYYY-MM-DD format.
 
 
+## v0.3.5 (2021-03-24)
+### Added
+- Added support for models with externally stored data. See the README for details on how to import and export such models.
+
+### Fixed
+- Operator domains are now preserved when exporting graphs to ONNX.
+
 ## v0.3.4 (2021-03-10)
 ### Fixed
 - `fold_constants` will no longer attempt to run inference if there are no constants to compute.
