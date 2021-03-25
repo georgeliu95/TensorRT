@@ -14,18 +14,20 @@
 # limitations under the License.
 #
 
-from onnx_graphsurgeon.importers.onnx_importer import OnnxImporter
-from onnx_graphsurgeon.logger.logger import G_LOGGER
-from onnx_graphsurgeon.ir.tensor import Tensor, Variable, Constant
-
-from onnx_models import identity_model, lstm_model, scan_model, dim_param_model, initializer_is_output_model, nested_dup_names
-
 from collections import OrderedDict
-import onnx.shape_inference
-import onnx.numpy_helper
+
 import numpy as np
-import pytest
 import onnx
+import onnx.numpy_helper
+import onnx.shape_inference
+import pytest
+from onnx_graphsurgeon.importers.onnx_importer import OnnxImporter
+from onnx_graphsurgeon.ir.tensor import Constant, Variable
+from onnx_graphsurgeon.logger.logger import G_LOGGER
+
+from onnx_models import (dim_param_model, ext_weights, identity_model,
+                         initializer_is_output_model, lstm_model,
+                         nested_dup_names, scan_model)
 
 G_LOGGER.severity = G_LOGGER.ULTRA_VERBOSE
 
@@ -117,9 +119,9 @@ class TestOnnxImporter(object):
 
 
     @pytest.mark.parametrize("model",
-        [identity_model(), lstm_model(), scan_model(), dim_param_model(), initializer_is_output_model(), nested_dup_names()],
-        ids=lambda model: str(model)
-    )
+        [identity_model(), lstm_model(), scan_model(), dim_param_model(),
+         initializer_is_output_model(), nested_dup_names(), ext_weights()],
+        ids=lambda model: str(model))
     def test_import_graph(self, model):
         graph = OnnxImporter.import_graph(model.load().graph)
         model.assert_equal(graph)

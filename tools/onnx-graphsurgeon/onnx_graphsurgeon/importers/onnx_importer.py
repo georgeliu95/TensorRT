@@ -82,14 +82,17 @@ class OnnxImporter(BaseImporter):
             G_LOGGER.warning("Model does not contain opset information! Using default opset.")
             return None
 
+
     @staticmethod
     def get_import_domains(model: onnx.ModelProto):
         return model.opset_import
 
+
     @staticmethod
     def import_tensor(onnx_tensor: Union[onnx.ValueInfoProto, onnx.TensorProto]) -> Tensor:
         if isinstance(onnx_tensor, onnx.TensorProto):
-            return Constant(name=onnx_tensor.name, values=LazyValues(onnx_tensor))
+            data_location = int(onnx_tensor.data_location) if onnx_tensor.HasField("data_location") else None
+            return Constant(name=onnx_tensor.name, values=LazyValues(onnx_tensor), data_location=data_location)
         else:
             return Variable(name=onnx_tensor.name, dtype=get_onnx_tensor_dtype(onnx_tensor), shape=get_onnx_tensor_shape(onnx_tensor))
 

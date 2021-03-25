@@ -20,7 +20,7 @@ import onnx.numpy_helper
 from onnx_graphsurgeon.exporters.base_exporter import BaseExporter
 from onnx_graphsurgeon.ir.graph import Graph
 from onnx_graphsurgeon.ir.node import Node
-from onnx_graphsurgeon.ir.tensor import LazyValues, Constant, Tensor, Variable
+from onnx_graphsurgeon.ir.tensor import Constant, LazyValues, Tensor, Variable
 from onnx_graphsurgeon.logger.logger import G_LOGGER
 
 
@@ -37,6 +37,8 @@ class OnnxExporter(BaseExporter):
             onnx_tensor = tensor._values.tensor
         else:
             onnx_tensor = onnx.numpy_helper.from_array(tensor.values)
+            if tensor.data_location is not None:
+                onnx_tensor.data_location = tensor.data_location
         onnx_tensor.name = tensor.name
         return onnx_tensor
 
@@ -91,8 +93,11 @@ class OnnxExporter(BaseExporter):
             if tensor.name in tensor_map:
                 del tensor_map[tensor.name]
 
-        # Omit tensors if we don't know their shape/type
-        value_info = [OnnxExporter.export_value_info_proto(tensor, do_type_check) for tensor in tensor_map.values() if isinstance(tensor, Variable) and tensor.dtype is not None]
+        # Omit tensors from value_info if we don't know their shape/dtype
+        def has_value_info(tensor):
+            return isinstance(tensor, Variable) and (tensor.dtype is not None or tensor.shape is not None)
+        value_info = [OnnxExporter.export_value_info_proto(tensor, do_type_check) for tensor in tensor_map.values() if has_value_info(tensor)]
+
         return onnx.helper.make_graph(nodes=nodes, name=graph.name, inputs=inputs, outputs=outputs, initializer=initializer, doc_string=graph.doc_string, value_info=value_info)
 
 

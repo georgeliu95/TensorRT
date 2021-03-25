@@ -56,18 +56,23 @@ class Tensor(object):
         return self.name == ""
 
 
-    def to_constant(self, values: np.ndarray):
+    def to_constant(self, values: np.ndarray, data_location: int=None):
         """
         Modifies this tensor in-place to convert it to a Constant. This means that all consumers/producers of the tensor will see the update.
 
         Args:
             values (np.ndarray): The values in this tensor
 
+            data_location (int):
+                    An enum value indicating the location where the tensor data is stored.
+                    Generally, this will come from onnx.TensorProto.DataLocation.
+
         Returns:
             self
         """
         self.__class__ = Constant
         self.values = values
+        self.data_location = data_location
         return self
 
 
@@ -208,15 +213,17 @@ class LazyValues(object):
 
 
 class Constant(Tensor):
-    def __init__(self, name: str, values: Union[np.ndarray, LazyValues]):
+    def __init__(self, name: str, values: Union[np.ndarray, LazyValues], data_location: int=None):
         """
         Represents a Tensor whose value is known.
 
         Args:
             name (str): The name of the tensor.
             values (numpy.ndarray): The values in this tensor, in the form of a NumPy array.
-            dtype (numpy.dtype): The data type of the tensor.
-            shape (Sequence[Union[int, str]]): The shape of the tensor.
+
+            data_location (int):
+                    An enum value indicating the location where the tensor data is stored.
+                    Generally, this will come from onnx.TensorProto.DataLocation.
         """
         self.name = name
         self.inputs = misc.SynchronizedList(self, field_name="outputs", initial=[])
@@ -226,6 +233,7 @@ class Constant(Tensor):
                               "Please provide a NumPy array or LazyValues instance to construct a Constant. "
                               "Note: Provided `values` parameter was: {:}".format(values))
         self._values = values
+        self.data_location = data_location
 
 
     def to_variable(self, dtype: np.dtype=None, shape: Sequence[Union[int, str]]=[]):
