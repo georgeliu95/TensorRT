@@ -15,7 +15,7 @@ This repository contains the Open Source Software (OSS) components of NVIDIA Ten
 To build the TensorRT-OSS components, you will first need the following software packages.
 
 **TensorRT GA build**
-* [TensorRT](https://developer.nvidia.com/nvidia-tensorrt-download) v7.2.3.4
+* [TensorRT](https://developer.nvidia.com/nvidia-tensorrt-download) v8.0.0.0
 
 **System Packages**
 * [CUDA](https://developer.nvidia.com/cuda-toolkit)
@@ -77,16 +77,16 @@ To build the TensorRT-OSS components, you will first need the following software
 
     ```bash
     cd ~/Downloads
-    tar -xvzf TensorRT-7.2.3.4.Ubuntu-18.04.x86_64-gnu.cuda-11.1.cudnn8.1.tar.gz
-    export TRT_LIBPATH=`pwd`/TensorRT-7.2.3.4
+    tar -xvzf TensorRT-8.0.0.0.Ubuntu-18.04.x86_64-gnu.cuda-11.1.cudnn8.1.tar.gz
+    export TRT_LIBPATH=`pwd`/TensorRT-8.0.0.0
     ```
 
     **Example: Windows on x86-64 with cuda-11.0**
 
     ```powershell
     cd ~\Downloads
-    Expand-Archive .\TensorRT-7.2.3.4.Windows10.x86_64.cuda-11.0.cudnn8.1.zip
-    $Env:TRT_LIBPATH = '$(Get-Location)\TensorRT-7.2.3.4'
+    Expand-Archive .\TensorRT-8.0.0.0.Windows10.x86_64.cuda-11.0.cudnn8.1.zip
+    $Env:TRT_LIBPATH = '$(Get-Location)\TensorRT-8.0.0.0'
     $Env:PATH += 'C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\MSBuild\15.0\Bin\'
     ```
 
@@ -207,5 +207,5 @@ For native builds, install the [prerequisite](#prerequisites) *System Packages*.
 
 ## Known Issues
 
-#### TensorRT 7.2.3.4
+#### TensorRT 8.0.0.0
 * None

@@ -81,9 +81,9 @@ The following software version configuration has been tested:
 
 |Software|Version|
 |--------|-------|
-|Python|3.6.9|
-|TensorRT|7.2.3.4|
-|CUDA|11.1.1|
+|Python|3.8.x|
+|TensorRT|8.0.0.0|
+|CUDA|11.3|
 
 
 ## Setup
@@ -573,9 +573,7 @@ python3 builder_varseqlen.py -c models/fine-tuned/bert_tf_ckpt_large_qa_squad2_a
 
 Running inference and collecting performance data is the same as without sparsity.
 
-### Megatron
-
-> NOTE: Temporary Megatron-BERT checkpoint copy: [megatron_sparse_ckpt_large_qa_squad2_qat_384.pkl](http://10.110.38.142/share/checkpoints/megatron_sparse_ckpt_large_qa_squad2_qat_384.pkl)
+### Megatron BERT
 
 Megatron-BERT QAT pickle weights can be downloaded from: [<general-data>/joe/demoBERT/weights](https://gitlab-master.nvidia.com/TensorRT/Data/general-data/-/tree/master/joe/demoBERT/weights)
 * For BERT-MT large maxSeqLen=384, for example (`BERT-MT_large_s384_cON.pkl`):
