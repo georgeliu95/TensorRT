@@ -15,10 +15,11 @@
 ARG CUDA_VERSION=11.1
 ARG OS_VERSION=18.04
 
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${OS_VERSION}
+#FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}
+FROM gitlab-master.nvidia.com:5005/cuda-installer/cuda/release-candidate/x86_64:11.3.0-devel-ubuntu18.04-015
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 7.2.3.4
+ENV TRT_VERSION 8.0.0.0
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -28,6 +29,9 @@ RUN groupadd -r -f -g ${gid} trtuser && useradd -o -r -u ${uid} -g ${gid} -ms /b
 RUN usermod -aG sudo trtuser
 RUN echo 'trtuser:nvidia' | chpasswd
 RUN mkdir -p /workspace && chown trtuser /workspace
+
+# Required to build Ubuntu 20.04 without user prompts with DLFW container
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install requried libraries
 RUN apt-get update && apt-get install -y software-properties-common
@@ -61,13 +65,19 @@ RUN apt-get install -y --no-install-recommends \
     ln -s /usr/bin/python3 python &&\
     ln -s /usr/bin/pip3 pip;
 
-# Install TensorRT
+# Install cuDNN
+# RUN apt-get install -y libcudnn8-dev
 RUN cd /tmp &&\
-    wget https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1804/x86_64/nvidia-machine-learning-repo-ubuntu1804_1.0.0-1_amd64.deb &&\
-    dpkg -i nvidia-machine-learning-repo-*.deb && apt-get update
-RUN v="${TRT_VERSION%.*}-1+cuda${CUDA_VERSION%.*}" &&\
-    apt-get install -y libnvinfer7=${v} libnvinfer-plugin7=${v} libnvparsers7=${v} libnvonnxparsers7=${v} libnvinfer-dev=${v} libnvinfer-plugin-dev=${v} libnvparsers-dev=${v} python3-libnvinfer=${v} &&\
-    apt-mark hold libnvinfer7 libnvinfer-plugin7 libnvparsers7 libnvonnxparsers7 libnvinfer-dev libnvinfer-plugin-dev libnvparsers-dev python3-libnvinfer
+    wget http://cuda-repo/release-candidates/repos/cudnn_r8.2_CUDA11.3/8.2.0/ubuntu1804/x86_64/libcudnn8_8.2.0.27-1+cuda11.3_amd64.deb &&\
+    wget http://cuda-repo/release-candidates/repos/cudnn_r8.2_CUDA11.3/8.2.0/ubuntu1804/x86_64/libcudnn8-dev_8.2.0.27-1+cuda11.3_amd64.deb &&\
+    yes | dpkg -i libcudnn8_8.2.0.27-1+cuda11.3_amd64.deb libcudnn8-dev_8.2.0.27-1+cuda11.3_amd64.deb
+
+# Install TensorRT
+# TODO update with ML-repo when available
+RUN mkdir -p /tmp/tensorrt && cd /tmp/tensorrt && \
+    wget -r -np -nd -k http://cuda-repo/release-candidates/Libraries/TensorRT/v8.0/8.0.0.0-0573e592/11.3-r465/Ubuntu18_04-x64/deb/ &&\
+    yes | dpkg -i libnvinfer8_*.deb libnvinfer-plugin8_*.deb libnvparsers8_*.deb libnvonnxparsers8_*.deb libnvinfer-dev_*.deb libnvinfer-plugin-dev_*.deb libnvparsers-dev_*.deb libnvonnxparsers-dev_*.deb python3-libnvinfer_*.deb python3-libnvinfer-dev_*.deb && \
+    rm -f *
 
 # Install PyPI packages
 RUN pip3 install --upgrade pip
