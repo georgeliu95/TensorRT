@@ -44,17 +44,14 @@ class OnnxExporter(BaseExporter):
 
 
     @staticmethod
-    def export_value_info_proto(tensor: Tensor, do_type_check: bool) -> onnx.ValueInfoProto:
-        if isinstance(tensor, Constant):
-            onnx_tensor = onnx.helper.make_tensor_value_info(tensor.name, dtype_to_onnx(tensor.values.dtype), tensor.values.shape)
-        elif isinstance(tensor, Variable):
-            if do_type_check and tensor.dtype is None:
-                G_LOGGER.critical("Graph input and output tensors must include dtype information. Please set the dtype attribute for: {:}".format(tensor))
+    def export_value_info_proto(tensor: Variable, do_type_check: bool) -> onnx.ValueInfoProto:
+        if do_type_check and tensor.dtype is None:
+            G_LOGGER.critical("Graph input and output tensors must include dtype information. Please set the dtype attribute for: {:}".format(tensor))
 
-            if tensor.dtype is not None:
-                onnx_tensor = onnx.helper.make_tensor_value_info(tensor.name, dtype_to_onnx(tensor.dtype), tensor.shape)
-            else:
-                onnx_tensor = onnx.helper.make_empty_tensor_value_info(tensor.name)
+        if tensor.dtype is not None:
+            onnx_tensor = onnx.helper.make_tensor_value_info(tensor.name, dtype_to_onnx(tensor.dtype), tensor.shape)
+        else:
+            onnx_tensor = onnx.helper.make_empty_tensor_value_info(tensor.name)
         return onnx_tensor
 
 

@@ -3,6 +3,14 @@
 Dates are in YYYY-MM-DD format.
 
 
+## v0.3.6 (2021-03-27)
+### Fixed
+- `fold_constants()` no longer loads constant values into numpy arrays. This can save a significant amount of memory.
+- `cleanup()` will no longer remove unused graph inputs by default - this was causing invalid ONNX models to be generated
+    in cases with `Loop` nodes. Set `remove_unused_graph_inputs` to `True` to revert to the old behavior.
+- `cleanup()` will no longer reorder node inputs in cases where they are also graph outputs.
+
+
 ## v0.3.5 (2021-03-24)
 ### Added
 - Added support for models with externally stored data. See the README for details on how to import and export such models.

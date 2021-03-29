@@ -245,7 +245,7 @@ class Graph(object):
         return used_node_ids, used_tensors
 
 
-    def cleanup(self, remove_unused_node_outputs=False, recurse_subgraphs=True):
+    def cleanup(self, remove_unused_node_outputs=False, recurse_subgraphs=True, remove_unused_graph_inputs=False):
         """
         Removes unused nodes and tensors from the graph.
         A node or tensor is considered unused if it does not contribute to any of the graph outputs.
@@ -261,6 +261,9 @@ class Graph(object):
             recurse_subgraphs (bool):
                     Whether to recursively cleanup subgraphs.
                     Defaults to True.
+            remove_unused_graph_inputs (bool):
+                    Whether to remove unused graph inputs.
+                    Defaults to False.
 
         Returns:
             self
@@ -269,7 +272,8 @@ class Graph(object):
             for node in self.nodes:
                 for attr in node.attrs.values():
                     if isinstance(attr, Graph):
-                        attr.cleanup(remove_unused_node_outputs)
+                        attr.cleanup(remove_unused_node_outputs=remove_unused_node_outputs,
+                                     remove_unused_graph_inputs=remove_unused_graph_inputs)
 
         G_LOGGER.debug("Cleaning up {:}".format(self.name))
 
@@ -282,7 +286,7 @@ class Graph(object):
 
             inputs = []
             for inp in self.inputs:
-                if inp in used_tensors:
+                if inp in used_tensors or not remove_unused_graph_inputs:
                     inputs.append(inp)
                 else:
                     G_LOGGER.verbose("Removing unused input: {:}".format(inp))
@@ -296,9 +300,6 @@ class Graph(object):
                     node.inputs.clear()
                     node.outputs.clear()
                     G_LOGGER.verbose("Removing unused node: {:}".format(node))
-
-            for out in self.outputs:
-                out.outputs = [n_out for n_out in out.outputs if hasattr(n_out, "id") and n_out.id in used_node_ids]
 
             # Remove any hanging tensors - tensors without outputs
             if remove_unused_node_outputs:
@@ -461,12 +462,6 @@ class Graph(object):
         if partitioning not in PARTITIONING_MODES:
             G_LOGGER.critical("Argument for parameter 'partitioning' must be one of: {:}".format(PARTITIONING_MODES))
 
-        if recurse_subgraphs:
-            for node in self.nodes:
-                for attr in node.attrs.values():
-                    if isinstance(attr, Graph):
-                        attr.fold_constants(fold_shapes=fold_shapes, partitioning=partitioning)
-
         G_LOGGER.debug("Folding constants in {:}".format(self.name))
 
         graph_clone = self.copy()
@@ -549,7 +544,7 @@ class Graph(object):
                 out_node = part.nodes[index]
                 part.outputs = out_node.outputs
                 part.name = "Folding: {:}".format([out.name for out in part.outputs])
-                part.cleanup()
+                part.cleanup(remove_unused_graph_inputs=True)
                 names = [out.name for out in part.outputs]
 
                 try:
@@ -578,7 +573,7 @@ class Graph(object):
 
         # Next, evaluate the foldable variables with ONNX-Runtime
         graph_clone.outputs = [t for t in graph_constants.values() if not isinstance(t, Constant)]
-        graph_clone.cleanup()
+        graph_clone.cleanup(remove_unused_graph_inputs=True)
 
         # Using ._values avoids a deep copy of the values.
         constant_values = {name: tensor._values for name, tensor in graph_constants.items() if isinstance(tensor, Constant)}
@@ -595,9 +590,9 @@ class Graph(object):
                     G_LOGGER.warning("Inference failed. You may want to try enabling partitioning to see better results. "
                                     "Note: Error was:\n{:}".format(err))
         elif not constant_values:
-            G_LOGGER.warning("Could not find any nodes in this graph ({:}) that can be folded. "
-                             "This could mean that constant folding has already been run on this graph. "
-                             "Skipping.".format(self.name))
+            G_LOGGER.info("Could not find any nodes in this graph ({:}) that can be folded. "
+                          "This could mean that constant folding has already been run on this graph. "
+                          "Skipping.".format(self.name))
             return self
 
         # Finally, replace the Variables in the original graph with constants.
@@ -607,6 +602,14 @@ class Graph(object):
             if not isinstance(tensor, Constant):
                 tensor.to_constant(values)
                 tensor.inputs.clear() # Constants do not need inputs
+
+
+        # Folding subgraphs after the outer graph can lead to better folding.
+        if recurse_subgraphs:
+            for node in self.nodes:
+                for attr in node.attrs.values():
+                    if isinstance(attr, Graph):
+                        attr.fold_constants(fold_shapes=fold_shapes, partitioning=partitioning)
 
         return self
 
@@ -691,9 +694,9 @@ class Graph(object):
         Returns:
             Graph: A copy of the graph.
         """
-        tensor_map = copy.copy(misc.default_value(tensor_map, {}))
         # First, reconstruct each tensor in the graph, but with no inputs or outputs
         local_tensor_map = self.tensors()
+        tensor_map = copy.copy(misc.default_value(tensor_map, {}))
         tensor_map.update({name: tensor.copy() for name, tensor in local_tensor_map.items()})
 
         def get_tensor(name):

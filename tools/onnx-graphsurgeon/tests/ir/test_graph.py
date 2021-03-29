@@ -17,14 +17,15 @@
 import copy
 
 import numpy as np
-from numpy.core.numeric import identity
+import onnx_graphsurgeon as gs
 import pytest
 from onnx_graphsurgeon.ir.graph import Graph
 from onnx_graphsurgeon.ir.node import Node
-from onnx_graphsurgeon.ir.tensor import Constant, Variable
+from onnx_graphsurgeon.ir.tensor import Constant, LazyValues, Variable
 from onnx_graphsurgeon.logger.logger import G_LOGGER
 from onnx_graphsurgeon.util.exception import OnnxGraphSurgeonException
 from onnx_graphsurgeon.util.misc import SynchronizedList
+from onnx_models import const_foldable
 
 G_LOGGER.severity = G_LOGGER.ULTRA_VERBOSE
 
@@ -427,7 +428,7 @@ class TestCleanup(object):
             assert all([used_tensor in used_tensors for used_tensor in graph_used_tensors])
 
 
-    def test_cleanup_multi_tier(self):
+    def test_multi_tier(self):
         graph, _ = toposort_multi_tier_output_graph()
         tensor = graph.outputs.pop()
         unused_node = tensor.inputs[0]
@@ -440,7 +441,7 @@ class TestCleanup(object):
         assert tensor.name not in tensor_map
 
 
-    def test_cleanup_remove_unused_node_outputs(self):
+    def test_remove_unused_node_outputs(self):
         graph, _  = toposort_linear_graph()
         graph.toposort()
         graph_output = graph.outputs[0]
@@ -455,7 +456,7 @@ class TestCleanup(object):
         assert graph.outputs[0] == graph_output # Graoh outputs will never be removed
 
 
-    def test_cleanup_graph_input_producers(self):
+    def test_graph_input_producers(self):
         graph, _ = toposort_linear_graph()
         tensor_map = graph.tensors()
         assert "x" in tensor_map
@@ -467,24 +468,25 @@ class TestCleanup(object):
         assert "x" not in cleaned_tensor_map
 
 
-    def test_cleanup_independent_path(self):
+    @pytest.mark.parametrize("remove_unused_graph_inputs", [True, False])
+    def test_independent_path(self, remove_unused_graph_inputs):
         graph, _ = toposort_linear_graph()
         # Build out a path totally unrelated to rest of the graph
         indep0 = Variable(name="indep0")
         indep1 = Variable(name="indep1")
         node = Node(op="IndepTest", inputs=[indep0], outputs=[indep1])
-        graph.inputs.append(indep0) # Unused inputs should be removed as well
         graph.nodes.append(node)
-        graph.cleanup()
-        assert indep0 not in graph.inputs
-        assert node not in graph.nodes
+        graph.inputs.append(indep0)
+        graph.cleanup(remove_unused_graph_inputs=remove_unused_graph_inputs)
+        assert indep0 not in graph.inputs or not remove_unused_graph_inputs
+        assert node not in graph.nodes or not remove_unused_graph_inputs
 
         tensor_map = graph.tensors()
-        assert indep0.name not in tensor_map
-        assert indep1.name not in tensor_map
+        assert indep0.name not in tensor_map or not remove_unused_graph_inputs
+        assert indep1.name not in tensor_map or not remove_unused_graph_inputs
 
 
-    def test_cleanup_nested_graph(self, nested_graph):
+    def test_nested_graph(self, nested_graph):
         nested_node = nested_graph.nodes[1]
         nested_inp = nested_node.inputs[0]
         nested_out = nested_node.outputs[0]
@@ -504,6 +506,27 @@ class TestCleanup(object):
         subgraph.outputs.clear()
         nested_graph.cleanup(recurse_subgraphs=True)
         assert not subgraph.nodes
+
+
+    def test_input_is_output(self):
+        graph = Graph()
+
+        A = Variable("A", dtype=np.float32, shape=(1, 1))
+        B = Variable("B", dtype=np.float32, shape=(1, 1))
+
+        C = graph.add(A, B)
+
+        graph.inputs = [A, B]
+        graph.outputs = [C, B, A] # Out of order w/ respect to Add node inputs
+
+        # Graph should remain unchanged after cleanup, including I/O tensors.
+        graph.cleanup()
+
+        assert graph.inputs == [A, B]
+        assert graph.outputs == [C, B, A]
+        assert len(graph.nodes) == 1
+        assert graph.nodes[0].inputs == [A, B]
+        assert graph.nodes[0].outputs == [C]
 
 
 class TestCopy(object):
@@ -615,7 +638,7 @@ class TestFoldConstants(object):
     def test_basic(self, simple_foldable, partitioning):
         inp = simple_foldable.inputs[0]
 
-        simple_foldable.fold_constants(partitioning=partitioning).cleanup()
+        simple_foldable.fold_constants(partitioning=partitioning).cleanup(remove_unused_graph_inputs=True)
 
         # Extra node should be removed
         assert len(simple_foldable.nodes) == 1
@@ -769,6 +792,23 @@ class TestFoldConstants(object):
         assert len(graph.nodes) == 1
         assert graph.nodes[0].op == "Shape"
         assert isinstance(graph.outputs[0], Variable)
+
+
+    # Constant folding should not cause constant tensors in the model to be loaded.
+    def test_no_load_constants(self):
+        graph = gs.import_onnx(const_foldable().load())
+
+        new_graph = graph.fold_constants()
+
+        def check_no_const_loaded(graph):
+            num_lazy_constants = 0
+            for tensor in graph.tensors().values():
+                if isinstance(tensor, Constant) and isinstance(tensor._values, LazyValues):
+                    num_lazy_constants += 1
+            assert num_lazy_constants == 3 # Graph starts with 3 constants - none should be loaded.
+
+        check_no_const_loaded(graph)
+        check_no_const_loaded(new_graph)
 
 
 class TestIO(object):
