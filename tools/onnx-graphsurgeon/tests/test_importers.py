@@ -34,13 +34,13 @@ G_LOGGER.severity = G_LOGGER.ULTRA_VERBOSE
 class TestOnnxImporter(object):
     def test_import_variable_tensor(self):
         name = "test0"
-        shape = [1, 2, 3, 4]
+        shape = (1, 2, 3, 4)
         onnx_tensor = onnx.helper.make_tensor_value_info(name, onnx.TensorProto.FLOAT, shape)
         tensor = OnnxImporter.import_tensor(onnx_tensor)
         assert type(tensor) == Variable
         assert tensor.name == name
         assert tensor.dtype == np.float32
-        assert tensor.shape == shape
+        assert tuple(tensor.shape) == shape
 
 
     def test_import_constant_tensor(self):
@@ -50,7 +50,7 @@ class TestOnnxImporter(object):
         tensor = OnnxImporter.import_tensor(onnx_tensor)
         assert type(tensor) == Constant
         assert tensor.dtype == dtype
-        assert tensor.shape == shape
+        assert tuple(tensor.shape) == shape
 
 
     def test_import_tensor_unknown_metadata(self):
@@ -63,11 +63,11 @@ class TestOnnxImporter(object):
 
     # An empty string in `dim_param` should be treated like a dynamic dimension
     def test_import_empty_dim_param_tensor(self):
-        shape = [1, 2, "non-empty", ""]
+        shape = (1, 2, "non-empty", "")
         onnx_tensor = onnx.helper.make_tensor_value_info("test0", onnx.TensorProto.FLOAT, shape)
         tensor = OnnxImporter.import_tensor(onnx_tensor)
         assert type(tensor) == Variable
-        assert tensor.shape == shape
+        assert tuple(tensor.shape) == shape
 
 
     # Sometimes, tensor shape is not known, in which case we shouldn't import it
@@ -81,14 +81,14 @@ class TestOnnxImporter(object):
 
     # Scalars can be represented in ONNX with a dim that includes neither a dim_param nor dim_value
     def test_import_empty_dim_tensor(self):
-        shape = [None]
+        shape = (None, )
         onnx_tensor = onnx.helper.make_tensor_value_info("test0", onnx.TensorProto.FLOAT, shape)
         onnx_tensor.type.tensor_type.shape.dim[0].ClearField("dim_value")
         onnx_tensor.type.tensor_type.shape.dim[0].ClearField("dim_param")
 
         tensor = OnnxImporter.import_tensor(onnx_tensor)
         assert type(tensor) == Variable
-        assert tensor.shape == shape
+        assert tuple(tensor.shape) == shape
 
 
     # TODO: Test all attribute types - missing graph

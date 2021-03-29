@@ -71,7 +71,7 @@ class Tensor(object):
             self
         """
         self.__class__ = Constant
-        self.values = values
+        self._values = values
         self.data_location = data_location
         return self
 
@@ -138,7 +138,7 @@ class Tensor(object):
         return "{:} ({:}): (shape={:}, dtype={:})".format(type(self).__name__, self.name, self.shape, self.dtype)
 
 
-    def __repr__(self):
+    def __repr__(self): # Hack to make logging output pretty.
         return self.__str__()
 
 
@@ -197,7 +197,10 @@ class LazyValues(object):
         Args:
             tensor (onnx.TensorProto): The ONNX tensor that this instance should lazily load.
         """
+        from onnx_graphsurgeon.importers.onnx_importer import get_onnx_tensor_shape, get_onnx_tensor_dtype
         self.tensor = tensor
+        self.shape = get_onnx_tensor_shape(self.tensor)
+        self.dtype = get_onnx_tensor_dtype(self.tensor)
 
 
     def load(self):
@@ -210,6 +213,14 @@ class LazyValues(object):
         import onnx
         import onnx.numpy_helper
         return np.array(onnx.numpy_helper.to_array(self.tensor))
+
+
+    def __str__(self):
+        return "LazyValues (shape={:}, dtype={:})".format(self.shape, self.dtype)
+
+
+    def __repr__(self): # Hack to make logging output pretty.
+        return self.__str__()
 
 
 class Constant(Tensor):
@@ -247,7 +258,7 @@ class Constant(Tensor):
 
         Note: Generally, you should only ever make a copy of a Graph.
         """
-        return Constant(self.name, self.values)
+        return Constant(self.name, self._values)
 
 
     @property
@@ -265,15 +276,15 @@ class Constant(Tensor):
 
     @property
     def shape(self):
-        return self.values.shape
+        return self._values.shape
 
 
     @property
     def dtype(self):
-        return self.values.dtype.type
+        return self._values.dtype.type
 
 
-    def __repr__(self):
+    def __repr__(self): # Hack to make logging output pretty.
         ret = self.__str__()
-        ret += "\n{:}".format(self.values)
+        ret += "\n{:}".format(self._values)
         return ret
