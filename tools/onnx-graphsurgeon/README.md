@@ -5,9 +5,6 @@
 
 - [Introduction](#introduction)
 - [Installation](#installation)
-    - [Building From Source](#building-from-source)
-        - [Using Make Targets](#using-make-targets)
-        - [Building Manually](#building-manually)
 - [Examples](#examples)
 - [Understanding The Basics](#understanding-the-basics)
     - [Importers](#importers)
@@ -27,15 +24,16 @@ ONNX GraphSurgeon is a tool that allows you to easily generate new ONNX graphs, 
 
 ## Installation
 
+### Using Prebuilt Wheels
+```bash
+python3 -m pip install onnx_graphsurgeon --index-url https://pypi.ngc.nvidia.com
+```
+
 ### Building From Source
 
 #### Using Make Targets
 ```
 make install
-```
-Or, if installing inside a virtual environment:
-```
-make install_venv
 ```
 
 #### Building Manually
@@ -47,9 +45,8 @@ make build
 
 2. Install the wheel manually from **outside** the repository:
 ```
-python3 -m pip install onnx_graphsurgeon/dist/onnx_graphsurgeon-X.Y.Z-py2.py3-none-any.whl --user
+python3 -m pip install onnx_graphsurgeon/dist/onnx_graphsurgeon-*-py2.py3-none-any.whl
 ```
-where `X.Y.Z` is the version number.
 
 
 ## Examples
@@ -89,6 +86,8 @@ is an ONNX GraphSurgeon type, or an instance of that type.
 Tensors are divided into two subclasses: `Variable` and `Constant`.
 
 - A `Constant` is a tensor whose values are known upfront, and can be retrieved as a NumPy array and modified.
+    *Note: The `values` property of a `Constant` is loaded on-demand. If the property is not accessed, the values will*
+    *not be loaded as a NumPy array*.
 - A `Variable` is a tensor whose values are unknown until inference-time, but may contain information about data type and shape.
 
 The inputs and outputs of Tensors are always Nodes.

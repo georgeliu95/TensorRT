@@ -65,6 +65,23 @@ def fake(self, inp, name=None):
     return out
 
 
+@gs.Graph.register()
+def gather(self, data, indices):
+    return self.layer(op="Gather", inputs=[data, indices], outputs=["gather_out"])[0]
+
+
+@gs.Graph.register()
+def nested(self, inp, graph):
+    return self.layer(op="Nested", inputs=[inp], outputs=["nested_out"], attrs={"body": graph})[0]
+
+
+@gs.Graph.register()
+def if_op(self, cond, then_graph, else_graph):
+    return self.layer(op="If", inputs=[cond], outputs=["if_out"],
+                      attrs={"then_branch": then_graph, "else_branch": else_graph})[0]
+
+
+
 # Generates a graph where an outer node has no outputs except
 # within the subgraph. ONNX-GS should recognize that the node
 # is being used, and should not remove it during cleanup().
@@ -508,6 +525,25 @@ class TestCleanup(object):
         assert not subgraph.nodes
 
 
+    def test_node_used_only_in_nested_graph(self):
+        X = Variable("X", dtype=np.float32, shape=(1, ))
+        Y = Variable("Y", dtype=np.float32, shape=(1, ))
+        graph = Graph(inputs=[X, Y])
+
+        X_p = graph.identity(X) # X_p is only used by the subgraph, not in the outer graph.
+
+        subgraph_inp = Variable("subgraph_input", dtype=np.float32, shape=(1, ))
+        subgraph = Graph(inputs=[subgraph_inp])
+        subgraph.outputs = [subgraph.add(subgraph_inp, X_p)]
+
+        graph.outputs = [graph.nested(Y, subgraph)]
+
+        graph.cleanup(remove_unused_graph_inputs=True)
+
+        assert graph.nodes[0].op == "Identity"
+        assert graph.nodes[0].inputs == [X]
+
+
     def test_input_is_output(self):
         graph = Graph()
 
@@ -554,6 +590,13 @@ class TestCopy(object):
         assert new_graph == nested_graph
 
         new_subgraph = new_graph.nodes[1].attrs["body"]
+
+        id_out = new_subgraph.nodes[0].inputs[0]
+        assert id_out.name == "id_out"
+        assert len(id_out.inputs) == 1
+        assert id_out.inputs[0].op == "Identity"
+        assert id_out.inputs[0].inputs[0].name == "input"
+
         new_subgraph.nodes[0].outputs.clear()
         new_subgraph.nodes[1].inputs.clear()
 
@@ -809,6 +852,91 @@ class TestFoldConstants(object):
 
         check_no_const_loaded(graph)
         check_no_const_loaded(new_graph)
+
+
+    @pytest.mark.parametrize("shape, indices", [
+        (("batch", 3, "height", "width"), 1), # Scalar indices case
+        (None, 1), # Shape not inferered case
+        (("batch", 3, "height", "width"), [1]),
+        (("batch", 3, "height", 224), [1, 3]),
+        (("batch", 3, 224, 224), [1, 2, 3]),
+    ])
+    def test_shape_gather(self, shape, indices):
+        indices = np.array(indices)
+
+        inp = Variable("input", dtype=np.float32, shape=shape)
+        graph = Graph(inputs=[inp])
+
+        inp_shape = graph.shape(inp)
+        shape_part = graph.gather(inp_shape, indices=indices)
+        graph.outputs = [
+            graph.add(shape_part, shape_part),
+            graph.gather(inp_shape, indices=[0]),
+            graph.gather(inp_shape, indices=np.array(0)),
+        ]
+
+        graph.fold_constants()
+
+        if shape is not None:
+            assert isinstance(graph.outputs[0], Constant)
+            expected_shape = np.array(shape)[indices].astype(np.int64) * 2
+            assert np.all(graph.outputs[0].values == expected_shape)
+        else:
+            assert isinstance(graph.outputs[0], Variable)
+
+        assert isinstance(graph.outputs[1], Variable)
+        assert isinstance(graph.outputs[2], Variable)
+
+
+    def test_with_nested_graph(self):
+        cond = gs.Variable("cond", dtype=np.bool, shape=(1, ))
+
+        X = gs.Variable("X", dtype=np.float32, shape=(1, ))
+        Y = gs.Constant("Y", values=np.ones((1, ), dtype=np.float32))
+        graph = Graph(inputs=[X, cond])
+
+        then_graph = Graph(name="Then")
+        then_graph.outputs = [then_graph.add(Y, Y)]
+
+        else_graph = Graph(name="Else")
+        else_graph.outputs = [else_graph.add(X, else_graph.add(Y, Y))]
+
+        graph.outputs = [graph.if_op(cond, then_graph, else_graph)]
+
+        graph.fold_constants()
+        graph.cleanup()
+
+        assert len(then_graph.nodes) == 0
+        assert np.all(then_graph.outputs[0].values == (Y.values * 2))
+
+        assert len(else_graph.nodes) == 1
+        assert isinstance(else_graph.nodes[0].inputs[1], Constant)
+        assert np.all(else_graph.nodes[0].inputs[1].values == (Y.values * 2))
+
+
+    def test_const_inp_but_non_foldable_nested_graph(self):
+        cond = gs.Constant("cond", values=np.array(True))
+        X = gs.Variable("X", dtype=np.float32, shape=(1, ))
+
+        graph = Graph(inputs=[X])
+
+        then_graph = Graph(name="Then")
+        then_graph.outputs = [then_graph.add(X, X)]
+
+        else_graph = Graph(name="Else")
+        else_graph.outputs = [else_graph.add(X, else_graph.add(X, X))]
+
+        # Even though if_op looks foldable because it has all constant inputs,
+        # it's not, since its subgraphs depend on variables in the outer scope.
+        graph.outputs = [graph.if_op(cond, then_graph, else_graph)]
+
+        # This should not raise because the `If` node should be excluded from
+        # constant folding.
+        graph.fold_constants(error_ok=False).cleanup()
+
+        assert graph.nodes[0].op == "If"
+        assert len(then_graph.nodes) == 1
+        assert len(else_graph.nodes) == 2
 
 
 class TestIO(object):

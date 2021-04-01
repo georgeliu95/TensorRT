@@ -3,6 +3,18 @@
 Dates are in YYYY-MM-DD format.
 
 
+## v0.3.7 (2021-03-31)
+### Added
+- `fold_constants()` can now fold `Shape -> Gather` patterns even when the entire shape may not be known.
+- Added an `error_ok` parameter in `fold_constants()` which can be set to `False` to re-raise errors encountered
+    during inference.
+
+### Fixed
+- Fixed a bug where `copy()` would not correctly copy tensors in nested graphs.
+- Fixed a bug where `fold_constants()` would attempt to fold nodes including graph attributes even if nodes within
+    the nested graph could not be folded.
+
+
 ## v0.3.6 (2021-03-27)
 ### Fixed
 - `fold_constants()` no longer loads constant values into numpy arrays. This can save a significant amount of memory.
