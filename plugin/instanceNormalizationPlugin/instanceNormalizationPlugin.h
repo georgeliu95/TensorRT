@@ -18,6 +18,8 @@
 #define TRT_INSTANCE_NORMALIZATION_PLUGIN_H
 #include "plugin.h"
 #include "serialize.hpp"
+#include "instance_norm_fwd.h"
+#include <cuda_fp16.h>
 #include <cudnn.h>
 #include <iostream>
 #include <string>
@@ -29,12 +31,15 @@ namespace nvinfer1
 {
 namespace plugin
 {
+    using namespace instance_norm_impl;
 class InstanceNormalizationPlugin final : public nvinfer1::IPluginV2DynamicExt
 {
 
 public:
-    InstanceNormalizationPlugin(float epsilon, nvinfer1::Weights const& scale, nvinfer1::Weights const& bias);
-    InstanceNormalizationPlugin(float epsilon, const std::vector<float>& scale, const std::vector<float>& bias);
+    InstanceNormalizationPlugin(float epsilon, nvinfer1::Weights const& scale, 
+                                nvinfer1::Weights const& bias, int relu = 0, float alpha = 0.f);
+    InstanceNormalizationPlugin(float epsilon, const std::vector<float>& scale, 
+                                const std::vector<float>& bias, int relu = 0, float alpha = 0.f);
     InstanceNormalizationPlugin(void const* serialData, size_t serialLength);
 
     InstanceNormalizationPlugin() = delete;
@@ -44,6 +49,7 @@ public:
     int getNbOutputs() const override;
 
     // DynamicExt plugins returns DimsExprs class instead of Dims
+    using nvinfer1::IPluginV2::getOutputDimensions;
     DimsExprs getOutputDimensions(
         int outputIndex, const nvinfer1::DimsExprs* inputs, int nbInputs, nvinfer1::IExprBuilder& exprBuilder) override;
 
@@ -51,9 +57,11 @@ public:
 
     void terminate() override;
 
+    using nvinfer1::IPluginV2::getWorkspaceSize;
     size_t getWorkspaceSize(const nvinfer1::PluginTensorDesc* inputs, int nbInputs,
         const nvinfer1::PluginTensorDesc* outputs, int nbOutputs) const override;
 
+    using nvinfer1::IPluginV2::enqueue;
     int enqueue(const nvinfer1::PluginTensorDesc* inputDesc, const nvinfer1::PluginTensorDesc* outputDesc,
         const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) override;
 
@@ -83,20 +91,32 @@ public:
 
     void detachFromContext() override;
 
+    using nvinfer1::IPluginV2Ext::configurePlugin;
     void configurePlugin(const nvinfer1::DynamicPluginTensorDesc* in, int nbInputs,
         const nvinfer1::DynamicPluginTensorDesc* out, int nbOutputs) override;
 
 private:
-    float _epsilon{};
-    int _nchan{};
-    std::vector<float> _h_scale{};
-    std::vector<float> _h_bias{};
-    float* _d_scale{nullptr};
-    float* _d_bias{nullptr};
-    size_t _d_bytes{0};
-    cudnnHandle_t _cudnn_handle{};
-    cudnnTensorDescriptor_t _x_desc{}, _y_desc{}, _b_desc{};
-    std::string mPluginNamespace{};
+    float _epsilon;
+    float _alpha;
+    int _relu;
+    int _nchan;
+    std::vector<float> _h_scale;
+    std::vector<float> _h_bias;
+    float* _d_scale;
+    float* _d_bias;
+    size_t _d_bytes;
+    cudnnHandle_t _cudnn_handle;
+    cudnnTensorDescriptor_t _x_desc, _y_desc, _b_desc;
+    std::string mPluginNamespace;
+    std::string mNamespace;
+    bool initialized{false};
+
+    // NDHWC implementation
+    InstanceNormFwdParams _params;
+    InstanceNormFwdContext _context;
+
+    float _in_scale;
+    float _out_scale;
 };
 
 class InstanceNormalizationPluginCreator : public BaseCreator
