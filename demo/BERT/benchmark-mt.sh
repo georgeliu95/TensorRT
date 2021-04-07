@@ -34,7 +34,7 @@ for wtype in dense sparse; do
                 echo "Running inference_varseqlen.py ${INFER_ARGS}"
                 INFER_ARGS="-e engines/${FNAME}.engine -s ${slen} -sq ./squad/dev-v1.1.json -v models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_${slen}_v19.03.1/vocab.txt -o ./predictions_${FNAME}.json"
                 if [ "$slen" = "128" ]; then
-                    BUILD_ARGS="${BUILD_ARGS} --doc-stride 32"
+                    INFER_ARGS="${INFER_ARGS} --doc-stride 32"
                 fi
                 if [ ! -f ./predictions_${FNAME}.json ]; then
                     python3 inference_varseqlen.py ${INFER_ARGS} | tee -a log_${FNAME}.txt
