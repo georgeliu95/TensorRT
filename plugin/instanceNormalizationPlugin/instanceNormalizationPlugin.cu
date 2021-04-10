@@ -198,13 +198,51 @@ DimsExprs InstanceNormalizationPlugin::getOutputDimensions(
 
 int InstanceNormalizationPlugin::initialize()
 {
+    if (!initialized)
+    {
+        CHECK_CUDNN(cudnnCreate(&_cudnn_handle));
+
+        CHECK_CUDNN(cudnnCreateTensorDescriptor(&_b_desc));
+        CHECK_CUDNN(cudnnCreateTensorDescriptor(&_x_desc));
+        CHECK_CUDNN(cudnnCreateTensorDescriptor(&_y_desc));
+
+        // NDHWC path
+        // Device info.
+        int device;
+        CHECK_CUDA(cudaGetDevice(&device));
+        cudaDeviceProp props;
+        CHECK_CUDA(cudaGetDeviceProperties(&props, device));
+
+        _context.sm_count = props.multiProcessorCount;
+        _context.sm_shared_size = props.sharedMemPerMultiprocessor;
+        _context.sm_version = props.major * 100 + props.minor * 10;
+
+        memset(&_params, 0, sizeof(_params));
+
+        CHECK_CUDA(cudaMalloc(&_d_scale, _nchan*sizeof(float)));
+        CHECK_CUDA(cudaMalloc(&_d_bias, _nchan*sizeof(float)));
+        CHECK_CUDA(cudaMemcpy(_d_scale, &_h_scale[0], _nchan*sizeof(float), cudaMemcpyHostToDevice));
+        CHECK_CUDA(cudaMemcpy(_d_bias, &_h_bias[0], _nchan*sizeof(float), cudaMemcpyHostToDevice));
+    }
+    initialized = true;
+
     return 0;
 }
 
 void InstanceNormalizationPlugin::terminate()
 {
-    cudaFree(_d_bias);
-    cudaFree(_d_scale);
+    if (initialized)
+    {
+        cudnnDestroyTensorDescriptor(_y_desc);
+        cudnnDestroyTensorDescriptor(_x_desc);
+        cudnnDestroyTensorDescriptor(_b_desc);
+
+        cudnnDestroy(_cudnn_handle);
+
+        cudaFree(_d_bias);
+        cudaFree(_d_scale);
+    }
+    initialized = false;
 }
 
 size_t InstanceNormalizationPlugin::getWorkspaceSize(const nvinfer1::PluginTensorDesc* inputs, int nbInputs,
@@ -465,8 +503,26 @@ bool InstanceNormalizationPlugin::supportsFormatCombination(
     int pos, const nvinfer1::PluginTensorDesc* inOut, int nbInputs, int nbOutputs)
 {
     ASSERT(inOut && pos < (nbInputs + nbOutputs));
-    return ((inOut[pos].type == nvinfer1::DataType::kFLOAT || inOut[pos].type == nvinfer1::DataType::kHALF)
-        && inOut[pos].format == nvinfer1::PluginFormat::kNCHW && inOut[pos].type == inOut[0].type);
+
+    bool support_fp32_linear = (inOut[pos].type == nvinfer1::DataType::kFLOAT
+            && inOut[pos].format == nvinfer1::PluginFormat::kLINEAR
+            && inOut[pos].type == inOut[0].type
+            && inOut[pos].format == inOut[0].format);
+
+    bool support_fp16_dhwc8 = (inOut[pos].type == nvinfer1::DataType::kHALF
+        && inOut[pos].format == nvinfer1::PluginFormat::kDHWC8
+        && inOut[pos].type == inOut[0].type
+        && inOut[pos].format == inOut[0].format);
+
+    bool support_int8_cdhw32 = (inOut[pos].type == nvinfer1::DataType::kINT8
+        && inOut[pos].format == nvinfer1::PluginFormat::kCDHW32
+        && inOut[pos].type == inOut[0].type
+        && inOut[pos].format == inOut[0].format);
+
+    ASSERT(pos == 0 || pos == 1);
+    
+    return support_fp32_linear || support_fp16_dhwc8 || support_int8_cdhw32;
+    
 }
 
 const char* InstanceNormalizationPlugin::getPluginType() const
@@ -488,7 +544,7 @@ IPluginV2DynamicExt* InstanceNormalizationPlugin::clone() const
 {
     auto* plugin = new InstanceNormalizationPlugin{_epsilon, _h_scale, _h_bias, _relu, _alpha};
     plugin->setPluginNamespace(mPluginNamespace.c_str());
-    // should we initialize the plugin here? plugin->initialize();
+    plugin->initialize();
     return plugin;
 }
 
@@ -514,18 +570,13 @@ nvinfer1::DataType InstanceNormalizationPlugin::getOutputDataType(
 void InstanceNormalizationPlugin::attachToContext(
     cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
 {
-    _cudnn_handle = cudnnContext;
-    cudnnCreateTensorDescriptor(&_b_desc);
-    cudnnCreateTensorDescriptor(&_x_desc);
-    cudnnCreateTensorDescriptor(&_y_desc);
+
 }
 
 // Detach the plugin object from its execution context.
 void InstanceNormalizationPlugin::detachFromContext()
 {
-    cudnnDestroyTensorDescriptor(_y_desc);
-    cudnnDestroyTensorDescriptor(_x_desc);
-    cudnnDestroyTensorDescriptor(_b_desc);
+    
 }
 
 void InstanceNormalizationPlugin::configurePlugin(const nvinfer1::DynamicPluginTensorDesc* in, int nbInputs,
@@ -645,7 +696,7 @@ IPluginV2DynamicExt* InstanceNormalizationPluginCreator::createPlugin(
 
     InstanceNormalizationPlugin* obj = new InstanceNormalizationPlugin(epsilon, scaleWeights, biasWeights, relu, alpha);
     obj->setPluginNamespace(mNamespace.c_str());
-    // initialize plugin?? obj->initialize();
+    obj->initialize(); 
     return obj;
 }
 
@@ -654,6 +705,6 @@ IPluginV2DynamicExt* InstanceNormalizationPluginCreator::deserializePlugin(
 {
     InstanceNormalizationPlugin* obj = new InstanceNormalizationPlugin{serialData, serialLength};
     obj->setPluginNamespace(mNamespace.c_str());
-    // initialize plugin?? obj->initialize();
+    obj->initialize(); 
     return obj;
 }
