@@ -250,12 +250,11 @@ size_t InstanceNormalizationPlugin::getWorkspaceSize(const nvinfer1::PluginTenso
 {
     nvinfer1::Dims     input_dims = inputs[0].dims;
 
-    if (input_dims.nbDims <= 4) // 2D instance norm, hardcoding??
+    if (input_dims.nbDims <= 4) 
     {
         return 0;
     }
 
-    // 3D instance norm
     if (inputs[0].format == nvinfer1::PluginFormat::kLINEAR)
     {
         nvinfer1::Dims     input_dims = inputs[0].dims;
@@ -309,7 +308,7 @@ int InstanceNormalizationPlugin::enqueue(const nvinfer1::PluginTensorDesc* input
 {
     nvinfer1::Dims input_dims = inputDesc[0].dims;
 
-    if (input_dims.nbDims <= 4) // 2D instance norm, hardcoding??
+    if (input_dims.nbDims <= 4) 
     {
         nvinfer1::Dims input_dims = inputDesc[0].dims;
         int n = input_dims.d[0];
