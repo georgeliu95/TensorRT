@@ -16,9 +16,9 @@
 
 #ifndef TRT_INSTANCE_NORMALIZATION_PLUGIN_H
 #define TRT_INSTANCE_NORMALIZATION_PLUGIN_H
+#include "instance_norm_fwd.h"
 #include "plugin.h"
 #include "serialize.hpp"
-#include "instance_norm_fwd.h"
 #include <cuda_fp16.h>
 #include <cudnn.h>
 #include <iostream>
@@ -31,15 +31,15 @@ namespace nvinfer1
 {
 namespace plugin
 {
-    using namespace instance_norm_impl;
+using namespace instance_norm_impl;
 class InstanceNormalizationPlugin final : public nvinfer1::IPluginV2DynamicExt
 {
 
 public:
-    InstanceNormalizationPlugin(float epsilon, nvinfer1::Weights const& scale, 
-                                nvinfer1::Weights const& bias, int relu = 0, float alpha = 0.f);
-    InstanceNormalizationPlugin(float epsilon, const std::vector<float>& scale, 
-                                const std::vector<float>& bias, int relu = 0, float alpha = 0.f);
+    InstanceNormalizationPlugin(
+        float epsilon, nvinfer1::Weights const& scale, nvinfer1::Weights const& bias, int relu = 0, float alpha = 0.f);
+    InstanceNormalizationPlugin(float epsilon, const std::vector<float>& scale, const std::vector<float>& bias,
+        int relu = 0, float alpha = 0.f);
     InstanceNormalizationPlugin(void const* serialData, size_t serialLength);
 
     InstanceNormalizationPlugin() = delete;
