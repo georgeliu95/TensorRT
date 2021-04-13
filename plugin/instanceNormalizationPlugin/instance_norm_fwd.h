@@ -33,24 +33,9 @@ typedef float GMEM_SUMS_TYPE;
 template <typename StorageType, int SM >
 constexpr int get_pixels_per_thread_in_registers()
 {
-    switch (sizeof(StorageType)) {
-        case 4: return 2; break;
-        case 2: return 4; break;
-        default: break;
-    }
-
-// case INT8 V100 - 8, A100 - 24, A10 - 16
-    if ( SM < 800 ) {
-        if ( SM == 750 ) {
-            return 16;
-        } else {
-            return 8;
-        }
-    } else if ( SM == 860 ) {
-        return 16;
-    } else {
-        return 24;
-    }
+    // case INT8 V100 - 8, A100 - 24, A10 - 16 (SM)
+    return (sizeof(StorageType) == 4 || sizeof(StorageType) == 2) ? 6 - sizeof(StorageType) : 
+            (SM < 800 ? (SM == 750 ? 16 : 8) : (SM == 860 ? 16 : 24));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -58,24 +43,9 @@ constexpr int get_pixels_per_thread_in_registers()
 template <typename StorageType, int SM >
 constexpr int get_pixels_per_thread_in_smem()
 {
-    switch (sizeof(StorageType)) {
-        case 4: return 4; break;
-        case 2: return 8; break;
-        default: break;
-    }
-
-// case INT8
-    if ( SM < 800 ) {
-        if ( SM == 750 ) {
-            return 7;
-        } else {
-            return 8;
-        }
-    } else if ( SM == 860 ) {
-        return 16;
-    } else {
-        return 24;
-    }
+    // case INT8 (SM)
+    return (sizeof(StorageType) == 4 || sizeof(StorageType) == 2) ? (sizeof(StorageType) == 4 ? 4 : 8) :
+            (SM < 800 ? (SM == 750 ? 7 : 8) : (SM == 860 ? 16 : 24));
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////

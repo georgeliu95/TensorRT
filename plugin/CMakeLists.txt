@@ -106,7 +106,7 @@ target_include_directories(${SHARED_TARGET}
 )
 
 set_target_properties(${SHARED_TARGET} PROPERTIES
-    CXX_STANDARD "14"
+    CXX_STANDARD "11"
     CXX_STANDARD_REQUIRED "YES"
     CXX_EXTENSIONS "NO"
     ARCHIVE_OUTPUT_DIRECTORY "${TRT_OUT_DIR}"
@@ -120,7 +120,7 @@ set_target_properties(${SHARED_TARGET} PROPERTIES DEBUG_POSTFIX ${TRT_DEBUG_POST
 
 set_target_properties(${SHARED_TARGET} PROPERTIES VERSION ${TRT_VERSION} SOVERSION ${TRT_SOVERSION} )
 
-set_property(TARGET ${SHARED_TARGET} PROPERTY CUDA_STANDARD 14)
+set_property(TARGET ${SHARED_TARGET} PROPERTY CUDA_STANDARD 11)
 
 target_link_libraries(${SHARED_TARGET}
     ${CUBLAS_LIB}
@@ -146,7 +146,7 @@ target_include_directories(${STATIC_TARGET}
 )
 
 set_target_properties(${STATIC_TARGET} PROPERTIES
-    CXX_STANDARD "14"
+    CXX_STANDARD "11"
     CXX_STANDARD_REQUIRED "YES"
     CXX_EXTENSIONS "NO"
     ARCHIVE_OUTPUT_DIRECTORY "${TRT_OUT_DIR}"
@@ -160,7 +160,7 @@ set_target_properties(${STATIC_TARGET} PROPERTIES DEBUG_POSTFIX ${TRT_DEBUG_POST
 
 set_target_properties(${STATIC_TARGET} PROPERTIES VERSION ${TRT_VERSION} SOVERSION ${TRT_SOVERSION} )
 
-set_property(TARGET ${STATIC_TARGET} PROPERTY CUDA_STANDARD 14)
+set_property(TARGET ${STATIC_TARGET} PROPERTY CUDA_STANDARD 11)
 
 #########################################################################################
 
