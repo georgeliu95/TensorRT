@@ -18,33 +18,16 @@
  #include <assert.h>
  #include <type_traits>
  
- #include "instance_norm_fwd.h"
- #include "instance_norm_common.h"
+ #include "instanceNormFwd.h"
+ #include "instanceNormCommon.h"
  
  namespace instance_norm_impl
  {
- 
- #if 0
- #include "instance_norm_test_common.h"
- #else
- ////////////////////////////////////////////////////////////////////////////////////////////////////
- 
- #define CHECK_CUDA(call) do { \
-     cudaError_t status_ = call; \
-     if( status_ != cudaSuccess ) { \
-       fprintf(stderr, "CUDA Error at line %d: %s\n", __LINE__, cudaGetErrorString(status_)); \
-       exit(1); \
-     } \
-   } while(0)
- 
- ////////////////////////////////////////////////////////////////////////////////////////////////////
- 
+
  static inline int div_up(int m, int n) {
      return (m + n - 1) / n;
  }
  
- ////////////////////////////////////////////////////////////////////////////////////////////////////
- #endif
  
  using kernel_params_32 = Instance_norm_kernel_params<uint16_t, uint16_t, uint16_t, 512, 8, 32>;
  using kernel_params_64 = Instance_norm_kernel_params<uint16_t, uint16_t, uint16_t, 512, 16, 64>;
@@ -156,7 +139,6 @@
  
      // The number of elements loaded by this CTA.
      int cta_count = 0;
-     //int global_batch_offset = blockIdx.z * params.nhw * params.c;
      int global_batch_offset = n_blk_index * params.nhw * params.c;
      // int8 relevant
      // int8 output implies we have NC/32DHW32 input for bath fp16 and int8
@@ -353,7 +335,8 @@
      }
  
      // Read the bias and scale.
-     float bias[ELEMENTS_PER_LDG], scale[ELEMENTS_PER_LDG];
+     float bias[ELEMENTS_PER_LDG];
+     float scale[ELEMENTS_PER_LDG];
      read_from_gmem(bias, &params.gmem_bias[cta_c], thread_in_cta_c);
      read_from_gmem(scale, &params.gmem_scale[cta_c], thread_in_cta_c);
  
@@ -485,7 +468,8 @@
      }
  
      // store the running mean/var
-     float rmean[ELEMENTS_PER_LDG], rvar[ELEMENTS_PER_LDG];
+     float rmean[ELEMENTS_PER_LDG];
+     float rvar[ELEMENTS_PER_LDG];
      zero(rmean);
      zero(rvar);
      if( params.exp_avg_factor != 1.f && is_valid_for_saving ) {
@@ -505,7 +489,7 @@
          write_to_gmem(params.gmem_running_mean + global_stats_offset, thread_c/ELEMENTS_PER_LDG, rmean);
          write_to_gmem(params.gmem_running_var + global_stats_offset, thread_c/ELEMENTS_PER_LDG, rvar);
      }
- #endif
+ #endif 
  
      // Update the scale with the stddev and eps.
      #pragma unroll 
@@ -584,7 +568,6 @@
  
  }
  
- ////////////////////////////////////////////////////////////////////////////////////////////////////
  
  template <typename Kernel_params>
  dim3 estimate_in_grid_dim(const InstanceNormFwdParams& params)
@@ -597,7 +580,6 @@
      return grid_dim;
  }
  
- ///////////////////////////////////////////////////////////////////////////////////////////////////
  
  template <typename Kernel_params>
  void instance_norm_buffer_sizes(const InstanceNormFwdParams& params, 
@@ -614,11 +596,9 @@
      size_retired_ctas = div_up(size_retired_ctas, 256) * 256;
  }
  
- ///////////////////////////////////////////////////////////////////////////////////////////////////
  
  
  
- ///////////////////////////////////////////////////////////////////////////////////////////////////
  
  template <typename Kernel_params>
  int instance_norm_fwd_launch(const InstanceNormFwdContext& context, InstanceNormFwdParams& params, cudaStream_t stream)
@@ -721,9 +701,7 @@
      return loop;
  }
  
- ///////////////////////////////////////////////////////////////////////////////////////////////////
  static int c_cond_g = 32;
- ///////////////////////////////////////////////////////////////////////////////////////////////////
  
  void instance_norm_buffer_sizes_dispatch(const InstanceNormFwdContext& context, const InstanceNormFwdParams& params, 
                                  size_t &size_sums, size_t &size_counts, size_t &size_retired_ctas,
@@ -755,7 +733,6 @@
      }
  }
  
- ///////////////////////////////////////////////////////////////////////////////////////////////////
  
  int instance_norm_fwd_dispatch(const InstanceNormFwdContext& context, InstanceNormFwdParams& params, cudaStream_t stream, 
                                 int input_data_type, int output_data_type)
@@ -788,5 +765,4 @@
      return 0;
  }
  
- ///////////////////////////////////////////////////////////////////////////////////////////////////
  } // namespace instance_norm_impl

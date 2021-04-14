@@ -24,6 +24,25 @@
 
 namespace instance_norm_impl
 {
+#define CHECK_CUDA(call)                                                                                               \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        cudaError_t status = call;                                                                                     \
+        if (status != cudaSuccess)                                                                                     \
+        {                                                                                                              \
+            return status;                                                                                             \
+        }                                                                                                              \
+    } while (0)
+
+#define CHECK_CUDNN(call)                                                                                              \
+    do                                                                                                                 \
+    {                                                                                                                  \
+        cudnnStatus_t status = call;                                                                                   \
+        if (status != CUDNN_STATUS_SUCCESS)                                                                            \
+        {                                                                                                              \
+            return status;                                                                                             \
+        }                                                                                                              \
+    } while (0)
 
 // typedef __half GMEM_SUMS_TYPE;
 typedef float GMEM_SUMS_TYPE;
@@ -124,15 +143,21 @@ struct InstanceNormFwdContext
 struct InstanceNormFwdParams
 {
     // The input/output tensors.
-    void *gmem_src, *gmem_dst;
+    void* gmem_src;
+    void* gmem_dst;
     // The bias/scale.
-    float *gmem_bias, *gmem_scale;
+    float* gmem_bias;
+    float* gmem_scale;
     // running mean/var (refer BN API from cudnn doc)
-    float *gmem_running_mean, *gmem_running_var;
+    float* gmem_running_mean;
+    float* gmem_running_var;
     // saved mean/var (refer BN API from cudnn doc)
-    float *gmem_saved_mean, *gmem_saved_var;
+    float* gmem_saved_mean;
+    float* gmem_saved_var;
     // The dimensions.
-    int nhw, c, n;
+    int nhw;
+    int c;
+    int n;
     // The buffer to do the reduction for mean, stddev and count.
     GMEM_SUMS_TYPE* gmem_sums;
     // The buffer to count items in the different CTAs.
@@ -145,7 +170,6 @@ struct InstanceNormFwdParams
     int outer_loops;
     // exponential average factor
     float exp_avg_factor;
-    // use relu as activation?
     bool use_relu;
     float relu_alpha;
 
@@ -167,4 +191,4 @@ int instance_norm_fwd_dispatch(const InstanceNormFwdContext& context, InstanceNo
 
 } // namespace instance_norm_impl
 
-#endif
+#endif // INSTANCE_NORM_FWD_H

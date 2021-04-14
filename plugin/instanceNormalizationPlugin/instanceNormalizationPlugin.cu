@@ -22,26 +22,6 @@ using namespace nvinfer1;
 using nvinfer1::plugin::InstanceNormalizationPlugin;
 using nvinfer1::plugin::InstanceNormalizationPluginCreator;
 
-#define CHECK_CUDA(call)                                                                                               \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        cudaError_t status = call;                                                                                     \
-        if (status != cudaSuccess)                                                                                     \
-        {                                                                                                              \
-            return status;                                                                                             \
-        }                                                                                                              \
-    } while (0)
-
-#define CHECK_CUDNN(call)                                                                                              \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        cudnnStatus_t status = call;                                                                                   \
-        if (status != CUDNN_STATUS_SUCCESS)                                                                            \
-        {                                                                                                              \
-            return status;                                                                                             \
-        }                                                                                                              \
-    } while (0)
-
 inline bool is_CHW(nvinfer1::Dims const& dims)
 {
     return (dims.nbDims == 3 && dims.type[0] == nvinfer1::DimensionType::kCHANNEL

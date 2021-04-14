@@ -16,7 +16,7 @@
 
 #ifndef TRT_INSTANCE_NORMALIZATION_PLUGIN_H
 #define TRT_INSTANCE_NORMALIZATION_PLUGIN_H
-#include "instance_norm_fwd.h"
+#include "instanceNormFwd.h"
 #include "plugin.h"
 #include "serialize.hpp"
 #include <cuda_fp16.h>
@@ -106,7 +106,9 @@ private:
     float* _d_bias;
     size_t _d_bytes;
     cudnnHandle_t _cudnn_handle;
-    cudnnTensorDescriptor_t _x_desc, _y_desc, _b_desc;
+    cudnnTensorDescriptor_t _x_desc;
+    cudnnTensorDescriptor_t _y_desc;
+    cudnnTensorDescriptor_t _b_desc;
     std::string mPluginNamespace;
     std::string mNamespace;
     bool initialized{false};

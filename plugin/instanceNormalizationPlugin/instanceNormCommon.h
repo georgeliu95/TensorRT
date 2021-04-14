@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-#pragma once
+#ifndef INSTANCE_NORM_COMMON_H
+#define INSTANCE_NORM_COMMON_H
 
 #include <stdint.h>
 
 #define DEVICE_FUNCTION static inline __device__
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <typename T, int ELEMENTS_PER_LDG>
 struct PackedStorage
@@ -32,8 +31,6 @@ struct PackedStorage
     typedef T Type;
 };
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 template <int ELEMENTS_PER_LDG>
 struct PackedStorage<uint16_t, ELEMENTS_PER_LDG>
 {
@@ -44,8 +41,6 @@ struct PackedStorage<uint16_t, ELEMENTS_PER_LDG>
     typedef int32_t Type;
 };
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 template <int ELEMENTS_PER_LDG>
 struct PackedStorage<int8_t, ELEMENTS_PER_LDG>
 {
@@ -55,8 +50,6 @@ struct PackedStorage<int8_t, ELEMENTS_PER_LDG>
     };
     typedef int32_t Type;
 };
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <int N>
 DEVICE_FUNCTION void from_float(int32_t (&dst)[N], const float (&src)[2 * N])
@@ -70,8 +63,6 @@ DEVICE_FUNCTION void from_float(int32_t (&dst)[N], const float (&src)[2 * N])
         asm volatile("mov.b32 %0, {%1, %2};" : "=r"(dst[i]) : "h"(lo), "h"(hi));
     }
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <int N>
 DEVICE_FUNCTION void from_float(int32_t (&dst)[N], const float (&src)[4 * N], float scale)
@@ -87,18 +78,11 @@ DEVICE_FUNCTION void from_float(int32_t (&dst)[N], const float (&src)[4 * N], fl
 #pragma unroll
         for (int ii = 0; ii < 4; ii++)
         {
-            // fast
             packed.x[ii] = __float_as_int(min(max(src[4 * i + ii] * scale + 12582912.0F, 12582785.0F), 12583039.0F));
-            // slow
-            // int x = __float2int_rn(fminf(fmaxf(src[4*i+ii] * scale, INT8_MIN), INT8_MAX));
-            // packed.x[ii] = x;
-            ////packed.x[ii] = min(max(x, INT8_MIN), INT8_MAX);
         }
         dst[i] = packed.val;
     }
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <int N>
 DEVICE_FUNCTION void from_float(float (&dst)[N], const float (&src)[N])
@@ -109,8 +93,6 @@ DEVICE_FUNCTION void from_float(float (&dst)[N], const float (&src)[N])
         dst[i] = src[i];
     }
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <int N, bool DO_SCALE = false>
 DEVICE_FUNCTION void to_float(float (&dst)[2 * N], int32_t (&src)[N], float scale = 1.f)
@@ -124,8 +106,6 @@ DEVICE_FUNCTION void to_float(float (&dst)[2 * N], int32_t (&src)[N], float scal
         asm volatile("cvt.f32.f16 %0, %1;" : "=f"(dst[2 * i + 1]) : "h"(hi));
     }
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <int N, bool DO_SCALE = false>
 DEVICE_FUNCTION void to_float(float (&dst)[4 * N], int32_t (&src)[N], float scale = 1.f)
@@ -148,8 +128,6 @@ DEVICE_FUNCTION void to_float(float (&dst)[4 * N], int32_t (&src)[N], float scal
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 template <int N, bool DO_SCALE = false>
 DEVICE_FUNCTION void to_float(float (&dst)[N], float (&src)[N], float scale = 1.f)
 {
@@ -160,15 +138,11 @@ DEVICE_FUNCTION void to_float(float (&dst)[N], float (&src)[N], float scale = 1.
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 template <typename T>
 DEVICE_FUNCTION void ldg(int (&dst)[1], const T* gmem)
 {
     dst[0] = __ldg((const int*) gmem);
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <typename T>
 DEVICE_FUNCTION void ldg_stream(int (&dst)[1], const T* gmem)
@@ -178,8 +152,6 @@ DEVICE_FUNCTION void ldg_stream(int (&dst)[1], const T* gmem)
     dst[0] = tmp;
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 template <typename T>
 DEVICE_FUNCTION void ldg(int32_t (&dst)[2], const T* gmem)
 {
@@ -187,8 +159,6 @@ DEVICE_FUNCTION void ldg(int32_t (&dst)[2], const T* gmem)
     dst[0] = tmp.x;
     dst[1] = tmp.y;
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <typename T>
 DEVICE_FUNCTION void ldg_stream(int32_t (&dst)[2], const T* gmem)
@@ -199,8 +169,6 @@ DEVICE_FUNCTION void ldg_stream(int32_t (&dst)[2], const T* gmem)
     dst[1] = tmp.y;
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 DEVICE_FUNCTION void ldg(int32_t (&dst)[2], const uint16_t* gmem)
 {
 #if defined(__CUDA_ARCH__) && __CUDA_ARCH__ >= 320
@@ -210,8 +178,6 @@ DEVICE_FUNCTION void ldg(int32_t (&dst)[2], const uint16_t* gmem)
 #endif
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 DEVICE_FUNCTION void ldg_stream(int32_t (&dst)[2], const uint16_t* gmem)
 {
     int2 tmp;
@@ -219,8 +185,6 @@ DEVICE_FUNCTION void ldg_stream(int32_t (&dst)[2], const uint16_t* gmem)
     dst[0] = tmp.x;
     dst[1] = tmp.y;
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <int N>
 DEVICE_FUNCTION void ldg(float (&dst)[N], const uint16_t* gmem)
@@ -230,8 +194,6 @@ DEVICE_FUNCTION void ldg(float (&dst)[N], const uint16_t* gmem)
     to_float(dst, tmp);
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 template <int N>
 DEVICE_FUNCTION void ldg_stream(float (&dst)[N], const uint16_t* gmem)
 {
@@ -239,8 +201,6 @@ DEVICE_FUNCTION void ldg_stream(float (&dst)[N], const uint16_t* gmem)
     ldg_stream(tmp, gmem);
     to_float(dst, tmp);
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <int N>
 DEVICE_FUNCTION void ldg(float (&dst)[N], const int8_t* gmem)
@@ -250,8 +210,6 @@ DEVICE_FUNCTION void ldg(float (&dst)[N], const int8_t* gmem)
     to_float(dst, tmp);
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 template <int N>
 DEVICE_FUNCTION void ldg_stream(float (&dst)[N], const int8_t* gmem)
 {
@@ -260,15 +218,11 @@ DEVICE_FUNCTION void ldg_stream(float (&dst)[N], const int8_t* gmem)
     to_float(dst, tmp);
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 template <typename T>
 DEVICE_FUNCTION void stg(T* gmem, int32_t (&src)[1])
 {
     reinterpret_cast<int32_t*>(gmem)[0] = src[0];
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <typename T>
 DEVICE_FUNCTION void stg_stream(T* gmem, int32_t (&src)[1])
@@ -277,23 +231,17 @@ DEVICE_FUNCTION void stg_stream(T* gmem, int32_t (&src)[1])
     asm volatile("st.global.cs.s32 [%0], %1;" ::"l"((uint32_t*) gmem), "r"(tmp));
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 template <typename T>
 DEVICE_FUNCTION void stg(T* gmem, int32_t (&src)[2])
 {
     reinterpret_cast<int2*>(gmem)[0] = make_int2(src[0], src[1]);
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 template <typename T>
 DEVICE_FUNCTION void stg_stream(T* gmem, int32_t (&src)[2])
 {
     asm volatile("st.global.cs.v2.s32 [%0], {%1,%2};" ::"l"((uint32_t*) gmem), "r"(src[0]), "r"(src[1]));
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <int N>
 DEVICE_FUNCTION void stg(uint16_t* gmem, float (&src)[N], float scale)
@@ -303,8 +251,6 @@ DEVICE_FUNCTION void stg(uint16_t* gmem, float (&src)[N], float scale)
     stg(gmem, tmp);
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 template <int N>
 DEVICE_FUNCTION void stg_stream(uint16_t* gmem, float (&src)[N], float scale)
 {
@@ -312,8 +258,6 @@ DEVICE_FUNCTION void stg_stream(uint16_t* gmem, float (&src)[N], float scale)
     from_float(tmp, src);
     stg_stream(gmem, tmp);
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <int N>
 DEVICE_FUNCTION void stg(int8_t* gmem, float (&src)[N], float scale)
@@ -323,8 +267,6 @@ DEVICE_FUNCTION void stg(int8_t* gmem, float (&src)[N], float scale)
     stg(gmem, tmp);
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 template <int N>
 DEVICE_FUNCTION void stg_stream(int8_t* gmem, float (&src)[N], float scale)
 {
@@ -333,16 +275,12 @@ DEVICE_FUNCTION void stg_stream(int8_t* gmem, float (&src)[N], float scale)
     stg(gmem, tmp);
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 DEVICE_FUNCTION void read_from_gmem(float (&dst)[2], const float* gmem, int idx)
 {
     float2 tmp = __ldg((float2*) &gmem[2 * idx]);
     dst[0] = tmp.x;
     dst[1] = tmp.y;
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 DEVICE_FUNCTION void read_from_gmem(float (&dst)[4], const float* gmem, int idx)
 {
@@ -352,8 +290,6 @@ DEVICE_FUNCTION void read_from_gmem(float (&dst)[4], const float* gmem, int idx)
     dst[2] = tmp.z;
     dst[3] = tmp.w;
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <int N>
 DEVICE_FUNCTION void read_from_gmem(float (&dst)[N], const __half* gmem, int idx)
@@ -373,31 +309,12 @@ DEVICE_FUNCTION void read_from_gmem(float (&dst)[N], const __half* gmem, int idx
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/*DEVICE_FUNCTION void read_from_gmem(float (&dst)[8], const float *gmem, int idx) {
-    float4 tmp = __ldg((float4*) &gmem[8*idx]);
-    dst[0] = tmp.x;
-    dst[1] = tmp.y;
-    dst[2] = tmp.z;
-    dst[3] = tmp.w;
-    tmp = __ldg((float4*) &gmem[8*idx+4*idx]);
-    dst[4] = tmp.x;
-    dst[5] = tmp.y;
-    dst[6] = tmp.z;
-    dst[7] = tmp.w;
-}*/
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 DEVICE_FUNCTION void read_from_smem(float (&x)[2], const float* smem, int idx)
 {
     float2 tmp = *(const float2*) &smem[2 * idx];
     x[0] = tmp.x;
     x[1] = tmp.y;
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 DEVICE_FUNCTION void read_from_smem(float (&x)[4], const float* smem, int idx)
 {
@@ -408,29 +325,10 @@ DEVICE_FUNCTION void read_from_smem(float (&x)[4], const float* smem, int idx)
     x[3] = tmp.w;
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/*DEVICE_FUNCTION void read_from_smem(float (&x)[8], const float *smem, int idx) {
-    float4 tmp = *(const float4*) &smem[8*idx];
-    x[0] = tmp.x;
-    x[1] = tmp.y;
-    x[2] = tmp.z;
-    x[3] = tmp.w;
-    tmp = *(const float4*) &smem[8*idx + 4*idx];
-    x[4] = tmp.x;
-    x[5] = tmp.y;
-    x[6] = tmp.z;
-    x[7] = tmp.w;
-}*/
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 DEVICE_FUNCTION void read_from_smem(int32_t (&x)[1], const int32_t* smem, int idx)
 {
     x[0] = smem[idx];
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 DEVICE_FUNCTION void read_from_smem(int32_t (&x)[2], const int32_t* smem, int idx)
 {
@@ -439,21 +337,15 @@ DEVICE_FUNCTION void read_from_smem(int32_t (&x)[2], const int32_t* smem, int id
     x[1] = tmp.y;
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 DEVICE_FUNCTION void write_to_gmem(float* gmem, int idx, const float (&src)[2])
 {
     reinterpret_cast<float2*>(&gmem[2 * idx])[0] = make_float2(src[0], src[1]);
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 DEVICE_FUNCTION void write_to_gmem(float* gmem, int idx, const float (&src)[4])
 {
     reinterpret_cast<float4*>(&gmem[4 * idx])[0] = make_float4(src[0], src[1], src[2], src[3]);
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <int N>
 DEVICE_FUNCTION void write_to_gmem(__half* gmem, int idx, const float (&src)[N])
@@ -462,7 +354,8 @@ DEVICE_FUNCTION void write_to_gmem(__half* gmem, int idx, const float (&src)[N])
 #pragma unroll
     for (int i = 0; i < N / 2; ++i)
     {
-        uint16_t lo, hi;
+        uint16_t lo;
+        uint16_t hi;
         asm volatile("cvt.rn.f16.f32 %0, %1;" : "=h"(lo) : "f"(src[2 * i + 0]));
         asm volatile("cvt.rn.f16.f32 %0, %1;" : "=h"(hi) : "f"(src[2 * i + 1]));
         asm volatile("mov.b32 %0, {%1, %2};" : "=r"(ival[i]) : "h"(lo), "h"(hi));
@@ -477,42 +370,25 @@ DEVICE_FUNCTION void write_to_gmem(__half* gmem, int idx, const float (&src)[N])
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/*DEVICE_FUNCTION void write_to_gmem(float *gmem, int idx, const float (&src)[8]) {
-    reinterpret_cast<float4*>(&gmem[8*idx])[0] = make_float4(src[0], src[1], src[2], src[3]);
-    reinterpret_cast<float4*>(&gmem[8*idx+4*idx])[0] = make_float4(src[4], src[5], src[6], src[7]);
-}*/
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 DEVICE_FUNCTION void write_to_smem(float* smem, int idx, const float (&x)[2])
 {
     reinterpret_cast<float2*>(&smem[2 * idx])[0] = make_float2(x[0], x[1]);
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 DEVICE_FUNCTION void write_to_smem(float* smem, int idx, const float (&x)[4])
 {
     reinterpret_cast<float4*>(&smem[4 * idx])[0] = make_float4(x[0], x[1], x[2], x[3]);
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 DEVICE_FUNCTION void write_to_smem(int32_t* smem, int idx, const int (&x)[1])
 {
     smem[idx] = x[0];
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 static inline __device__ void write_to_smem(int32_t* smem, int idx, const int (&x)[2])
 {
     reinterpret_cast<int2*>(&smem[2 * idx])[0] = make_int2(x[0], x[1]);
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <int N>
 DEVICE_FUNCTION void zero(int32_t (&dst)[N])
@@ -524,8 +400,6 @@ DEVICE_FUNCTION void zero(int32_t (&dst)[N])
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 template <int N>
 DEVICE_FUNCTION void zero(float (&dst)[N])
 {
@@ -535,8 +409,6 @@ DEVICE_FUNCTION void zero(float (&dst)[N])
         dst[i] = 0.f;
     }
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <int N>
 DEVICE_FUNCTION void add(float (&x)[N], const float (&y)[N])
@@ -548,8 +420,6 @@ DEVICE_FUNCTION void add(float (&x)[N], const float (&y)[N])
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 template <int N>
 DEVICE_FUNCTION void normalize(float (&x)[N], const float (&bias)[N], const float (&scale)[N], const float (&m1)[N])
 {
@@ -560,16 +430,12 @@ DEVICE_FUNCTION void normalize(float (&x)[N], const float (&bias)[N], const floa
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 template <typename Storage>
 DEVICE_FUNCTION Storage relu(Storage in, Storage alpha)
 {
     Storage zero = (Storage) 0.f;
     return (in < zero) ? in * alpha : in;
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <int N>
 DEVICE_FUNCTION void relu_activation(float (&x)[N], float alpha)
@@ -580,8 +446,6 @@ DEVICE_FUNCTION void relu_activation(float (&x)[N], float alpha)
         x[i] = relu(x[i], alpha);
     }
 }
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <int THREADS_PER_CTA>
 DEVICE_FUNCTION void parallel_sums_16x2(float* smem, float (&x)[4], int nhw)
@@ -679,9 +543,6 @@ DEVICE_FUNCTION void parallel_sums_16x2(float* smem, float (&x)[4], int nhw)
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-#if 1
 template <int THREADS_PER_CTA>
 static inline __device__ void parallel_sums_8x4(float* smem, float (&x)[4], int nhw)
 {
@@ -745,9 +606,6 @@ static inline __device__ void parallel_sums_8x4(float* smem, float (&x)[4], int 
         }
     }
 }
-#endif
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <int THREADS_PER_CTA, int THREADS_PER_PIXEL, int ELEMENTS_PER_LDG>
 DEVICE_FUNCTION void parallel_sums(float* smem, float (&x)[ELEMENTS_PER_LDG], int nhw)
@@ -870,8 +728,6 @@ DEVICE_FUNCTION void parallel_sums(float* smem, float (&x)[ELEMENTS_PER_LDG], in
     }
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
 template <int THREADS_PER_PIXEL, int ELEMENTS_PER_LDG>
 struct ParallelSums
 {
@@ -881,8 +737,6 @@ struct ParallelSums
         parallel_sums<THREADS_PER_CTA, THREADS_PER_PIXEL, ELEMENTS_PER_LDG>(smem, x, nhw);
     }
 };
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <>
 struct ParallelSums<16, 4>
@@ -894,9 +748,6 @@ struct ParallelSums<16, 4>
     }
 };
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
-
-#if 1
 template <>
 struct ParallelSums<8, 4>
 {
@@ -906,4 +757,5 @@ struct ParallelSums<8, 4>
         parallel_sums_8x4<THREADS_PER_CTA>(smem, x, nhw);
     }
 };
-#endif
+
+#endif // INSTANCE_NORM_COMMON_H
