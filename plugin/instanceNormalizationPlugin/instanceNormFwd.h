@@ -49,7 +49,6 @@ typedef float GMEM_SUMS_TYPE;
 
 #define DISABLE_MEAN_VAR_OUTPUT 0
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <typename StorageType, int SM>
 constexpr int get_pixels_per_thread_in_registers()
@@ -59,7 +58,6 @@ constexpr int get_pixels_per_thread_in_registers()
         : (SM < 800 ? (SM == 750 ? 16 : 8) : (SM == 860 ? 16 : 24));
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <typename StorageType, int SM>
 constexpr int get_pixels_per_thread_in_smem()
@@ -69,7 +67,6 @@ constexpr int get_pixels_per_thread_in_smem()
         : (SM < 800 ? (SM == 750 ? 7 : 8) : (SM == 860 ? 16 : 24));
 }
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 template <typename Input_Data_Type_ = uint16_t, typename Output_Data_Type_ = uint16_t, typename StorageType_ = float,
     int THREADS_PER_CTA_ = 512, int THREADS_PER_PIXEL_ = 16, int C_ELEMENTS_PER_CTA_ = 64, int SM_ = 700>
@@ -125,7 +122,6 @@ struct Instance_norm_kernel_params
     };
 };
 
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct InstanceNormFwdContext
 {
@@ -137,8 +133,6 @@ struct InstanceNormFwdContext
     int sm_shared_size;
     int sm_version;
 };
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 struct InstanceNormFwdParams
 {
@@ -179,8 +173,6 @@ struct InstanceNormFwdParams
 
     float out_scale;
 };
-
-////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void instance_norm_buffer_sizes_dispatch(const InstanceNormFwdContext& context, const InstanceNormFwdParams& params,
     size_t& size_sums, size_t& size_counts, size_t& size_retired_ctas, int input_data_type = 1,
