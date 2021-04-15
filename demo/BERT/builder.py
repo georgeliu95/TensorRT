@@ -541,6 +541,7 @@ def emb_layernorm(builder, network, config, weights_dict, builder_config, sequen
         prev_batch_size = 0
         for batch_size in sorted(batch_sizes):
             if len(sequence_lengths) == 1:
+                profile = builder.create_optimization_profile()
                 min_shape = (sequence_lengths[0], prev_batch_size + 1)
                 shape = (sequence_lengths[0], batch_size)
                 profile.set_shape("input_ids", min=min_shape, opt=shape, max=shape)
