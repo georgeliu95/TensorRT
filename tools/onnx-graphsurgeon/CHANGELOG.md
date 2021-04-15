@@ -2,6 +2,11 @@
 
 Dates are in YYYY-MM-DD format.
 
+## v0.3.8 (2021-04-15)
+### Fixed
+- Fixed a bug where `copy()` would not work with subgraphs that included tensors with the same
+    names as outer graph tensors unless a `tensor_map` was provided.
+
 
 ## v0.3.7 (2021-03-31)
 ### Added
