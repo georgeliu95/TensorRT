@@ -82,45 +82,45 @@ std::vector<PluginField> InstanceNormalizationPluginCreator::mPluginAttributes;
 
 InstanceNormalizationPlugin::InstanceNormalizationPlugin(
     float epsilon, const std::vector<float>& scale, const std::vector<float>& bias, int relu, float alpha)
-    : _epsilon(epsilon)
-    , _nchan(scale.size())
-    , _h_scale(scale)
-    , _h_bias(bias)
-    , _relu(relu)
-    , _alpha(alpha)
-    , _in_scale(-1.f)
-    , _out_scale(-1.f)
-    , _d_scale(nullptr)
-    , _d_bias(nullptr)
-    , _d_bytes(0)
+    : mEpsilon(epsilon)
+    , mNchan(scale.size())
+    , mHostScale(scale)
+    , mHostBias(bias)
+    , mRelu(relu)
+    , mAlpha(alpha)
+    , mInputScale(-1.f)
+    , mOutputScale(-1.f)
+    , mDeviceScale(nullptr)
+    , mDeviceBias(nullptr)
+    , mDeviceBytes(0)
 {
     ASSERT(scale.size() == bias.size());
 }
 
 InstanceNormalizationPlugin::InstanceNormalizationPlugin(
     float epsilon, nvinfer1::Weights const& scale, nvinfer1::Weights const& bias, int relu, float alpha)
-    : _epsilon(epsilon)
-    , _nchan(scale.count)
-    , _relu(relu)
-    , _alpha(alpha)
-    , _in_scale(-1.f)
-    , _out_scale(-1.f)
-    , _d_scale(nullptr)
-    , _d_bias(nullptr)
-    , _d_bytes(0)
+    : mEpsilon(epsilon)
+    , mNchan(scale.count)
+    , mRelu(relu)
+    , mAlpha(alpha)
+    , mInputScale(-1.f)
+    , mOutputScale(-1.f)
+    , mDeviceScale(nullptr)
+    , mDeviceBias(nullptr)
+    , mDeviceBytes(0)
 {
     ASSERT(scale.count == bias.count);
     if (scale.type == nvinfer1::DataType::kFLOAT)
     {
-        _h_scale.assign((float*) scale.values, (float*) scale.values + scale.count);
+        mHostScale.assign((float*) scale.values, (float*) scale.values + scale.count);
     }
     else if (scale.type == nvinfer1::DataType::kHALF)
     {
-        _h_scale.reserve(_nchan);
-        for (int c = 0; c < _nchan; ++c)
+        mHostScale.reserve(mNchan);
+        for (int c = 0; c < mNchan; ++c)
         {
             unsigned short value = ((unsigned short*) scale.values)[c];
-            _h_scale.push_back(__internal_half2float(value));
+            mHostScale.push_back(__internal_half2float(value));
         }
     }
     else
@@ -129,15 +129,15 @@ InstanceNormalizationPlugin::InstanceNormalizationPlugin(
     }
     if (bias.type == nvinfer1::DataType::kFLOAT)
     {
-        _h_bias.assign((float*) bias.values, (float*) bias.values + bias.count);
+        mHostBias.assign((float*) bias.values, (float*) bias.values + bias.count);
     }
     else if (bias.type == nvinfer1::DataType::kHALF)
     {
-        _h_bias.reserve(_nchan);
-        for (int c = 0; c < _nchan; ++c)
+        mHostBias.reserve(mNchan);
+        for (int c = 0; c < mNchan; ++c)
         {
             unsigned short value = ((unsigned short*) bias.values)[c];
-            _h_bias.push_back(__internal_half2float(value));
+            mHostBias.push_back(__internal_half2float(value));
         }
     }
     else
@@ -148,14 +148,14 @@ InstanceNormalizationPlugin::InstanceNormalizationPlugin(
 
 InstanceNormalizationPlugin::InstanceNormalizationPlugin(void const* serialData, size_t serialLength)
 {
-    deserialize_value(&serialData, &serialLength, &_epsilon);
-    deserialize_value(&serialData, &serialLength, &_nchan);
-    deserialize_value(&serialData, &serialLength, &_h_scale);
-    deserialize_value(&serialData, &serialLength, &_h_bias);
-    deserialize_value(&serialData, &serialLength, &_relu);
-    deserialize_value(&serialData, &serialLength, &_alpha);
-    deserialize_value(&serialData, &serialLength, &_in_scale);
-    deserialize_value(&serialData, &serialLength, &_out_scale);
+    deserialize_value(&serialData, &serialLength, &mEpsilon);
+    deserialize_value(&serialData, &serialLength, &mNchan);
+    deserialize_value(&serialData, &serialLength, &mHostScale);
+    deserialize_value(&serialData, &serialLength, &mHostBias);
+    deserialize_value(&serialData, &serialLength, &mRelu);
+    deserialize_value(&serialData, &serialLength, &mAlpha);
+    deserialize_value(&serialData, &serialLength, &mInputScale);
+    deserialize_value(&serialData, &serialLength, &mOutputScale);
 }
 
 InstanceNormalizationPlugin::~InstanceNormalizationPlugin()
@@ -178,13 +178,13 @@ DimsExprs InstanceNormalizationPlugin::getOutputDimensions(
 
 int InstanceNormalizationPlugin::initialize()
 {
-    if (!initialized)
+    if (!mInitialized)
     {
-        CHECK_CUDNN(cudnnCreate(&_cudnn_handle));
+        CHECK_CUDNN(cudnnCreate(&mCudnnHandle));
 
-        CHECK_CUDNN(cudnnCreateTensorDescriptor(&_b_desc));
-        CHECK_CUDNN(cudnnCreateTensorDescriptor(&_x_desc));
-        CHECK_CUDNN(cudnnCreateTensorDescriptor(&_y_desc));
+        CHECK_CUDNN(cudnnCreateTensorDescriptor(&mBDescriptor));
+        CHECK_CUDNN(cudnnCreateTensorDescriptor(&mXDescriptor));
+        CHECK_CUDNN(cudnnCreateTensorDescriptor(&mYDescriptor));
 
         // NDHWC path
         // Device info.
@@ -193,36 +193,36 @@ int InstanceNormalizationPlugin::initialize()
         cudaDeviceProp props;
         CHECK_CUDA(cudaGetDeviceProperties(&props, device));
 
-        _context.sm_count = props.multiProcessorCount;
-        _context.sm_shared_size = props.sharedMemPerMultiprocessor;
-        _context.sm_version = props.major * 100 + props.minor * 10;
+        mContext.sm_count = props.multiProcessorCount;
+        mContext.sm_shared_size = props.sharedMemPerMultiprocessor;
+        mContext.sm_version = props.major * 100 + props.minor * 10;
 
-        memset(&_params, 0, sizeof(_params));
+        memset(&mParams, 0, sizeof(mParams));
 
-        CHECK_CUDA(cudaMalloc(&_d_scale, _nchan * sizeof(float)));
-        CHECK_CUDA(cudaMalloc(&_d_bias, _nchan * sizeof(float)));
-        CHECK_CUDA(cudaMemcpy(_d_scale, &_h_scale[0], _nchan * sizeof(float), cudaMemcpyHostToDevice));
-        CHECK_CUDA(cudaMemcpy(_d_bias, &_h_bias[0], _nchan * sizeof(float), cudaMemcpyHostToDevice));
+        CHECK_CUDA(cudaMalloc(&mDeviceScale, mNchan * sizeof(float)));
+        CHECK_CUDA(cudaMalloc(&mDeviceBias, mNchan * sizeof(float)));
+        CHECK_CUDA(cudaMemcpy(mDeviceScale, &mHostScale[0], mNchan * sizeof(float), cudaMemcpyHostToDevice));
+        CHECK_CUDA(cudaMemcpy(mDeviceBias, &mHostBias[0], mNchan * sizeof(float), cudaMemcpyHostToDevice));
     }
-    initialized = true;
+    mInitialized = true;
 
     return 0;
 }
 
 void InstanceNormalizationPlugin::terminate()
 {
-    if (initialized)
+    if (mInitialized)
     {
-        cudnnDestroyTensorDescriptor(_y_desc);
-        cudnnDestroyTensorDescriptor(_x_desc);
-        cudnnDestroyTensorDescriptor(_b_desc);
+        cudnnDestroyTensorDescriptor(mYDescriptor);
+        cudnnDestroyTensorDescriptor(mXDescriptor);
+        cudnnDestroyTensorDescriptor(mBDescriptor);
 
-        cudnnDestroy(_cudnn_handle);
+        cudnnDestroy(mCudnnHandle);
 
-        cudaFree(_d_bias);
-        cudaFree(_d_scale);
+        cudaFree(mDeviceBias);
+        cudaFree(mDeviceScale);
     }
-    initialized = false;
+    mInitialized = false;
 }
 
 size_t InstanceNormalizationPlugin::getWorkspaceSize(const nvinfer1::PluginTensorDesc* inputs, int nbInputs,
@@ -270,7 +270,7 @@ size_t InstanceNormalizationPlugin::getWorkspaceSize(const nvinfer1::PluginTenso
         // Reserve memory for the workspaces.
         size_t size_sums, size_counts, size_retired_ctas;
         instance_norm_buffer_sizes_dispatch(
-            _context, params, size_sums, size_counts, size_retired_ctas, input_data_type, output_data_type);
+            mContext, params, size_sums, size_counts, size_retired_ctas, input_data_type, output_data_type);
         size_t size_nc = n * c * sizeof(float);
         size_nc = ((size_nc + 256 - 1) / 256) * 256;
         return size_sums + size_counts + size_retired_ctas + 4 * size_nc;
@@ -298,43 +298,43 @@ int InstanceNormalizationPlugin::enqueue(const nvinfer1::PluginTensorDesc* input
 
         // Note: We repeat the data for each batch entry so that we can do the full
         //       computation in a single CUDNN call in enqueue().
-        if (_d_bytes < n * nchan_bytes)
+        if (mDeviceBytes < n * nchan_bytes)
         {
-            cudaFree(_d_bias);
-            cudaFree(_d_scale);
-            _d_bytes = n * nchan_bytes;
-            CHECK_CUDA(cudaMalloc((void**) &_d_scale, _d_bytes));
-            CHECK_CUDA(cudaMalloc((void**) &_d_bias, _d_bytes));
+            cudaFree(mDeviceBias);
+            cudaFree(mDeviceScale);
+            mDeviceBytes = n * nchan_bytes;
+            CHECK_CUDA(cudaMalloc((void**) &mDeviceScale, mDeviceBytes));
+            CHECK_CUDA(cudaMalloc((void**) &mDeviceBias, mDeviceBytes));
         }
         for (int i = 0; i < n; ++i)
         {
-            CHECK_CUDA(cudaMemcpy(_d_scale + i * c, _h_scale.data(), nchan_bytes, cudaMemcpyHostToDevice));
-            CHECK_CUDA(cudaMemcpy(_d_bias + i * c, _h_bias.data(), nchan_bytes, cudaMemcpyHostToDevice));
+            CHECK_CUDA(cudaMemcpy(mDeviceScale + i * c, mHostScale.data(), nchan_bytes, cudaMemcpyHostToDevice));
+            CHECK_CUDA(cudaMemcpy(mDeviceBias + i * c, mHostBias.data(), nchan_bytes, cudaMemcpyHostToDevice));
         }
 
-        CHECK_CUDNN(cudnnSetTensor4dDescriptor(_b_desc, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, 1, n * c, 1, 1));
+        CHECK_CUDNN(cudnnSetTensor4dDescriptor(mBDescriptor, CUDNN_TENSOR_NCHW, CUDNN_DATA_FLOAT, 1, n * c, 1, 1));
         cudnnDataType_t cudnn_dtype{};
         CHECK_CUDNN(convert_trt2cudnn_dtype(inputDesc[0].type, &cudnn_dtype));
-        CHECK_CUDNN(cudnnSetTensor4dDescriptor(_x_desc, CUDNN_TENSOR_NCHW, cudnn_dtype, 1, n * c, h, w));
-        CHECK_CUDNN(cudnnSetTensor4dDescriptor(_y_desc, CUDNN_TENSOR_NCHW, cudnn_dtype, 1, n * c, h, w));
+        CHECK_CUDNN(cudnnSetTensor4dDescriptor(mXDescriptor, CUDNN_TENSOR_NCHW, cudnn_dtype, 1, n * c, h, w));
+        CHECK_CUDNN(cudnnSetTensor4dDescriptor(mYDescriptor, CUDNN_TENSOR_NCHW, cudnn_dtype, 1, n * c, h, w));
         float alpha = 1;
         float beta = 0;
         void const* x_ptr = inputs[0];
         void* y_ptr = outputs[0];
-        CHECK_CUDNN(cudnnSetStream(_cudnn_handle, stream));
+        CHECK_CUDNN(cudnnSetStream(mCudnnHandle, stream));
         // Note: Use of CUDNN_BATCHNORM_SPATIAL_PERSISTENT can cause numerical
         //       overflows (NaNs) for fp32 data in some circumstances. The lower-
         //       performance CUDNN_BATCHNORM_SPATIAL should be used if this is not
         //       acceptable.
-        CHECK_CUDNN(cudnnBatchNormalizationForwardTraining(_cudnn_handle, CUDNN_BATCHNORM_SPATIAL_PERSISTENT, &alpha,
-            &beta, _x_desc, x_ptr, _y_desc, y_ptr, _b_desc, _d_scale, _d_bias, 1., nullptr, nullptr, _epsilon, nullptr,
-            nullptr));
+        CHECK_CUDNN(cudnnBatchNormalizationForwardTraining(mCudnnHandle, CUDNN_BATCHNORM_SPATIAL_PERSISTENT, &alpha,
+            &beta, mXDescriptor, x_ptr, mYDescriptor, y_ptr, mBDescriptor, mDeviceScale, mDeviceBias, 1., nullptr,
+            nullptr, mEpsilon, nullptr, nullptr));
     }
     else
     {
         if (inputDesc[0].format == nvinfer1::PluginFormat::kLINEAR)
         {
-            CHECK_CUDNN(cudnnSetStream(_cudnn_handle, stream));
+            CHECK_CUDNN(cudnnSetStream(mCudnnHandle, stream));
             nvinfer1::Dims input_dims = inputDesc[0].dims;
             int n = input_dims.d[0];
             int c = input_dims.d[1];
@@ -350,8 +350,9 @@ int InstanceNormalizationPlugin::enqueue(const nvinfer1::PluginTensorDesc* input
             float* d_bias = &_d_array[n * c];
             for (int i = 0; i < n; ++i)
             {
-                CHECK_CUDA(cudaMemcpyAsync(d_scale + i * c, _d_scale, nchan_bytes, cudaMemcpyDeviceToDevice, stream));
-                CHECK_CUDA(cudaMemcpyAsync(d_bias + i * c, _d_bias, nchan_bytes, cudaMemcpyDeviceToDevice, stream));
+                CHECK_CUDA(
+                    cudaMemcpyAsync(d_scale + i * c, mDeviceScale, nchan_bytes, cudaMemcpyDeviceToDevice, stream));
+                CHECK_CUDA(cudaMemcpyAsync(d_bias + i * c, mDeviceBias, nchan_bytes, cudaMemcpyDeviceToDevice, stream));
             }
 
             int nc_dimA[] = {1, n * c, 1, 1, 1};
@@ -361,11 +362,11 @@ int InstanceNormalizationPlugin::enqueue(const nvinfer1::PluginTensorDesc* input
             int img_strideA[] = {img_dimA[1] * img_dimA[2] * img_dimA[3] * img_dimA[4],
                 img_dimA[2] * img_dimA[3] * img_dimA[4], img_dimA[3] * img_dimA[4], img_dimA[4], 1};
 
-            CHECK_CUDNN(cudnnSetTensorNdDescriptor(_b_desc, CUDNN_DATA_FLOAT, 5, nc_dimA, nc_strideA));
+            CHECK_CUDNN(cudnnSetTensorNdDescriptor(mBDescriptor, CUDNN_DATA_FLOAT, 5, nc_dimA, nc_strideA));
             cudnnDataType_t cudnn_dtype;
             CHECK_CUDNN(convert_trt2cudnn_dtype(inputDesc[0].type, &cudnn_dtype));
-            CHECK_CUDNN(cudnnSetTensorNdDescriptor(_x_desc, cudnn_dtype, 5, img_dimA, img_strideA));
-            CHECK_CUDNN(cudnnSetTensorNdDescriptor(_y_desc, cudnn_dtype, 5, img_dimA, img_strideA));
+            CHECK_CUDNN(cudnnSetTensorNdDescriptor(mXDescriptor, cudnn_dtype, 5, img_dimA, img_strideA));
+            CHECK_CUDNN(cudnnSetTensorNdDescriptor(mYDescriptor, cudnn_dtype, 5, img_dimA, img_strideA));
             float alpha = 1;
             float beta = 0;
 
@@ -376,23 +377,23 @@ int InstanceNormalizationPlugin::enqueue(const nvinfer1::PluginTensorDesc* input
             //       overflows (NaNs) for fp32 data in some circumstances. The lower-
             //       performance CUDNN_BATCHNORM_SPATIAL should be used if this is not
             //       acceptable.
-            CHECK_CUDNN(cudnnBatchNormalizationForwardTraining(_cudnn_handle, CUDNN_BATCHNORM_SPATIAL_PERSISTENT,
-                &alpha, &beta, _x_desc, x_ptr, _y_desc, y_ptr, _b_desc, d_scale, d_bias, 1., nullptr, nullptr, _epsilon,
-                nullptr, nullptr));
+            CHECK_CUDNN(cudnnBatchNormalizationForwardTraining(mCudnnHandle, CUDNN_BATCHNORM_SPATIAL_PERSISTENT, &alpha,
+                &beta, mXDescriptor, x_ptr, mYDescriptor, y_ptr, mBDescriptor, d_scale, d_bias, 1., nullptr, nullptr,
+                mEpsilon, nullptr, nullptr));
 
-            if (_relu > 0)
+            if (mRelu > 0)
             {
                 int count = n * c * d * h * w;
                 const int BLOCK_SZ = 256;
                 if (inputDesc[0].type == nvinfer1::DataType::kFLOAT)
                 {
                     in3d_relu_activation<float, BLOCK_SZ><<<(count + BLOCK_SZ - 1) / BLOCK_SZ, BLOCK_SZ, 0, stream>>>(
-                        (float*) y_ptr, (float*) y_ptr, _alpha, count);
+                        (float*) y_ptr, (float*) y_ptr, mAlpha, count);
                 }
                 else if (inputDesc[0].type == nvinfer1::DataType::kHALF)
                 {
                     in3d_relu_activation<__half, BLOCK_SZ><<<(count + BLOCK_SZ - 1) / BLOCK_SZ, BLOCK_SZ, 0, stream>>>(
-                        (__half*) y_ptr, (__half*) y_ptr, _alpha, count);
+                        (__half*) y_ptr, (__half*) y_ptr, mAlpha, count);
                 }
                 else
                 {
@@ -413,48 +414,48 @@ int InstanceNormalizationPlugin::enqueue(const nvinfer1::PluginTensorDesc* input
             int h = input_dims.d[3];
             int w = input_dims.d[4];
 
-            _params.nhw = d * h * w;
-            _params.c = c;
-            _params.n = n;
+            mParams.nhw = d * h * w;
+            mParams.c = c;
+            mParams.n = n;
 
             size_t size_sums, size_counts, size_retired_ctas;
             instance_norm_buffer_sizes_dispatch(
-                _context, _params, size_sums, size_counts, size_retired_ctas, input_data_type, output_data_type);
+                mContext, mParams, size_sums, size_counts, size_retired_ctas, input_data_type, output_data_type);
 
             size_t size_nc = n * c * sizeof(float);
             size_nc = ((size_nc + 256 - 1) / 256) * 256;
 
             char* d_buf = reinterpret_cast<char*>(workspace);
 
-            _params.gmem_sums = reinterpret_cast<GMEM_SUMS_TYPE*>(d_buf);
+            mParams.gmem_sums = reinterpret_cast<GMEM_SUMS_TYPE*>(d_buf);
             d_buf += size_sums;
-            _params.gmem_counts = reinterpret_cast<int*>(d_buf);
+            mParams.gmem_counts = reinterpret_cast<int*>(d_buf);
             d_buf += size_counts;
-            _params.gmem_retired_ctas = reinterpret_cast<int*>(d_buf);
+            mParams.gmem_retired_ctas = reinterpret_cast<int*>(d_buf);
             d_buf += size_retired_ctas;
-            _params.gmem_running_mean = reinterpret_cast<float*>(d_buf);
+            mParams.gmem_running_mean = reinterpret_cast<float*>(d_buf);
             d_buf += size_nc;
-            _params.gmem_running_var = reinterpret_cast<float*>(d_buf);
+            mParams.gmem_running_var = reinterpret_cast<float*>(d_buf);
             d_buf += size_nc;
-            _params.gmem_saved_mean = reinterpret_cast<float*>(d_buf);
+            mParams.gmem_saved_mean = reinterpret_cast<float*>(d_buf);
             d_buf += size_nc;
-            _params.gmem_saved_var = reinterpret_cast<float*>(d_buf);
+            mParams.gmem_saved_var = reinterpret_cast<float*>(d_buf);
             d_buf += size_nc;
 
-            _params.gmem_src = const_cast<void*>(inputs[0]);
-            _params.gmem_dst = outputs[0];
-            _params.gmem_bias = _d_bias;
-            _params.gmem_scale = _d_scale;
+            mParams.gmem_src = const_cast<void*>(inputs[0]);
+            mParams.gmem_dst = outputs[0];
+            mParams.gmem_bias = mDeviceBias;
+            mParams.gmem_scale = mDeviceScale;
 
-            _params.var_eps = _epsilon;
-            _params.exp_avg_factor = 1.f; //(float)exp_avg_factor;
-            _params.use_relu = _relu;     // use_relu;
-            _params.relu_alpha = _alpha;  // relu_alpha;
+            mParams.var_eps = mEpsilon;
+            mParams.exp_avg_factor = 1.f; //(float)exp_avg_factor;
+            mParams.use_relu = mRelu;     // use_relu;
+            mParams.relu_alpha = mAlpha;  // relu_alpha;
 
-            _params.in_scale = _in_scale;
-            _params.out_scale = 1.f / _out_scale;
+            mParams.in_scale = mInputScale;
+            mParams.out_scale = 1.f / mOutputScale;
 
-            int loop = instance_norm_fwd_dispatch(_context, _params, stream, input_data_type, output_data_type);
+            int loop = instance_norm_fwd_dispatch(mContext, mParams, stream, input_data_type, output_data_type);
         }
         else
         {
@@ -466,20 +467,21 @@ int InstanceNormalizationPlugin::enqueue(const nvinfer1::PluginTensorDesc* input
 
 size_t InstanceNormalizationPlugin::getSerializationSize() const
 {
-    return (serialized_size(_epsilon) + serialized_size(_nchan) + serialized_size(_h_scale) + serialized_size(_h_bias)
-        + serialized_size(_relu) + serialized_size(_alpha) + serialized_size(_in_scale) + serialized_size(_out_scale));
+    return (serialized_size(mEpsilon) + serialized_size(mNchan) + serialized_size(mHostScale)
+        + serialized_size(mHostBias) + serialized_size(mRelu) + serialized_size(mAlpha) + serialized_size(mInputScale)
+        + serialized_size(mOutputScale));
 }
 
 void InstanceNormalizationPlugin::serialize(void* buffer) const
 {
-    serialize_value(&buffer, _epsilon);
-    serialize_value(&buffer, _nchan);
-    serialize_value(&buffer, _h_scale);
-    serialize_value(&buffer, _h_bias);
-    serialize_value(&buffer, _relu);
-    serialize_value(&buffer, _alpha);
-    serialize_value(&buffer, _in_scale);
-    serialize_value(&buffer, _out_scale);
+    serialize_value(&buffer, mEpsilon);
+    serialize_value(&buffer, mNchan);
+    serialize_value(&buffer, mHostScale);
+    serialize_value(&buffer, mHostBias);
+    serialize_value(&buffer, mRelu);
+    serialize_value(&buffer, mAlpha);
+    serialize_value(&buffer, mInputScale);
+    serialize_value(&buffer, mOutputScale);
 }
 
 // Needs more work
@@ -522,7 +524,7 @@ void InstanceNormalizationPlugin::destroy()
 
 IPluginV2DynamicExt* InstanceNormalizationPlugin::clone() const
 {
-    auto* plugin = new InstanceNormalizationPlugin{_epsilon, _h_scale, _h_bias, _relu, _alpha};
+    auto* plugin = new InstanceNormalizationPlugin{mEpsilon, mHostScale, mHostBias, mRelu, mAlpha};
     plugin->setPluginNamespace(mPluginNamespace.c_str());
     plugin->initialize();
     return plugin;
@@ -572,17 +574,17 @@ void InstanceNormalizationPlugin::configurePlugin(const nvinfer1::DynamicPluginT
     int c = input_dims.d[1];
     size_t nchan_bytes = c * sizeof(float);
 
-    if (_d_bytes < n * nchan_bytes)
+    if (mDeviceBytes < n * nchan_bytes)
     {
-        cudaFree(_d_bias);
-        cudaFree(_d_scale);
-        _d_bytes = n * nchan_bytes;
-        cudaMalloc((void**) &_d_scale, _d_bytes);
-        cudaMalloc((void**) &_d_bias, _d_bytes);
+        cudaFree(mDeviceBias);
+        cudaFree(mDeviceScale);
+        mDeviceBytes = n * nchan_bytes;
+        cudaMalloc((void**) &mDeviceScale, mDeviceBytes);
+        cudaMalloc((void**) &mDeviceBias, mDeviceBytes);
     }
 
-    _in_scale = in[0].desc.scale;
-    _out_scale = out[0].desc.scale;
+    mInputScale = in[0].desc.scale;
+    mOutputScale = out[0].desc.scale;
 }
 
 // InstanceNormalizationPluginCreator methods

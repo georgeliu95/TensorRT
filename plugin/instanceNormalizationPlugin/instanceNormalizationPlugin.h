@@ -96,29 +96,29 @@ public:
         const nvinfer1::DynamicPluginTensorDesc* out, int nbOutputs) override;
 
 private:
-    float _epsilon;
-    float _alpha;
-    int _relu;
-    int _nchan;
-    std::vector<float> _h_scale;
-    std::vector<float> _h_bias;
-    float* _d_scale;
-    float* _d_bias;
-    size_t _d_bytes;
-    cudnnHandle_t _cudnn_handle;
-    cudnnTensorDescriptor_t _x_desc;
-    cudnnTensorDescriptor_t _y_desc;
-    cudnnTensorDescriptor_t _b_desc;
+    float mEpsilon;
+    float mAlpha;
+    int mRelu;
+    int mNchan;
+    std::vector<float> mHostScale;
+    std::vector<float> mHostBias;
+    float* mDeviceScale;
+    float* mDeviceBias;
+    size_t mDeviceBytes;
+    cudnnHandle_t mCudnnHandle;
+    cudnnTensorDescriptor_t mXDescriptor;
+    cudnnTensorDescriptor_t mYDescriptor;
+    cudnnTensorDescriptor_t mBDescriptor;
     std::string mPluginNamespace;
     std::string mNamespace;
-    bool initialized{false};
+    bool mInitialized{false};
 
     // NDHWC implementation
-    InstanceNormFwdParams _params;
-    InstanceNormFwdContext _context;
+    InstanceNormFwdParams mParams;
+    InstanceNormFwdContext mContext;
 
-    float _in_scale;
-    float _out_scale;
+    float mInputScale;
+    float mOutputScale;
 };
 
 class InstanceNormalizationPluginCreator : public BaseCreator
