@@ -20,6 +20,11 @@ This subfolder of the BERT TensorFlow repository, tested and maintained by NVIDI
 - [Accuracy](#accuracy)
   * [Evaluating Post-Training-Quantization INT8 accuracy](#evaluating-ptq-post-training-quantization-int8-accuracy-using-the-squad-dataset)
   * [Evaluating Quantization-Aware-Training INT8 accuracy](#evaluating-qat-quantization-aware-training-int8-accuracy-using-the-squad-dataset)
+- [Experimental](#experimental)
+  * [Variable sequence length](#variable-sequence-length)
+      * [Run command lines](#run-command-lines)
+  * [Sparsity with Quantization Aware Training](#sparsity-with-quantization-aware-training)
+      * [Megatron-LM for Question Answering](#megatron-lm-for-question-answering)
 - [Performance](#performance)
   * [Benchmarking](#benchmarking)
        * [TensorRT inference benchmark](#tensorrt-inference-benchmark)
@@ -33,12 +38,6 @@ This subfolder of the BERT TensorFlow repository, tested and maintained by NVIDI
     * [Inference performance: NVIDIA V100](#inference-performance-nvidia-v100-16gb)
       * [BERT Base](#bert-base-2)
       * [BERT Large](#bert-large-2)
-- [Experimental](#experimental)
-  * [Variable sequence length](#variable-sequence-length)
-      * [Run command lines](#run-command-lines)
-  * [Sparsity](#sparsity)
-      * [Commands](#commands)
-  * [Megatron BERT](#megatron)
 
 
 ## Model overview
@@ -137,7 +136,7 @@ This demo BERT application can be run within the TensorRT OSS build container. I
     mkdir -p engines && python3 builder.py -m models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_128_v19.03.1/model.ckpt -o engines/bert_large_128.engine -b 1 -s 128 --fp16 -c models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_128_v19.03.1
     ```
 
-    This will build an engine with a maximum batch size of 1 (`-b 1`), and sequence length of 128 (`-s 128`) using mixed precision (`--fp16`) using the BERT Large SQuAD v2 FP16 Sequence Length 128 checkpoint (`-c /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_128_v19.03.1`).
+    This will build an engine with a maximum batch size of 1 (`-b 1`), and sequence length of 128 (`-s 128`) using mixed precision (`--fp16`) using the BERT Large SQuAD v2 FP16 Sequence Length 128 checkpoint (`-c models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_128_v19.03.1`).
 
 5. Run inference. Two options are provided for running the model.
 
@@ -165,7 +164,7 @@ This demo BERT application can be run within the TensorRT OSS build container. I
     cmake .. -DPYTHON_EXECUTABLE=$(which python)
     make -j
     popd
-    python3 inference_c.py -e /workspace/TensorRT/demo/BERT/engines/bert_large_128.engine --enable-graph -p "TensorRT is a high performance deep learning inference platform that delivers low latency and high throughput for apps such as recommenders, speech and image/video on NVIDIA GPUs. It includes parsers to import models, and plugins to support novel ops and layers before applying optimizations for inference. Today NVIDIA is open-sourcing parsers and plugins in TensorRT so that the deep learning community can customize and extend these components to take advantage of powerful TensorRT optimizations for your apps." -q "What is TensorRT?" -v /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_128_v19.03.1/vocab.txt
+    python3 inference_c.py -e engines/bert_large_128.engine --enable-graph -p "TensorRT is a high performance deep learning inference platform that delivers low latency and high throughput for apps such as recommenders, speech and image/video on NVIDIA GPUs. It includes parsers to import models, and plugins to support novel ops and layers before applying optimizations for inference. Today NVIDIA is open-sourcing parsers and plugins in TensorRT so that the deep learning community can customize and extend these components to take advantage of powerful TensorRT optimizations for your apps." -q "What is TensorRT?" -v models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_128_v19.03.1/vocab.txt
     ```
 
     A separate C/C++ inference benchmark executable `perf` (compiled from `perf.cpp`) is provided to run inference benchmarks with CUDA Graph. The cmdline interface is the same as `perf.py` except for an extra `--enable_graph` option.
@@ -297,6 +296,98 @@ As mentioned in the [Quick Start Guide](#quick-start-guide), two options are pro
     python3 inference.py -e engines/bert_large_384_int8mix.engine -s 384 -sq ./squad/dev-v1.1.json -v models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1/vocab.txt -o ./predictions.json
     python3 squad/evaluate-v1.1.py  squad/dev-v1.1.json  ./predictions.json 90
     ```
+## Experimental
+
+### Variable sequence length
+In our prior implementation, we used inputs padded to max length along with corresponding input masks to handle variable sequence length inputs in a batch. The padding results in some wasted computations which can be avoided by handling variable sequence length inputs natively. Now we have a new approach called the variable sequence length method. By concatenating each input id into a single long input id, and concatenating each input segment id into a single long segment id, TensorRT can know the exact starts and ends by providing an extra sequence length buffer that contains the start and end positions of each sequence. Now we can eliminate the wasted computation in the input paddings.
+
+Note this is an experimental feature because we only support Xavier+ GPUs, also there is neither FP32 support nor INT8 PTQ calibration.
+
+1.  Download checkpoint for BERT Large FP16 SQuAD v1.1 model with sequence length of 384:
+    ```bash
+    bash scripts/download_model.sh pyt v1_1
+    ```
+
+2. Build an engine:
+
+    **FP16 engine**
+    ```bash
+    mkdir -p engines && python3 builder_varseqlen.py -x models/fine-tuned/bert_pyt_onnx_large_qa_squad11_amp_fake_quant_v1/bert_large_v1_1_fake_quant.onnx -o engines/bert_varseq_fp16.engine -b 1 -s 64 --fp16 -c models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1 -v models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1/vocab.txt
+    ```
+
+    This will build and engine with a maximum batch size of 1 (`-b 1`) and sequence length of 64 (`-s 64`) using FP16 precision computation where possible (`--fp16`).
+
+
+    **INT8 engine**
+    ```bash
+    mkdir -p engines && python3 builder_varseqlen.py -x models/fine-tuned/bert_pyt_onnx_large_qa_squad11_amp_fake_quant_v1/bert_large_v1_1_fake_quant.onnx -o engines/bert_varseq_int8.engine -b 1 -s 256 --int8 --fp16 -c models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1 -v models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1/vocab.txt
+    ```
+
+    This will build and engine with a maximum batch size of 1 (`-b 1`) and sequence length of 256 (`-s 256`) using INT8 precision computation where possible (`--int8`).
+
+3. Run inference 
+
+    Evaluate the F1 score and exact match score using the squad dataset:
+    
+    ```bash
+    python3 inference_varseqlen.py -e engines/bert_varseq_int8.engine -s 256 -sq ./squad/dev-v1.1.json -v models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1/vocab.txt -o ./predictions.json
+    python3 squad/evaluate-v1.1.py  squad/dev-v1.1.json  ./predictions.json 90
+    ```
+
+    Run the quesion and answer mode:
+
+    ```bash
+    python3 inference_varseqlen.py -e engines/bert_varseq_int8.engine -p "TensorRT is a high performance deep learning inference platform that delivers low latency and high throughput for apps such as recommenders, speech and image/video on NVIDIA GPUs. It includes parsers to import models, and plugins to support novel ops and layers before applying optimizations for inference. Today NVIDIA is open-sourcing parsers and plugins in TensorRT so that the deep learning community can customize and extend these components to take advantage of powerful TensorRT optimizations for your apps." -q "What is TensorRT?" -v models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1/vocab.txt -s 256
+    ```
+
+4. Collect performance data
+
+    ```bash
+    python3 perf_varseqlen.py -e engines/bert_varseq_int8.engine -b 1 -s 256
+    ```
+
+    This will collect performance data run use batch size 1 (`-b 1`) and sequence length of 256 (`-s 256`). 
+
+5. Collect performance data with CUDA graph enabled
+
+    We can use the same `inference_c.py` and `build/perf` to collect performance data with cuda graph enabled. The command line is the same as run without variable sequence length. 
+
+### Sparsity with Quantization Aware Training
+
+Fine-grained 2:4 structured sparsity support introduced in NVIDIA Ampere GPUs can produce significant performance gains in BERT inference. The network is first trained using dense weights, then fine-grained structured pruning is applied, and finally the remaining non-zero weights are fine-tuned with additional training steps. This method results in virtually no loss in inferencing accuracy.
+
+Using INT8 precision with quantization scales obtained from Post-Training Quantization (PTQ) can produce additional performance gains, but may also result in accuracy loss. Alternatively, for PyTorch-trained models, NVIDIA [PyTorch-Quantization toolkit](https://github.com/NVIDIA/TensorRT/tree/master/tools/pytorch-quantization) can be leveraged to perform quantized fine tuning (a.k.a. Quantization Aware Training or QAT) and generate the INT8 quantization scales as part of training. This generally results in higher accuracy compared to PTQ.
+
+To demonstrate the potential speedups from these optimizations in demoBERT, we provide the [Megatron-LM](https://github.com/NVIDIA/Megatron-LM) transformer model finetuned for SQuAD 2.0 task with sparsity and quantization.
+
+The sparse weights are generated by finetuning with INT8 Quantization Aware Training recipe. This feature can be used with the fixed or variable sequence length implementations by passing in `-sp` flag to demoBERT builder.
+
+#### Megatron-LM for Question Answering
+
+**Example: Megatron-LM Large SQuAD v2.0 with sparse weights for sequence length 384**
+
+Build the TensorRT engine using following options:
+* `--megatron`  : assume Megatron style residuals instead of vanilla BERT.
+* `--pickle`    : specify pickle file with a dictionary of weights corresponding to model checkpoints - this can be obtained using the model download script.
+* `--int8 --il` : enable int8 tactics/plugins with interleaving.
+
+```bash
+bash ./scripts/download_model.sh 384 # BERT-large model checkpoint
+bash ./scripts/download_model.sh pyt megatron-large int8-qat sparse # Megatron-LM model weights
+export CKPT_PATH=models/fine-tuned/bert_pyt_statedict_megatron_sparse_int8qat_v21.03.0/bert_pyt_statedict_megatron_sparse_int8_qat
+mkdir -p engines && python3 builder_varseqlen.py -c models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1 -b 1 -s 384 -o engines/megatron_large_seqlen384_int8qat_sparse.engine --fp16 --int8 --strict -il --megatron --pickle $CKPT_PATH -v models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1/vocab.txt -sp
+```
+
+Ask a question:
+```bash
+python3 inference_varseqlen.py -e engines/megatron_large_seqlen384_int8qat_sparse.engine -p "TensorRT is a high performance deep learning inference platform that delivers low latency and high throughput for apps such as recommenders, speech and image/video on NVIDIA GPUs. It includes parsers to import models, and plugins to support novel ops and layers before applying optimizations for inference. Today NVIDIA is open-sourcing parsers and plugins in TensorRT so that the deep learning community can customize and extend these components to take advantage of powerful TensorRT optimizations for your apps." -q "What is TensorRT?" -v models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1/vocab.txt -s 256
+```
+
+Evaluate F1 score:
+```bash
+python3 inference_varseqlen.py -e engines/megatron_large_seqlen384_int8qat_sparse.engine -s 384 -sq ./squad/dev-v1.1.json -v models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1/vocab.txt -o ./predictions.json
+python3 squad/evaluate-v1.1.py  squad/dev-v1.1.json  ./predictions.json 90
+```
 
 ## Performance
 
@@ -497,101 +588,3 @@ Our results were obtained by running the `scripts/inference_benchmark.sh --gpu V
 | 384 | 32 | 148.96 | 149.11 | 148.59 | 147.7 | 147.84 | 147.23 |
 | 384 | 64 | 245.91 | 246.09 | 244.67 | 240.16 | 240.43 | 239.07 |
 
-## Experimental
-### Variable sequence length
-In our prior implementation, we used inputs padded to max length along with corresponding input masks to handle variable sequence length inputs in a batch. The padding results in some wasted computations which can be avoided by handling variable sequence length inputs natively. Now we have a new approach called the variable sequence length method. By concatenating each input id into a single long input id, and concatenating each input segment id into a single long segment id, TensorRT can know the exact starts and ends by providing an extra sequence length buffer that contains the start and end positions of each sequence. Now we can eliminate the wasted computation in the input paddings.
-
-Note this is an experimental feature because we only support Xavier+ GPUs, also there is neither FP32 support nor INT8 PTQ calibration.
-
-#### Run command lines
-
-1.  Download checkpoint for BERT Large FP16 SQuAD v1.1 model with sequence length of 384:
-    ```bash
-    bash scripts/download_model.sh pyt v1_1
-    ```
-
-2. Build an engine:
-
-    **FP16 engine**
-    ```bash
-    mkdir -p /workspace/TensorRT/demo/BERT/engines && python3 builder_varseqlen.py -x /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_pyt_onnx_large_qa_squad11_amp_fake_quant_v1/bert_large_v1_1_fake_quant.onnx -o /workspace/TensorRT/demo/BERT/engines/bert_varseq_fp16.engine -b 1 -s 64 --fp16 -c /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1 -v /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1/vocab.txt
-    ```
-
-    This will build and engine with a maximum batch size of 1 (`-b 1`) and sequence length of 64 (`-s 64`) using FP16 precision computation where possible (`--fp16`).
-
-
-    **INT8 engine**
-    ```bash
-    mkdir -p /workspace/TensorRT/demo/BERT/engines && python3 builder_varseqlen.py -x /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_pyt_onnx_large_qa_squad11_amp_fake_quant_v1/bert_large_v1_1_fake_quant.onnx -o /workspace/TensorRT/demo/BERT/engines/bert_varseq_int8.engine -b 1 -s 256 --int8 --fp16 -c /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1 -v /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1/vocab.txt
-    ```
-
-    This will build and engine with a maximum batch size of 1 (`-b 1`) and sequence length of 256 (`-s 256`) using INT8 precision computation where possible (`--int8`).
-
-3. Run inference 
-
-    Evaluate the F1 score and exact match score using the squad dataset:
-    
-    ```bash
-    python3 inference_varseqlen.py -e /workspace/TensorRT/demo/BERT/engines/bert_varseq_int8.engine -s 256 -sq ./squad/dev-v1.1.json -v /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1/vocab.txt -o ./predictions.json
-    python3 squad/evaluate-v1.1.py  squad/dev-v1.1.json  ./predictions.json 90
-    ```
-
-    Run the quesion and answer mode:
-
-    ```bash
-    python3 inference_varseqlen.py -e /workspace/TensorRT/demo/BERT/engines/bert_varseq_int8.engine -p "TensorRT is a high performance deep learning inference platform that delivers low latency and high throughput for apps such as recommenders, speech and image/video on NVIDIA GPUs. It includes parsers to import models, and plugins to support novel ops and layers before applying optimizations for inference. Today NVIDIA is open-sourcing parsers and plugins in TensorRT so that the deep learning community can customize and extend these components to take advantage of powerful TensorRT optimizations for your apps." -q "What is TensorRT?" -v /workspace/TensorRT/demo/BERT/models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1/vocab.txt -s 256
-    ```
-
-3. Collect performance data
-
-    ```bash
-    python3 perf_varseqlen.py -e /workspace/TensorRT/demo/BERT/engines/bert_varseq_int8.engine -b 1 -s 256
-    ```
-
-    This will collect performance data run use batch size 1 (`-b 1`) and sequence length of 256 (`-s 256`). 
-
-4. Collect performance data with CUDA graph enabled
-
-    We can use the same `inference_c.py` and `build/perf` to collect performance data with cuda graph enabled. The command line is the same as run without variable sequence length. 
-
-### Sparsity with QAT
-
-With an Ampere-based GPU, we can accelerate inference by leveraging structured sparsity. The sparse weights are generated by finetuning with QAT recipe. This feature can be used with the fixed or variable sequence length implementations by passing in `-sp` flag to demoBERT builder.
-
-#### Vanilla BERT
-
-> NOTE: The sparsity finetuning recipe using QAT for Vanilla BERT requires distillation and is non-trivial. This will not be supported for the public release.
-
-Build an engine with an existing sparse checkpoint whose path is in `$CKPT_PATH`. The command we provide below assumes `$CKPT_PATH` points to an ONNX checkpoint, but you may instead use `-pt $CKPT_PATH` for a PyTorch checkpoint or `-m $CKPT_PATH` for a TensorFlow checkpoint. Use int8 with interleaving for the best performance.
-
-> NOTE: Temporary BERT checkpoint copy: [bert_sparse_ckpt_large_qa_squad2_qat_384.onnx](http://10.110.38.142/share/checkpoints/bert_sparse_ckpt_large_qa_squad2_qat_384.onnx)
-
-**Example: Sparse BERT Large SQuAD v2, sequence length 384**
-```bash
-python3 builder_varseqlen.py -c models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1 -b 1 -s 384 -o engines/bert_large_int8_varseq_sparse.engine --fp16 --int8 --strict -il -x $CKPT_PATH -v models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1/vocab.txt -sp
-```
-
-Running inference and collecting performance data is the same as without sparsity.
-
-### Megatron BERT
-
-Megatron-BERT QAT pickle weights can be downloaded from: [<general-data>/joe/demoBERT/weights](https://gitlab-master.nvidia.com/TensorRT/Data/general-data/-/tree/master/joe/demoBERT/weights)
-* For BERT-MT large maxSeqLen=384, for example (`BERT-MT_large_s384_cON.pkl`):
-
-```bash
-wget https://gitlab-master.nvidia.com/TensorRT/Data/general-data/-/raw/master/joe/demoBERT/weights/BERT-MT_large_s384_cON.pkl
-CKPT_PATH=`pwd`/BERT-MT_large_s384_cON.pkl
-```
-
-To run the Megatron variant of BERT, use the `--megatron` flag and pass in the pickle file with a dictionary of weights via `--pickle` option. Currently, only INT8 sparse weights, obtained using QAT recipe, with interleaving is supported.
-
-**Example: Sparse Megatron-BERT Large SQuAD v2, sequence length 384**
-```bash
-python3 builder_varseqlen.py -c models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1 -b 1 -s 384 -o engines/megatron_large_int8_varseq_sparse_qat.engine --fp16 --int8 --strict -il --megatron --pickle $CKPT_PATH -v models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1/vocab.txt -sp
-```
-
-Evaluate F1 score for SQuAD task:
-```bash
-python3 inference_varseqlen.py -e engines/megatron_large_int8_varseq_sparse_qat.engine -s 384 -sq ./squad/dev-v1.1.json -v models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1/vocab.txt -o ./predictions.json
-python3 squad/evaluate-v1.1.py  squad/dev-v1.1.json  ./predictions.json 90
-```
