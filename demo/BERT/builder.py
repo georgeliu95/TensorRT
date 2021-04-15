@@ -584,7 +584,7 @@ def emb_layernorm(builder, network, config, weights_dict, builder_config, sequen
     set_output_name(emb_layer, "embeddings_", "output")
     return emb_layer
 
-def build_engine(batch_sizes, workspace_size, sequence_lengths, config, weights_dict, squad_json, vocab_file, calibrationCacheFile, calib_num, timing_cache):
+def build_engine(batch_sizes, workspace_size, sequence_lengths, config, weights_dict, squad_json, vocab_file, calibrationCacheFile, calib_num):
     explicit_batch_flag = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
 
     with trt.Builder(TRT_LOGGER) as builder, builder.create_network(explicit_batch_flag) as network, builder.create_builder_config() as builder_config:
@@ -606,9 +606,9 @@ def build_engine(batch_sizes, workspace_size, sequence_lengths, config, weights_
         if trt_version[0] >= 8:
             tactic_source = 1 << int(trt.TacticSource.CUBLAS) | 1 << int(trt.TacticSource.CUBLAS_LT)
             builder_config.set_tactic_sources(tactic_source)
-            if timing_cache != None:
-                if os.path.exists(timing_cache):
-                    with open(timing_cache, "rb") as f:
+            if config.timing_cache != None:
+                if os.path.exists(config.timing_cache):
+                    with open(config.timing_cache, "rb") as f:
                         cache = builder_config.create_timing_cache(f.read())
                         builder_config.set_timing_cache(cache, ignore_mismatch = False)
                 else:
@@ -637,10 +637,10 @@ def build_engine(batch_sizes, workspace_size, sequence_lengths, config, weights_
         TRT_LOGGER.log(TRT_LOGGER.INFO, "build engine in {:.3f} Sec".format(build_time_elapsed))
 
         # save global timing cache
-        if trt_version[0] >= 8 and timing_cache != None:
+        if trt_version[0] >= 8 and config.timing_cache != None:
             cache = builder_config.get_timing_cache()
             with cache.serialize() as buffer:
-                with open(timing_cache, "wb") as f:
+                with open(config.timing_cache, "wb") as f:
                     f.write(buffer)
                     f.flush()
                     os.fsync(f)
@@ -666,7 +666,7 @@ def generate_calibration_cache(sequence_lengths, workspace_size, config, weights
     config.use_fp16 = False
     config.is_calib_mode = True
 
-    with build_engine([1], workspace_size, sequence_lengths, config, weights_dict, squad_json, vocab_file, calibrationCacheFile, calib_num, config.timing_cache) as engine:
+    with build_engine([1], workspace_size, sequence_lengths, config, weights_dict, squad_json, vocab_file, calibrationCacheFile, calib_num) as engine:
         TRT_LOGGER.log(TRT_LOGGER.INFO, "calibration cache generated in {:}".format(calibrationCacheFile))
 
     config.use_fp16 = saved_use_fp16
@@ -723,7 +723,7 @@ def main():
     else:
         raise RuntimeError("You need either specify TF checkpoint using option --ckpt or ONNX using option --onnx to build TRT BERT model.")
 
-    with build_engine(args.batch_size, args.workspace_size, args.sequence_length, config, weights_dict, args.squad_json, args.vocab_file, calib_cache, args.calib_num, config.timing_cache) as engine:
+    with build_engine(args.batch_size, args.workspace_size, args.sequence_length, config, weights_dict, args.squad_json, args.vocab_file, calib_cache, args.calib_num) as engine:
         TRT_LOGGER.log(TRT_LOGGER.VERBOSE, "Serializing Engine...")
         serialized_engine = engine.serialize()
         TRT_LOGGER.log(TRT_LOGGER.INFO, "Saving Engine to {:}".format(args.output))
