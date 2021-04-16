@@ -75,7 +75,7 @@ RUN cd /tmp &&\
 # Install TensorRT
 # TODO update with ML-repo when available
 RUN mkdir -p /tmp/tensorrt && cd /tmp/tensorrt && \
-    wget -r -np -nd -k http://cuda-repo/release-candidates/Libraries/TensorRT/v8.0/8.0.0.1-e155eb70/11.3-r465/Ubuntu18_04-x64/deb/ &&\
+    wget -r -np -nd -k http://cuda-repo/release-candidates/Libraries/TensorRT/v8.0/8.0.0.0-0573e592/11.3-r465/Ubuntu18_04-x64/deb/ &&\
     yes | dpkg -i libnvinfer8_*.deb libnvinfer-plugin8_*.deb libnvparsers8_*.deb libnvonnxparsers8_*.deb libnvinfer-dev_*.deb libnvinfer-plugin-dev_*.deb libnvparsers-dev_*.deb libnvonnxparsers-dev_*.deb python3-libnvinfer_*.deb python3-libnvinfer-dev_*.deb && \
     rm -f *
 
