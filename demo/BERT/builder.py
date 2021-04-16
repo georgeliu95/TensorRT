@@ -243,8 +243,8 @@ def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, imas
 
     # FC0
     B_aout = init_dict[prefix + B_AOUT]
-    W_aout = init_dict[prefix + W_AOUT]
     if config.use_int8:
+        W_aout = init_dict[prefix + W_AOUT]
         attention_out_fc = network.add_convolution(attention_heads, hidden_size, (1, 1), W_aout, B_aout)
         B_aout = None
 
@@ -255,7 +255,8 @@ def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, imas
             dr_fc_aout = init_dict[prefix + 'attention_output_add_local_input_quantizer_amax']
             set_output_range(attention_out_fc, dr_fc_aout)
     else:
-        attention_out_fc = network.add_fully_connected(attention_heads, hidden_size, W_aout, B_aout)
+        W_aoutT = init_dict[prefix + W_AOUT + "_notrans"]
+        attention_out_fc = custom_fc(config, network, attention_heads, hidden_size, W_aoutT)
 
     skiplayer = skipln(prefix + "attention_output_layernorm_",config, init_dict, network, attention_out_fc.get_output(0), input_tensor, B_aout)
     attention_ln = skiplayer.get_output(0)
@@ -302,15 +303,16 @@ def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, imas
     # FC2
     # Dense to hidden size
     B_lout = init_dict[prefix + B_LOUT]
-    W_lout = init_dict[prefix + W_LOUT]
     if config.use_int8 and not config.use_fc2_gemm:
+        W_lout = init_dict[prefix + W_LOUT]
         out_dense = network.add_convolution(intermediate_act, hidden_size, (1, 1), W_lout, B_lout)
         B_lout = None
 
         if not config.use_int8_skipln:
             out_dense.set_output_type(0, trt.DataType.HALF if config.use_fp16 else trt.DataType.FLOAT)
     else:
-        out_dense = network.add_fully_connected(intermediate_act, hidden_size, W_lout, B_lout)
+        W_loutT = init_dict[prefix + W_LOUT + "_notrans"]
+        out_dense = custom_fc(config, network, intermediate_act, hidden_size, W_loutT)
 
     if config.use_qat:
         dr_fc_out = init_dict[prefix + 'output_add_local_input_quantizer_amax']
