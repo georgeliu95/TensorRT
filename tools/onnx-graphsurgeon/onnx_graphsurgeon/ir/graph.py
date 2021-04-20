@@ -659,7 +659,16 @@ class Graph(object):
 
 
         # Next, evaluate the foldable variables with ONNX-Runtime
-        graph_clone.outputs = [t for t in graph_constants.values() if not isinstance(t, Constant)]
+
+        # Only evaluate foldable values that have non-foldable outputs or are graph outputs.
+        # Otherwise, if all the outputs are foldable, then we can just evaluate the outputs directly.
+        def should_eval_foldable(tensor):
+            non_const = not isinstance(tensor, Constant)
+            is_graph_output = not tensor.outputs
+            has_non_foldable_outputs = any(out.name not in graph_constants for out in tensor.outputs)
+            return non_const and (is_graph_output or has_non_foldable_outputs)
+
+        graph_clone.outputs = [t for t in graph_constants.values() if should_eval_foldable(t)]
         G_LOGGER.debug("Folding tensors: {:}".format(graph_clone.outputs))
         graph_clone.cleanup(remove_unused_graph_inputs=True)
 
