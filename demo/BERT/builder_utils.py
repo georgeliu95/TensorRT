@@ -7,7 +7,8 @@ import torch
 import tensorrt as trt
 
 try:
-    from tensorflow.python import pywrap_tensorflow as pyTF
+    import tensorflow.compat.v1 as tf
+    tf.disable_v2_behavior()
 except ImportError as err:
     sys.stderr.write("""Error: Failed to import tensorflow module ({})\n""".format(err))
     sys.exit()
@@ -54,7 +55,7 @@ def load_tf_weights(inputbase, config):
     weights_dict = dict()
 
     try:
-        reader = pyTF.NewCheckpointReader(inputbase)
+        reader = tf.train.NewCheckpointReader(inputbase)
         tensor_dict = reader.get_variable_to_shape_map()
 
         # There might be training-related variables in the checkpoint that can be discarded

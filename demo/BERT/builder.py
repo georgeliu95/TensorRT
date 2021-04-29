@@ -27,14 +27,6 @@ import time
 import onnx
 import pycuda.autoinit
 
-# Tensorflow v1 compatibility mode
-try:
-    import tensorflow.compat.v1 as tf
-    tf.disable_v2_behavior()
-except ImportError as err:
-    sys.stderr.write("""Error: Failed to import tensorflow module ({})\n""".format(err))
-    sys.exit()
-
 # TensorRT
 import tensorrt as trt
 from helpers.calibrator import BertCalibrator as BertCalibrator
