@@ -20,8 +20,8 @@ To build the TensorRT-OSS components, you will first need the following software
 **System Packages**
 * [CUDA](https://developer.nvidia.com/cuda-toolkit)
   * Recommended versions:
-  * cuda-11.x + cuDNN-8.1
-  * cuda-10.2 + cuDNN-8.1
+  * cuda-11.x + cuDNN-8.2
+  * cuda-10.2 + cuDNN-8.2
 * [GNU make](https://ftp.gnu.org/gnu/make/) >= v4.1
 * [cmake](https://github.com/Kitware/CMake/releases) >= v3.13
 * [python](<https://www.python.org/downloads/>) >= v3.6.5
@@ -77,7 +77,7 @@ To build the TensorRT-OSS components, you will first need the following software
 
     ```bash
     cd ~/Downloads
-    tar -xvzf TensorRT-8.0.0.0.Ubuntu-18.04.x86_64-gnu.cuda-11.1.cudnn8.1.tar.gz
+    tar -xvzf TensorRT-8.0.0.0.Ubuntu-18.04.x86_64-gnu.cuda-11.1.cudnn8.2.tar.gz
     export TRT_LIBPATH=`pwd`/TensorRT-8.0.0.0
     ```
 
@@ -85,7 +85,7 @@ To build the TensorRT-OSS components, you will first need the following software
 
     ```powershell
     cd ~\Downloads
-    Expand-Archive .\TensorRT-8.0.0.0.Windows10.x86_64.cuda-11.0.cudnn8.1.zip
+    Expand-Archive .\TensorRT-8.0.0.0.Windows10.x86_64.cuda-11.0.cudnn8.2.zip
     $Env:TRT_LIBPATH = '$(Get-Location)\TensorRT-8.0.0.0'
     $Env:PATH += 'C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\MSBuild\15.0\Bin\'
     ```
@@ -106,9 +106,9 @@ For native builds, install the [prerequisite](#prerequisites) *System Packages*.
 1. #### Generate the TensorRT-OSS build container.
     The TensorRT-OSS build container can be generated using the Dockerfiles and build script included with TensorRT-OSS. The build container is bundled with packages and environment required for building TensorRT OSS.
 
-    **Example: Ubuntu 18.04 on x86-64 with cuda-11.1**
+    **Example: Ubuntu 18.04 on x86-64 with cuda-11.3**
     ```bash
-    ./docker/build.sh --file docker/ubuntu-18.04.Dockerfile --tag tensorrt-ubuntu-1804 --cuda 11.1
+    ./docker/build.sh --file docker/ubuntu-18.04.Dockerfile --tag tensorrt-ubuntu18.04-cuda11.3 --cuda 11.3.0
     ```
     **Example: Ubuntu 18.04 cross-compile for PowerPC with cuda-11.0**
     ```bash
@@ -126,7 +126,7 @@ For native builds, install the [prerequisite](#prerequisites) *System Packages*.
 2. #### Launch the TensorRT-OSS build container.
     **Example: Ubuntu 18.04 build container**
 	```bash
-	./docker/launch.sh --tag tensorrt-ubuntu-1804 --gpus all
+	./docker/launch.sh --tag tensorrt-ubuntu18.04-cuda11.3 --gpus all
 	```
 	> NOTE:
 	1. Use the tag corresponding to the build container.

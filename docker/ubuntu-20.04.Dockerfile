@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_VERSION=11.1
+ARG CUDA_VERSION=11.3.0
 ARG OS_VERSION=20.04
 
 FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 7.2.3.4
+ENV TRT_VERSION 8.0.0.0
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -70,8 +70,8 @@ RUN apt-get install -y libcudnn8-dev
 # Install TensorRT
 # TODO update with ML-repo when available
 RUN mkdir -p /tmp/tensorrt && cd /tmp/tensorrt && \
-    wget -r -np -nd -k http://cuda-repo/release-candidates/Libraries/TensorRT/v7.2/7.2.3.4-4226f6c2/11.1-r455/Ubuntu20_04-x64/deb/ && \
-    dpkg -i libnvinfer7_*.deb libnvinfer-plugin7_*.deb libnvparsers7_*.deb libnvinfer-dev_*.deb libnvinfer-plugin-dev_*.deb libnvparsers-dev_*.deb && \
+    wget -r -np -nd -k http://cuda-repo/release-candidates/Libraries/TensorRT/v8.0/8.0.0.4-c05d24d8/11.3-r465/Ubuntu20_04-x64/deb/ &&\
+    yes | dpkg -i libnvinfer8_*.deb libnvinfer-plugin8_*.deb libnvparsers8_*.deb libnvonnxparsers8_*.deb libnvinfer-dev_*.deb libnvinfer-plugin-dev_*.deb libnvparsers-dev_*.deb libnvonnxparsers-dev_*.deb python3-libnvinfer_*.deb python3-libnvinfer-dev_*.deb && \
     rm -f *
 
 # Install PyPI packages
