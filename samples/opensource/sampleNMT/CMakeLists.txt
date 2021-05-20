@@ -17,14 +17,13 @@ SET(SAMPLE_SOURCES
     sampleNMT.cpp
     trtUtil.cpp
 )
-include(../../CMakeSamplesTemplate.txt)
+include(../CMakeSamplesTemplate.txt)
 
 # define SAMPLE_NMT_DATA_SOURCES and SAMPLE_NMT_MODEL_SOURCES
 set(SAMPLE_NMT_MODEL_SOURCES
     model/beamSearchPolicy.cpp
     model/componentWeights.cpp
     model/contextNMT.cpp
-    model/debugUtil.cpp
     model/lstmDecoder.cpp
     model/lstmEncoder.cpp
     model/multiplicativeAlignment.cpp

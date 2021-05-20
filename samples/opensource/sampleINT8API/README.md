@@ -9,7 +9,7 @@
 	* [Building the engine](#building-the-engine)
 	* [Running the engine](#running-the-engine)
 	* [TensorRT API layers and ops](#tensorrt-api-layers-and-ops)
-- [Preparing sample data](#preparing-sample-data)
+- [Prerequisites](#prerequisites)
 - [Running the sample](#running-the-sample)
 	* [Sample `--help` options](#sample-help-options)
 - [Models other than ResNet-50 with custom configuration](#models-other-than-resnet-50-with-custom-configuration)
@@ -24,7 +24,7 @@
 This sample, sampleINT8API, performs INT8 inference without using the INT8 calibrator; using the user provided per activation tensor dynamic range. INT8 inference is available only on GPUs with compute capability 6.1 or 7.x and supports Image Classification ONNX models such as ResNet-50, VGG19, and MobileNet.
 
 Specifically, this sample demonstrates how to:
--   Use `nvinfer1::ITensor::setDynamicRange` to set per tensor dynamic range
+-   Use `nvinfer1::ITensor::setDynamicRange` to set per-tensor dynamic range
 -   Use `nvinfer1::ILayer::setPrecision` to set computation precision of a layer
 -   Use `nvinfer1::ILayer::setOutputType` to set output tensor data type of a layer
 -   Perform INT8 inference without using INT8 calibration
@@ -145,9 +145,9 @@ Set the computational precision of this layer. Setting the precision forces Tens
 [ILayer::SetOutputType](https://docs.nvidia.com/deeplearning/sdk/tensorrt-api/c_api/classnvinfer1_1_1_i_layer.html#a85aded4e3ff0867e392602551d5b5dc7)
 Set the output type of this layer. Setting the output type forces TensorRT to choose the implementations which generate output data with the given type. If the output type is not set, TensorRT will select the implementation based on performance considerations and the flags specified to the builder.
 
-## Preparing sample data
+## Prerequisites
 
-In addition to the model file and input image, you will need per tensor dynamic range stored in a text file along with the ImageNet label reference file.
+In addition to the model file and input image, you will need per-tensor dynamic range stored in a text file along with the ImageNet label reference file.
 
 The following required files are included in the package and are located in the `data/int8_api` directory.
 
@@ -155,43 +155,39 @@ The following required files are included in the package and are located in the 
 The ImageNet reference label file.
 
 `resnet50_per_tensor_dynamic_range.txt`
-The ResNet-50 per tensor dynamic ranges file.
+The ResNet-50 per-tensor dynamic ranges file.
 
 `airliner.ppm`
 The image to be inferred.
 
 1.  Download the [ONNX ResNet-50 model](https://github.com/onnx/models/tree/master/vision/classification/resnet/model).
-    ```bash
-    wget https://s3.amazonaws.com/download.onnx/models/opset_9/resnet50.tar.gz -O $TRT_DATADIR/int8_api/resnet50.tar.gz
-    ```
+    `wget https://s3.amazonaws.com/download.onnx/models/opset_9/resnet50.tar.gz`
 
 2.  Unpackage the model file.
-    ```bash
-    tar zxvf $TRT_DATADIR/int8_api/resnet50.tar.gz -C $TRT_DATADIR/int8_api/
-    ```
+    `tar -xvzf resnet50.tar.gz`
 
 3.  Copy `resnet50/model.onnx` to the `data/int8_api/resnet50.onnx` directory.
-    ```bash
-    mv $TRT_DATADIR/int8_api/resnet50/model.onnx $TRT_DATADIR/int8_api/resnet50.onnx
-    ```
 
 ## Running the sample
 
-1. Compile the sample by following build instructions in [TensorRT README](https://github.com/NVIDIA/TensorRT/).
+1.  Compile this sample by running make  in the `<TensorRT root directory>/samples/sampleINT8API` directory. The binary named `sample_int8_api` will be created in the `<TensorRT root directory>/bin` directory.
 
-2. Run the sample to perform INT8 inference on a classification network, for example, ResNet-50.
-
-	To run INT8 inference with custom dynamic ranges:
-	```bash
-	sample_int8_api [--model=model_file] [--ranges=per_tensor_dynamic_range_file] [--image=image_file] [--reference=reference_file] [--data=/path/to/data/dir] [--useDLACore=<int>] [-v or --verbose]
+	```
+	cd <TensorRT root directory>/samples/sampleINT8API
+	make
 	```
 
-    For example:
-    ```bash
-    sample_int8_api --model=$TRT_DATADIR/resnet50/ResNet50.onnx --image=$TRT_DATADIR/int8_api/airliner.ppm --reference=$TRT_DATADIR/int8_api/reference_labels.txt --ranges=$TRT_DATADIR/int8_api/resnet50_per_tensor_dynamic_range.txt
-    ```
+	Where `<TensorRT root directory>` is where you installed TensorRT.
 
-3. Verify that the sample ran successfully. If the sample runs successfully you should see output similar to the following:
+2.  Run the sample to perform INT8 inference on a classification network, for example, ResNet-50.
+	`./sample_int8_api [-v or --verbose]`
+
+	To run INT8 inference with your dynamic ranges:
+	```
+	./sample_int8_api [--model=model_file] [--ranges=per_tensor_dynamic_range_file] [--image=image_file] [--reference=reference_file] [--data=/path/to/data/dir] [--useDLACore=<int>] [-v or --verbose]
+	```
+
+3.  Verify that the sample ran successfully. If the sample runs successfully you should see output similar to the following:
 
 	```
 	&&&& RUNNING TensorRT.sample_int8_api # ./sample_int8_api
@@ -243,13 +239,13 @@ In order to use this sample with other model files with a custom configuration, 
 		This sample provides an option to write names of the network tensors to a file, for example `network_tensors.txt`. This file can then be used to generate the `<network_name>_per_tensor_dynamic_ranges.txt` file in step 4-2 below. To generate the list of network tensors file, perform the following steps:
 
 		i.  Write network tensors to a file:
-		```bash
-		sample_int8_api [--model=model_file] [--write_tensors] [--network_tensors_file=network_tensors.txt] [-v or --verbose]
+		```
+		./sample_int8_api [--model=model_file] [--write_tensors] [--network_tensors_file=network_tensors.txt] [-v or --verbose]
 		```
 
 		ii.  Run INT8 inference with user provided dynamic ranges:
-		```bash
-		sample_int8_api [--model=model_file] [--ranges=per_tensor_dynamic_range_file] [--image=image_file] [--reference=reference_file] [--data=/path/to/data/dir] [--useDLACore=<int>] [-v or --verbose]
+		```
+		./sample_int8_api [--model=model_file] [--ranges=per_tensor_dynamic_range_file] [--image=image_file] [--reference=reference_file] [--data=/path/to/data/dir] [--useDLACore=<int>] [-v or --verbose]
 		```
 
 		sampleINT8API needs following files to build the network and run inference:
@@ -261,7 +257,7 @@ In order to use this sample with other model files with a custom configuration, 
 		Labels reference file i.e. ground truth ImageNet 1000 class mappings.
 
 		`Per_tensor_dynamic_range.txt`
-		Custom per tensor dynamic range file or you can simply override them by iterating through network layers.
+		Custom per-tensor dynamic range file or you can simply override them by iterating through network layers.
 
 		`Image_to_infer.ppm`
 		PPM Image to run inference with.
@@ -270,7 +266,7 @@ In order to use this sample with other model files with a custom configuration, 
 
 	2.  To create the `<network_name>_per_tensor_dynamic_ranges.txt` file, ensure each line corresponds to the tensor name and floating point dynamic range, for example `<tensor_name> : <float dynamic range>`.
 
-		Tensor names generated in the `network_tensors.txt` file (step 4-1) can be used here to represent `<tensor_name>`. The dynamic range can either be obtained from training (by measuring the `min` and `max` value of activation tensors in each epoch) or from using custom post processing techniques (similar to TensorRT calibration). You can also choose to use a dummy per tensor dynamic range to run the sample.
+		Tensor names generated in the `network_tensors.txt` file (step 4-1) can be used here to represent `<tensor_name>`. The dynamic range can either be obtained from training (by measuring the `min` and `max` value of activation tensors in each epoch) or from using custom post processing techniques (similar to TensorRT calibration). You can also choose to use a dummy per-tensor dynamic range to run the sample.
 
 		**Note:** INT8 inference accuracy may reduce when dummy/random dynamic ranges are provided.
 
@@ -281,7 +277,7 @@ The following resources provide a deeper understanding how to perform inference 
 **INT8API:**
 - [Setting Per-Tensor Dynamic Range Using C++](https://docs.nvidia.com/deeplearning/sdk/tensorrt-developer-guide/index.html#set_tensor_mp_c)
 
-**Generate per tensor dynamic range:**
+**Generate per-tensor dynamic range:**
 - [Quantization and Training of Neural Networks for Efficient Integer-Arithmetic-Only Inference](https://arxiv.org/pdf/1712.05877.pdf)
 - [Quantizing Deep Convolutional Networks for Efficient Inference: A Whitepaper](https://arxiv.org/pdf/1806.08342.pdf)
 - [8-bit Inference with TensorRT](http://on-demand.gputechconf.com/gtc/2017/presentation/s7310-8-bit-inference-with-tensorrt.pdf)

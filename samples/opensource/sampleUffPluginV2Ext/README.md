@@ -9,7 +9,6 @@
     * [Serialize and deserialize the engine](#serialize-and-deserialize-the-engine)
     * [Implement execution](#implement-execution)
     * [Manage resources](#manage-resources)
--  [Preparing sample data](#preparing-sample-data)
 -  [Running the sample](#running-the-sample)
     * [Sample `--help` options](#sample-help-options)
 -  [Additional resources](#additional-resources)
@@ -45,7 +44,7 @@ returns the dimensions of the output.
 ```
     Dims UffPoolPluginV2::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
     {
-        assert(index == 0 && nbInputDims == 1 && inputs[0].nbDims == 3);
+        ASSERT(index == 0 && nbInputDims == 1 && inputs[0].nbDims == 3);
         int height = (inputs[0].d[1] + mPoolingParams.pH * 2 - mPoolingParams.mR) / mPoolingParams.mU + 1;
         int width = (inputs[0].d[2] + mPoolingParams.pW * 2 - mPoolingParams.mS) / mPoolingParams.mV + 1;
         DimsHW outDims(height, width);
@@ -229,30 +228,21 @@ by calling this method when the engine is destroyed.
     }
 ```
 
-## Preparing sample data
-
-1. Download the sample data from [TensorRT release tarball](https://developer.nvidia.com/nvidia-tensorrt-download#), if not already mounted under `/usr/src/tensorrt/data` (NVIDIA NGC containers) and set it to `$TRT_DATADIR`.
-    ```bash
-    export TRT_DATADIR=/usr/src/tensorrt/data
-    pushd $TRT_DATADIR/mnist
-    pip install Pillow
-    python3 download_pgms.py
-    popd
-    ```
-
 ## Running the sample
 
-1. Compile the sample by following build instructions in [TensorRT README](https://github.com/NVIDIA/TensorRT/).
+1. Compile this sample by running `make` in the `<TensorRT root directory>/samples/sampleUffPluginV2Ext` directory. The
+binary named `sample_uff_plugin_v2_ext` will be created in the `<TensorRT root directory>/bin` directory.
+
+```
+    cd <TensorRT root directory>/samples/sampleUffPluginV2Ext
+    make
+```
+Where `<TensorRT root directory>` is where you installed TensorRT.
 
 2. Run inference on the digit looping from 0 to 9:
 
-```bash
-    sample_uff_plugin_v2_ext --datadir=<path/to/data>
 ```
-
-    For example:
-```bash
-    sample_uff_plugin_v2_ext --datadir=$TRT_DATADIR/mnist --fp16
+    ./sample_uff_plugin_v2_ext
 ```
 
 3. Verify that all the 10 digits match properly. If the sample runs successfully you should see output similar to the
