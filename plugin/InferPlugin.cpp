@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include "NvInfer.h"
 #include "NvInferPlugin.h"
 #include "checkMacrosPlugin.h"
@@ -53,6 +52,7 @@ using namespace nvinfer1::plugin;
 #include "resizeNearestPlugin.h"
 #include "specialSlicePlugin.h"
 #include "split.h"
+#include "scatterPlugin.h"
 
 using nvinfer1::plugin::RPROIParams;
 
@@ -189,6 +189,7 @@ extern "C"
         initializePlugin<nvinfer1::plugin::ReorgPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::ResizeNearestPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::RPROIPluginCreator>(logger, libNamespace);
+        initializePlugin<nvinfer1::plugin::ScatterNDPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::SpecialSlicePluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::SplitPluginCreator>(logger, libNamespace);
         return true;
