@@ -177,6 +177,94 @@ public:
 };
 
 //!
+//! \class DimsCHW
+//! \brief Descriptor for data with one channel dimension and two spatial dimensions.
+//!
+class DimsCHW : public Dims3
+{
+public:
+    //!
+    //! \brief Construct an empty DimsCHW object.
+    //!
+    DimsCHW()
+        : Dims3()
+    {
+    }
+
+    //!
+    //! \brief Construct a DimsCHW given channel count, height and width.
+    //!
+    //! \param channels The channel count.
+    //! \param height The height of the data.
+    //! \param width The width of the data.
+    //!
+    DimsCHW(int32_t channels, int32_t height, int32_t width)
+        : Dims3(channels, height, width)
+    {
+    }
+
+    //!
+    //! \brief Get the channel count.
+    //!
+    //! \return The channel count.
+    //!
+    int32_t& c()
+    {
+        return d[0];
+    }
+
+    //!
+    //! \brief Get the channel count.
+    //!
+    //! \return The channel count.
+    //!
+    int32_t c() const
+    {
+        return d[0];
+    }
+
+    //!
+    //! \brief Get the height.
+    //!
+    //! \return The height.
+    //!
+    int32_t& h()
+    {
+        return d[1];
+    }
+
+    //!
+    //! \brief Get the height.
+    //!
+    //! \return The height.
+    //!
+    int32_t h() const
+    {
+        return d[1];
+    }
+
+    //!
+    //! \brief Get the width.
+    //!
+    //! \return The width.
+    //!
+    int32_t& w()
+    {
+        return d[2];
+    }
+
+    //!
+    //! \brief Get the width.
+    //!
+    //! \return The width.
+    //!
+    int32_t w() const
+    {
+        return d[2];
+    }
+};
+
+//!
 //! \class Dims4
 //! \brief Descriptor for four-dimensional data.
 //!
@@ -214,6 +302,115 @@ public:
         {
             d[i] = 0;
         }
+    }
+};
+
+//!
+//! \class DimsNCHW
+//! \brief Descriptor for data with one index dimension, one channel dimension and two spatial dimensions.
+//!
+class DimsNCHW : public Dims4
+{
+public:
+    //!
+    //! \brief Construct an empty DimsNCHW object.
+    //!
+    DimsNCHW()
+        : Dims4()
+    {
+    }
+
+    //!
+    //! \brief Construct a DimsNCHW given batch size, channel count, height and width.
+    //!
+    //! \param batchSize The batch size (commonly denoted N).
+    //! \param channels The channel count.
+    //! \param height The height of the data.
+    //! \param width The width of the data.
+    //!
+    DimsNCHW(int32_t batchSize, int32_t channels, int32_t height, int32_t width)
+        : Dims4(batchSize, channels, height, width)
+    {
+    }
+
+    //!
+    //! \brief Get the index count.
+    //!
+    //! \return The index count.
+    //!
+    int32_t& n()
+    {
+        return d[0];
+    }
+
+    //!
+    //! \brief Get the index count.
+    //!
+    //! \return The index count.
+    //!
+    int32_t n() const
+    {
+        return d[0];
+    }
+
+    //!
+    //! \brief Get the channel count.
+    //!
+    //! \return The channel count.
+    //!
+    int32_t& c()
+    {
+        return d[1];
+    }
+
+    //!
+    //! \brief Get the channel count.
+    //!
+    //! \return The channel count.
+    //!
+    int32_t c() const
+    {
+        return d[1];
+    }
+
+    //!
+    //! \brief Get the height.
+    //!
+    //! \return The height.
+    //!
+    int32_t& h()
+    {
+        return d[2];
+    }
+
+    //!
+    //! \brief Get the height.
+    //!
+    //! \return The height.
+    //!
+    int32_t h() const
+    {
+        return d[2];
+    }
+
+    //!
+    //! \brief Get the width.
+    //!
+    //! \return The width.
+    //!
+    int32_t& w()
+    {
+        return d[3];
+    }
+
+    //!
+    //! \brief Get the width.
+    //!
+    //! \return The width.
+    //!
+    int32_t w() const
+    {
+        return d[3];
     }
 };
 
