@@ -1,5 +1,17 @@
 # TensorRT OSS Release Changelog
 
+## [21.06](https://github.com/NVIDIA/TensorRT/releases/tag/21.06) - 2021-06-xx
+
+### Changed
+- Update to [Polygraphy v0.29.2](tools/Polygraphy/CHANGELOG.md#v0292-2021-04-30)
+- Update to [ONNX-GraphSurgeon v0.3.9](tools/onnx-graphsurgeon/CHANGELOG.md#v039-2021-04-20)
+- Add missing model.py in `uff_custom_plugin` sample
+- Fix numerical errors for float type in NMS/batchedNMS plugins
+
+### Removed
+- Removed fcplugin from demoBERT to improve latency
+
+
 ## [21.05](https://github.com/NVIDIA/TensorRT/releases/tag/21.05) - 2021-05-20
 ### Added
 - Support for 3D spatial inputs in `InstanceNormalization` ONNX operator
