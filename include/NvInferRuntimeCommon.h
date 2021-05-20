@@ -153,7 +153,7 @@ struct EnumMaxImpl<DataType>
 //! TensorRT can also return an "unknown rank" dims structure. This structure is represented by nbDims == -1
 //! and d[i] == -1 for all d.
 //!
-class Dims
+class Dims32
 {
 public:
     //! The maximum number of dimensions supported for a tensor.
@@ -163,6 +163,13 @@ public:
     //! The extent of each dimension.
     int32_t d[MAX_DIMS];
 };
+
+//!
+//! Alias for Dims32.
+//!
+//! \warning: This alias might change in the future.
+//!
+using Dims = Dims32;
 
 //!
 //! \enum TensorFormat
@@ -493,8 +500,9 @@ public:
     //!
     //! \return 0 for success, else non-zero (which will cause engine termination).
     //!
-    virtual int32_t enqueue(int32_t batchSize, void const* const* inputs, void** outputs, void* workspace,
-        cudaStream_t stream) noexcept = 0;
+    virtual int32_t enqueue(int32_t batchSize, void const* const* inputs, void* const* outputs, void* workspace,
+        cudaStream_t stream) noexcept
+        = 0;
 
     //!
     //! \brief Find the size of the serialization buffer required.
@@ -521,6 +529,10 @@ public:
     //!
     //! \brief Clone the plugin object. This copies over internal plugin parameters and returns a new plugin object with
     //! these parameters.
+    //!
+    //! The TensorRT runtime calls clone() to clone the plugin when an execution context is created for an engine,
+    //! after the engine has been created.  The runtime does not call initialize() on the cloned plugin,
+    //! so the cloned plugin should be created in an initialized state.
     //!
     virtual IPluginV2* clone() const noexcept = 0;
 
@@ -769,7 +781,7 @@ protected:
 
     //!
     //! \brief Return the API version with which this plugin was built. The upper byte is reserved by TensorRT and is
-    //! used to differentiate this from IPlguinV2 and IPluginV2Ext.
+    //! used to differentiate this from IPluginV2 and IPluginV2Ext.
     //!
     //! Do not override this method as it is used by the TensorRT library to maintain backwards-compatibility with
     //! plugins.
@@ -960,20 +972,20 @@ public:
     //! \brief Register a plugin creator. Returns false if one with same type
     //! is already registered.
     //!
-    virtual bool registerCreator(IPluginCreator& creator, AsciiChar const* pluginNamespace) noexcept = 0;
+    virtual bool registerCreator(IPluginCreator& creator, AsciiChar const* const pluginNamespace) noexcept = 0;
 
     //!
     //! \brief Return all the registered plugin creators and the number of
     //! registered plugin creators. Returns nullptr if none found.
     //!
-    virtual IPluginCreator* const* getPluginCreatorList(int32_t* numCreators) const noexcept = 0;
+    virtual IPluginCreator* const* getPluginCreatorList(int32_t* const numCreators) const noexcept = 0;
 
     //!
     //! \brief Return plugin creator based on plugin name, version, and
     //! namespace associated with plugin during network creation.
     //!
     virtual IPluginCreator* getPluginCreator(
-        AsciiChar const* pluginName, AsciiChar const* pluginVersion, AsciiChar const* pluginNamespace = "") noexcept
+        AsciiChar const* const pluginName, AsciiChar const* const pluginVersion, AsciiChar const* const pluginNamespace = "") noexcept
         = 0;
 
     IPluginRegistry() = default;
@@ -998,7 +1010,7 @@ public:
     //
     //! \see getErrorRecorder()
     //!
-    virtual void setErrorRecorder(IErrorRecorder* recorder) noexcept = 0;
+    virtual void setErrorRecorder(IErrorRecorder* const recorder) noexcept = 0;
 
     //!
     //! \brief Set the ErrorRecorder assigned to this interface.
@@ -1066,7 +1078,7 @@ public:
     //!
     //! If an allocation request cannot be satisfied, nullptr should be returned.
     //!
-    virtual void* allocate(uint64_t size, uint64_t alignment, AllocatorFlags flags) noexcept = 0;
+    virtual void* allocate(uint64_t const size, uint64_t const alignment, AllocatorFlags const flags) noexcept = 0;
 
     //!
     //! A callback implemented by the application to handle release of GPU memory.
@@ -1075,7 +1087,7 @@ public:
     //!
     //! \param memory The acquired memory.
     //!
-    virtual void free(void* memory) noexcept = 0;
+    virtual void free(void* const memory) noexcept = 0;
 
     //!
     //! Destructor declared virtual as general good practice for a class with virtual methods.
@@ -1246,6 +1258,7 @@ enum class ErrorCode : int32_t
     //! of this error are NaN squashing or integer overflow. In a dynamic system, the data can be thrown away and the
     //! next frame can be processed or execution can be retried.
     //! This is either a data corruption error, an input error, or a range error.
+    //! This is not used in safety but may be used in standard.
     //!
     kFAILED_COMPUTATION = 8,
 

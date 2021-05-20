@@ -19,6 +19,18 @@
 
 #include "NvInferRuntimeCommon.h"
 
+//!
+//! \file NvInferLegacyDims.h
+//!
+//! This file contains declarations of legacy dimensions types which use channel
+//! semantics in their names, and declarations on which those types rely.
+//!
+
+//!
+//! \namespace nvinfer1
+//!
+//! \brief The TensorRT API version 1 namespace.
+//!
 namespace nvinfer1
 {
 //!

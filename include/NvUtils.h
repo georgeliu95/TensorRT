@@ -72,7 +72,9 @@ namespace utils
 //!
 //! \return True on success, false on failure.
 //!
-TENSORRTAPI bool reshapeWeights(
+//! \warning This file will be removed in TensorRT 10.0.
+//!
+TRT_DEPRECATED TENSORRTAPI bool reshapeWeights(
     const Weights& input, int32_t const* shape, int32_t const* shapeOrder, void* data, int32_t nbDims) noexcept;
 
 //!
@@ -116,7 +118,10 @@ TENSORRTAPI bool reshapeWeights(
 //!
 //! \see reshapeWeights()
 //!
-TENSORRTAPI bool reorderSubBuffers(void* input, int32_t const* order, int32_t num, int32_t size) noexcept;
+//! \warning This file will be removed in TensorRT 10.0.
+//!
+TRT_DEPRECATED TENSORRTAPI bool reorderSubBuffers(
+    void* input, int32_t const* order, int32_t num, int32_t size) noexcept;
 
 //!
 //! \param input The input data to transpose.
@@ -129,7 +134,10 @@ TENSORRTAPI bool reorderSubBuffers(void* input, int32_t const* order, int32_t nu
 //!
 //! \return True on success, false on failure.
 //!
-TENSORRTAPI bool transposeSubBuffers(void* input, DataType type, int32_t num, int32_t height, int32_t width) noexcept;
+//! \warning This file will be removed in TensorRT 10.0.
+//!
+TRT_DEPRECATED TENSORRTAPI bool transposeSubBuffers(
+    void* input, DataType type, int32_t num, int32_t height, int32_t width) noexcept;
 
 } // namespace utils
 } // namespace nvinfer1

@@ -527,7 +527,7 @@ private:
         return 0;
     }
 
-    int32_t enqueue(int32_t, const void* const*, void**, void*, cudaStream_t) noexcept override final
+    int32_t enqueue(int32_t, const void* const*, void* const*, void*, cudaStream_t) noexcept override final
     {
         return 1;
     }
@@ -577,7 +577,7 @@ enum class WeightsRole : int32_t
 template <>
 constexpr inline int32_t EnumMax<WeightsRole>() noexcept
 {
-    return 5;
+    return 6;
 }
 
 //!
@@ -1069,10 +1069,25 @@ public:
     //! This implies that the datatype of t is DataType::kINT32, the rank is either 0 or 1, and the dimensions of t
     //! are fixed at network definition time. This function must not be called for any input tensor that is not a
     //! shape tensor.
+    //!
     //! Each time this function is called for the same input tensor, the same nbValues must be supplied (either 1
     //! if the tensor rank is 0, or dims.d[0] if the rank is 1). Furthermore, if minVals, optVals, maxVals are the
     //! minimum, optimum, and maximum values, it must be true that minVals[i] <= optVals[i] <= maxVals[i] for
-    //! i = 0, ..., nbValues - 1.
+    //! i = 0, ..., nbValues - 1. Execution of the network must be valid for the optVals.
+    //!
+    //! Shape tensors are tensors that contribute to shape calculations in some way, and can contain
+    //! any int32_t values appropriate for the network. Examples:
+    //!
+    //! * A shape tensor used as the second input to IShuffleLayer can contain a -1 wildcard.
+    //!   The corresponding minVal[i] should be -1.
+    //!
+    //! * A shape tensor used as the stride input to ISliceLayer can contain any valid strides.
+    //!   The values could be positive, negative, or zero.
+    //!
+    //! * A shape tensor subtracted from zero to compute the size input of an ISliceLayer can
+    //!   contain any non-positive values that yield a valid slice operation.
+    //!
+    //! Tightening the minVals and maxVals bounds to cover only values that are necessary may help optimization.
     //!
     //! \param inputName The input tensor name
     //! \param select Whether to set the minimum, optimum, or maximum input values.
@@ -1860,9 +1875,6 @@ public:
     //! getDeviceMemorySize() returns 0. If using enqueue() to run the network, the memory is in use from the invocation
     //! of enqueue() until network execution is complete. If using execute(), it is in use until execute() returns.
     //! Releasing or otherwise using the memory for other purposes during this time will result in undefined behavior.
-    //!
-    //! \deprecated This API is superseded by ExecutionResources::setDeviceMemory and will be removed in
-    //! TensorRT 10.0.
     //!
     //! \see ICudaEngine::getDeviceMemorySize() ICudaEngine::createExecutionContextWithoutDeviceMemory()
     //!

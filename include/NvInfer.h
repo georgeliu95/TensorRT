@@ -2285,9 +2285,10 @@ protected:
 //!
 //! \brief A concatenation layer in a network definition.
 //!
-//! The output channel size is the sum of the channel sizes of the inputs.
-//! The other output sizes are the same as the other input sizes,
-//! which must all match.
+//! The output dimension along the concatenation axis is the sum of the corresponding input dimensions.
+//! Every other output dimension is the same as the corresponding dimension of the inputs.
+//!
+//! \warning All tensors must have the same dimensions except along the concatenation axis.
 //!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
@@ -3757,6 +3758,15 @@ public:
     //! If this function is called with a value 1, then the function getNbInputs() changes
     //! from returning 1 to 2.
     //!
+    //! The reshape dimensions are treated identically to how they are treated if set statically
+    //! via setReshapeDimensions. In particular, a -1 is treated as a wildcard even if dynamically
+    //! supplied at runtime, and a 0 is treated as a placeholder if getZeroIsPlaceholder() = true,
+    //! which is the default. If the placeholder interpretation of 0 is unwanted because the
+    //! runtime dimension should be 0 when the reshape dimension is 0, be sure to call
+    //! setZeroIsPlacholder(false) on the IShuffleLayer.
+    //!
+    //! \see setReshapeDimensions.
+    //!
     using ILayer::setInput;
 
     //!
@@ -3856,8 +3866,10 @@ constexpr inline int32_t EnumMax<SliceMode>() noexcept
 //! copies elements to the output tensor using the specified stride across the input tensor.
 //! Start, size, and stride tensors must be 1D Int32 shape tensors if not specified via Dims.
 //!
-//! Furthermore, if the slice layer must produce a shape tensor, then start, size, and stride must be
-//! build time constants, i.e. as static Dims, or be computable by constant folding.
+//! A slice layer can produce a shape tensor if the following conditions are met:
+//!
+//! * start, size, and stride are build time constants, either as static Dims, or computable by constant folding.
+//! * The number of elements in the output tensor does not exceed 2*Dims::MAX_DIMS.
 //!
 //! For example using slice on a tensor:
 //! input = {{0, 2, 4}, {1, 3, 5}}
@@ -4930,7 +4942,7 @@ public:
     //! count is reached or condition is falsified.
     //! It is an error to not add at least one trip limiter.
     //!
-    //! For kTRIP_LIMIT, the input tensor must be available before the loop starts.
+    //! For kCOUNT, the input tensor must be available before the loop starts.
     //!
     //! For kWHILE, the input tensor must be the output of a subgraph that contains
     //! only layers that are not ITripLimitLayer, IIteratorLayer or ILoopOutputLayer.
@@ -5040,6 +5052,13 @@ constexpr inline int32_t EnumMax<FillOperation>() noexcept
 //!
 //! Alpha and Beta are treated differently based on the Fill Operation specified. See details in
 //! IFillLayer::setAlpha(), IFillLayer::setBeta(), and IFillLayer::setInput().
+//!
+//! A fill layer can produce a shape tensor if the following restrictions are met:
+//!
+//! * The FillOperation is kLINSPACE.
+//! * The output is a 1D Int32 tensor with length not exceeding 2*Dims::MAX_DIMS.
+//! * There is at most one input, and if so, that input is input 0.
+//! * If input 0 exists, the length of the output tensor must be computable by constant folding.
 //!
 //! \see FillOperation
 //!
@@ -5214,9 +5233,9 @@ protected:
 //! The \p zeroPt tensor is optional, and if not set, will be assumed to be zero.  Its data type must be
 //! DataType::kINT8. \p zeroPt must only contain zero-valued coefficients, because only symmetric quantization is
 //! supported.
-//! The \p scale value must be either a scalar for per-tensor quantization, or a 1D tensor for per-axis
-//! quantization. The size of the 1-D \p scale tensor must match the size of the quantization axis. The size of the \p
-//! scale must match the size of the \p zeroPt.
+//! The \p scale value must be either a scalar for per-tensor quantization, or a 1D tensor for per-channel
+//! quantization. All \p scale coefficients must have positive values.  The size of the 1-D \p scale tensor must match
+//! the size of the quantization axis. The size of the \p scale must match the size of the \p zeroPt.
 //!
 //! The subgraph which terminates with the \p scale tensor must be a build-time constant.  The same restrictions apply
 //! to the \p zeroPt.
@@ -5236,9 +5255,9 @@ protected:
 //!                 For each w in W:
 //!                     output[n,c,h,w] = clamp(round(\p input[n,c,h,w] / \p scale) + \p zeroPt)
 //!
-//! Per-axis quantization is supported only for weight inputs. Thus, Activations cannot be quantized per-axis.
-//! As an example of per-axis operation, imagine a 4D KCRS weights input and K (dimension 0) as the quantization axis.
-//! The scale is an array of coefficients, and must have the same size as the quantization axis.
+//! Per-channel quantization is supported only for weight inputs. Thus, Activations cannot be quantized per-channel.
+//! As an example of per-channel operation, imagine a 4D KCRS weights input and K (dimension 0) as the quantization
+//! axis. The scale is an array of coefficients, and must have the same size as the quantization axis.
 //!     For each k in K:
 //!         For each c in C:
 //!             For each r in R:
@@ -5300,9 +5319,9 @@ protected:
 //! The \p zeroPt tensor is optional, and if not set, will be assumed to be zero.  Its data type must be
 //! DataType::kINT8. \p zeroPt must only contain zero-valued coefficients, because only symmetric quantization is
 //! supported.
-//! The \p scale value must be either a scalar for per-tensor quantization, or a 1D tensor for per-axis
-//! quantization. The size of the 1-D \p scale tensor must match the size of the quantization axis. The size of the \p
-//! scale must match the size of the \p zeroPt.
+//! The \p scale value must be either a scalar for per-tensor quantization, or a 1D tensor for per-channel
+//! quantization. All \p scale coefficients must have positive values.  The size of the 1-D \p scale tensor must match
+//! the size of the quantization axis. The size of the \p scale must match the size of the \p zeroPt.
 //!
 //! The subgraph which terminates with the \p scale tensor must be a build-time constant.  The same restrictions apply
 //! to the \p zeroPt.
@@ -5322,10 +5341,10 @@ protected:
 //!                 For each w in W:
 //!                     output[n,c,h,w] = (\p input[n,c,h,w] - \p zeroPt) * \p scale
 //!
-//! Per-axis dequantization is supported only for input that is rooted at an IConstantLayer (i.e. weights).  Activations
-//! cannot be quantized per-axis.
-//! As an example of per-axis operation, imagine a 4D KCRS weights input and K (dimension 0) as the quantization axis.
-//! The scale is an array of coefficients, which is the same size as the quantization axis.
+//! Per-channel dequantization is supported only for input that is rooted at an IConstantLayer (i.e. weights).
+//! Activations cannot be quantized per-channel. As an example of per-channel operation, imagine a 4D KCRS weights input
+//! and K (dimension 0) as the quantization axis. The scale is an array of coefficients, which is the same size as the
+//! quantization axis.
 //!     For each k in K:
 //!         For each c in C:
 //!             For each r in R:
@@ -5599,7 +5618,7 @@ public:
     //!
     //! \return The new concatenation layer, or nullptr if it could not be created.
     //!
-    //! \warning All tensors must have the same dimensions for all dimensions except for channel.
+    //! \warning All tensors must have the same dimensions except along the concatenation axis.
     //!
     IConcatenationLayer* addConcatenation(ITensor* const* inputs, int32_t nbInputs) noexcept
     {
@@ -7474,7 +7493,7 @@ public:
     }
 
     //!
-    //! \brief Set the cudaStream that is used to profile this network.
+    //! \brief Set the cuda stream that is used to profile this network.
     //!
     //! \param stream The cuda stream used for profiling by the builder.
     //!
@@ -7486,9 +7505,9 @@ public:
     }
 
     //!
-    //! \brief Get the cudaStream that is used to profile this network.
+    //! \brief Get the cuda stream that is used to profile this network.
     //!
-    //! \return The cuda stream used for profiling by the builder.
+    //! \return The cuda stream set by setProfileStream, nullptr if setProfileStream has not been called.
     //!
     //! \see setProfileStream()
     //!
@@ -7664,8 +7683,8 @@ public:
     //! This bitset controls which tactic sources TensorRT is allowed to use for tactic
     //! selection.
     //!
-    //! By default, kCUBLAS is always enabled. kCUBLAS_LT is enabled for x86
-    //! platforms, as well as non-x86 platforms if CUDA >= 11.0
+    //! By default, kCUBLAS and kCUDNN are always enabled. kCUBLAS_LT is enabled for x86
+    //! platforms as well as non-x86 platforms when CUDA >= 11.0.
     //!
     //! Multiple tactic sources may be combined with a bitwise OR operation. For example,
     //! to enable cublas and cublasLt as tactic sources, use a value of:
@@ -7919,6 +7938,8 @@ public:
     //! It enables the builder to build multiple engines based on the same network definition, but with different
     //! builder configurations.
     //!
+    //! \note This function will synchronize the cuda stream returned by \p config.getProfileStream() before returning.
+    //!
     //! \deprecated API will be removed in TensorRT 10.0, use IBuilder::buildSerializedNetwork instead.
     //!
     TRT_DEPRECATED nvinfer1::ICudaEngine* buildEngineWithConfig(
@@ -8016,6 +8037,8 @@ public:
     //! \param config Builder configuration.
     //!
     //! \return A pointer to a IHostMemory object that contains a serialized network.
+    //!
+    //! \note This function will synchronize the cuda stream returned by \p config.getProfileStream() before returning.
     //!
     //! \see INetworkDefinition, IBuilderConfig, IHostMemory
     //!
