@@ -20,4 +20,4 @@ SET(SAMPLE_SOURCES
 set(SAMPLE_PARSERS "uff")
 set(PLUGINS_NEEDED ON)
 
-include(../CMakeSamplesTemplate.txt)
+include(../../CMakeSamplesTemplate.txt)

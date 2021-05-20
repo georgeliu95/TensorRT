@@ -509,6 +509,6 @@ inline LogStreamConsumer LOG_FATAL(const Logger& logger)
 
 } // anonymous namespace
 
-} /* sample */
+} // namespace sample
 
 #endif // TENSORRT_LOGGING_H

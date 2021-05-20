@@ -19,4 +19,4 @@ set(SAMPLE_SOURCES
 
 set(SAMPLE_PARSERS "caffe")
 
-include(../CMakeSamplesTemplate.txt)
+include(../../CMakeSamplesTemplate.txt)
