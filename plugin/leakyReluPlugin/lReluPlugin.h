@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #ifndef TRT_L_RELU_PLUGIN_H
 #define TRT_L_RELU_PLUGIN_H
 #include "NvInfer.h"
@@ -36,37 +35,37 @@ public:
 
     LReLU(const void* buffer, size_t length);
 
-    ~LReLU() override = default;
+    ~LReLU() = default;
 
-    int getNbOutputs() const override;
+    int getNbOutputs() const noexcept;
 
-    Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) override;
+    Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) noexcept;
 
-    int initialize() override;
+    int initialize() noexcept;
 
-    void terminate() override;
+    void terminate() noexcept;
 
-    size_t getWorkspaceSize(int maxBatchSize) const override;
+    size_t getWorkspaceSize(int maxBatchSize) const noexcept;
 
-    int enqueue(
-        int batchSize, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream) override;
+    int enqueue(int batchSize, const void* const* inputs, void* const* outputs, void* workspace,
+        cudaStream_t stream) noexcept override;
 
-    size_t getSerializationSize() const override;
+    size_t getSerializationSize() const noexcept;
 
-    void serialize(void* buffer) const override;
+    void serialize(void* buffer) const noexcept;
 
     void configureWithFormat(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs, DataType type,
-        PluginFormat format, int maxBatchSize) override;
+        PluginFormat format, int maxBatchSize) noexcept;
 
-    bool supportsFormat(DataType type, PluginFormat format) const override;
+    bool supportsFormat(DataType type, PluginFormat format) const noexcept;
 
-    const char* getPluginType() const override;
+    const char* getPluginType() const noexcept;
 
-    const char* getPluginVersion() const override;
+    const char* getPluginVersion() const noexcept;
 
-    void destroy() override;
+    void destroy() noexcept;
 
-    IPluginV2* clone() const override;
+    IPluginV2* clone() const noexcept;
 
 private:
     float mNegSlope;
@@ -78,21 +77,20 @@ class LReluPluginCreator : public BaseCreator
 public:
     LReluPluginCreator();
 
-    ~LReluPluginCreator() override = default;
+    ~LReluPluginCreator() = default;
 
-    const char* getPluginName() const override;
+    const char* getPluginName() const noexcept override;
 
-    const char* getPluginVersion() const override;
+    const char* getPluginVersion() const noexcept override;
 
-    const PluginFieldCollection* getFieldNames() override;
+    const PluginFieldCollection* getFieldNames() noexcept override;
 
-    IPluginV2* createPlugin(const char* name, const PluginFieldCollection* fc) override;
+    IPluginV2* createPlugin(const char* name, const PluginFieldCollection* fc) noexcept override;
 
-    IPluginV2* deserializePlugin(const char* name, const void* serialData, size_t serialLength) override;
+    IPluginV2* deserializePlugin(const char* name, const void* serialData, size_t serialLength) noexcept override;
 
 private:
     static PluginFieldCollection mFC;
-    float negSlope{};
     static std::vector<PluginField> mPluginAttributes;
 };
 
