@@ -1,20 +1,53 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright 1993-2021 NVIDIA Corporation.  All rights reserved.
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# NOTICE TO LICENSEE:
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# This source code and/or documentation ("Licensed Deliverables") are
+# subject to NVIDIA intellectual property rights under U.S. and
+# international Copyright laws.
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# These Licensed Deliverables contained herein is PROPRIETARY and
+# CONFIDENTIAL to NVIDIA and is being provided under the terms and
+# conditions of a form of NVIDIA software license agreement by and
+# between NVIDIA and Licensee ("License Agreement") or electronically
+# accepted by Licensee.  Notwithstanding any terms or conditions to
+# the contrary in the License Agreement, reproduction or disclosure
+# of the Licensed Deliverables to any third party without the express
+# written consent of NVIDIA is prohibited.
+#
+# NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
+# LICENSE AGREEMENT, NVIDIA MAKES NO REPRESENTATION ABOUT THE
+# SUITABILITY OF THESE LICENSED DELIVERABLES FOR ANY PURPOSE.  IT IS
+# PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND.
+# NVIDIA DISCLAIMS ALL WARRANTIES WITH REGARD TO THESE LICENSED
+# DELIVERABLES, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY,
+# NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE.
+# NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
+# LICENSE AGREEMENT, IN NO EVENT SHALL NVIDIA BE LIABLE FOR ANY
+# SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, OR ANY
+# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
+# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
+# OF THESE LICENSED DELIVERABLES.
+#
+# U.S. Government End Users.  These Licensed Deliverables are a
+# "commercial item" as that term is defined at 48 C.F.R. 2.101 (OCT
+# 1995), consisting of "commercial computer software" and "commercial
+# computer software documentation" as such terms are used in 48
+# C.F.R. 12.212 (SEPT 1995) and is provided to the U.S. Government
+# only as a commercial end item.  Consistent with 48 C.F.R.12.212 and
+# 48 C.F.R. 227.7202-1 through 227.7202-4 (JUNE 1995), all
+# U.S. Government End Users acquire the Licensed Deliverables with
+# only those rights set forth herein.
+#
+# Any use of the Licensed Deliverables in individual and commercial
+# software must include, in the user documentation and internal
+# comments to the code, the above Disclaimer and U.S. Government End
+# Users Notice.
 #
 
-# Model download and UFF convertion utils
+# Model extraction and UFF convertion utils
 import os
 import sys
 import tarfile
@@ -28,33 +61,9 @@ import time
 import math
 
 from utils.paths import PATHS
-
-sys.path.insert(1, os.path.join(sys.path[0], os.path.pardir))
-from common import retry
+from utils.modeldata import ModelData
 
 # UFF conversion functionality
-
-# This class contains converted (UFF) model metadata
-class ModelData(object):
-    # Name of input node
-    INPUT_NAME = "Input"
-    # CHW format of model input
-    INPUT_SHAPE = (3, 300, 300)
-    # Name of output node
-    OUTPUT_NAME = "NMS"
-
-    @staticmethod
-    def get_input_channels():
-        return ModelData.INPUT_SHAPE[0]
-
-    @staticmethod
-    def get_input_height():
-        return ModelData.INPUT_SHAPE[1]
-
-    @staticmethod
-    def get_input_width():
-        return ModelData.INPUT_SHAPE[2]
-
 
 def ssd_unsupported_nodes_to_plugin_nodes(ssd_graph):
     """Makes ssd_graph TensorRT comparible using graphsurgeon.
@@ -172,7 +181,7 @@ def model_to_uff(model_path, output_uff_path, silent=False):
     )
 
 
-# Model download functionality
+# Model extraction functionality
 
 def maybe_print(should_print, print_arg):
     """Prints message if supplied boolean flag is true.
@@ -194,75 +203,23 @@ def maybe_mkdir(dir_path):
         os.makedirs(dir_path)
 
 
-def download_file(file_url, file_dest_path, silent=False):
-    """Downloads file from supplied URL and puts it into supplied directory.
+def _extract_model(silent=False):
+    """Extract model from Tensorflow model zoo.
 
     Args:
-        file_url (str): URL with file to download
-        file_dest_path (str): path to save downloaded file in
-        silent (bool): if False, writes progress messages to stdout
-    """
-
-    @retry(n_retries=3)
-    def _download_file(file_url, file_dest, silent=False):
-        response = requests.get(file_url, stream=True)
-        total_length = response.headers.get('content-length')
-
-        def print_progress(pct_done):
-            isatty = sys.stdout.isatty()
-            clear_char = "\r" if isatty else ""
-            endl_char = "" if isatty else "\n"
-            progress_bar_width = int(math.floor(pct_done * 50 / 100.0))
-            sys.stdout.write("{}Download progress [{}{}] {:.2f}%{}".format(
-                  clear_char,
-                  "=" * progress_bar_width,
-                  " " * (50 - progress_bar_width),
-                  pct_done,
-                  endl_char))
-            sys.stdout.flush()
-
-        if total_length is None or silent: # no content length header or silent, just write file
-            f.write(response.content)
-        else: # not silent, print progress
-            dl = 0
-            total_length = int(total_length)
-            t_last_update = t_cur = time.time()
-            for data in response.iter_content(chunk_size=(4096 * 1024)):
-                dl += len(data)
-                file_dest.write(data)
-                if t_cur - t_last_update > 2.0:
-                    print_progress(100 * dl / total_length)
-                    t_last_update = t_cur
-                t_cur = time.time()
-            print_progress(100)
-            sys.stdout.write("\n")
-
-    with open(file_dest_path, "wb") as f:
-        maybe_print(not silent, "Downloading {}".format(file_dest_path))
-        _download_file(file_url, f, silent=silent)
-
-def download_model(model_name, silent=False):
-    """Downloads model_name from Tensorflow model zoo.
-
-    Args:
-        model_name (str): chosen object detection model
         silent (bool): if False, writes progress messages to stdout
     """
     maybe_print(not silent, "Preparing pretrained model")
     model_dir = PATHS.get_models_dir_path()
     maybe_mkdir(model_dir)
-    model_url = PATHS.get_model_url(model_name)
-    model_archive_path = os.path.join(model_dir, "{}.tar.gz".format(model_name))
-    download_file(model_url, model_archive_path, silent=True)
-    maybe_print(not silent, "Download complete\nUnpacking {}".format(model_archive_path))
+    model_archive_path = PATHS.get_data_file_path('ssd_inception_v2_coco_2017_11_17.tar.gz')
+    maybe_print(not silent, "Unpacking {}".format(model_archive_path))
     with tarfile.open(model_archive_path, "r:gz") as tar:
         tar.extractall(path=model_dir)
-    maybe_print(not silent, "Extracting complete\nRemoving {}".format(model_archive_path))
-    os.remove(model_archive_path)
     maybe_print(not silent, "Model ready")
 
 def prepare_ssd_model(model_name="ssd_inception_v2_coco_2017_11_17", silent=False):
-    """Downloads pretrained object detection model and converts it to UFF.
+    """Extract pretrained object detection model and converts it to UFF.
 
     The model is downloaded from Tensorflow object detection model zoo.
     Currently only ssd_inception_v2_coco_2017_11_17 model is supported
@@ -275,7 +232,7 @@ def prepare_ssd_model(model_name="ssd_inception_v2_coco_2017_11_17", silent=Fals
     if model_name != "ssd_inception_v2_coco_2017_11_17":
         raise NotImplementedError(
             "Model {} is not supported yet".format(model_name))
-    download_model(model_name, silent)
+    _extract_model(silent)
     ssd_pb_path = PATHS.get_model_pb_path(model_name)
     ssd_uff_path = PATHS.get_model_uff_path(model_name)
     model_to_uff(ssd_pb_path, ssd_uff_path, silent)

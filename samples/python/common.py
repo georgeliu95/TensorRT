@@ -1,27 +1,58 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright 1993-2021 NVIDIA Corporation.  All rights reserved.
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# NOTICE TO LICENSEE:
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# This source code and/or documentation ("Licensed Deliverables") are
+# subject to NVIDIA intellectual property rights under U.S. and
+# international Copyright laws.
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# These Licensed Deliverables contained herein is PROPRIETARY and
+# CONFIDENTIAL to NVIDIA and is being provided under the terms and
+# conditions of a form of NVIDIA software license agreement by and
+# between NVIDIA and Licensee ("License Agreement") or electronically
+# accepted by Licensee.  Notwithstanding any terms or conditions to
+# the contrary in the License Agreement, reproduction or disclosure
+# of the Licensed Deliverables to any third party without the express
+# written consent of NVIDIA is prohibited.
+#
+# NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
+# LICENSE AGREEMENT, NVIDIA MAKES NO REPRESENTATION ABOUT THE
+# SUITABILITY OF THESE LICENSED DELIVERABLES FOR ANY PURPOSE.  IT IS
+# PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND.
+# NVIDIA DISCLAIMS ALL WARRANTIES WITH REGARD TO THESE LICENSED
+# DELIVERABLES, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY,
+# NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE.
+# NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
+# LICENSE AGREEMENT, IN NO EVENT SHALL NVIDIA BE LIABLE FOR ANY
+# SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, OR ANY
+# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
+# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
+# OF THESE LICENSED DELIVERABLES.
+#
+# U.S. Government End Users.  These Licensed Deliverables are a
+# "commercial item" as that term is defined at 48 C.F.R. 2.101 (OCT
+# 1995), consisting of "commercial computer software" and "commercial
+# computer software documentation" as such terms are used in 48
+# C.F.R. 12.212 (SEPT 1995) and is provided to the U.S. Government
+# only as a commercial end item.  Consistent with 48 C.F.R.12.212 and
+# 48 C.F.R. 227.7202-1 through 227.7202-4 (JUNE 1995), all
+# U.S. Government End Users acquire the Licensed Deliverables with
+# only those rights set forth herein.
+#
+# Any use of the Licensed Deliverables in individual and commercial
+# software must include, in the user documentation and internal
+# comments to the code, the above Disclaimer and U.S. Government End
+# Users Notice.
 #
 
-from itertools import chain
 import argparse
 import os
 
-import pycuda.driver as cuda
-import pycuda.autoinit
 import numpy as np
-
+import pycuda.autoinit
+import pycuda.driver as cuda
 import tensorrt as trt
 
 try:
@@ -165,77 +196,3 @@ def do_inference_v2(context, bindings, inputs, outputs, stream):
     stream.synchronize()
     # Return only the host outputs.
     return [out.host for out in outputs]
-
-def generate_md5_checksum(local_path):
-    """Returns the MD5 checksum of a local file.
-
-    Keyword argument:
-    local_path -- path of the file whose checksum shall be generated
-    """
-    with open(local_path, 'rb') as local_file:
-        data = local_file.read()
-        import hashlib
-        return hashlib.md5(data).hexdigest()
-
-
-def download_file(local_path, link, checksum_reference=None):
-    """Checks if a local file is present and downloads it from the specified path otherwise.
-    If checksum_reference is specified, the file's md5 checksum is compared against the
-    expected value.
-
-    Keyword arguments:
-    local_path -- path of the file whose checksum shall be generated
-    link -- link where the file shall be downloaded from if it is not found locally
-    checksum_reference -- expected MD5 checksum of the file
-    """
-    if not os.path.exists(local_path):
-        print('Downloading from %s, this may take a while...' % link)
-        import wget
-        wget.download(link, local_path)
-        print()
-    if checksum_reference is not None:
-        checksum = generate_md5_checksum(local_path)
-        if checksum != checksum_reference:
-            raise ValueError(
-                'The MD5 checksum of local file %s differs from %s, please manually remove \
-                 the file and try again.' %
-                (local_path, checksum_reference))
-    return local_path
-
-
-# `retry_call` and `retry` are used to wrap the function we want to try multiple times
-def retry_call(func, args=[], kwargs={}, n_retries=3):
-    """Wrap a function to retry it several times.
-
-    Args:
-        func: function to call
-        args (List): args parsed to func
-        kwargs (Dict): kwargs parsed to func
-        n_retries (int): maximum times of tries
-    """
-    for i_try in range(n_retries):
-        try:
-            func(*args, **kwargs)
-            break
-        except:
-            if i_try == n_retries - 1:
-                raise
-            print("retry...")
-
-# Usage: @retry(n_retries)
-def retry(n_retries=3):
-    """Wrap a function to retry it several times. Decorator version of `retry_call`.
-
-    Args:
-        n_retries (int): maximum times of tries
-
-    Usage:
-        @retry(n_retries)
-        def func(...):
-            pass
-    """
-    def wrapper(func):
-        def _wrapper(*args, **kwargs):
-            retry_call(func, args, kwargs, n_retries)
-        return _wrapper
-    return wrapper
