@@ -110,10 +110,6 @@ For native builds, install the [prerequisite](#prerequisites) *System Packages*.
     ```bash
     ./docker/build.sh --file docker/ubuntu-18.04.Dockerfile --tag tensorrt-ubuntu18.04-cuda11.3 --cuda 11.3.0
     ```
-    **Example: Ubuntu 18.04 cross-compile for PowerPC with cuda-11.0**
-    ```bash
-    ./docker/build.sh --file docker/ubuntu-cross-ppc64le.Dockerfile --tag tensorrt-ubuntu-ppc --cuda 11.0
-    ```
     **Example: CentOS/RedHat 7 on x86-64 with cuda-11.0**
     ```bash
     ./docker/build.sh --file docker/centos-7.Dockerfile --tag tensorrt-centos --cuda 11.0
