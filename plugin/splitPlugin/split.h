@@ -18,8 +18,8 @@
 #define TRT_SPLIT_PLUGIN_H
 #include <NvInfer.h>
 
-#include "checkMacrosPlugin.h"
 #include "serialize.hpp"
+#include "checkMacrosPlugin.h"
 
 #include <iostream>
 #include <string>
@@ -109,7 +109,7 @@ public:
         return 0;
     }
     void setPluginNamespace(const char* /*pluginNamespace*/) noexcept override {}
-    const char* getPluginNamespace() const override
+    const char* getPluginNamespace() const noexcept override
     {
         return "";
     }

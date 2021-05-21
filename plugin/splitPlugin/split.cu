@@ -131,9 +131,7 @@ void SplitPlugin::configurePlugin(const nvinfer1::DynamicPluginTensorDesc* in, i
 }
 
 int SplitPlugin::enqueue(const nvinfer1::PluginTensorDesc* inputDesc, const nvinfer1::PluginTensorDesc* outputDesc,
-                         const void* const* inputs, void* const* outputs,
-                         void* workspace,
-                         cudaStream_t stream)
+                         const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) noexcept
 {
   int const* d_segment_offsets_ptr =
     thrust::raw_pointer_cast(&_d_segment_offsets[0]);
