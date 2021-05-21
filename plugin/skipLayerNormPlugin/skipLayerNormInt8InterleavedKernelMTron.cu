@@ -14,15 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cuda.h>
 #include "NvInfer.h"
 #include "bertCommon.h"
-#include <type_traits>
 #include "common.cuh"
 #include <cassert>
 #include <cstring>
+#include <cuda.h>
+#include <type_traits>
 #include <vector>
-
 
 using namespace nvinfer1;
 
@@ -40,9 +39,10 @@ inline __device__ void res_add(
     hdata[3] = float(idata4.w) * dqData + float(ires4.w) * dqRes;
 }
 
-template <int WARPS, int HEADS, int THREADS_PER_ROW>
-__global__ void skipln_vec32(const int8_t* input, const int8_t* skip, int8_t* output, const half* beta,
-    const half* gamma, const float dqScaleIn, const float dqScaleSkip, const float qScale, const int total)
+template <int32_t WARPS, int32_t HEADS, int32_t THREADS_PER_ROW>
+__global__ void skipln_vec32_mtron(const int8_t* input, const int8_t* skip, int8_t* output, int8_t* preln,
+    const half* beta, const half* gamma, const float dqScaleIn, const float dqScaleSkip, const float qScale,
+    const float qSkipScale, const int32_t total)
 {
 
     // clang-format off
@@ -57,7 +57,7 @@ __global__ void skipln_vec32(const int8_t* input, const int8_t* skip, int8_t* ou
     // clang-format on
     static_assert(VECS_PER_CTA == 4, "");
     static_assert(PARAM_LDGS == 1, "");
-    static_assert(ROWS_PER_LDG == HEADS , "");
+    static_assert(ROWS_PER_LDG == HEADS, "");
     static_assert(LDGS == 2, "");
     static_assert(LDGS * ROWS_PER_LDG == HEADS * 2, "");
     static_assert(THREADS_PER_CTA * BYTES_PER_LDG == PARAM_BYTES, "");
@@ -69,30 +69,30 @@ __global__ void skipln_vec32(const int8_t* input, const int8_t* skip, int8_t* ou
     __shared__ half2 smem_red[VECS_PER_CTA][WARPS];
 
     constexpr float rld = 1.f / (float(HEADS) * float(HEAD_SIZE));
-    const int bidx = blockIdx.x;
-    const int tidx = threadIdx.x;
-    const int row = tidx / THREADS_PER_ROW;
-    const int col = tidx % THREADS_PER_ROW;
-    const int lane = tidx % 32;
-    const int warp = tidx / 32;
+    const int32_t bidx = blockIdx.x;
+    const int32_t tidx = threadIdx.x;
+    const int32_t row = tidx / THREADS_PER_ROW;
+    const int32_t col = tidx % THREADS_PER_ROW;
+    const int32_t lane = tidx % 32;
+    const int32_t warp = tidx / 32;
 
     const bool is_warp_lead = (lane < THREADS_PER_ROW) && ((lane & 1) == 0);
     const bool is_cta_lead = (tidx < THREADS_PER_ROW) && ((tidx & 1) == 0);
 
     // token position: every two threads load together the 32B at one token
     // position
-    const int pos = col / 2;
+    const int32_t pos = col / 2;
 
-    const int pos_offset = bidx * VECS_PER_CTA + pos; // for token positions per block, disabling 2 threads per pos
+    const int32_t pos_offset = bidx * VECS_PER_CTA + pos; // for token positions per block, disabling 2 threads per pos
     const bool my_pred = pos_offset < total;
-    const int row_stride_bytes = total * 32;
+    const int32_t row_stride_bytes = total * 32;
 
     uint4 in_data[LDGS];
     uint4 in_skip[LDGS];
     float hdata[LDGS * 4][4];
-    const int gmem_offset = row * row_stride_bytes + (bidx * THREADS_PER_ROW + col) * BYTES_PER_LDG;
+    const int32_t gmem_offset = row * row_stride_bytes + (bidx * THREADS_PER_ROW + col) * BYTES_PER_LDG;
 #pragma unroll
-    for (int ii = 0; ii < LDGS; ii++)
+    for (int32_t ii = 0; ii < LDGS; ii++)
     {
         in_data[ii] = {0, 0, 0, 0};
         in_skip[ii] = {0, 0, 0, 0};
@@ -114,7 +114,7 @@ __global__ void skipln_vec32(const int8_t* input, const int8_t* skip, int8_t* ou
     half* b = reinterpret_cast<half*>(&smem_[0]);
     half* g = reinterpret_cast<half*>(&smem_[PARAM_BYTES]);
 #pragma unroll
-    for (int ii = 0; ii < LDGS; ii++)
+    for (int32_t ii = 0; ii < LDGS; ii++)
     {
         res_add(hdata[ii * 4 + 0], in_data[ii].x, in_skip[ii].x, dqScaleIn, dqScaleSkip);
         res_add(hdata[ii * 4 + 1], in_data[ii].y, in_skip[ii].y, dqScaleIn, dqScaleSkip);
@@ -125,29 +125,35 @@ __global__ void skipln_vec32(const int8_t* input, const int8_t* skip, int8_t* ou
     half2 stats_local = {0, 0};
 
 #pragma unroll
-    for (int ii = 0; ii < LDGS * 4; ii++)
+    for (int32_t ii = 0; ii < LDGS * 4; ii++)
     {
 #pragma unroll
-        for (int jj = 0; jj < 4; jj++)
+        for (int32_t jj = 0; jj < 4; jj++)
         {
             const float tmp = hdata[ii][jj] * (rld);
             stats_local = stats_local + __floats2half2_rn(tmp, tmp * hdata[ii][jj]);
         }
     }
-    stats_local = stats_local + __shfl_xor_sync(uint32_t(-1), stats_local, 1); __syncwarp();
+    stats_local = stats_local + __shfl_xor_sync(uint32_t(-1), stats_local, 1);
+    __syncwarp();
 
     if (VECS_PER_CTA == 1)
     {
-        stats_local = stats_local + __shfl_xor_sync(uint32_t(-1), stats_local, 2); __syncwarp();
-        stats_local = stats_local + __shfl_xor_sync(uint32_t(-1), stats_local, 4); __syncwarp();
+        stats_local = stats_local + __shfl_xor_sync(uint32_t(-1), stats_local, 2);
+        __syncwarp();
+        stats_local = stats_local + __shfl_xor_sync(uint32_t(-1), stats_local, 4);
+        __syncwarp();
     }
     else if (VECS_PER_CTA == 2)
     {
-        stats_local = stats_local + __shfl_xor_sync(uint32_t(-1), stats_local, 4); __syncwarp();
+        stats_local = stats_local + __shfl_xor_sync(uint32_t(-1), stats_local, 4);
+        __syncwarp();
     }
 
-    stats_local = stats_local + __shfl_xor_sync(uint32_t(-1), stats_local, 8); __syncwarp();
-    stats_local = stats_local + __shfl_xor_sync(uint32_t(-1), stats_local, 16); __syncwarp();
+    stats_local = stats_local + __shfl_xor_sync(uint32_t(-1), stats_local, 8);
+    __syncwarp();
+    stats_local = stats_local + __shfl_xor_sync(uint32_t(-1), stats_local, 16);
+    __syncwarp();
 
     if (is_warp_lead)
     {
@@ -158,7 +164,7 @@ __global__ void skipln_vec32(const int8_t* input, const int8_t* skip, int8_t* ou
 
     if (is_cta_lead)
     {
-        for (int ii = 1; ii < WARPS; ii++)
+        for (int32_t ii = 1; ii < WARPS; ii++)
         {
             stats_local = stats_local + smem_red[pos][ii];
         }
@@ -173,16 +179,35 @@ __global__ void skipln_vec32(const int8_t* input, const int8_t* skip, int8_t* ou
     // load params into smem:  2x Headsx32x2x2B
     const float2 statsf = __half22float2(smem_red[pos][0]);
 
+    // Copy skip connection output before Layer Norm
 #pragma unroll
-    for (int ii = 0; ii < LDGS; ii++)
+    for (int32_t ii = 0; ii < LDGS; ii++)
+    {
+        in_data[ii].x = pack4(hdata[ii * 4 + 0], qSkipScale);
+        in_data[ii].y = pack4(hdata[ii * 4 + 1], qSkipScale);
+        in_data[ii].z = pack4(hdata[ii * 4 + 2], qSkipScale);
+        in_data[ii].w = pack4(hdata[ii * 4 + 3], qSkipScale);
+    }
+
+#pragma unroll
+    for (int32_t ii = 0; ii < LDGS; ii++)
+    {
+        if (my_pred)
+        {
+            stg(preln + gmem_offset + ii * ROWS_PER_LDG * row_stride_bytes, in_data[ii]);
+        }
+    }
+
+#pragma unroll
+    for (int32_t ii = 0; ii < LDGS; ii++)
     {
 #pragma unroll
-        for (int jj = 0; jj < 4; jj++)
+        for (int32_t jj = 0; jj < 4; jj++)
         {
 #pragma unroll
-            for (int kk = 0; kk < 4; kk++)
+            for (int32_t kk = 0; kk < 4; kk++)
             {
-                const int param_idx = (ii * ROWS_PER_LDG + row) * 32 + (jj * 4 + kk) + (tidx & 1) * 16;
+                const int32_t param_idx = (ii * ROWS_PER_LDG + row) * 32 + (jj * 4 + kk) + (tidx & 1) * 16;
                 const float bb = b[param_idx];
                 const float gg = g[param_idx];
                 hdata[ii * 4 + jj][kk] = gg * statsf.y * (hdata[ii * 4 + jj][kk] - statsf.x) + bb;
@@ -190,9 +215,8 @@ __global__ void skipln_vec32(const int8_t* input, const int8_t* skip, int8_t* ou
         }
     }
 
-
 #pragma unroll
-    for (int ii = 0; ii < LDGS; ii++)
+    for (int32_t ii = 0; ii < LDGS; ii++)
     {
         in_data[ii].x = pack4(hdata[ii * 4 + 0], qScale);
         in_data[ii].y = pack4(hdata[ii * 4 + 1], qScale);
@@ -201,7 +225,7 @@ __global__ void skipln_vec32(const int8_t* input, const int8_t* skip, int8_t* ou
     }
 
 #pragma unroll
-    for (int ii = 0; ii < LDGS; ii++)
+    for (int32_t ii = 0; ii < LDGS; ii++)
     {
         if (my_pred)
         {
@@ -211,51 +235,54 @@ __global__ void skipln_vec32(const int8_t* input, const int8_t* skip, int8_t* ou
     // store
 }
 
-void launch_large(cudaStream_t stream, const int ld, const int total, const int8_t* input, const int8_t* skip,
-    const half* beta, const half* gamma, int8_t* output, const float dqScaleIn, const float dqScaleSkip,
-    const float qScale)
+int32_t launch_large_mtron(cudaStream_t stream, const int32_t ld, const int32_t total, const int8_t* input,
+    const int8_t* skip, const half* beta, const half* gamma, int8_t* output, int8_t* preln, const float dqScaleIn,
+    const float dqScaleSkip, const float qScale, const float qSkipScale)
 {
     if (ld == 1024)
     {
-        constexpr int WARPS = 4;
-        constexpr int THREADS_PER_ROW = 8;
-        constexpr int HEADS = 16;
-        constexpr int PARAM_BYTES = HEADS * 64 * 2 * sizeof(half);
-        constexpr int VECS_PER_CTA = THREADS_PER_ROW / 2;
-        const int blocks = (total + VECS_PER_CTA - 1) / VECS_PER_CTA;
+        constexpr int32_t WARPS = 4;
+        constexpr int32_t THREADS_PER_ROW = 8;
+        constexpr int32_t HEADS = 16;
+        constexpr int32_t PARAM_BYTES = HEADS * 64 * 2 * sizeof(half);
+        constexpr int32_t VECS_PER_CTA = THREADS_PER_ROW / 2;
+        const int32_t blocks = (total + VECS_PER_CTA - 1) / VECS_PER_CTA;
 
-        skipln_vec32<WARPS, HEADS, THREADS_PER_ROW><<<blocks, WARPS * 32, PARAM_BYTES, stream>>>(
-            input, skip, output, beta, gamma, dqScaleIn, dqScaleSkip, qScale, total);
+        skipln_vec32_mtron<WARPS, HEADS, THREADS_PER_ROW><<<blocks, WARPS * 32, PARAM_BYTES, stream>>>(
+            input, skip, output, preln, beta, gamma, dqScaleIn, dqScaleSkip, qScale, qSkipScale, total);
     }
     else if (ld == 768)
     {
-        constexpr int WARPS = 3;
-        constexpr int THREADS_PER_ROW = 8;
-        constexpr int HEADS = 12;
-        constexpr int PARAM_BYTES = HEADS * 64 * 2 * sizeof(half);
-        constexpr int VECS_PER_CTA = THREADS_PER_ROW / 2;
-        const int blocks = (total + VECS_PER_CTA - 1) / VECS_PER_CTA;
+        constexpr int32_t WARPS = 3;
+        constexpr int32_t THREADS_PER_ROW = 8;
+        constexpr int32_t HEADS = 12;
+        constexpr int32_t PARAM_BYTES = HEADS * 64 * 2 * sizeof(half);
+        constexpr int32_t VECS_PER_CTA = THREADS_PER_ROW / 2;
+        const int32_t blocks = (total + VECS_PER_CTA - 1) / VECS_PER_CTA;
 
-        skipln_vec32<WARPS, HEADS, THREADS_PER_ROW><<<blocks, WARPS * 32, PARAM_BYTES, stream>>>(
-            input, skip, output, beta, gamma, dqScaleIn, dqScaleSkip, qScale, total);
+        skipln_vec32_mtron<WARPS, HEADS, THREADS_PER_ROW><<<blocks, WARPS * 32, PARAM_BYTES, stream>>>(
+            input, skip, output, preln, beta, gamma, dqScaleIn, dqScaleSkip, qScale, qSkipScale, total);
     }
     else
     {
-        ASSERT(false);
+        return STATUS_FAILURE;
     }
+
+    return cudaPeekAtLastError();
 }
 
 // naive kernel that only changes the addressing seems to be faster for small problem sizes
-template <int TPB, int VPT>
-__global__ void skiplnDQQ_vec(const int ld, const int8_t* input, const int8_t* skip, int8_t* output, const half* beta,
-    const half* gamma, const float dqScaleIn, const float dqScaleSkip, const float qScale, const int total)
+template <int32_t TPB, int32_t VPT>
+__global__ void skiplnDQQ_vec4(const int32_t ld, const int8_t* input, const int8_t* skip, int8_t* output, int8_t* preln,
+    const half* beta, const half* gamma, const float dqScaleIn, const float dqScaleSkip, const float qScale,
+    const float qSkipScale, const int32_t total)
 {
-    const int hinner = threadIdx.x % 4;
-    const int houter = threadIdx.x / 4;
+    const int32_t hinner = threadIdx.x % 4;
+    const int32_t houter = threadIdx.x / 4;
 
-    const int tidx = threadIdx.x;
-    const int bidx = blockIdx.x;
-    const int idx = houter * total * 32 + bidx * 32 + hinner * VPT;
+    const int32_t tidx = threadIdx.x;
+    const int32_t bidx = blockIdx.x;
+    const int32_t idx = houter * total * 32 + bidx * 32 + hinner * VPT;
     // 4 * 1024 * 4 * 2 Bytes = 16KB per block
     int8_t in_local[VPT];
     int8_t skip_local[VPT];
@@ -276,7 +303,7 @@ __global__ void skiplnDQQ_vec(const int ld, const int8_t* input, const int8_t* s
 
     const half rld = half(1.f) / half(ld);
 #pragma unroll
-    for (int it = 0; it < VPT; it++)
+    for (int32_t it = 0; it < VPT; it++)
     {
         // DQ input and skip
         const float tmp_in = in_local[it];
@@ -295,6 +322,14 @@ __global__ void skiplnDQQ_vec(const int ld, const int8_t* input, const int8_t* s
 
     const half2 sum2 = BlockReduce(temp_storage).Reduce(stats_local, cub::Sum());
 
+    // Copy skip connection output before Layer Norm
+#pragma unroll
+    for (int32_t it = 0; it < VPT; it++)
+    {
+        in_local[it] = quantize(in_local_dq[it], qSkipScale);
+    }
+    copy<sizeof(int8_t) * VPT>(in_local, &preln[idx]);
+
     if (tidx == 0)
     {
         mu = __low2half(sum2);
@@ -303,41 +338,46 @@ __global__ void skiplnDQQ_vec(const int ld, const int8_t* input, const int8_t* s
 
     __syncthreads();
 
+    static_assert(VPT % 4 == 0, "");
+    uint32_t out_local[VPT/4];
 #pragma unroll
-    for (int it = 0; it < VPT; it++)
+    for (int it = 0; it < VPT / 4; it++)
     {
-        const float tmp = gamma_local[it] * (in_local_dq[it] - mu) * rsigma + beta_local[it];
-        in_local[it] = quantize(tmp, qScale);
+        const float tmp0 = gamma_local[it*4+0] * (in_local_dq[it*4+0] - mu) * rsigma + beta_local[it*4+0];
+        const float tmp1 = gamma_local[it*4+1] * (in_local_dq[it*4+1] - mu) * rsigma + beta_local[it*4+1];
+        const float tmp2 = gamma_local[it*4+2] * (in_local_dq[it*4+2] - mu) * rsigma + beta_local[it*4+2];
+        const float tmp3 = gamma_local[it*4+3] * (in_local_dq[it*4+3] - mu) * rsigma + beta_local[it*4+3];
+        out_local[it] = float4_to_char4(tmp0 * qScale, tmp1 * qScale, tmp2 * qScale, tmp3 * qScale);
     }
 
-    copy<sizeof(int8_t) * VPT>(in_local, &output[idx]);
+    copy<sizeof(int8_t) * VPT>(out_local, &output[idx]);
 }
 
-void launch_small(cudaStream_t stream, const int ld, const int total, const int8_t* input, const int8_t* skip,
-    const half* beta, const half* gamma, int8_t* output, const float dqScaleIn, const float dqScaleSkip,
-    const float qScale)
+int32_t launch_small_mtron(cudaStream_t stream, const int32_t ld, const int total, const int8_t* input,
+    const int8_t* skip, const half* beta, const half* gamma, int8_t* output, int8_t* preln, const float dqScaleIn,
+    const float dqScaleSkip, const float qScale, const float qSkipScale)
 {
-    const int gridSize = total;
+    const int32_t gridSize = total;
     // we align reads with the number of parameters, i.e. 8-wide instead of 16
-    constexpr int VPT = 16 / sizeof(half); // 8
+    constexpr int32_t VPT = 16 / sizeof(half); // 8
     if (ld == 768)
     {
-        constexpr int TPB = 768 / VPT;
-        skiplnDQQ_vec<TPB, VPT>
-            <<<gridSize, TPB, 0, stream>>>(ld, input, skip, output, beta, gamma, dqScaleIn, dqScaleSkip, qScale, total);
+        constexpr int32_t TPB = 768 / VPT;
+        skiplnDQQ_vec4<TPB, VPT><<<gridSize, TPB, 0, stream>>>(
+            ld, input, skip, output, preln, beta, gamma, dqScaleIn, dqScaleSkip, qScale, qSkipScale, total);
     }
     else if (ld == 1024)
     {
-        constexpr int TPB = 1024 / VPT; // 128
-        skiplnDQQ_vec<TPB, VPT>
-            <<<gridSize, TPB, 0, stream>>>(ld, input, skip, output, beta, gamma, dqScaleIn, dqScaleSkip, qScale, total);
+        constexpr int32_t TPB = 1024 / VPT; // 128
+        skiplnDQQ_vec4<TPB, VPT><<<gridSize, TPB, 0, stream>>>(
+            ld, input, skip, output, preln, beta, gamma, dqScaleIn, dqScaleSkip, qScale, qSkipScale, total);
     }
     else
     {
         std::cout << "SkipLayerNormDQQ - FATAL: unsupported hidden layer size: " << ld << std::endl;
-        exit(0);
+        return STATUS_FAILURE;
     }
-    CHECK(cudaPeekAtLastError());
+    return cudaPeekAtLastError();
 }
 
 } // namespace bert
