@@ -19,14 +19,12 @@ import sys
 import time
 
 import tensorrt as trt
-import tensorflow as tf
 from PIL import Image
 import pycuda.driver as cuda
-import pycuda.autoinit
 import numpy as np
 
 import utils.engine as engine_utils # TRT Engine creation/save/load utils
-import utils.model as model_utils # UFF conversion uttils
+from utils.modeldata import ModelData
 
 # ../../common.py
 sys.path.insert(1,
@@ -98,7 +96,7 @@ class TRTInference(object):
         self.context = self.trt_engine.create_execution_context()
 
         # Allocate memory for multiple usage [e.g. multiple batch inference]
-        input_volume = trt.volume(model_utils.ModelData.INPUT_SHAPE)
+        input_volume = trt.volume(ModelData.INPUT_SHAPE)
         self.numpy_array = np.zeros((self.trt_engine.max_batch_size, input_volume))
 
     def infer(self, image_path):
@@ -163,7 +161,7 @@ class TRTInference(object):
     def _load_image_into_numpy_array(self, image):
         (im_width, im_height) = image.size
         return np.array(image).reshape(
-            (im_height, im_width, model_utils.ModelData.get_input_channels())
+            (im_height, im_width, ModelData.get_input_channels())
         ).astype(np.uint8)
 
     def _load_imgs(self, image_paths):
@@ -176,8 +174,8 @@ class TRTInference(object):
 
     def _load_img(self, image_path):
         image = Image.open(image_path)
-        model_input_width = model_utils.ModelData.get_input_width()
-        model_input_height = model_utils.ModelData.get_input_height()
+        model_input_width = ModelData.get_input_width()
+        model_input_height = ModelData.get_input_height()
         # Note: Bilinear interpolation used by Pillow is a little bit
         # different than the one used by Tensorflow, so if network receives
         # an image that is not 300x300, the network output may differ
@@ -194,65 +192,3 @@ class TRTInference(object):
         img_np = img_np.ravel()
         return img_np
 
-
-# This class is similar as TRTInference inference, but it manages Tensorflow
-class TensorflowInference(object):
-    def __init__(self, pb_model_path):
-        self.detection_graph = tf.Graph()
-        with self.detection_graph.as_default():
-            od_graph_def = tf.GraphDef()
-            with tf.gfile.GFile(pb_model_path, 'rb') as fid:
-                serialized_graph = fid.read()
-                od_graph_def.ParseFromString(serialized_graph)
-                tf.import_graph_def(od_graph_def, name='')
-        self.sess = tf.Session(graph=self.detection_graph)
-
-    def infer(self, image_path):
-        img_np = self._load_img(image_path)
-        return self._run_tensorflow_graph(np.expand_dims(img_np, axis=0))
-
-    def infer_batch(self, image_paths):
-        img_np = self._load_imgs(image_paths)
-        return self._run_tensorflow_graph(img_np)
-
-    def _run_tensorflow_graph(self, image_input):
-        ops = self.detection_graph.get_operations()
-        all_tensor_names = {output.name for op in ops for output in op.outputs}
-        tensor_dict = {}
-        for key in [
-            'num_detections', 'detection_boxes',
-            'detection_scores', 'detection_classes'
-        ]:
-            tensor_name = key + ':0'
-            if tensor_name in all_tensor_names:
-                tensor_dict[key] = self.detection_graph.get_tensor_by_name(
-                    tensor_name)
-
-        image_tensor = self.detection_graph.get_tensor_by_name('image_tensor:0')
-        output_dict = self.sess.run(tensor_dict,
-            feed_dict={image_tensor: image_input})
-
-        # All outputs are float32 numpy arrays, so convert types as appropriate
-        output_dict['num_detections'] = output_dict['num_detections'].astype(np.int32)
-        output_dict['detection_classes'] = output_dict[
-            'detection_classes'].astype(np.uint8)
-
-        return output_dict
-
-    def _load_image_into_numpy_array(self, image):
-        (im_width, im_height) = image.size
-        return np.array(image).reshape(
-            (im_height, im_width, model_utils.ModelData.get_input_channels())
-        ).astype(np.uint8)
-
-    def _load_imgs(self, image_paths):
-        numpy_array = np.zeros((len(image_paths),) + (300, 300, 3))
-        for idx, image_path in enumerate(image_paths):
-            img_np = self._load_img(image_path)
-            numpy_array[idx] = img_np
-        return numpy_array
-
-    def _load_img(self, image_path):
-        img = Image.open(image_path)
-        img_np = self._load_image_into_numpy_array(img)
-        return img_np
