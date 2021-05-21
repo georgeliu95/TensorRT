@@ -53,6 +53,7 @@ set(PLUGIN_LISTS
     regionPlugin
     reorgPlugin
     resizeNearestPlugin
+    scatterPlugin
     specialSlicePlugin
     splitPlugin
     )
