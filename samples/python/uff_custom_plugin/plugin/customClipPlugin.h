@@ -1,21 +1,5 @@
 /*
- * Copyright 1993-2021 NVIDIA Corporation.  All rights reserved.
- *
- * NOTICE TO LICENSEE:
- *
- * This source code and/or documentation ("Licensed Deliverables") are
- * subject to NVIDIA intellectual property rights under U.S. and
- * international Copyright laws.
- *
- * These Licensed Deliverables contained herein is PROPRIETARY and
- * CONFIDENTIAL to NVIDIA and is being provided under the terms and
- * conditions of a form of NVIDIA software license agreement by and
- * between NVIDIA and Licensee ("License Agreement") or electronically
- * accepted by Licensee.  Notwithstanding any terms or conditions to
- * the contrary in the License Agreement, reproduction or disclosure
- * of the Licensed Deliverables to any third party without the express
-/*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +20,6 @@
 #include "NvInferPlugin.h"
 #include <string>
 #include <vector>
-
 
 using namespace nvinfer1;
 
@@ -74,7 +57,8 @@ public:
 
     void serialize(void* buffer) const noexcept override;
 
-    void configureWithFormat(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs, DataType type, PluginFormat format, int maxBatchSize) noexcept override;
+    void configureWithFormat(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs, DataType type,
+        PluginFormat format, int maxBatchSize) noexcept override;
 
     bool supportsFormat(DataType type, PluginFormat format) const noexcept override;
 
@@ -111,7 +95,7 @@ public:
     IPluginV2* createPlugin(const char* name, const PluginFieldCollection* fc) noexcept override;
 
     IPluginV2* deserializePlugin(const char* name, const void* serialData, size_t serialLength) noexcept override;
-    
+
     void setPluginNamespace(const char* pluginNamespace) noexcept override;
 
     const char* getPluginNamespace() const noexcept override;
