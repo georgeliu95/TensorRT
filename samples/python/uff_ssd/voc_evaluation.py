@@ -1,66 +1,44 @@
 #!/usr/bin/env python3
 #
-# Copyright 1993-2021 NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
 #
-# NOTICE TO LICENSEE:
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This source code and/or documentation ("Licensed Deliverables") are
-# subject to NVIDIA intellectual property rights under U.S. and
-# international Copyright laws.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# These Licensed Deliverables contained herein is PROPRIETARY and
-# CONFIDENTIAL to NVIDIA and is being provided under the terms and
-# conditions of a form of NVIDIA software license agreement by and
-# between NVIDIA and Licensee ("License Agreement") or electronically
-# accepted by Licensee.  Notwithstanding any terms or conditions to
-# the contrary in the License Agreement, reproduction or disclosure
-# of the Licensed Deliverables to any third party without the express
-# written consent of NVIDIA is prohibited.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
-# NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
-# LICENSE AGREEMENT, NVIDIA MAKES NO REPRESENTATION ABOUT THE
-# SUITABILITY OF THESE LICENSED DELIVERABLES FOR ANY PURPOSE.  IT IS
-# PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND.
-# NVIDIA DISCLAIMS ALL WARRANTIES WITH REGARD TO THESE LICENSED
-# DELIVERABLES, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY,
-# NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE.
-# NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
-# LICENSE AGREEMENT, IN NO EVENT SHALL NVIDIA BE LIABLE FOR ANY
-# SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THESE LICENSED DELIVERABLES.
-#
-# U.S. Government End Users.  These Licensed Deliverables are a
-# "commercial item" as that term is defined at 48 C.F.R. 2.101 (OCT
-# 1995), consisting of "commercial computer software" and "commercial
-# computer software documentation" as such terms are used in 48
-# C.F.R. 12.212 (SEPT 1995) and is provided to the U.S. Government
-# only as a commercial end item.  Consistent with 48 C.F.R.12.212 and
-# 48 C.F.R. 227.7202-1 through 227.7202-4 (JUNE 1995), all
-# U.S. Government End Users acquire the Licensed Deliverables with
-# only those rights set forth herein.
-#
-# Any use of the Licensed Deliverables in individual and commercial
-# software must include, in the user documentation and internal
-# comments to the code, the above Disclaimer and U.S. Government End
-# Users Notice.
 
+import sys
+import os
+import ctypes
+import time
 import argparse
 import glob
-import os
-import tarfile
 
-import pycuda.autoinit
+if sys.version_info[0] == 2:
+    import xml.etree.cElementTree as ET
+else:
+    import xml.etree.ElementTree as ET
+
+import numpy as np
 import tensorrt as trt
-import utils.coco as coco_utils  # COCO dataset descriptors
-# Utility functions
-import utils.mAP as voc_mAP_utils  # mAP computation
-from utils.modeldata import ModelData
-import utils.voc as voc_utils  # VOC dataset descriptors
 from PIL import Image
-from utils.paths import PATHS  # Path management
+
+# Utility functions
+import utils.inference as inference_utils # TRT/TF inference wrappers
+import utils.model as model_utils # UFF conversion
+import utils.mAP as voc_mAP_utils # mAP computation
+import utils.voc as voc_utils # VOC dataset descriptors
+import utils.coco as coco_utils # COCO dataset descriptors
+from utils.paths import PATHS # Path management
+
 
 # VOC and COCO label lists
 VOC_CLASSES = voc_utils.VOC_CLASSES_LIST
@@ -157,10 +135,10 @@ def analyze_tensorrt_prediction(detection_out, pred_start_idx):
     xmax = fetch_prediction_field("xmax", detection_out, pred_start_idx)
     ymax = fetch_prediction_field("ymax", detection_out, pred_start_idx)
 
-    xmin = float(xmin) * ModelData.get_input_width()
-    ymin = float(ymin) * ModelData.get_input_height()
-    xmax = float(xmax) * ModelData.get_input_width()
-    ymax = float(ymax) * ModelData.get_input_height()
+    xmin = float(xmin) * model_utils.ModelData.get_input_width()
+    ymin = float(ymin) * model_utils.ModelData.get_input_height()
+    xmax = float(xmax) * model_utils.ModelData.get_input_width()
+    ymax = float(ymax) * model_utils.ModelData.get_input_height()
 
     return image_id, label, confidence, xmin, ymin, xmax, ymax
 
@@ -191,7 +169,7 @@ def produce_tensorrt_detections(detection_files, trt_inference_wrapper, max_batc
     Args:
         detection_files (dict): dictionary that maps class labels to
             class result files
-        trt_inference_wrapper (TRTInference):
+        trt_inference_wrapper (inference_utils.TRTInference):
             internal Python class wrapping TensorRT inferece
             setup/run code
         batch_size (int): batch size used for inference
@@ -246,7 +224,7 @@ def produce_tensorflow_detections(detection_files, tf_inference_wrapper, batch_s
     Args:
         detection_files (dict): dictionary that maps class labels to
             class result files
-        tf_inference_wrapper (TensorflowInference):
+        tf_inference_wrapper (inference_utils.TensorflowInference):
             internal Python class wrapping Tensorflow inferece
             setup/run code
         batch_size (int): batch size used for inference
@@ -272,10 +250,10 @@ def produce_tensorflow_detections(detection_files, tf_inference_wrapper, batch_s
                 # Output bounding boxes are in [0, 1] format,
                 # here we rescale them to pixel [0, 255] format
                 ymin, xmin, ymax, xmax = bbox
-                xmin = float(xmin) * ModelData.get_input_width()
-                ymin = float(ymin) * ModelData.get_input_height()
-                xmax = float(xmax) * ModelData.get_input_width()
-                ymax = float(ymax) * ModelData.get_input_height()
+                xmin = float(xmin) * model_utils.ModelData.get_input_width()
+                ymin = float(ymin) * model_utils.ModelData.get_input_height()
+                xmax = float(xmax) * model_utils.ModelData.get_input_width()
+                ymax = float(ymax) * model_utils.ModelData.get_input_height()
 
                 # Detection is saved only if confidence is bigger than zero
                 if confidence > 0.0:
@@ -354,41 +332,30 @@ def preprocess_voc():
                 img_pil = Image.open(voc_jpeg_path)
                 img_pil = img_pil.resize(
                     size=(
-                        ModelData.get_input_width(),
-                        ModelData.get_input_height()),
+                        model_utils.ModelData.get_input_width(),
+                        model_utils.ModelData.get_input_height()),
                     resample=Image.BILINEAR
                 )
                 img_pil.save(voc_ppm_path)
 
-def adjust_paths(args, data_dir):
+def adjust_paths(args):
     """Adjust all file/directory paths, arguments passed by user.
 
     During script launch, user can pass several arguments to the script
-    (e.g. --workspace_dir, --data), that define where script will look
+    (e.g. --workspace_dir, --voc_dir), that define where script will look
     for the files needed for execution. This function adjusts internal
     Paths Python datastructure to accomodate for changes from defaults
     requested by user through appropriate command line arguments.
 
     Args:
         args (argparse.Namespace): parsed user arguments
-        data_dir (str): path to the data directory
     """
+    if args.voc_dir:
+        PATHS.set_voc_dir_path(args.voc_dir)
     if args.workspace_dir:
         PATHS.set_workspace_dir_path(args.workspace_dir)
     if not os.path.exists(PATHS.get_workspace_dir_path()):
         os.makedirs(PATHS.get_workspace_dir_path())
-    PATHS.set_data_dir_path(data_dir)
-
-
-def extract_voc_data_if_needed():
-    if os.path.exists(PATHS.get_voc_dir_path()):
-        return
-    voc_archive_path = PATHS.get_data_file_path('VOCtest_06-Nov-2007.tar')
-    print("Unpacking {}".format(voc_archive_path))
-    with tarfile.open(voc_archive_path, "r") as tar:
-        tar.extractall(path=PATHS.get_sample_root())
-    print("Unpacking done!")
-
 
 def parse_commandline_arguments():
     """Parses command line arguments and adjusts internal data structures."""
@@ -406,18 +373,15 @@ def parse_commandline_arguments():
         help='force model inference even if detections exist')
     parser.add_argument('-w', '--workspace_dir',
         help='sample workspace directory')
-    parser.add_argument('-d', '--data',
-        help="Specify the data directory where it is saved in. $TRT_DATA_DIR will be overwritten by this argument.")
+    parser.add_argument('-voc', '--voc_dir',
+        help='VOC2007 root directory')
 
-    args, _ = parser.parse_known_args()
+    # Parse arguments passed
+    args = parser.parse_args()
 
-    data_dir = os.environ.get('TRT_DATA_DIR', None) if args.data is None else args.data
-    if data_dir is None:
-        raise ValueError("Data directory must be specified by either `-d $DATA` or environment variable $TRT_DATA_DIR.")
+    # Adjust global Paths data structure
+    adjust_paths(args)
 
-    adjust_paths(args, data_dir)
-
-    extract_voc_data_if_needed()
     # Verify Paths after adjustments. This also exits script if verification fails
     PATHS.verify_all_paths(should_verify_voc=True)
 
@@ -449,7 +413,8 @@ def parse_commandline_arguments():
     }
     return parsed
 
-def main():
+
+if __name__ == '__main__':
     # Parse command line arguments
     parsed = parse_commandline_arguments()
 
@@ -473,6 +438,8 @@ def main():
     # ...and .uff path, if needed (converting .pb to .uff if not already done)
     if parsed['inference_backend'] == 'tensorrt':
         ssd_model_uff_path = PATHS.get_model_uff_path(MODEL_NAME)
+        if not os.path.exists(ssd_model_uff_path):
+            model_utils.prepare_ssd_model(MODEL_NAME)
 
     # This block of code sets up and performs inference, if needed
     if not skip_inference:
@@ -491,8 +458,7 @@ def main():
             # TRTInference initialization initializes
             # all TensorRT structures, creates engine if it doesn't
             # already exist and finally saves it to file for future uses
-            from utils.inference_trt import TRTInference
-            trt_inference_wrapper = TRTInference(
+            trt_inference_wrapper = inference_utils.TRTInference(
                 parsed['trt_engine_path'], ssd_model_uff_path,
                 parsed['trt_engine_datatype'], parsed['max_batch_size'])
             # Outputs from TensorRT are handled differently than
@@ -504,8 +470,8 @@ def main():
         elif parsed['inference_backend'] == 'tensorflow':
             # In case of Tensorflow all we need to
             # initialize inference is frozen model...
-            from utils.inference_tf import TensorflowInference
-            tf_inference_wrapper = TensorflowInference(ssd_model_pb_path)
+            tf_inference_wrapper = \
+                inference_utils.TensorflowInference(ssd_model_pb_path)
             # ...and after initializing it, we can
             # proceed to producing detections
             produce_tensorflow_detections(detection_files,
@@ -523,7 +489,3 @@ def main():
     # Close detection files, they are not needed anymore
     for key in detection_files:
         detection_files[key].close()
-
-
-if __name__ == '__main__':
-    main()

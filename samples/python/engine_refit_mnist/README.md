@@ -40,21 +40,19 @@ The Pooling layer implements pooling within a channel. Supported pooling types a
 ## Prerequisites
 
 1. Install the dependencies for Python.
-    `python3 -m pip install -r requirements.txt`
+    ```bash
+    python3 -m pip install -r requirements.txt
+    ```
 
-To run this sample you must be using Python 3.6 or newer.
-
-On PowerPC systems, you will need to manually install PyTorch using IBM's [PowerAI](https://www.ibm.com/support/knowledgecenter/SS5SF7_1.6.0/navigation/pai_install.htm).
+  NOTE:
+  - On PowerPC systems, you will need to manually install PyTorch using IBM's [PowerAI](https://www.ibm.com/support/knowledgecenter/SS5SF7_1.6.0/navigation/pai_install.htm).
 
 ## Running the sample
 
 1.  Run the sample to create a TensorRT engine and run inference:
-    `python3 sample.py [-d DATA_DIR]`
-
-    to run the sample with Python 3.
-
-    **Note:** If the TensorRT sample data is not installed in the default location, for example `/usr/src/tensorrt/data/`, the data directory must be specified. For example:
-    `python sample.py -d /path/to/my/data/`.
+    ```bash
+    python3 sample.py
+    ```
 
 2.  Verify that the sample ran successfully. If the sample runs successfully you should see a match between the test case and the prediction after refitting.
     ```
@@ -98,12 +96,9 @@ For terms and conditions for use, reproduction, and distribution, see the [Tenso
 
 # Changelog
 
-March 2021
-Documented the Python version limitations.
-
 March 2019
 This `README.md` file was recreated, updated and reviewed.
 
 # Known issues
 
-This sample only supports Python 3.6+ due to `torch` and `torchvision` version requirements.
+There are no known issues in this sample.

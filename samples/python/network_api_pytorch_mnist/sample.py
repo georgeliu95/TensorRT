@@ -1,61 +1,30 @@
 #
-# Copyright 1993-2021 NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
 #
-# NOTICE TO LICENSEE:
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This source code and/or documentation ("Licensed Deliverables") are
-# subject to NVIDIA intellectual property rights under U.S. and
-# international Copyright laws.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# These Licensed Deliverables contained herein is PROPRIETARY and
-# CONFIDENTIAL to NVIDIA and is being provided under the terms and
-# conditions of a form of NVIDIA software license agreement by and
-# between NVIDIA and Licensee ("License Agreement") or electronically
-# accepted by Licensee.  Notwithstanding any terms or conditions to
-# the contrary in the License Agreement, reproduction or disclosure
-# of the Licensed Deliverables to any third party without the express
-# written consent of NVIDIA is prohibited.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
-# NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
-# LICENSE AGREEMENT, NVIDIA MAKES NO REPRESENTATION ABOUT THE
-# SUITABILITY OF THESE LICENSED DELIVERABLES FOR ANY PURPOSE.  IT IS
-# PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND.
-# NVIDIA DISCLAIMS ALL WARRANTIES WITH REGARD TO THESE LICENSED
-# DELIVERABLES, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY,
-# NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE.
-# NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
-# LICENSE AGREEMENT, IN NO EVENT SHALL NVIDIA BE LIABLE FOR ANY
-# SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THESE LICENSED DELIVERABLES.
-#
-# U.S. Government End Users.  These Licensed Deliverables are a
-# "commercial item" as that term is defined at 48 C.F.R. 2.101 (OCT
-# 1995), consisting of "commercial computer software" and "commercial
-# computer software documentation" as such terms are used in 48
-# C.F.R. 12.212 (SEPT 1995) and is provided to the U.S. Government
-# only as a commercial end item.  Consistent with 48 C.F.R.12.212 and
-# 48 C.F.R. 227.7202-1 through 227.7202-4 (JUNE 1995), all
-# U.S. Government End Users acquire the Licensed Deliverables with
-# only those rights set forth herein.
-#
-# Any use of the Licensed Deliverables in individual and commercial
-# software must include, in the user documentation and internal
-# comments to the code, the above Disclaimer and U.S. Government End
-# Users Notice.
-#
-
-import os
-import sys
 
 # This sample uses an MNIST PyTorch model to create a TensorRT Inference Engine
 import model
+from PIL import Image
 import numpy as np
+
+import pycuda.driver as cuda
 import pycuda.autoinit
+
 import tensorrt as trt
 
+import sys, os
 sys.path.insert(1, os.path.join(sys.path[0], ".."))
 import common
 
@@ -102,20 +71,14 @@ def populate_network(network, weights):
     fc2.get_output(0).name = ModelData.OUTPUT_NAME
     network.mark_output(tensor=fc2.get_output(0))
 
-
 def build_engine(weights):
     # For more information on TRT basics, refer to the introductory samples.
-    builder = trt.Builder(TRT_LOGGER)
-    network = builder.create_network()
-    config = builder.create_builder_config()
-    runtime = trt.Runtime(TRT_LOGGER)
-
-    config.max_workspace_size = common.GiB(1)
-    # Populate the network using weights from the PyTorch model.
-    populate_network(network, weights)
-    # Build and return an engine.
-    plan = builder.build_serialized_network(network, config)
-    return runtime.deserialize_cuda_engine(plan)
+    with trt.Builder(TRT_LOGGER) as builder, builder.create_network() as network, builder.create_builder_config() as config:
+        config.max_workspace_size = common.GiB(1)
+        # Populate the network using weights from the PyTorch model.
+        populate_network(network, weights)
+        # Build and return an engine.
+        return builder.build_engine(network, config)
 
 # Loads a random test case from pytorch's DataLoader
 def load_random_test_case(model, pagelocked_buffer):
@@ -132,20 +95,18 @@ def main():
     mnist_model.learn()
     weights = mnist_model.get_weights()
     # Do inference with TensorRT.
-    engine = build_engine(weights)
-
-    # Build an engine, allocate buffers and create a stream.
-    # For more information on buffer allocation, refer to the introductory samples.
-    inputs, outputs, bindings, stream = common.allocate_buffers(engine)
-    context = engine.create_execution_context()
-
-    case_num = load_random_test_case(mnist_model, pagelocked_buffer=inputs[0].host)
-    # For more information on performing inference, refer to the introductory samples.
-    # The common.do_inference function will return a list of outputs - we only have one in this case.
-    [output] = common.do_inference(context, bindings=bindings, inputs=inputs, outputs=outputs, stream=stream)
-    pred = np.argmax(output)
-    print("Test Case: " + str(case_num))
-    print("Prediction: " + str(pred))
+    with build_engine(weights) as engine:
+        # Build an engine, allocate buffers and create a stream.
+        # For more information on buffer allocation, refer to the introductory samples.
+        inputs, outputs, bindings, stream = common.allocate_buffers(engine)
+        with engine.create_execution_context() as context:
+            case_num = load_random_test_case(mnist_model, pagelocked_buffer=inputs[0].host)
+            # For more information on performing inference, refer to the introductory samples.
+            # The common.do_inference function will return a list of outputs - we only have one in this case.
+            [output] = common.do_inference(context, bindings=bindings, inputs=inputs, outputs=outputs, stream=stream)
+            pred = np.argmax(output)
+            print("Test Case: " + str(case_num))
+            print("Prediction: " + str(pred))
 
 if __name__ == '__main__':
     main()

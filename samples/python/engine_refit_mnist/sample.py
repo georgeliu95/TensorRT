@@ -1,64 +1,33 @@
 #
-# Copyright 1993-2021 NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
 #
-# NOTICE TO LICENSEE:
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This source code and/or documentation ("Licensed Deliverables") are
-# subject to NVIDIA intellectual property rights under U.S. and
-# international Copyright laws.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# These Licensed Deliverables contained herein is PROPRIETARY and
-# CONFIDENTIAL to NVIDIA and is being provided under the terms and
-# conditions of a form of NVIDIA software license agreement by and
-# between NVIDIA and Licensee ("License Agreement") or electronically
-# accepted by Licensee.  Notwithstanding any terms or conditions to
-# the contrary in the License Agreement, reproduction or disclosure
-# of the Licensed Deliverables to any third party without the express
-# written consent of NVIDIA is prohibited.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
-# NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
-# LICENSE AGREEMENT, NVIDIA MAKES NO REPRESENTATION ABOUT THE
-# SUITABILITY OF THESE LICENSED DELIVERABLES FOR ANY PURPOSE.  IT IS
-# PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND.
-# NVIDIA DISCLAIMS ALL WARRANTIES WITH REGARD TO THESE LICENSED
-# DELIVERABLES, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY,
-# NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE.
-# NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
-# LICENSE AGREEMENT, IN NO EVENT SHALL NVIDIA BE LIABLE FOR ANY
-# SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THESE LICENSED DELIVERABLES.
-#
-# U.S. Government End Users.  These Licensed Deliverables are a
-# "commercial item" as that term is defined at 48 C.F.R. 2.101 (OCT
-# 1995), consisting of "commercial computer software" and "commercial
-# computer software documentation" as such terms are used in 48
-# C.F.R. 12.212 (SEPT 1995) and is provided to the U.S. Government
-# only as a commercial end item.  Consistent with 48 C.F.R.12.212 and
-# 48 C.F.R. 227.7202-1 through 227.7202-4 (JUNE 1995), all
-# U.S. Government End Users acquire the Licensed Deliverables with
-# only those rights set forth herein.
-#
-# Any use of the Licensed Deliverables in individual and commercial
-# software must include, in the user documentation and internal
-# comments to the code, the above Disclaimer and U.S. Government End
-# Users Notice.
-#
-
-import os
-import sys
 
 # This sample uses an MNIST PyTorch model to create a TensorRT Inference Engine
+from PIL import Image
 import numpy as np
+
+import pycuda.driver as cuda
 import pycuda.autoinit
+
 import tensorrt as trt
 
+import sys, os
 sys.path.insert(1, os.path.join(sys.path[0], os.path.pardir))
-import model
-
 import common
+
+import model
 
 # You can set the logger severity higher to suppress messages (or lower to display more messages).
 TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
@@ -83,8 +52,6 @@ def populate_network_with_some_dummy_weights(network, weights):
     conv1 = network.add_convolution(input=input_tensor, num_output_maps=20, kernel_shape=(5, 5), kernel=conv1_w, bias=conv1_b)
     conv1.name = "conv_1"
     conv1.stride = (1, 1)
-    # Associate weights with name and refit weights via name later in refitter.
-    network.set_weights_name(conv1_w, 'conv1.weight')
 
     pool1 = network.add_pooling(input=conv1.get_output(0), type=trt.PoolingType.MAX, window_size=(2, 2))
     pool1.stride = (2, 2)
@@ -113,19 +80,14 @@ def populate_network_with_some_dummy_weights(network, weights):
 # Build a TRT engine, but leave out some weights
 def build_engine_with_some_missing_weights(weights):
     # For more information on TRT basics, refer to the introductory samples.
-    builder = trt.Builder(TRT_LOGGER)
-    network = builder.create_network()
-    config = builder.create_builder_config()
-    runtime = trt.Runtime(TRT_LOGGER)
-
-    config.max_workspace_size = common.GiB(1)
-    # Set the refit flag in the builder
-    config.set_flag(trt.BuilderFlag.REFIT)
-    # Populate the network using weights from the PyTorch model.
-    populate_network_with_some_dummy_weights(network, weights)
-    # Build and return an engine.
-    plan = builder.build_serialized_network(network, config)
-    return runtime.deserialize_cuda_engine(plan)
+    with trt.Builder(TRT_LOGGER) as builder, builder.create_network() as network:
+        builder.max_workspace_size = common.GiB(1)
+        # Set the refit flag in the builder
+        builder.refittable = True
+        # Populate the network using weights from the PyTorch model.
+        populate_network_with_some_dummy_weights(network, weights)
+        # Build and return an engine.
+        return builder.build_cuda_engine(network)
 
 # Copy an image to the pagelocked input buffer
 def load_img_to_input_buffer(img, pagelocked_buffer):
@@ -133,26 +95,25 @@ def load_img_to_input_buffer(img, pagelocked_buffer):
 
 # Get the accuracy on the test set using TensorRT
 def get_trt_test_accuracy(engine, inputs, outputs, bindings, stream, mnist_model):
-    context = engine.create_execution_context()
-    correct = 0
-    total = 0
-    # Run inference on every sample.
-    # Technically this could be batched, however this only comprises a fraction of total
-    # time spent in the test.
-    for test_img, test_name in mnist_model.get_all_test_samples():
-        load_img_to_input_buffer(test_img, pagelocked_buffer=inputs[0].host)
-        # For more information on performing inference, refer to the introductory samples.
-        # The common.do_inference function will return a list of outputs - we only have one in this case.
-        [output] = common.do_inference(context, bindings=bindings, inputs=inputs, outputs=outputs, stream=stream)
-        pred = np.argmax(output)
-        correct += (test_name == pred)
-        total += 1
+    with engine.create_execution_context() as context:
+        correct = 0
+        total = 0
+        # Run inference on every sample.
+        # Technically this could be batched, however this only comprises a fraction of total
+        # time spent in the test.
+        for test_img, test_name in mnist_model.get_all_test_samples():
+            load_img_to_input_buffer(test_img, pagelocked_buffer=inputs[0].host)
+            # For more information on performing inference, refer to the introductory samples.
+            # The common.do_inference function will return a list of outputs - we only have one in this case.
+            [output] = common.do_inference(context, bindings=bindings, inputs=inputs, outputs=outputs, stream=stream)
+            pred = np.argmax(output)
+            correct += (test_name == pred)
+            total += 1
 
-    accuracy = float(correct)/total
-    print("Got {} correct predictions out of {} ({:.1f}%)".format(correct, total, 100 * accuracy))
+        accuracy = float(correct)/total
+        print("Got {} correct predictions out of {} ({:.1f}%)".format(correct, total, 100 * accuracy))
 
-    return accuracy
-
+        return accuracy
 
 def main():
     common.add_help(description="Runs an MNIST network using a PyTorch model")
@@ -161,37 +122,35 @@ def main():
     mnist_model.learn()
     weights = mnist_model.get_weights()
     # Do inference with TensorRT.
-    engine = build_engine_with_some_missing_weights(weights)
-    # Build an engine, allocate buffers and create a stream.
-    # For more information on buffer allocation, refer to the introductory samples.
-    inputs, outputs, bindings, stream = common.allocate_buffers(engine)
-    print("Accuracy Before Engine Refit")
-    get_trt_test_accuracy(engine, inputs, outputs, bindings, stream, mnist_model)
+    with build_engine_with_some_missing_weights(weights) as engine:
+        # Build an engine, allocate buffers and create a stream.
+        # For more information on buffer allocation, refer to the introductory samples.
+        inputs, outputs, bindings, stream = common.allocate_buffers(engine)
+        print("Accuracy Before Engine Refit")
+        get_trt_test_accuracy(engine, inputs, outputs, bindings, stream, mnist_model)
 
-    # Refit the engine with the actual trained weights for the conv_1 layer.
-    refitter = trt.Refitter(engine, TRT_LOGGER)
+        # Refit the engine with the actual trained weights for the conv_1 layer.
+        with trt.Refitter(engine, TRT_LOGGER) as refitter:
+            # To get a list of all refittable layers and associated weightRoles
+            # in the network, use refitter.get_all()
+            # Set the actual weights for the conv_1 layer. Since it consists of
+            # kernel weights and bias weights, set each of them by specifying
+            # the WeightsRole.
+            refitter.set_weights("conv_1", trt.WeightsRole.KERNEL,
+                    weights['conv1.weight'].numpy())
+            refitter.set_weights("conv_1", trt.WeightsRole.BIAS,
+                    weights['conv1.bias'].numpy())
+            # Get description of missing weights. This should return empty
+            # lists in this case.
+            [missingLayers, weightRoles] = refitter.get_missing()
+            assert len(missingLayers) == 0, "Refitter found missing weights. Call set_weights() for all missing weights"
+            # Refit the engine with the new weights. This will return True if
+            # the refit operation succeeded.
+            assert refitter.refit_cuda_engine()
 
-    # To get a list of all refittable layers and associated weightRoles
-    # in the network, use refitter.get_all()
-    # Set the actual weights for the conv_1 layer. Since it consists of
-    # kernel weights and bias weights, set each of them by specifying
-    # the WeightsRole.
-    # Prefer to refit named weights via set_named_weights
-    refitter.set_named_weights('conv1.weight', weights['conv1.weight'].numpy())
-    # set_named_weights is not available for unnamed weights. Call set_weights instead.
-    refitter.set_weights("conv_1", trt.WeightsRole.BIAS,
-            weights['conv1.bias'].numpy())
-    # Get missing weights names. This should return empty
-    # lists in this case.
-    missing_weights = refitter.get_missing_weights()
-    assert len(missing_weights) == 0, "Refitter found missing weights. Call set_named_weights() or set_weights() for all missing weights"
-    # Refit the engine with the new weights. This will return True if
-    # the refit operation succeeded.
-    assert refitter.refit_cuda_engine()
-
-    expected_correct_predictions = mnist_model.get_latest_test_set_accuracy()
-    print("Accuracy After Engine Refit (expecting {:.1f}% correct predictions)".format(100 * expected_correct_predictions))
-    assert get_trt_test_accuracy(engine, inputs, outputs, bindings, stream, mnist_model) >= expected_correct_predictions
+        expected_correct_predictions = mnist_model.get_latest_test_set_accuracy()
+        print("Accuracy After Engine Refit (expecting {:.1f}% correct predictions)".format(100 * expected_correct_predictions))
+        assert get_trt_test_accuracy(engine, inputs, outputs, bindings, stream, mnist_model) >= expected_correct_predictions
 
 if __name__ == '__main__':
     main()

@@ -1,66 +1,33 @@
 #
-# Copyright 1993-2021 NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
 #
-# NOTICE TO LICENSEE:
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This source code and/or documentation ("Licensed Deliverables") are
-# subject to NVIDIA intellectual property rights under U.S. and
-# international Copyright laws.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# These Licensed Deliverables contained herein is PROPRIETARY and
-# CONFIDENTIAL to NVIDIA and is being provided under the terms and
-# conditions of a form of NVIDIA software license agreement by and
-# between NVIDIA and Licensee ("License Agreement") or electronically
-# accepted by Licensee.  Notwithstanding any terms or conditions to
-# the contrary in the License Agreement, reproduction or disclosure
-# of the Licensed Deliverables to any third party without the express
-# written consent of NVIDIA is prohibited.
-#
-# NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
-# LICENSE AGREEMENT, NVIDIA MAKES NO REPRESENTATION ABOUT THE
-# SUITABILITY OF THESE LICENSED DELIVERABLES FOR ANY PURPOSE.  IT IS
-# PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND.
-# NVIDIA DISCLAIMS ALL WARRANTIES WITH REGARD TO THESE LICENSED
-# DELIVERABLES, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY,
-# NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE.
-# NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
-# LICENSE AGREEMENT, IN NO EVENT SHALL NVIDIA BE LIABLE FOR ANY
-# SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THESE LICENSED DELIVERABLES.
-#
-# U.S. Government End Users.  These Licensed Deliverables are a
-# "commercial item" as that term is defined at 48 C.F.R. 2.101 (OCT
-# 1995), consisting of "commercial computer software" and "commercial
-# computer software documentation" as such terms are used in 48
-# C.F.R. 12.212 (SEPT 1995) and is provided to the U.S. Government
-# only as a commercial end item.  Consistent with 48 C.F.R.12.212 and
-# 48 C.F.R. 227.7202-1 through 227.7202-4 (JUNE 1995), all
-# U.S. Government End Users acquire the Licensed Deliverables with
-# only those rights set forth herein.
-#
-# Any use of the Licensed Deliverables in individual and commercial
-# software must include, in the user documentation and internal
-# comments to the code, the above Disclaimer and U.S. Government End
-# Users Notice.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 
-import os
 # This sample uses an ONNX ResNet50 Model to create a TensorRT Inference Engine
 import random
-import sys
-
+from PIL import Image
 import numpy as np
+
+import pycuda.driver as cuda
 # This import causes pycuda to automatically manage CUDA context creation and cleanup.
 import pycuda.autoinit
-import tensorrt as trt
-from PIL import Image
 
+import tensorrt as trt
+
+import sys, os
 sys.path.insert(1, os.path.join(sys.path[0], ".."))
 import common
-
 
 class ModelData(object):
     MODEL_PATH = "ResNet50.onnx"
@@ -73,21 +40,16 @@ TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
 
 # The Onnx path is used for Onnx models.
 def build_engine_onnx(model_file):
-    builder = trt.Builder(TRT_LOGGER)
-    network = builder.create_network(common.EXPLICIT_BATCH)
-    config = builder.create_builder_config()
-    parser = trt.OnnxParser(network, TRT_LOGGER)
-
-    config.max_workspace_size = common.GiB(1)
-    # Load the Onnx model and parse it in order to populate the TensorRT network.
-    with open(model_file, 'rb') as model:
-        if not parser.parse(model.read()):
-            print ('ERROR: Failed to parse the ONNX file.')
-            for error in range(parser.num_errors):
-                print (parser.get_error(error))
-            return None
-    return builder.build_engine(network, config)
-
+    with trt.Builder(TRT_LOGGER) as builder, builder.create_network(common.EXPLICIT_BATCH) as network, builder.create_builder_config() as config, trt.OnnxParser(network, TRT_LOGGER) as parser:
+        config.max_workspace_size = common.GiB(1)
+        # Load the Onnx model and parse it in order to populate the TensorRT network.
+        with open(model_file, 'rb') as model:
+            if not parser.parse(model.read()):
+                print ('ERROR: Failed to parse the ONNX file.')
+                for error in range(parser.num_errors):
+                    print (parser.get_error(error))
+                return None
+        return builder.build_engine(network, config)
 
 def load_normalized_test_case(test_image, pagelocked_buffer):
     # Converts the input image to a CHW Numpy array
@@ -102,7 +64,6 @@ def load_normalized_test_case(test_image, pagelocked_buffer):
     np.copyto(pagelocked_buffer, normalize_image(Image.open(test_image)))
     return test_image
 
-
 def main():
     # Set the data path to the directory that contains the trained models and test images for inference.
     _, data_files = common.find_sample_data(description="Runs a ResNet50 network with a TensorRT inference engine.", subfolder="resnet50", find_files=["binoculars.jpeg", "reflex_camera.jpeg", "tabby_tiger_cat.jpg", ModelData.MODEL_PATH, "class_labels.txt"])
@@ -112,26 +73,24 @@ def main():
     labels = open(labels_file, 'r').read().split('\n')
 
     # Build a TensorRT engine.
-    engine = build_engine_onnx(onnx_model_file)
-    # Inference is the same regardless of which parser is used to build the engine, since the model architecture is the same.
-    # Allocate buffers and create a CUDA stream.
-    inputs, outputs, bindings, stream = common.allocate_buffers(engine)
-    # Contexts are used to perform inference.
-    context = engine.create_execution_context()
-
-    # Load a normalized test case into the host input page-locked buffer.
-    test_image = random.choice(test_images)
-    test_case = load_normalized_test_case(test_image, inputs[0].host)
-    # Run the engine. The output will be a 1D tensor of length 1000, where each value represents the
-    # probability that the image corresponds to that label
-    trt_outputs = common.do_inference_v2(context, bindings=bindings, inputs=inputs, outputs=outputs, stream=stream)
-    # We use the highest probability as our prediction. Its index corresponds to the predicted label.
-    pred = labels[np.argmax(trt_outputs[0])]
-    if "_".join(pred.split()) in os.path.splitext(os.path.basename(test_case))[0]:
-        print("Correctly recognized " + test_case + " as " + pred)
-    else:
-        print("Incorrectly recognized " + test_case + " as " + pred)
-
+    with build_engine_onnx(onnx_model_file) as engine:
+        # Inference is the same regardless of which parser is used to build the engine, since the model architecture is the same.
+        # Allocate buffers and create a CUDA stream.
+        inputs, outputs, bindings, stream = common.allocate_buffers(engine)
+        # Contexts are used to perform inference.
+        with engine.create_execution_context() as context:
+            # Load a normalized test case into the host input page-locked buffer.
+            test_image = random.choice(test_images)
+            test_case = load_normalized_test_case(test_image, inputs[0].host)
+            # Run the engine. The output will be a 1D tensor of length 1000, where each value represents the
+            # probability that the image corresponds to that label
+            trt_outputs = common.do_inference_v2(context, bindings=bindings, inputs=inputs, outputs=outputs, stream=stream)
+            # We use the highest probability as our prediction. Its index corresponds to the predicted label.
+            pred = labels[np.argmax(trt_outputs[0])]
+            if "_".join(pred.split()) in os.path.splitext(os.path.basename(test_case))[0]:
+                print("Correctly recognized " + test_case + " as " + pred)
+            else:
+                print("Incorrectly recognized " + test_case + " as " + pred)
 
 if __name__ == '__main__':
     main()

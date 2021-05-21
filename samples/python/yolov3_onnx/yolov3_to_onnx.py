@@ -1,66 +1,35 @@
 #!/usr/bin/env python3
 #
-# Copyright 1993-2021 NVIDIA Corporation.  All rights reserved.
+# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
 #
-# NOTICE TO LICENSEE:
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This source code and/or documentation ("Licensed Deliverables") are
-# subject to NVIDIA intellectual property rights under U.S. and
-# international Copyright laws.
+#     http://www.apache.org/licenses/LICENSE-2.0
 #
-# These Licensed Deliverables contained herein is PROPRIETARY and
-# CONFIDENTIAL to NVIDIA and is being provided under the terms and
-# conditions of a form of NVIDIA software license agreement by and
-# between NVIDIA and Licensee ("License Agreement") or electronically
-# accepted by Licensee.  Notwithstanding any terms or conditions to
-# the contrary in the License Agreement, reproduction or disclosure
-# of the Licensed Deliverables to any third party without the express
-# written consent of NVIDIA is prohibited.
-#
-# NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
-# LICENSE AGREEMENT, NVIDIA MAKES NO REPRESENTATION ABOUT THE
-# SUITABILITY OF THESE LICENSED DELIVERABLES FOR ANY PURPOSE.  IT IS
-# PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND.
-# NVIDIA DISCLAIMS ALL WARRANTIES WITH REGARD TO THESE LICENSED
-# DELIVERABLES, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY,
-# NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE.
-# NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
-# LICENSE AGREEMENT, IN NO EVENT SHALL NVIDIA BE LIABLE FOR ANY
-# SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, OR ANY
-# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
-# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
-# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
-# OF THESE LICENSED DELIVERABLES.
-#
-# U.S. Government End Users.  These Licensed Deliverables are a
-# "commercial item" as that term is defined at 48 C.F.R. 2.101 (OCT
-# 1995), consisting of "commercial computer software" and "commercial
-# computer software documentation" as such terms are used in 48
-# C.F.R. 12.212 (SEPT 1995) and is provided to the U.S. Government
-# only as a commercial end item.  Consistent with 48 C.F.R.12.212 and
-# 48 C.F.R. 227.7202-1 through 227.7202-4 (JUNE 1995), all
-# U.S. Government End Users acquire the Licensed Deliverables with
-# only those rights set forth herein.
-#
-# Any use of the Licensed Deliverables in individual and commercial
-# software must include, in the user documentation and internal
-# comments to the code, the above Disclaimer and U.S. Government End
-# Users Notice.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 #
 
 from __future__ import print_function
 from collections import OrderedDict
-import sys
-import os
+import os.path
 
 import onnx
 from onnx import helper
 from onnx import TensorProto
 import numpy as np
 
+import sys, os
 sys.path.insert(1, os.path.join(sys.path[0], os.path.pardir))
-from downloader import getFilePath
+import common
 
+sys.path.insert(1, os.path.join(sys.path[0], os.path.pardir))
+from common import retry_call
 
 class DarkNetParser(object):
     """Definition of a parser for DarkNet-based YOLOv3-608 (only tested for this topology)."""
@@ -739,7 +708,12 @@ class GraphBuilderONNX(object):
 
 def main():
     """Run the DarkNet-to-ONNX conversion for YOLOv3-608."""
-    cfg_file_path = getFilePath('samples/python/yolov3_onnx/yolov3.cfg')
+    # Download the config for YOLOv3 if not present yet, and analyze the checksum:
+    cfg_file_path = common.download_file(
+        'yolov3.cfg',
+        'https://raw.githubusercontent.com/pjreddie/darknet/f86901f6177dfc6116360a13cc06ab680e0c86b0/cfg/yolov3.cfg',
+        'b969a43a848bbf26901643b833cfb96c')
+
     # These are the only layers DarkNetParser will extract parameters from. The three layers of
     # type 'yolo' are not parsed in detail because they are included in the post-processing later:
     supported_layers = ['net', 'convolutional', 'shortcut',
@@ -762,7 +736,12 @@ def main():
     # Create a GraphBuilderONNX object with the known output tensor dimensions:
     builder = GraphBuilderONNX(output_tensor_dims)
 
-    weights_file_path = getFilePath('samples/python/yolov3_onnx/yolov3.weights')
+    # We want to populate our network with weights later, that's why we download those from
+    # the official mirror (and verify the checksum):
+    weights_file_path = common.download_file(
+        'yolov3.weights',
+        'https://master.dl.sourceforge.net/project/darknet-yolo.mirror/darknet_yolo_v3_optimal/yolov3.weights',
+        'c84e5b99d0e52cd466ae710cadf6d84c')
 
     # Now generate an ONNX graph with weights from the previously parsed layer configurations
     # and the weights file:
