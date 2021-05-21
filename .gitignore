@@ -6,5 +6,4 @@ build/
 *.nvmk
 *.sln
 *.vcxproj
-cp_samples.py
 externals/
