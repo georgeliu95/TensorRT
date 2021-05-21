@@ -179,7 +179,11 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -Wno-deprecated-declaration
 # TensorRT
 
 if(BUILD_PLUGINS)
+<<<<<<< HEAD
     add_subdirectory(plugin)
+=======
+    #add_subdirectory(plugin)
+>>>>>>> 5e4fa25... Initial commit for python samples
 else()
     find_library_create_target(nvinfer_plugin nvinfer_plugin SHARED ${TRT_OUT_DIR} ${TRT_LIB_DIR})
 endif()

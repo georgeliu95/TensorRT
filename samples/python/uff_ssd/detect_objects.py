@@ -1,36 +1,64 @@
 #!/usr/bin/env python3
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# Copyright 1993-2021 NVIDIA Corporation.  All rights reserved.
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
+# NOTICE TO LICENSEE:
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# This source code and/or documentation ("Licensed Deliverables") are
+# subject to NVIDIA intellectual property rights under U.S. and
+# international Copyright laws.
 #
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# These Licensed Deliverables contained herein is PROPRIETARY and
+# CONFIDENTIAL to NVIDIA and is being provided under the terms and
+# conditions of a form of NVIDIA software license agreement by and
+# between NVIDIA and Licensee ("License Agreement") or electronically
+# accepted by Licensee.  Notwithstanding any terms or conditions to
+# the contrary in the License Agreement, reproduction or disclosure
+# of the Licensed Deliverables to any third party without the express
+# written consent of NVIDIA is prohibited.
 #
+# NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
+# LICENSE AGREEMENT, NVIDIA MAKES NO REPRESENTATION ABOUT THE
+# SUITABILITY OF THESE LICENSED DELIVERABLES FOR ANY PURPOSE.  IT IS
+# PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND.
+# NVIDIA DISCLAIMS ALL WARRANTIES WITH REGARD TO THESE LICENSED
+# DELIVERABLES, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY,
+# NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE.
+# NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
+# LICENSE AGREEMENT, IN NO EVENT SHALL NVIDIA BE LIABLE FOR ANY
+# SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, OR ANY
+# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
+# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
+# OF THESE LICENSED DELIVERABLES.
+#
+# U.S. Government End Users.  These Licensed Deliverables are a
+# "commercial item" as that term is defined at 48 C.F.R. 2.101 (OCT
+# 1995), consisting of "commercial computer software" and "commercial
+# computer software documentation" as such terms are used in 48
+# C.F.R. 12.212 (SEPT 1995) and is provided to the U.S. Government
+# only as a commercial end item.  Consistent with 48 C.F.R.12.212 and
+# 48 C.F.R. 227.7202-1 through 227.7202-4 (JUNE 1995), all
+# U.S. Government End Users acquire the Licensed Deliverables with
+# only those rights set forth herein.
+#
+# Any use of the Licensed Deliverables in individual and commercial
+# software must include, in the user documentation and internal
+# comments to the code, the above Disclaimer and U.S. Government End
+# Users Notice.
 
-import os
-import ctypes
-import time
-import sys
 import argparse
+import os
+import time
 
 import numpy as np
-from PIL import Image
+import pycuda.autoinit
 import tensorrt as trt
-
-import utils.inference as inference_utils # TRT/TF inference wrappers
-import utils.model as model_utils # UFF conversion
-import utils.boxes as boxes_utils # Drawing bounding boxes
-import utils.coco as coco_utils # COCO dataset descriptors
-from utils.paths import PATHS # Path management
-
+import utils.boxes as boxes_utils  # Drawing bounding boxes
+import utils.coco as coco_utils  # COCO dataset descriptors
+from utils.inference_trt import TRTInference  # TRT inference wrappers
+from PIL import Image
+from utils.paths import PATHS  # Path management
 
 # COCO label list
 COCO_LABELS = coco_utils.COCO_CLASSES_LIST
@@ -118,9 +146,15 @@ def parse_commandline_arguments():
     parser.add_argument("-o", "--output",
         help="path of the output file",
         default=os.path.join(PATHS.get_sample_root(), "image_inferred.jpg"))
+    parser.add_argument('-d', '--data',
+        help="Specify the data directory where it is saved in. $TRT_DATA_DIR will be overwritten by this argument.")
 
-    # Parse arguments passed
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
+
+    data_dir = os.environ.get('TRT_DATA_DIR', None) if args.data is None else args.data
+    if data_dir is None:
+        raise ValueError("Data directory must be specified by either `-d $DATA` or environment variable $TRT_DATA_DIR.")
+    PATHS.set_data_dir_path(data_dir)
 
     # Set workspace dir path if passed by user
     if args.workspace_dir:
@@ -149,14 +183,10 @@ def main():
     # Parse command line arguments
     args = parse_commandline_arguments()
 
-    # Fetch .uff model path, convert from .pb
-    # if needed, using prepare_ssd_model
+    # Fetch .uff model path
     ssd_model_uff_path = PATHS.get_model_uff_path(MODEL_NAME)
-    if not os.path.exists(ssd_model_uff_path):
-        model_utils.prepare_ssd_model(MODEL_NAME)
-
     # Set up all TensorRT data structures needed for inference
-    trt_inference_wrapper = inference_utils.TRTInference(
+    trt_inference_wrapper = TRTInference(
         args.trt_engine_path, ssd_model_uff_path,
         trt_engine_datatype=args.trt_engine_datatype,
         batch_size=args.max_batch_size)

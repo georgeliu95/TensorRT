@@ -1,26 +1,59 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright 1993-2021 NVIDIA Corporation.  All rights reserved.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * NOTICE TO LICENSEE:
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This source code and/or documentation ("Licensed Deliverables") are
+ * subject to NVIDIA intellectual property rights under U.S. and
+ * international Copyright laws.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * These Licensed Deliverables contained herein is PROPRIETARY and
+ * CONFIDENTIAL to NVIDIA and is being provided under the terms and
+ * conditions of a form of NVIDIA software license agreement by and
+ * between NVIDIA and Licensee ("License Agreement") or electronically
+ * accepted by Licensee.  Notwithstanding any terms or conditions to
+ * the contrary in the License Agreement, reproduction or disclosure
+ * of the Licensed Deliverables to any third party without the express
+ * written consent of NVIDIA is prohibited.
+ *
+ * NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
+ * LICENSE AGREEMENT, NVIDIA MAKES NO REPRESENTATION ABOUT THE
+ * SUITABILITY OF THESE LICENSED DELIVERABLES FOR ANY PURPOSE.  IT IS
+ * PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND.
+ * NVIDIA DISCLAIMS ALL WARRANTIES WITH REGARD TO THESE LICENSED
+ * DELIVERABLES, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY,
+ * NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE.
+ * NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
+ * LICENSE AGREEMENT, IN NO EVENT SHALL NVIDIA BE LIABLE FOR ANY
+ * SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, OR ANY
+ * DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+ * WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
+ * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
+ * OF THESE LICENSED DELIVERABLES.
+ *
+ * U.S. Government End Users.  These Licensed Deliverables are a
+ * "commercial item" as that term is defined at 48 C.F.R. 2.101 (OCT
+ * 1995), consisting of "commercial computer software" and "commercial
+ * computer software documentation" as such terms are used in 48
+ * C.F.R. 12.212 (SEPT 1995) and is provided to the U.S. Government
+ * only as a commercial end item.  Consistent with 48 C.F.R.12.212 and
+ * 48 C.F.R. 227.7202-1 through 227.7202-4 (JUNE 1995), all
+ * U.S. Government End Users acquire the Licensed Deliverables with
+ * only those rights set forth herein.
+ *
+ * Any use of the Licensed Deliverables in individual and commercial
+ * software must include, in the user documentation and internal
+ * comments to the code, the above Disclaimer and U.S. Government End
+ * Users Notice.
  */
 
 #include "customClipPlugin.h"
 #include "NvInfer.h"
 #include "clipKernel.h"
 
+#include <vector>
 #include <cassert>
 #include <cstring>
-#include <vector>
 
 using namespace nvinfer1;
 
@@ -38,7 +71,7 @@ std::vector<PluginField> ClipPluginCreator::mPluginAttributes;
 REGISTER_TENSORRT_PLUGIN(ClipPluginCreator);
 
 // Helper function for serializing plugin
-template <typename T>
+template<typename T>
 void writeToBuffer(char*& buffer, const T& val)
 {
     *reinterpret_cast<T*>(buffer) = val;
@@ -46,7 +79,7 @@ void writeToBuffer(char*& buffer, const T& val)
 }
 
 // Helper function for deserializing plugin
-template <typename T>
+template<typename T>
 T readFromBuffer(const char*& buffer)
 {
     T val = *reinterpret_cast<const T*>(buffer);
@@ -65,8 +98,8 @@ ClipPlugin::ClipPlugin(const std::string name, const void* data, size_t length)
     : mLayerName(name)
 {
     // Deserialize in the same order as serialization
-    const char* d = static_cast<const char*>(data);
-    const char* a = d;
+    const char *d = static_cast<const char *>(data);
+    const char *a = d;
 
     mClipMin = readFromBuffer<float>(d);
     mClipMax = readFromBuffer<float>(d);
@@ -104,7 +137,8 @@ int ClipPlugin::initialize() noexcept
     return 0;
 }
 
-int ClipPlugin::enqueue(int batchSize, const void* const* inputs, void** outputs, void*, cudaStream_t stream) noexcept
+int ClipPlugin::enqueue(
+    int batchSize, const void* const* inputs, void* const* outputs, void*, cudaStream_t stream) noexcept
 {
     int status = -1;
 
@@ -122,10 +156,10 @@ size_t ClipPlugin::getSerializationSize() const noexcept
     return 2 * sizeof(float);
 }
 
-void ClipPlugin::serialize(void* buffer) const noexcept
+void ClipPlugin::serialize(void* buffer) const noexcept 
 {
-    char* d = static_cast<char*>(buffer);
-    const char* a = d;
+    char *d = static_cast<char *>(buffer);
+    const char *a = d;
 
     writeToBuffer(d, mClipMin);
     writeToBuffer(d, mClipMax);
@@ -133,8 +167,7 @@ void ClipPlugin::serialize(void* buffer) const noexcept
     assert(d == a + getSerializationSize());
 }
 
-void ClipPlugin::configureWithFormat(const Dims* inputs, int nbInputs, const Dims* outputs, int nbOutputs,
-    DataType type, PluginFormat format, int) noexcept
+void ClipPlugin::configureWithFormat(const Dims* inputs, int nbInputs, const Dims* outputs, int nbOutputs, DataType type, PluginFormat format, int) noexcept
 {
     // Validate input arguments
     assert(nbOutputs == 1);
@@ -143,8 +176,7 @@ void ClipPlugin::configureWithFormat(const Dims* inputs, int nbInputs, const Dim
 
     // Fetch volume for future enqueue() operations
     size_t volume = 1;
-    for (int i = 0; i < inputs->nbDims; i++)
-    {
+    for (int i = 0; i < inputs->nbDims; i++) {
         volume *= inputs->d[i];
     }
     mInputVolume = volume;
@@ -161,8 +193,7 @@ bool ClipPlugin::supportsFormat(DataType type, PluginFormat format) const noexce
 
 void ClipPlugin::terminate() noexcept {}
 
-void ClipPlugin::destroy() noexcept
-{
+void ClipPlugin::destroy() noexcept {
     // This gets called when the network containing plugin is destroyed
     delete this;
 }
@@ -174,7 +205,7 @@ IPluginV2* ClipPlugin::clone() const noexcept
     return plugin;
 }
 
-void ClipPlugin::setPluginNamespace(const char* libNamespace) noexcept
+void ClipPlugin::setPluginNamespace(const char* libNamespace) noexcept 
 {
     mNamespace = libNamespace;
 }
@@ -217,15 +248,11 @@ IPluginV2* ClipPluginCreator::createPlugin(const char* name, const PluginFieldCo
 
     // Parse fields from PluginFieldCollection
     assert(fc->nbFields == 2);
-    for (int i = 0; i < fc->nbFields; i++)
-    {
-        if (strcmp(fields[i].name, "clipMin") == 0)
-        {
+    for (int i = 0; i < fc->nbFields; i++){
+        if (strcmp(fields[i].name, "clipMin") == 0) {
             assert(fields[i].type == PluginFieldType::kFLOAT32);
             clipMin = *(static_cast<const float*>(fields[i].data));
-        }
-        else if (strcmp(fields[i].name, "clipMax") == 0)
-        {
+        } else if (strcmp(fields[i].name, "clipMax") == 0) {
             assert(fields[i].type == PluginFieldType::kFLOAT32);
             clipMax = *(static_cast<const float*>(fields[i].data));
         }
@@ -240,7 +267,7 @@ IPluginV2* ClipPluginCreator::deserializePlugin(const char* name, const void* se
     return new ClipPlugin(name, serialData, serialLength);
 }
 
-void ClipPluginCreator::setPluginNamespace(const char* libNamespace) noexcept
+void ClipPluginCreator::setPluginNamespace(const char* libNamespace) noexcept 
 {
     mNamespace = libNamespace;
 }
