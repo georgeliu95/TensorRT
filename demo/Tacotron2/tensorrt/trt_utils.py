@@ -16,9 +16,24 @@
 
 import tensorrt as trt
 
+# For a single dimension this will return the min, opt, and max size when given
+# input of either one or three (comma delimited) values
+#   dim="1" or dim=1 returns (1, 1, 1)
+#   dim="1,4,5" returns (1, 4, 5)
+def parse_dynamic_size(dim):
+    split = str(dim).split(',')
+    assert len(split) in (1,3) , "Dynamic size input must be either 1 or 3 comma-separated integers"
+    ints = [int(i) for i in split]
+    
+    if len(ints) == 1:
+        ints *= 3
+
+    assert ints[0] <= ints[1] <= ints[2]
+    return tuple(ints)
+
 
 def is_dimension_dynamic(dim):
-    return dim is None or dim == -1
+    return dim is None or dim <= 0
 
 
 def is_shape_dynamic(shape):
@@ -92,7 +107,6 @@ def engine_info(engine_filepath):
 def build_engine(model_file, shapes, max_ws=512*1024*1024, fp16=False):
     TRT_LOGGER = trt.Logger(trt.Logger.WARNING)
     builder = trt.Builder(TRT_LOGGER)
-    builder.fp16_mode = fp16
 
     config = builder.create_builder_config()
     config.max_workspace_size = max_ws

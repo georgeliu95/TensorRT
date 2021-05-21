@@ -23,38 +23,37 @@ import argparse
 import numpy as np
 from scipy.io.wavfile import write
 
-from inference import checkpoint_from_distributed, unwrap_distributed, MeasureTime, prepare_input_sequence
+from inference import checkpoint_from_distributed, unwrap_distributed, MeasureTime, prepare_input_sequence, load_and_setup_model
 from inference_trt import infer_tacotron2_trt, infer_waveglow_trt
 
-from trt.trt_utils import load_engine
+from trt_utils import load_engine
 import tensorrt as trt
 
 import time
 import dllogger as DLLogger
 from dllogger import StdOutBackend, JSONStreamBackend, Verbosity
 
-from apex import amp
+# from apex import amp
 
 def parse_args(parser):
     """
     Parse commandline arguments.
     """
     parser.add_argument('--encoder', type=str, required=True,
-                        help='Full path to the Encoder engine')
+                        help='full path to the Encoder engine')
     parser.add_argument('--decoder', type=str, required=True,
-                        help='Full path to the DecoderIter engine')
+                        help='full path to the DecoderIter engine')
     parser.add_argument('--postnet', type=str, required=True,
-                        help='Full path to the Postnet engine')
+                        help='full path to the Postnet engine')
     parser.add_argument('--waveglow', type=str, required=True,
-                        help='Full path to the WaveGlow engine')
+                        help='full path to the WaveGlow engine')
     parser.add_argument('--waveglow-ckpt', type=str, default="",
-                        help='Full path to the WaveGlow model checkpoint file')
-    parser.add_argument('-s', '--sigma-infer', default=0.6, type=float,
-                        help='Standard deviation of the Gaussian distribution')
+                        help='full path to the WaveGlow model checkpoint file')
+    parser.add_argument('-s', '--sigma-infer', default=0.6, type=float)
     parser.add_argument('-sr', '--sampling-rate', default=22050, type=int,
                         help='Sampling rate')
     parser.add_argument('--fp16', action='store_true',
-                        help='Inference with FP16 precision')
+                        help='inference with FP16')
     parser.add_argument('--log-file', type=str, default='nvlog.json',
                         help='Filename for logging')
     parser.add_argument('--stft-hop-length', type=int, default=256,
@@ -67,34 +66,6 @@ def parse_args(parser):
                         help='Batch size')
 
     return parser
-
-
-def load_and_setup_model(model_name, parser, checkpoint, amp_run, to_cuda=True):
-    model_parser = models.parse_model_args(model_name, parser, add_help=False)
-    model_args, _ = model_parser.parse_known_args()
-
-    model_config = models.get_model_config(model_name, model_args)
-    model = models.get_model(model_name, model_config, to_cuda=to_cuda)
-
-    if checkpoint is not None:
-        if to_cuda:
-            state_dict = torch.load(checkpoint)['state_dict']
-        else:
-            state_dict = torch.load(checkpoint,map_location='cpu')['state_dict']
-        if checkpoint_from_distributed(state_dict):
-            state_dict = unwrap_distributed(state_dict)
-
-        model.load_state_dict(state_dict)
-
-    if model_name == "WaveGlow":
-        model = model.remove_weightnorm(model)
-
-    model.eval()
-
-    if amp_run:
-        model, _ = amp.initialize(model, [], opt_level="O3")
-
-    return model
 
 
 def print_stats(measurements_all):
@@ -127,7 +98,7 @@ def print_stats(measurements_all):
     print("Throughput average (samples/sec) = {:.4f}".format(np.mean(throughput)))
     print("Preprocessing average (seconds) = {:.4f}".format(np.mean(preprocessing)))
     print("Postprocessing average (seconds) = {:.4f}".format(np.mean(postprocessing)))
-    print("Number of mels per audio average = {}".format(np.mean(num_mels_per_audio)))
+    print("Number of mels per audio average = {}".format(np.mean(num_mels_per_audio))) #
     print("Latency average (seconds) = {:.4f}".format(np.mean(latency)))
     print("Latency std (seconds) = {:.4f}".format(np.std(latency)))
     print("Latency cl 50 (seconds) = {:.4f}".format(cf_50))
@@ -180,8 +151,11 @@ def main():
 
     if args.waveglow_ckpt != "":
         # setup denoiser using WaveGlow PyTorch checkpoint
-        waveglow_ckpt = load_and_setup_model('WaveGlow', parser, args.waveglow_ckpt,
-                                             True, forward_is_infer=True)
+        waveglow_ckpt = load_and_setup_model('WaveGlow', parser,
+                                             args.waveglow_ckpt,
+                                             fp16_run=args.fp16,
+                                             cpu_run=False,
+                                             forward_is_infer=True)
         denoiser = Denoiser(waveglow_ckpt).cuda()
         # after initialization, we don't need WaveGlow PyTorch checkpoint
         # anymore - deleting
@@ -215,11 +189,11 @@ def main():
                 with MeasureTime(measurements, "tacotron2_latency"):
                     mel, mel_lengths = infer_tacotron2_trt(encoder, decoder_iter, postnet,
                                                            encoder_context, decoder_context, postnet_context,
-                                                           sequences_padded, input_lengths, measurements, args.fp16)
+                                                           sequences_padded, input_lengths, measurements, args.fp16, True)
 
                 with MeasureTime(measurements, "waveglow_latency"):
                     audios = infer_waveglow_trt(waveglow, waveglow_context, mel, measurements, args.fp16)
-
+                    
         num_mels = mel.size(0)*mel.size(2)
         num_samples = audios.size(0)*audios.size(1)
 

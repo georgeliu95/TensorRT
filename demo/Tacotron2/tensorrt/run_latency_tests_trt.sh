@@ -14,4 +14,4 @@
 # limitations under the License.
 #
 
-bash test_infer.sh --test trt/test_infer_trt.py -bs 1 -il 128 --fp16 --num-iters 1003 --encoder ./output/encoder_fp16.engine --decoder ./output/decoder_iter_fp16.engine --postnet ./output/postnet_fp16.engine --waveglow ./output/waveglow_fp16.engine --wn-channels 256
+bash test_infer.sh --test tensorrt/test_infer_trt.py -bs 1 -il 128 --fp16 --num-iters 1003 --encoder ./output/encoder_fp16.engine --decoder ./output/decoder_with_outer_loop_fp16.engine --postnet ./output/postnet_fp16.engine --waveglow ./output/waveglow_fp16.engine --wn-channels 256
