@@ -21,15 +21,15 @@ using namespace nvinfer1;
 using nvinfer1::plugin::EfficientNMSPlugin;
 using nvinfer1::plugin::EfficientNMSParameters;
 
-EfficientNMSPlugin::EfficientNMSPlugin(EfficientNMSParameters params)
-    : param(params)
+EfficientNMSPlugin::EfficientNMSPlugin(EfficientNMSParameters param)
+    : mParam(param)
 {
 }
 
 EfficientNMSPlugin::EfficientNMSPlugin(const void* data, size_t length)
 {
     const char *d = reinterpret_cast<const char*>(data), *a = d;
-    param = read<EfficientNMSParameters>(d);
+    mParam = read<EfficientNMSParameters>(d);
     ASSERT(d == a + length);
 }
 
@@ -63,7 +63,7 @@ size_t EfficientNMSPlugin::getSerializationSize() const noexcept
 void EfficientNMSPlugin::serialize(void* buffer) const noexcept
 {
     char *d = reinterpret_cast<char*>(buffer), *a = d;
-    write(d, param);
+    write(d, mParam);
     ASSERT(d == a + getSerializationSize());
 }
 
@@ -105,7 +105,7 @@ IPluginV2DynamicExt* EfficientNMSPlugin::clone() const noexcept
 {
     try
     {
-        auto* plugin = new EfficientNMSPlugin(param);
+        auto* plugin = new EfficientNMSPlugin(mParam);
         plugin->setPluginNamespace(mNamespace.c_str());
         return plugin;
     }
@@ -143,7 +143,7 @@ DimsExprs EfficientNMSPlugin::getOutputDimensions(
 
         if (nbInputs == 2)
         {
-            param.boxDecoder = false;
+            mParam.boxDecoder = false;
         }
         if (nbInputs == 3)
         {
@@ -152,8 +152,8 @@ DimsExprs EfficientNMSPlugin::getOutputDimensions(
             // or
             // Dynamic shape: some dimension values may be -1
             ASSERT(inputs[2].nbDims == 3);
-            param.boxDecoder = true;
-            param.shareAnchors = (inputs[2].d[0]->isConstant() && inputs[2].d[0]->getConstantValue() == 1);
+            mParam.boxDecoder = true;
+            mParam.shareAnchors = (inputs[2].d[0]->isConstant() && inputs[2].d[0]->getConstantValue() == 1);
         }
 
         ASSERT(inputs[0].d[1]->isConstant() && inputs[0].d[2]->isConstant());
@@ -165,8 +165,8 @@ DimsExprs EfficientNMSPlugin::getOutputDimensions(
         if (inputs[0].nbDims == 4)
         {
             ASSERT(inputs[0].d[3]->isConstant());
-            param.shareLocation = (inputs[0].d[2]->getConstantValue() == 1);
-            param.numBoxElements
+            mParam.shareLocation = (inputs[0].d[2]->getConstantValue() == 1);
+            mParam.numBoxElements
                 = exprBuilder
                       .operation(DimensionOperation::kPROD,
                           *exprBuilder.operation(DimensionOperation::kPROD, *inputs[0].d[1], *inputs[0].d[2]),
@@ -175,13 +175,13 @@ DimsExprs EfficientNMSPlugin::getOutputDimensions(
         }
         else
         {
-            param.shareLocation = true;
-            param.numBoxElements = exprBuilder.operation(DimensionOperation::kPROD, *inputs[0].d[1], *inputs[0].d[2])
-                                       ->getConstantValue();
+            mParam.shareLocation = true;
+            mParam.numBoxElements = exprBuilder.operation(DimensionOperation::kPROD, *inputs[0].d[1], *inputs[0].d[2])
+                                        ->getConstantValue();
         }
 
-        param.numClasses = inputs[1].d[2]->getConstantValue();
-        param.numScoreElements
+        mParam.numClasses = inputs[1].d[2]->getConstantValue();
+        mParam.numScoreElements
             = exprBuilder.operation(DimensionOperation::kPROD, *inputs[1].d[1], *inputs[1].d[2])->getConstantValue();
 
         DimsExprs out_dim;
@@ -197,7 +197,7 @@ DimsExprs EfficientNMSPlugin::getOutputDimensions(
         {
             out_dim.nbDims = 3;
             out_dim.d[0] = inputs[0].d[0];
-            out_dim.d[1] = exprBuilder.constant(param.numOutputBoxes);
+            out_dim.d[1] = exprBuilder.constant(mParam.numOutputBoxes);
             out_dim.d[2] = exprBuilder.constant(4);
         }
         // detection_scores
@@ -205,21 +205,21 @@ DimsExprs EfficientNMSPlugin::getOutputDimensions(
         {
             out_dim.nbDims = 2;
             out_dim.d[0] = inputs[0].d[0];
-            out_dim.d[1] = exprBuilder.constant(param.numOutputBoxes);
+            out_dim.d[1] = exprBuilder.constant(mParam.numOutputBoxes);
         }
         // detection_classes
         else if (outputIndex == 3)
         {
             out_dim.nbDims = 2;
             out_dim.d[0] = inputs[0].d[0];
-            out_dim.d[1] = exprBuilder.constant(param.numOutputBoxes);
+            out_dim.d[1] = exprBuilder.constant(mParam.numOutputBoxes);
         }
         // detection_indices
         else if (outputIndex == 4)
         {
             out_dim.nbDims = 2;
             out_dim.d[0] = exprBuilder.operation(
-                DimensionOperation::kPROD, *inputs[0].d[0], *exprBuilder.constant(param.numOutputBoxes));
+                DimensionOperation::kPROD, *inputs[0].d[0], *exprBuilder.constant(mParam.numOutputBoxes));
             out_dim.d[1] = exprBuilder.constant(3);
         }
 
@@ -240,12 +240,12 @@ bool EfficientNMSPlugin::supportsFormatCombination(
     if (nbInputs == 2)
     {
         ASSERT(0 <= pos && pos < 7);
-        param.boxDecoder = false;
+        mParam.boxDecoder = false;
     }
     if (nbInputs == 3)
     {
         ASSERT(0 <= pos && pos < 8);
-        param.boxDecoder = true;
+        mParam.boxDecoder = true;
     }
 
     const auto* in = inOut;
@@ -275,18 +275,18 @@ void EfficientNMSPlugin::configurePlugin(
         // Shape of boxes input should be
         // Constant shape: [batch_size, num_boxes, num_classes, 4] or [batch_size, num_boxes, 1, 4]
         //           shareLocation ==              0               or          1
-        const int numLocClasses = param.shareLocation ? 1 : param.numClasses;
+        const int numLocClasses = mParam.shareLocation ? 1 : mParam.numClasses;
         ASSERT(in[0].desc.dims.nbDims == 3 || in[0].desc.dims.nbDims == 4);
         if (in[0].desc.dims.nbDims == 3)
         {
             ASSERT(in[0].desc.dims.d[2] == 4);
-            param.shareLocation = true;
+            mParam.shareLocation = true;
         }
         else
         {
             ASSERT(in[0].desc.dims.d[2] == numLocClasses);
             ASSERT(in[0].desc.dims.d[3] == 4);
-            param.shareLocation = (in[0].desc.dims.d[2] == 1);
+            mParam.shareLocation = (in[0].desc.dims.d[2] == 1);
         }
 
         // Shape of scores input should be
@@ -295,23 +295,23 @@ void EfficientNMSPlugin::configurePlugin(
 
         if (nbInputs == 2)
         {
-            param.boxDecoder = false;
+            mParam.boxDecoder = false;
         }
         if (nbInputs == 3)
         {
             // Shape of anchors input should be
             // Constant shape: [1, numAnchors, 4] or [batch_size, numAnchors, 4]
             ASSERT(in[2].desc.dims.nbDims == 3);
-            param.boxDecoder = true;
+            mParam.boxDecoder = true;
         }
 
-        param.numBoxElements = in[0].desc.dims.d[1] * in[0].desc.dims.d[2] * in[0].desc.dims.d[3];
-        param.numAnchors = in[0].desc.dims.d[1];
-        param.numScoreElements = in[1].desc.dims.d[1] * in[1].desc.dims.d[2];
-        param.numClasses = in[1].desc.dims.d[2];
-        param.shareAnchors = (param.boxDecoder && in[2].desc.dims.d[0] == 1);
+        mParam.numBoxElements = in[0].desc.dims.d[1] * in[0].desc.dims.d[2] * in[0].desc.dims.d[3];
+        mParam.numAnchors = in[0].desc.dims.d[1];
+        mParam.numScoreElements = in[1].desc.dims.d[1] * in[1].desc.dims.d[2];
+        mParam.numClasses = in[1].desc.dims.d[2];
+        mParam.shareAnchors = (mParam.boxDecoder && in[2].desc.dims.d[0] == 1);
 
-        param.datatype = in[0].desc.type;
+        mParam.datatype = in[0].desc.type;
     }
     catch (const std::exception& e)
     {
@@ -322,7 +322,7 @@ void EfficientNMSPlugin::configurePlugin(
 size_t EfficientNMSPlugin::getWorkspaceSize(
     const PluginTensorDesc* inputs, int nbInputs, const PluginTensorDesc* outputs, int nbOutputs) const noexcept
 {
-    EfficientNMSParameters p = param;
+    EfficientNMSParameters p = mParam;
     p.batchSize = inputs[0].dims.d[0];
     return EfficientNMSWorkspaceSize(p);
 }
@@ -334,7 +334,7 @@ int EfficientNMSPlugin::enqueue(const PluginTensorDesc* inputDesc, const PluginT
     {
         const void* const boxesInput = inputs[0];
         const void* const scoresInput = inputs[1];
-        const void* const anchorsInput = param.boxDecoder ? inputs[2] : nullptr;
+        const void* const anchorsInput = mParam.boxDecoder ? inputs[2] : nullptr;
 
         void* numDetectionsOutput = outputs[0];
         void* nmsBoxesOutput = outputs[1];
@@ -342,10 +342,11 @@ int EfficientNMSPlugin::enqueue(const PluginTensorDesc* inputDesc, const PluginT
         void* nmsClassesOutput = outputs[3];
         void* nmsIndicesOutput = outputs[4];
 
-        param.batchSize = inputDesc[0].dims.d[0];
+        mParam.batchSize = inputDesc[0].dims.d[0];
 
-        pluginStatus_t status = EfficientNMSInference(param, boxesInput, scoresInput, anchorsInput, numDetectionsOutput,
-            nmsBoxesOutput, nmsScoresOutput, nmsClassesOutput, nmsIndicesOutput, workspace, stream);
+        pluginStatus_t status
+            = EfficientNMSInference(mParam, boxesInput, scoresInput, anchorsInput, numDetectionsOutput, nmsBoxesOutput,
+                nmsScoresOutput, nmsClassesOutput, nmsIndicesOutput, workspace, stream);
         return status;
     }
     catch (const std::exception& e)

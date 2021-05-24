@@ -71,8 +71,7 @@ public:
         void* const* outputs, void* workspace, cudaStream_t stream) noexcept override;
 
 private:
-    // TODO: Rename to mParam ?
-    EfficientNMSParameters param{};
+    EfficientNMSParameters mParam{};
     std::string mNamespace;
 };
 

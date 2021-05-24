@@ -15,7 +15,7 @@
 
 ## Description
 
-This TensorRT plugin implements an efficient algorightm to perform Non Maximum Suppression for object detection networks.
+This TensorRT plugin implements an efficient algorithm to perform Non Maximum Suppression for object detection networks.
 
 This plugin is primarily intended for using with EfficientDet on TensorRT, as this network is particularly sensitive to the latencies introduced by slower NMS implementations. However, the plugin is generic enough that it will work correctly for other detections architectures, such as SSD or FasterRCNN.
 
@@ -127,7 +127,7 @@ Depending on network configuration, it is usually more efficient to provide raw 
 
 #### Using the Fused Box Decoder
 
-When using networks with many anchors, such as EfficientDet or SSD, it may be more efficient to do box decoding within the NMS plugin. For this, pass the raw box preictions as the boxes input, and the default anchor coordinates as the optional third input to the plugin.
+When using networks with many anchors, such as EfficientDet or SSD, it may be more efficient to do box decoding within the NMS plugin. For this, pass the raw box predictions as the boxes input, and the default anchor coordinates as the optional third input to the plugin.
 
 ### Additional Resources
 
