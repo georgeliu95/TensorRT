@@ -71,7 +71,7 @@ if(BERT_GENCODES)
         )
 endif()
 
-include_directories(common common/kernels ../samples/common)
+include_directories(common common/kernels ${CMAKE_SOURCE_DIR}/samples/common)
 
 foreach(PLUGIN_ITER ${PLUGIN_LISTS})
     include_directories(${PLUGIN_ITER})

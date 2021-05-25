@@ -35,37 +35,36 @@ public:
 
     LReLU(const void* buffer, size_t length);
 
-    ~LReLU() = default;
+    ~LReLU() override = default;
 
-    int getNbOutputs() const noexcept;
+    int getNbOutputs() const noexcept override;
 
-    Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) noexcept;
+    Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) noexcept override;
 
-    int initialize() noexcept;
+    int initialize() noexcept override;
 
-    void terminate() noexcept;
+    void terminate() noexcept override;
 
-    size_t getWorkspaceSize(int maxBatchSize) const noexcept;
+    size_t getWorkspaceSize(int maxBatchSize) const noexcept override;
 
     int enqueue(int batchSize, const void* const* inputs, void* const* outputs, void* workspace,
         cudaStream_t stream) noexcept override;
 
-    size_t getSerializationSize() const noexcept;
+    size_t getSerializationSize() const noexcept override;
 
-    void serialize(void* buffer) const noexcept;
+    void serialize(void* buffer) const noexcept override;
 
-    void configureWithFormat(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs, DataType type,
-        PluginFormat format, int maxBatchSize) noexcept;
+    void configureWithFormat(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs, DataType type, PluginFormat format, int maxBatchSize) noexcept override;
 
-    bool supportsFormat(DataType type, PluginFormat format) const noexcept;
+    bool supportsFormat(DataType type, PluginFormat format) const noexcept override;
 
-    const char* getPluginType() const noexcept;
+    const char* getPluginType() const noexcept override;
 
-    const char* getPluginVersion() const noexcept;
+    const char* getPluginVersion() const noexcept override;
 
-    void destroy() noexcept;
+    void destroy() noexcept override;
 
-    IPluginV2* clone() const noexcept;
+    IPluginV2* clone() const noexcept override;
 
 private:
     float mNegSlope;
@@ -77,7 +76,7 @@ class LReluPluginCreator : public BaseCreator
 public:
     LReluPluginCreator();
 
-    ~LReluPluginCreator() = default;
+    ~LReluPluginCreator() override = default;
 
     const char* getPluginName() const noexcept override;
 

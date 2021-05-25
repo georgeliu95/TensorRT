@@ -77,7 +77,7 @@ void LReLU::serialize(void* buffer) const noexcept
 }
 
 void LReLU::configureWithFormat(
-    const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs, DataType type, PluginFormat format, int) noexcept
+    const Dims* inputDims, int /* nbInputs */, const Dims* /* outputDims */, int nbOutputs, DataType type, PluginFormat format, int) noexcept
 {
     ASSERT(type == DataType::kFLOAT && format == PluginFormat::kLINEAR);
     ASSERT(mBatchDim == 1);
@@ -100,7 +100,7 @@ int LReLU::initialize() noexcept
 
 void LReLU::terminate() noexcept {}
 
-size_t LReLU::getWorkspaceSize(int maxBatchSize) const noexcept
+size_t LReLU::getWorkspaceSize(int /* maxBatchSize */) const noexcept
 {
     return 0;
 }
