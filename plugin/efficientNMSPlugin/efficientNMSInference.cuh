@@ -154,6 +154,24 @@ struct __align__(4 * sizeof(T)) BoxCorner
     // For NMS/IOU purposes, YXYX coding is identical to XYXY
     T y1, x1, y2, x2;
 
+    __device__ void reorder()
+    {
+        if (gt_mp(y1, y2))
+        {
+            // Swap values, so y1 < y2
+            y1 = sub_mp(y1, y2);
+            y2 = add_mp(y1, y2);
+            y1 = sub_mp(y2, y1);
+        }
+        if (gt_mp(x1, x2))
+        {
+            // Swap values, so x1 < x2
+            x1 = sub_mp(x1, x2);
+            x2 = add_mp(x1, x2);
+            x1 = sub_mp(x2, x1);
+        }
+    }
+
     __device__ BoxCorner<T> clip(T low, T high) const
     {
         return {lt_mp(y1, low) ? low : (gt_mp(y1, high) ? high : y1),
@@ -200,6 +218,8 @@ struct __align__(4 * sizeof(T)) BoxCenterSize
 {
     // For NMS/IOU purposes, YXHW coding is identical to XYWH
     T y, x, h, w;
+
+    __device__ void reorder() {}
 
     __device__ BoxCenterSize<T> clip(T low, T high) const
     {

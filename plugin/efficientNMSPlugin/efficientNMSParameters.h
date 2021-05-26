@@ -30,27 +30,26 @@ struct EfficientNMSParameters
     // Related to NMS Options
     float iouThreshold = 0.5f;
     float scoreThreshold = 0.5f;
-
-    // Related to Data Configuration
     int numOutputBoxes = 100;
-    int numClasses = 1;
+    int numOutputBoxesPerClass = -1;
     int backgroundClass = -1;
-    bool shareLocation = true;
-    bool shareAnchors = true;
     bool scoreSigmoid = false;
-    bool boxDecoder = false;
     int boxCoding = 0;
 
     // Related to NMS Internals
-    int numSelectedBoxes = 1024;
+    int numSelectedBoxes = 4096;
     int scoreBits = 10;
 
     // Related to Tensor Configuration
     // (These are set by the various plugin configuration methods, no need to define them during plugin creation.)
     int batchSize = -1;
+    int numClasses = 1;
     int numBoxElements = -1;
     int numScoreElements = -1;
     int numAnchors = -1;
+    bool shareLocation = true;
+    bool shareAnchors = true;
+    bool boxDecoder = false;
     nvinfer1::DataType datatype = nvinfer1::DataType::kFLOAT;
 };
 

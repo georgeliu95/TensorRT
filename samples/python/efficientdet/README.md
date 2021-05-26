@@ -75,8 +75,8 @@ You can visualize the resulting file with a tool such as [Netron](https://netron
 
 The script has a few additional arguments:
 
-* `--batched_nms_plugin` allows falling back to the legacy [Batched NMS](../../../plugin/batchedNMSPlugin) TensorRT plugin where the new [Efficient NMS](../../../plugin/efficientNMSPlugin) plugin is not available. Using the Batched NMS plugin will result in substantially slower inference times however.
 * `--nms_threshold` allows overriding the NMS score threshold value. The runtime latency of the EfficientNMS plugin is sensitive to the score threshold used, so it's a good practice to set this value as high as possible, while still fulfilling your application requirements, to reduce latency as much as possible.
+* `--legacy_plugins` allows falling back to older plugins on systems where a version lower than TensorRT 8.0 is installed. This will result in substantially slower inference times however.
 
 ### Build TensorRT Engine
 

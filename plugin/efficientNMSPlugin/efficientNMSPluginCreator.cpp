@@ -31,7 +31,7 @@ EfficientNMSPluginCreator::EfficientNMSPluginCreator()
     mPluginAttributes.emplace_back(PluginField("score_threshold", nullptr, PluginFieldType::kFLOAT32, 1));
     mPluginAttributes.emplace_back(PluginField("iou_threshold", nullptr, PluginFieldType::kFLOAT32, 1));
     mPluginAttributes.emplace_back(PluginField("max_output_boxes", nullptr, PluginFieldType::kINT32, 1));
-    mPluginAttributes.emplace_back(PluginField("max_selected_boxes", nullptr, PluginFieldType::kINT32, 1));
+    mPluginAttributes.emplace_back(PluginField("max_output_boxes_per_class", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("background_class", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("score_sigmoid", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("box_coding", nullptr, PluginFieldType::kINT32, 1));
@@ -77,10 +77,10 @@ IPluginV2DynamicExt* EfficientNMSPluginCreator::createPlugin(const char* name, c
                 ASSERT(fields[i].type == PluginFieldType::kINT32);
                 mParam.numOutputBoxes = *(static_cast<const int*>(fields[i].data));
             }
-            if (!strcmp(attrName, "max_selected_boxes"))
+            if (!strcmp(attrName, "max_output_boxes_per_class"))
             {
                 ASSERT(fields[i].type == PluginFieldType::kINT32);
-                mParam.numSelectedBoxes = *(static_cast<const int*>(fields[i].data));
+                mParam.numOutputBoxesPerClass = *(static_cast<const int*>(fields[i].data));
             }
             if (!strcmp(attrName, "background_class"))
             {

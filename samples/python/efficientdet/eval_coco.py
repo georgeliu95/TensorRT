@@ -25,12 +25,13 @@ from image_batcher import ImageBatcher
 
 
 def main(args):
-    sys_path = os.path.join(os.path.realpath(args.automl_path), "efficientdet")
+    automl_path = os.path.realpath(args.automl_path)
+    sys_path = os.path.join(automl_path, "efficientdet")
     sys.path.append(sys_path)
     try:
         import coco_metric
     except ImportError:
-        print("Could not import the 'coco_metric' module from AutoML. Search path: {}".format(sys_path))
+        print("Could not import the 'coco_metric' module from AutoML. Searching in: {}".format(automl_path))
         print("Please clone the repository https://github.com/google/automl and provide its path with --automl_path.")
         sys.exit(1)
 

@@ -81,8 +81,8 @@ The following five output are generated:
 |----------|--------------------------|--------------------------------------------------------
 |`float`   |`score_threshold` *       |The scalar threshold for score (low scoring boxes are removed).
 |`float`   |`iou_threshold`           |The scalar threshold for IOU (additional boxes that have high IOU overlap with previously selected boxes are removed).
-|`int`     |`max_output_boxes`        |The number of total bounding boxes to be kept per-image after the NMS step. Should be less than or equal to the `max_selected_boxes` value.
-|`int`     |`max_selected_boxes` *    |The number of bounding boxes to be fed into the NMS overlapping step.
+|`int`     |`max_output_boxes`        |The maximum number of detections to output per image.
+|`int`     |`max_output_boxes_per_class` |The maximum number of detections to output per image and per class. The `max_output_boxes` limit will still apply for each image. To disable this limit, set it to `-1`.
 |`int`     |`background_class`        |The label ID for the background class. If there is no background class, set it to `-1`.
 |`bool`    |`score_sigmoid` *         |Set to true to calculate the sigmoid of confidence scores during the NMS operation.
 |`int`     |`box_coding`              |Coding type used for boxes (and anchors if applicable), 0 = BoxCorner, 1 = BoxCenterSize.
@@ -105,7 +105,7 @@ Specifically, the NMS algorithm does the following:
 
 - The selected scores that remain after filtering are sorted in descending order. The indexing is carefully handled to still maintain score to box relationships after sorting.
 
-- After sorting, the `max_selected_boxes` highest scores are processed by the `EfficientNMS` CUDA kernel. This algorithm uses the index data maintained throughout the previous steps to find the boxes corresponding to the remaining scores. If the fused box decoder is being used, decoding will happen until this stage, where only `max_selected_boxes` boxes need to be decoded.
+- After sorting, the highest 4096 scores are processed by the `EfficientNMS` CUDA kernel. This algorithm uses the index data maintained throughout the previous steps to find the boxes corresponding to the remaining scores. If the fused box decoder is being used, decoding will happen until this stage, where only the top scoring boxes need to be decoded.
 
 - The NMS kernel uses an efficient filtering algorithm that largely reduces the number of IOU overlap cross-checks between box pairs. The boxes that survive the IOU filtering finally pass through to the output results. At this stage, the sigmoid activation is applied to only the final remaining scores, if `score_sigmoid` is enabled, thereby greatly reducing the amount of sigmoid calculations required otherwise.
 
@@ -116,10 +116,6 @@ The plugin implements a very efficient NMS algorithm which largely reduces the l
 #### Choosing the Score Threshold
 
 The algorithm is highly sensitive to the selected `score_threshold` parameter. With a higher threshold, fewer elements need to be processed and so the algorithm runs much faster. Therefore, it's beneficial to always select the highest possible score threshold that fulfills the application requirements. Threshold values lower than approximately 0.01 may cause substantially higher latency.
-
-#### Choosing the Max Selected Boxes
-
-The `max_selected_boxes` parameter sets the maximum amount of elements with which NMS is actually performed. For most traditional object detection applications, a value of 1024 will be sufficient, especially if a non-zero `score_threshold` parameter has been set. If the network needs to process unusually large image sizes or very busy scenes with many positive detections, it may be necessary to increase this parameter, in which case, it is best to use exact multiples of 1024, up to a maximum of 4096.
 
 #### Using Sigmoid Activation
 

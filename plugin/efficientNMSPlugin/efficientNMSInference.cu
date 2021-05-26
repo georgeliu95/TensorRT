@@ -47,11 +47,13 @@ __device__ BoxCorner<T> DecodeBoxes(EfficientNMSParameters param, int boxIdx, in
     // The inputs will be in the selected coding format, as well as the decoding function. But the decoded box
     // will always be returned as BoxCorner.
     Tb box = boxesInput[boxIdx];
+    box.reorder();
     if (!param.boxDecoder)
     {
         return BoxCorner<T>(box);
     }
     Tb anchor = anchorsInput[anchorIdx];
+    anchor.reorder();
     return BoxCorner<T>(box.decode(anchor));
 }
 
@@ -59,7 +61,7 @@ template <typename T, typename Tb>
 __device__ void MapNMSData(EfficientNMSParameters param, int idx, int imageIdx, const Tb* __restrict__ boxesInput,
     const Tb* __restrict__ anchorsInput, const int* __restrict__ topClassData, const int* __restrict__ topAnchorsData,
     const int* __restrict__ topNumData, const T* __restrict__ sortedScoresData, const int* __restrict__ sortedIndexData,
-    T& scoreMap, int& classMap, BoxCorner<T>& boxMap, int& idxMap)
+    T& scoreMap, int& classMap, BoxCorner<T>& boxMap, int& boxIdxMap)
 {
     // idx: Holds the NMS box index, within the current batch.
     // idxSort: Holds the batched NMS box index, which indexes the (filtered, but sorted) score buffer.
@@ -74,12 +76,12 @@ __device__ void MapNMSData(EfficientNMSParameters param, int idx, int imageIdx, 
     // idxMap: Holds the re-mapped index, which indexes the (filtered, but unsorted) buffers.
     // classMap: Holds the class that corresponds to the idx'th sorted score being processed by NMS.
     // anchorMap: Holds the anchor that corresponds to the idx'th sorted score being processed by NMS.
-    idxMap = imageIdx * param.numScoreElements + sortedIndexData[idxSort];
+    int idxMap = imageIdx * param.numScoreElements + sortedIndexData[idxSort];
     classMap = topClassData[idxMap];
     int anchorMap = topAnchorsData[idxMap];
 
     // boxIdxMap: Holds the re-re-mapped index, which indexes the (unfiltered, and unsorted) boxes input buffer.
-    int boxIdxMap = -1;
+    boxIdxMap = -1;
     if (param.shareLocation) // Shape of boxesInput: [batchSize, numAnchors, 1, 4]
     {
         boxIdxMap = imageIdx * param.numAnchors + anchorMap;
@@ -108,7 +110,7 @@ template <typename T>
 __device__ void WriteNMSResult(EfficientNMSParameters param, int* __restrict__ numDetectionsOutput,
     T* __restrict__ nmsScoresOutput, int* __restrict__ nmsClassesOutput, int* __restrict__ nmsIndicesOutput,
     BoxCorner<T>* __restrict__ nmsBoxesOutput, T threadScore, int threadClass, BoxCorner<T> threadBox, int imageIdx,
-    int index, unsigned int resultsCounter, int* outputIndexData)
+    int index, unsigned int resultsCounter, int* outputIndexData, int* outputClassData)
 {
     int outputIdx = imageIdx * param.numOutputBoxes + resultsCounter - 1;
     if (param.scoreSigmoid)
@@ -136,10 +138,10 @@ __device__ void WriteNMSResult(EfficientNMSParameters param, int* __restrict__ n
 
 template <typename T, typename Tb>
 __global__ void EfficientNMS(EfficientNMSParameters param, const int* topNumData, int* outputIndexData,
-    const int* sortedIndexData, const T* __restrict__ sortedScoresData, const int* __restrict__ topClassData,
-    const int* __restrict__ topAnchorsData, const Tb* __restrict__ boxesInput, const Tb* __restrict__ anchorsInput,
-    int* __restrict__ numDetectionsOutput, T* __restrict__ nmsScoresOutput, int* __restrict__ nmsClassesOutput,
-    int* __restrict__ nmsIndicesOutput, BoxCorner<T>* __restrict__ nmsBoxesOutput)
+    int* outputClassData, const int* sortedIndexData, const T* __restrict__ sortedScoresData,
+    const int* __restrict__ topClassData, const int* __restrict__ topAnchorsData, const Tb* __restrict__ boxesInput,
+    const Tb* __restrict__ anchorsInput, int* __restrict__ numDetectionsOutput, T* __restrict__ nmsScoresOutput,
+    int* __restrict__ nmsClassesOutput, int* __restrict__ nmsIndicesOutput, BoxCorner<T>* __restrict__ nmsBoxesOutput)
 {
     unsigned int thread = threadIdx.x;
     unsigned int imageIdx = blockIdx.y;
@@ -169,14 +171,14 @@ __global__ void EfficientNMS(EfficientNMSParameters param, const int* topNumData
     T threadScore[4];
     int threadClass[4];
     BoxCorner<T> threadBox[4];
-    int idxMap[4];
+    int boxIdxMap[4];
     for (int tile = 0; tile < numTiles; tile++)
     {
         threadState[tile] = 0;
         boxIdx[tile] = thread + tile * blockDim.x;
         MapNMSData<T, Tb>(param, boxIdx[tile], imageIdx, boxesInput, anchorsInput, topClassData, topAnchorsData,
             topNumData, sortedScoresData, sortedIndexData, threadScore[tile], threadClass[tile], threadBox[tile],
-            idxMap[tile]);
+            boxIdxMap[tile]);
     }
 
     // Iterate through all boxes to NMS against.
@@ -211,12 +213,22 @@ __global__ void EfficientNMS(EfficientNMSParameters param, const int* topNumData
                     // to see how those other boxes will behave in future iterations.
                     blockState = 1;        // +1 => Signal all (higher index) threads to calculate IOU against this box
                     threadState[tile] = 1; // +1 => Mark this box's thread to be kept and written out to results
-                    resultsCounter++;      // This branch is visited by one thread per iteration, so it's safe to do a
-                    // non-atomic increment.
-                    int index = idxMap[tile] % param.numAnchors; // To output to nmsIndicesOutput
-                    WriteNMSResult<T>(param, numDetectionsOutput, nmsScoresOutput, nmsClassesOutput, nmsIndicesOutput,
-                        nmsBoxesOutput, threadScore[tile], threadClass[tile], threadBox[tile], imageIdx, index,
-                        resultsCounter, outputIndexData);
+
+                    // If the numOutputBoxesPerClass check is enabled, write the result only if the limit for this
+                    // class on this image has not been reached yet. Other than (possibly) skipping the write, this
+                    // won't affect anything else in the NMS threading.
+                    int classCounterIdx = imageIdx * param.numClasses + threadClass[tile];
+                    int classCounter = outputClassData[classCounterIdx];
+                    if (param.numOutputBoxesPerClass < 0 || classCounter < param.numOutputBoxesPerClass)
+                    {
+                        // This branch is visited by one thread per iteration, so it's safe to do non-atomic increments.
+                        resultsCounter++;
+                        outputClassData[classCounterIdx]++;
+                        int index = boxIdxMap[tile] % param.numAnchors; // To output to nmsIndicesOutput
+                        WriteNMSResult<T>(param, numDetectionsOutput, nmsScoresOutput, nmsClassesOutput,
+                            nmsIndicesOutput, nmsBoxesOutput, threadScore[tile], threadClass[tile], threadBox[tile],
+                            imageIdx, index, resultsCounter, outputIndexData, outputClassData);
+                    }
                 }
             }
             else
@@ -243,12 +255,12 @@ __global__ void EfficientNMS(EfficientNMSParameters param, const int* topNumData
         // Grab a box and class to test the current box against. The test box corresponds to iteration i,
         // therefore it will have a lower index than the current thread box, and will therefore have a higher score
         // than the current box because it's located "before" in the sorted score list.
-        T test_score;
-        int test_class;
-        BoxCorner<T> test_box;
-        int idx_map;
+        T testScore;
+        int testClass;
+        BoxCorner<T> testBox;
+        int testBoxIdxMap;
         MapNMSData<T, Tb>(param, i, imageIdx, boxesInput, anchorsInput, topClassData, topAnchorsData, topNumData,
-            sortedScoresData, sortedIndexData, test_score, test_class, test_box, idx_map);
+            sortedScoresData, sortedIndexData, testScore, testClass, testBox, testBoxIdxMap);
 
         for (int tile = 0; tile < numTiles; tile++)
         {
@@ -257,9 +269,9 @@ __global__ void EfficientNMS(EfficientNMSParameters param, const int* topNumData
                 boxIdx[tile] < numSelectedBoxes && // Make sure the box is within numSelectedBoxes;
                 blockState == 1 &&                 // Signal that allows IOU checks to be performed;
                 threadState[tile] == 0 &&          // Make sure this box hasn't been either dropped or kept already;
-                threadClass[tile] == test_class && // Compare only boxes of matching classes;
-                lte_mp(threadScore[tile], test_score) && // Make sure the sorting order of scores is as expected;
-                IOU<T>(param, threadBox[tile], test_box) >= param.iouThreshold) // And... IOU overlap.
+                threadClass[tile] == testClass &&  // Compare only boxes of matching classes;
+                lte_mp(threadScore[tile], testScore) && // Make sure the sorting order of scores is as expected;
+                IOU<T>(param, threadBox[tile], testBox) >= param.iouThreshold) // And... IOU overlap.
             {
                 // Current box overlaps with the box tested in this iteration, this box will be skipped.
                 threadState[tile] = -1; // -1 => Mark this box's thread to be dropped.
@@ -270,9 +282,9 @@ __global__ void EfficientNMS(EfficientNMSParameters param, const int* topNumData
 
 template <typename T>
 cudaError_t EfficientNMSLauncher(EfficientNMSParameters& param, int* topNumData, int* outputIndexData,
-    int* sortedIndexData, T* sortedScoresData, int* topClassData, int* topAnchorsData, const void* boxesInput,
-    const void* anchorsInput, int* numDetectionsOutput, T* nmsScoresOutput, int* nmsClassesOutput,
-    int* nmsIndicesOutput, void* nmsBoxesOutput, cudaStream_t stream)
+    int* outputClassData, int* sortedIndexData, T* sortedScoresData, int* topClassData, int* topAnchorsData,
+    const void* boxesInput, const void* anchorsInput, int* numDetectionsOutput, T* nmsScoresOutput,
+    int* nmsClassesOutput, int* nmsIndicesOutput, void* nmsBoxesOutput, cudaStream_t stream)
 {
     unsigned int tileSize = 1024;
     if (param.numSelectedBoxes <= 512)
@@ -290,17 +302,17 @@ cudaError_t EfficientNMSLauncher(EfficientNMSParameters& param, int* topNumData,
     if (param.boxCoding == 0)
     {
         EfficientNMS<T, BoxCorner<T>><<<gridSize, blockSize, 0, stream>>>(param, topNumData, outputIndexData,
-            sortedIndexData, sortedScoresData, topClassData, topAnchorsData, (BoxCorner<T>*) boxesInput,
-            (BoxCorner<T>*) anchorsInput, numDetectionsOutput, nmsScoresOutput, nmsClassesOutput, nmsIndicesOutput,
-            (BoxCorner<T>*) nmsBoxesOutput);
+            outputClassData, sortedIndexData, sortedScoresData, topClassData, topAnchorsData,
+            (BoxCorner<T>*) boxesInput, (BoxCorner<T>*) anchorsInput, numDetectionsOutput, nmsScoresOutput,
+            nmsClassesOutput, nmsIndicesOutput, (BoxCorner<T>*) nmsBoxesOutput);
     }
     else if (param.boxCoding == 1)
     {
         // Note that nmsBoxesOutput is always coded as BoxCorner<T>, regardless of the input coding type.
         EfficientNMS<T, BoxCenterSize<T>><<<gridSize, blockSize, 0, stream>>>(param, topNumData, outputIndexData,
-            sortedIndexData, sortedScoresData, topClassData, topAnchorsData, (BoxCenterSize<T>*) boxesInput,
-            (BoxCenterSize<T>*) anchorsInput, numDetectionsOutput, nmsScoresOutput, nmsClassesOutput, nmsIndicesOutput,
-            (BoxCorner<T>*) nmsBoxesOutput);
+            outputClassData, sortedIndexData, sortedScoresData, topClassData, topAnchorsData,
+            (BoxCenterSize<T>*) boxesInput, (BoxCenterSize<T>*) anchorsInput, numDetectionsOutput, nmsScoresOutput,
+            nmsClassesOutput, nmsIndicesOutput, (BoxCorner<T>*) nmsBoxesOutput);
     }
 
     return cudaGetLastError();
@@ -511,7 +523,10 @@ size_t EfficientNMSWorkspaceSize(EfficientNMSParameters param)
 {
     size_t total = 0, size = 0, align = 256;
     // Counters
-    size = 4 * param.batchSize * sizeof(int);
+    // 3 for Filtering
+    // 1 for Output Indexing
+    // C for Max per Class Limiting
+    size = (3 + 1 + param.numClasses) * param.batchSize * sizeof(int);
     total += size + (size % align ? align - (size % align) : 0);
     // Int Buffers
     for (int i = 0; i < 4; i++)
@@ -565,11 +580,12 @@ pluginStatus_t EfficientNMSDispatch(EfficientNMSParameters param, const void* bo
 
     // Counters Workspace
     size_t workspaceOffset = 0;
-    int countersTotalSize = 4 * param.batchSize;
+    int countersTotalSize = (3 + 1 + param.numClasses) * param.batchSize;
     int* topNumData = EfficientNMSWorkspace<int>(workspace, workspaceOffset, countersTotalSize);
     int* topOffsetsStartData = topNumData + param.batchSize;
     int* topOffsetsEndData = topNumData + 2 * param.batchSize;
     int* outputIndexData = topNumData + 3 * param.batchSize;
+    int* outputClassData = topNumData + 4 * param.batchSize;
     cudaMemsetAsync(topNumData, 0x00, countersTotalSize * sizeof(int), stream);
     cudaError_t status = cudaGetLastError();
     CSC(status, STATUS_FAILURE);
@@ -601,9 +617,9 @@ pluginStatus_t EfficientNMSDispatch(EfficientNMSParameters param, const void* bo
         param.scoreBits > 0 ? (10 - param.scoreBits) : 0, param.scoreBits > 0 ? 10 : sizeof(T) * 8, stream, false);
     CSC(status, STATUS_FAILURE);
 
-    status = EfficientNMSLauncher<T>(param, topNumData, outputIndexData, indexDB.Current(), scoresDB.Current(),
-        topClassData, topAnchorsData, boxesInput, anchorsInput, (int*) numDetectionsOutput, (T*) nmsScoresOutput,
-        (int*) nmsClassesOutput, (int*) nmsIndicesOutput, nmsBoxesOutput, stream);
+    status = EfficientNMSLauncher<T>(param, topNumData, outputIndexData, outputClassData, indexDB.Current(),
+        scoresDB.Current(), topClassData, topAnchorsData, boxesInput, anchorsInput, (int*) numDetectionsOutput,
+        (T*) nmsScoresOutput, (int*) nmsClassesOutput, (int*) nmsIndicesOutput, nmsBoxesOutput, stream);
     CSC(status, STATUS_FAILURE);
 
     return STATUS_SUCCESS;
