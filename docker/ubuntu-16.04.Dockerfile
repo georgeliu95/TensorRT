@@ -15,10 +15,10 @@
 ARG CUDA_VERSION=11.3.0
 ARG OS_VERSION=16.04
 
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.0.0.0
+ENV TRT_VERSION 8.0.1.0
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -61,12 +61,12 @@ RUN add-apt-repository ppa:deadsnakes/ppa && apt-get update &&\
     ln -s /usr/bin/python3.6 /usr/bin/python
 
 # Install cuDNN
-RUN apt-get install -y libcudnn8-dev
+# RUN apt-get install -y libcudnn8-dev
 
 # Install TensorRT
 # TODO update with ML-repo when available
 RUN mkdir -p /tmp/tensorrt && cd /tmp/tensorrt && \
-    wget -r -np -nd -k http://cuda-repo/release-candidates/Libraries/TensorRT/v8.0/8.0.0.4-c05d24d8/11.3-r465/Ubuntu16_04-x64/deb/ &&\
+    wget -r -np -nd -k http://cuda-repo/release-candidates/Libraries/TensorRT/v8.0/8.0.1.0-1c4e2696/11.3-r465/Ubuntu16_04-x64/deb/ &&\
     yes | dpkg -i libnvinfer8_*.deb libnvinfer-plugin8_*.deb libnvparsers8_*.deb libnvonnxparsers8_*.deb libnvinfer-dev_*.deb libnvinfer-plugin-dev_*.deb libnvparsers-dev_*.deb libnvonnxparsers-dev_*.deb python3-libnvinfer_*.deb python3-libnvinfer-dev_*.deb && \
     rm -f *
 #RUN cd /tmp &&\

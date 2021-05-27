@@ -313,7 +313,7 @@ const IBlobNameToTensor* CaffeParser::parseBuffers(const char* deployBuffer,
                                                    const char* modelBuffer,
                                                    std::size_t modelLength,
                                                    INetworkDefinition& network,
-                                                   DataType weightType)
+                                                   DataType weightType) noexcept
 {
     mDeploy = std::unique_ptr<trtcaffe::NetParameter>(new trtcaffe::NetParameter);
     google::protobuf::io::ArrayInputStream deployStream(deployBuffer, deployLength);
@@ -341,7 +341,7 @@ const IBlobNameToTensor* CaffeParser::parseBuffers(const char* deployBuffer,
 const IBlobNameToTensor* CaffeParser::parse(const char* deployFile,
                                             const char* modelFile,
                                             INetworkDefinition& network,
-                                            DataType weightType)
+                                            DataType weightType) noexcept
 {
     CHECK_NULL_RET_NULL(deployFile)
 
@@ -441,50 +441,10 @@ const IBlobNameToTensor* CaffeParser::parse(INetworkDefinition& network,
                 }
             }
         }
-
-        // If there is a pluginFactory provided, use layer name matching to handle the plugin construction
-        if (mPluginFactory && mPluginFactory->isPlugin(layerMsg.name().c_str()))
-        {
-            std::vector<Weights> w = weights.getAllWeights(layerMsg.name());
-            IPlugin* plugin = mPluginFactory->createPlugin(layerMsg.name().c_str(), w.empty() ? nullptr : &w[0], w.size());
-            std::vector<ITensor*> inputs;
-            for (int i = 0, n = layerMsg.bottom_size(); i < n; i++)
-            {
-                inputs.push_back((*mBlobNameToTensor)[layerMsg.bottom(i)]);
-            }
-
-            bool isExt = mPluginFactoryIsExt && static_cast<IPluginFactoryExt*>(mPluginFactory)->isPluginExt(layerMsg.name().c_str());
-
-            ILayer* layer = isExt ? network.addPluginExt(&inputs[0], int(inputs.size()), *static_cast<IPluginExt*>(plugin))
-                                  : network.addPlugin(&inputs[0], int(inputs.size()), *plugin);
-
-            layer->setName(layerMsg.name().c_str());
-            if (plugin->getNbOutputs() != layerMsg.top_size())
-            {
-                std::cout << "Plugin layer output count is not equal to caffe output count" << std::endl;
-                ok = false;
-            }
-            for (int i = 0, n = std::min(layer->getNbOutputs(), layerMsg.top_size()); i < n; i++)
-            {
-                (*mBlobNameToTensor)[layerMsg.top(i)] = layer->getOutput(i);
-            }
-
-            if (layer == nullptr)
-            {
-                std::cout << "error parsing layer type " << layerMsg.type() << " index " << i << std::endl;
-                ok = false;
-            }
-
-            continue;
-        }
         if (getInferLibVersion() >= 5000)
         {
             if (mPluginFactoryV2 && mPluginFactoryV2->isPluginV2(layerMsg.name().c_str()))
             {
-                if (mPluginFactory)
-                {
-                    RETURN_AND_LOG_ERROR(nullptr, "Both IPluginFactory and IPluginFactoryV2 are set. If using TensorRT 5.0 or later, switch to IPluginFactoryV2");
-                }
                 std::vector<Weights> w = weights.getAllWeights(layerMsg.name());
                 nvinfer1::IPluginV2* plugin = mPluginFactoryV2->createPlugin(layerMsg.name().c_str(), w.empty() ? nullptr : &w[0], w.size(), mPluginNamespace.c_str());
                 std::vector<ITensor*> inputs;
@@ -651,7 +611,7 @@ const IBlobNameToTensor* CaffeParser::parse(INetworkDefinition& network,
     return ok && weights.isOK() && mBlobNameToTensor->isOK() ? mBlobNameToTensor : nullptr;
 }
 
-IBinaryProtoBlob* CaffeParser::parseBinaryProto(const char* fileName)
+IBinaryProtoBlob* CaffeParser::parseBinaryProto(const char* fileName) noexcept
 {
     CHECK_NULL_RET_NULL(fileName)
     using namespace google::protobuf::io;

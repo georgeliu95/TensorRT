@@ -179,18 +179,18 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -Xcompiler -Wno-deprecated-declaration
 # TensorRT
 
 if(BUILD_PLUGINS)
-#    add_subdirectory(plugin)
+    add_subdirectory(plugin)
 else()
     find_library_create_target(nvinfer_plugin nvinfer_plugin SHARED ${TRT_OUT_DIR} ${TRT_LIB_DIR})
 endif()
 
 if(BUILD_PARSERS)
-#    add_subdirectory(parsers)
+    add_subdirectory(parsers)
 else()
     find_library_create_target(nvcaffeparser nvparsers SHARED ${TRT_OUT_DIR} ${TRT_LIB_DIR})
     find_library_create_target(nvonnxparser nvonnxparser SHARED ${TRT_OUT_DIR} ${TRT_LIB_DIR})
 endif()
 
 if(BUILD_SAMPLES)
-#    add_subdirectory(samples)
+    add_subdirectory(samples)
 endif()

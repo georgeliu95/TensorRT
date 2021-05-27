@@ -14,12 +14,9 @@
 | [sampleMLP](opensource/sampleMLP) | C++ | INetwork | “Hello World” For Multilayer Perceptron (MLP) |
 | [sampleMNIST](opensource/sampleMNIST) | C++ | Caffe | “Hello World” For TensorRT |
 | [sampleMNISTAPI](opensource/sampleMNISTAPI) | C++ | INetwork | Building a Simple MNIST Network Layer by Layer |
-| [sampleMovieLens](opensource/sampleMovieLens) | C++ | UFF | Movie Recommendation Using Neural Collaborative Filter |
-| [sampleMovieLensMPS](opensource/sampleMovieLensMPS) | C++ | UFF | Movie Recommendation With MPS (Multi-Process Service) |
 | [sampleNMT](opensource/sampleNMT) | C++ | INetwork | Neural Machine Translation Using A seq2seq Model |
 | [sampleOnnxMNIST](opensource/sampleOnnxMNIST) | C++ | ONNX | “Hello World” For TensorRT With ONNX |
 | [sampleOnnxMnistCoordConvAC](opensource/sampleOnnxMnistCoordConvAC) | C++ | ONNX | Implementing CoordConv with a custom plugin |
-| [samplePlugin](opensource/samplePlugin) | C++ | Caffe | Adding A Custom Layer In TensorRT |
 | [sampleReformatFreeIO](opensource/sampleReformatFreeIO) | C++ | Caffe | Specifying I/O Formats Via Reformat-Free-I/O API |
 | [sampleSSD](opensource/sampleSSD) | C++ | Caffe | Object Detection With SSD |
 | [sampleUffFasterRCNN](opensource/sampleUffFasterRCNN) | C++ | UFF | Object Detection With A TensorFlow FasterRCNN Network |

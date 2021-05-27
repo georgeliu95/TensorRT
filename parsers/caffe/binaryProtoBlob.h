@@ -33,27 +33,27 @@ public:
     {
     }
 
-    nvinfer1::DimsNCHW getDimensions() override
+    nvinfer1::Dims4 getDimensions() noexcept override
     {
         return mDimensions;
     }
 
-    nvinfer1::DataType getDataType() override
+    nvinfer1::DataType getDataType() noexcept override
     {
         return mDataType;
     }
 
-    const void* getData() override
+    const void* getData() noexcept override
     {
         return mMemory;
     }
 
-    void destroy() override
+    void destroy() noexcept override
     {
         delete this;
     }
 
-    ~BinaryProtoBlob() override
+    ~BinaryProtoBlob() noexcept override
     {
         free(mMemory);
     }

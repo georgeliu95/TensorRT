@@ -51,22 +51,22 @@ MultilevelProposeROIPluginCreator::MultilevelProposeROIPluginCreator()
     mFC.fields = mPluginAttributes.data();
 }
 
-const char* MultilevelProposeROIPluginCreator::getPluginName() const
+const char* MultilevelProposeROIPluginCreator::getPluginName() const noexcept
 {
     return MULTILEVELPROPOSEROI_PLUGIN_NAME;
-};
+}
 
-const char* MultilevelProposeROIPluginCreator::getPluginVersion() const
+const char* MultilevelProposeROIPluginCreator::getPluginVersion() const noexcept
 {
     return MULTILEVELPROPOSEROI_PLUGIN_VERSION;
-};
+}
 
-const PluginFieldCollection* MultilevelProposeROIPluginCreator::getFieldNames()
+const PluginFieldCollection* MultilevelProposeROIPluginCreator::getFieldNames() noexcept
 {
     return &mFC;
-};
+}
 
-IPluginV2Ext* MultilevelProposeROIPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc)
+IPluginV2Ext* MultilevelProposeROIPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc) noexcept
 {
     auto image_size = TLTMaskRCNNConfig::IMAGE_SHAPE;
     const PluginField* fields = fc->fields;
@@ -101,12 +101,12 @@ IPluginV2Ext* MultilevelProposeROIPluginCreator::createPlugin(const char* name, 
         }
     }
     return new MultilevelProposeROI(mPreNMSTopK, mKeepTopK, mFGThreshold, mIOUThreshold, image_size);
-};
+}
 
-IPluginV2Ext* MultilevelProposeROIPluginCreator::deserializePlugin(const char* name, const void* data, size_t length)
+IPluginV2Ext* MultilevelProposeROIPluginCreator::deserializePlugin(const char* name, const void* data, size_t length) noexcept
 {
     return new MultilevelProposeROI(data, length);
-};
+}
 
 MultilevelProposeROI::MultilevelProposeROI(
     int prenms_topk, int keep_topk, float fg_threshold, float iou_threshold, const nvinfer1::Dims image_size)
@@ -133,14 +133,14 @@ MultilevelProposeROI::MultilevelProposeROI(
     mFeatureCnt = TLTMaskRCNNConfig::MAX_LEVEL - TLTMaskRCNNConfig::MIN_LEVEL + 1;
 
     generate_pyramid_anchors(mImageSize);
-};
+}
 
-int MultilevelProposeROI::getNbOutputs() const
+int MultilevelProposeROI::getNbOutputs() const noexcept
 {
     return 1;
-};
+}
 
-int MultilevelProposeROI::initialize()
+int MultilevelProposeROI::initialize() noexcept
 {
     // Init the regWeight [1, 1, 1, 1]
     mRegWeightDevice = std::make_shared<CudaBind<float>>(4);
@@ -194,51 +194,53 @@ int MultilevelProposeROI::initialize()
     CUASSERT(cudaMemcpy(mDeviceBboxes, box_tp.data(), sizeof(float*) * mFeatureCnt, cudaMemcpyHostToDevice));
 
     return 0;
-};
+}
 
-void MultilevelProposeROI::terminate(){};
+void MultilevelProposeROI::terminate() noexcept
+{
+}
 
-void MultilevelProposeROI::destroy()
+void MultilevelProposeROI::destroy() noexcept
 {
     delete this;
-};
+}
 
-bool MultilevelProposeROI::supportsFormat(DataType type, PluginFormat format) const
+bool MultilevelProposeROI::supportsFormat(DataType type, PluginFormat format) const noexcept
 {
-    return (type == DataType::kFLOAT && format == PluginFormat::kNCHW);
-};
+    return (type == DataType::kFLOAT && format == PluginFormat::kLINEAR);
+}
 
-const char* MultilevelProposeROI::getPluginType() const
+const char* MultilevelProposeROI::getPluginType() const noexcept
 {
     return "MultilevelProposeROI_TRT";
-};
+}
 
-const char* MultilevelProposeROI::getPluginVersion() const
+const char* MultilevelProposeROI::getPluginVersion() const noexcept
 {
     return "1";
-};
+}
 
-IPluginV2Ext* MultilevelProposeROI::clone() const
+IPluginV2Ext* MultilevelProposeROI::clone() const noexcept
 {
     return new MultilevelProposeROI(*this);
-};
+}
 
-void MultilevelProposeROI::setPluginNamespace(const char* libNamespace)
+void MultilevelProposeROI::setPluginNamespace(const char* libNamespace) noexcept
 {
     mNameSpace = libNamespace;
-};
+}
 
-const char* MultilevelProposeROI::getPluginNamespace() const
+const char* MultilevelProposeROI::getPluginNamespace() const noexcept
 {
     return mNameSpace.c_str();
-};
+}
 
-size_t MultilevelProposeROI::getSerializationSize() const
+size_t MultilevelProposeROI::getSerializationSize() const noexcept
 {
     return sizeof(int) * 2 + sizeof(float) * 2 + sizeof(int) * (mFeatureCnt + 1) + sizeof(nvinfer1::Dims);
-};
+}
 
-void MultilevelProposeROI::serialize(void* buffer) const
+void MultilevelProposeROI::serialize(void* buffer) const noexcept
 {
     char *d = reinterpret_cast<char*>(buffer), *a = d;
     write(d, mPreNMSTopK);
@@ -252,7 +254,7 @@ void MultilevelProposeROI::serialize(void* buffer) const
     }
     write(d, mImageSize);
     ASSERT(d == a + getSerializationSize());
-};
+}
 
 MultilevelProposeROI::MultilevelProposeROI(const void* data, size_t length)
 {
@@ -287,7 +289,7 @@ MultilevelProposeROI::MultilevelProposeROI(const void* data, size_t length)
     mType = DataType::kFLOAT;
 
     generate_pyramid_anchors(mImageSize);
-};
+}
 
 void MultilevelProposeROI::check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims)
 {
@@ -303,9 +305,9 @@ void MultilevelProposeROI::check_valid_inputs(const nvinfer1::Dims* inputs, int 
         // foreground_score
         assert(inputs[i + 1].nbDims == 3 && inputs[i + 1].d[1] == 1);
     }
-};
+}
 
-size_t MultilevelProposeROI::getWorkspaceSize(int batch_size) const
+size_t MultilevelProposeROI::getWorkspaceSize(int batch_size) const noexcept
 {
     size_t total_size = 0;
     assert(mAnchorsCnt.size() == mFeatureCnt);
@@ -323,9 +325,9 @@ size_t MultilevelProposeROI::getWorkspaceSize(int batch_size) const
     total_size += ct.totalSize;
 
     return total_size;
-};
+}
 
-Dims MultilevelProposeROI::getOutputDimensions(int index, const Dims* inputs, int nbInputDims)
+Dims MultilevelProposeROI::getOutputDimensions(int index, const Dims* inputs, int nbInputDims) noexcept
 {
 
     check_valid_inputs(inputs, nbInputDims);
@@ -388,8 +390,8 @@ void MultilevelProposeROI::generate_pyramid_anchors(const nvinfer1::Dims& image_
     assert(anchors.size() == (max_level - min_level + 1));
 }
 
-int MultilevelProposeROI::enqueue(
-    int batch_size, const void* const* inputs, void** outputs, void* workspace, cudaStream_t stream)
+int32_t MultilevelProposeROI::enqueue(
+    int32_t batch_size, const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) noexcept
 {
 
     void* final_proposals = outputs[0];
@@ -423,10 +425,10 @@ int MultilevelProposeROI::enqueue(
 
     assert(status == cudaSuccess);
     return status;
-};
+}
 
 // Return the DataType of the plugin output at the requested index
-DataType MultilevelProposeROI::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const
+DataType MultilevelProposeROI::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const noexcept
 {
     // Only DataType::kFLOAT is acceptable by the plugin layer
     return DataType::kFLOAT;
@@ -434,13 +436,13 @@ DataType MultilevelProposeROI::getOutputDataType(int index, const nvinfer1::Data
 
 // Return true if output tensor is broadcast across a batch.
 bool MultilevelProposeROI::isOutputBroadcastAcrossBatch(
-    int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const
+    int outputIndex, const bool* inputIsBroadcasted, int nbInputs) const noexcept
 {
     return false;
 }
 
 // Return true if plugin can use input that is broadcast across batch without replication.
-bool MultilevelProposeROI::canBroadcastInputAcrossBatch(int inputIndex) const
+bool MultilevelProposeROI::canBroadcastInputAcrossBatch(int inputIndex) const noexcept
 {
     return false;
 }
@@ -448,7 +450,7 @@ bool MultilevelProposeROI::canBroadcastInputAcrossBatch(int inputIndex) const
 // Configure the layer with input and output data types.
 void MultilevelProposeROI::configurePlugin(const Dims* inputDims, int nbInputs, const Dims* outputDims, int nbOutputs,
     const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
-    const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize)
+    const bool* outputIsBroadcast, PluginFormat floatFormat, int maxBatchSize) noexcept
 {
     check_valid_inputs(inputDims, nbInputs);
 
@@ -464,9 +466,11 @@ void MultilevelProposeROI::configurePlugin(const Dims* inputDims, int nbInputs, 
 
 // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
 void MultilevelProposeROI::attachToContext(
-    cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator)
+    cudnnContext* cudnnContext, cublasContext* cublasContext, IGpuAllocator* gpuAllocator) noexcept
 {
 }
 
 // Detach the plugin object from its execution context.
-void MultilevelProposeROI::detachFromContext() {}
+void MultilevelProposeROI::detachFromContext() noexcept
+{
+}
