@@ -140,6 +140,9 @@ class EfficientDetGraphSurgeon:
         log.debug("Found {} node '{}' as stem entry".format(stem.op, stem.name))
         stem.inputs[0] = mean_out[0]
 
+        # Run shape inference now
+        self.infer()
+
     def update_resize(self):
         """
         Updates the graph to replace the nearest neighbor resize ops by ResizeNearest_TRT TensorRT plugin nodes.
@@ -295,10 +298,9 @@ class EfficientDetGraphSurgeon:
                 'plugin_version': "1",
                 'background_class': -1,
                 'max_output_boxes': num_detections,
-                'max_output_boxes_per_class': -1,
                 'score_threshold': score_threshold,
                 'iou_threshold': iou_threshold,
-                'score_sigmoid': True,
+                'score_activation': True,
                 'box_coding': 1,
             }
             nms_output_classes_dtype = np.int32
@@ -339,12 +341,8 @@ class EfficientDetGraphSurgeon:
                                         shape=[self.batch_size, num_detections])
         nms_output_classes = gs.Variable(name="detection_classes", dtype=nms_output_classes_dtype,
                                          shape=[self.batch_size, num_detections])
-        nms_output_indices = gs.Variable(name="detection_indices", dtype=nms_output_classes_dtype,
-                                         shape=[self.batch_size * num_detections, 3])
 
         nms_outputs = [nms_output_num_detections, nms_output_boxes, nms_output_scores, nms_output_classes]
-        if efficient_nms_plugin:
-            nms_outputs.append(nms_output_indices)
 
         self.graph.plugin(
             op=nms_op,
@@ -379,7 +377,6 @@ def main(args):
         log.setLevel(logging.DEBUG)
     effdet_gs = EfficientDetGraphSurgeon(args.saved_model)
     effdet_gs.update_preprocessor(args.input_shape)
-    effdet_gs.infer()
     if args.legacy_plugins:
         effdet_gs.update_resize()
     effdet_gs.update_nms(args.nms_threshold, not args.legacy_plugins)

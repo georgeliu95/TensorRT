@@ -39,6 +39,7 @@ struct EfficientNMSParameters
     // Related to NMS Internals
     int numSelectedBoxes = 4096;
     int scoreBits = 10;
+    bool outputONNXIndices = false;
 
     // Related to Tensor Configuration
     // (These are set by the various plugin configuration methods, no need to define them during plugin creation.)

@@ -20,6 +20,11 @@ using namespace nvinfer1;
 using nvinfer1::plugin::EfficientNMSPluginCreator;
 using nvinfer1::plugin::EfficientNMSPlugin;
 using nvinfer1::plugin::EfficientNMSParameters;
+using nvinfer1::plugin::EfficientNMSONNXPluginCreator;
+using nvinfer1::plugin::EfficientNMSONNXPluginCreator;
+using nvinfer1::plugin::EfficientNMSONNXPluginCreator;
+
+
 
 PluginFieldCollection EfficientNMSPluginCreator::mFC{};
 std::vector<PluginField> EfficientNMSPluginCreator::mPluginAttributes;
@@ -31,9 +36,8 @@ EfficientNMSPluginCreator::EfficientNMSPluginCreator()
     mPluginAttributes.emplace_back(PluginField("score_threshold", nullptr, PluginFieldType::kFLOAT32, 1));
     mPluginAttributes.emplace_back(PluginField("iou_threshold", nullptr, PluginFieldType::kFLOAT32, 1));
     mPluginAttributes.emplace_back(PluginField("max_output_boxes", nullptr, PluginFieldType::kINT32, 1));
-    mPluginAttributes.emplace_back(PluginField("max_output_boxes_per_class", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("background_class", nullptr, PluginFieldType::kINT32, 1));
-    mPluginAttributes.emplace_back(PluginField("score_sigmoid", nullptr, PluginFieldType::kINT32, 1));
+    mPluginAttributes.emplace_back(PluginField("score_activation", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("box_coding", nullptr, PluginFieldType::kINT32, 1));
     mFC.nbFields = mPluginAttributes.size();
     mFC.fields = mPluginAttributes.data();
@@ -77,17 +81,12 @@ IPluginV2DynamicExt* EfficientNMSPluginCreator::createPlugin(const char* name, c
                 ASSERT(fields[i].type == PluginFieldType::kINT32);
                 mParam.numOutputBoxes = *(static_cast<const int*>(fields[i].data));
             }
-            if (!strcmp(attrName, "max_output_boxes_per_class"))
-            {
-                ASSERT(fields[i].type == PluginFieldType::kINT32);
-                mParam.numOutputBoxesPerClass = *(static_cast<const int*>(fields[i].data));
-            }
             if (!strcmp(attrName, "background_class"))
             {
                 ASSERT(fields[i].type == PluginFieldType::kINT32);
                 mParam.backgroundClass = *(static_cast<const int*>(fields[i].data));
             }
-            if (!strcmp(attrName, "score_sigmoid"))
+            if (!strcmp(attrName, "score_activation"))
             {
                 mParam.scoreSigmoid = *(static_cast<const bool*>(fields[i].data));
             }
@@ -110,6 +109,100 @@ IPluginV2DynamicExt* EfficientNMSPluginCreator::createPlugin(const char* name, c
 }
 
 IPluginV2DynamicExt* EfficientNMSPluginCreator::deserializePlugin(
+    const char* name, const void* serialData, size_t serialLength) noexcept
+{
+    try
+    {
+        // This object will be deleted when the network is destroyed, which will
+        // call EfficientNMSPlugin::destroy()
+        auto* plugin = new EfficientNMSPlugin(serialData, serialLength);
+        plugin->setPluginNamespace(mNamespace.c_str());
+        return plugin;
+    }
+    catch (const std::exception& e)
+    {
+        caughtError(e);
+    }
+    return nullptr;
+}
+
+
+PluginFieldCollection EfficientNMSONNXPluginCreator::mFC{};
+std::vector<PluginField> EfficientNMSONNXPluginCreator::mPluginAttributes;
+
+EfficientNMSONNXPluginCreator::EfficientNMSONNXPluginCreator()
+    : mParam{}
+{
+    mPluginAttributes.clear();
+    mPluginAttributes.emplace_back(PluginField("score_threshold", nullptr, PluginFieldType::kFLOAT32, 1));
+    mPluginAttributes.emplace_back(PluginField("iou_threshold", nullptr, PluginFieldType::kFLOAT32, 1));
+    mPluginAttributes.emplace_back(PluginField("max_output_boxes_per_class", nullptr, PluginFieldType::kINT32, 1));
+    mPluginAttributes.emplace_back(PluginField("center_point_box", nullptr, PluginFieldType::kINT32, 1));
+    mFC.nbFields = mPluginAttributes.size();
+    mFC.fields = mPluginAttributes.data();
+}
+
+const char* EfficientNMSONNXPluginCreator::getPluginName() const noexcept
+{
+    return "EfficientNMS_ONNX_TRT";
+}
+
+const char* EfficientNMSONNXPluginCreator::getPluginVersion() const noexcept
+{
+    return "1";
+}
+
+const PluginFieldCollection* EfficientNMSONNXPluginCreator::getFieldNames() noexcept
+{
+    return &mFC;
+}
+
+IPluginV2DynamicExt* EfficientNMSONNXPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc) noexcept
+{
+    try
+    {
+        const PluginField* fields = fc->fields;
+        for (int i = 0; i < fc->nbFields; ++i)
+        {
+            const char* attrName = fields[i].name;
+            if (!strcmp(attrName, "score_threshold"))
+            {
+                ASSERT(fields[i].type == PluginFieldType::kFLOAT32);
+                mParam.scoreThreshold = *(static_cast<const float*>(fields[i].data));
+            }
+            if (!strcmp(attrName, "iou_threshold"))
+            {
+                ASSERT(fields[i].type == PluginFieldType::kFLOAT32);
+                mParam.iouThreshold = *(static_cast<const float*>(fields[i].data));
+            }
+            if (!strcmp(attrName, "max_output_boxes_per_class"))
+            {
+                ASSERT(fields[i].type == PluginFieldType::kINT32);
+                mParam.numOutputBoxesPerClass = *(static_cast<const int*>(fields[i].data));
+            }
+            if (!strcmp(attrName, "center_point_box"))
+            {
+                ASSERT(fields[i].type == PluginFieldType::kINT32);
+                mParam.boxCoding = *(static_cast<const int*>(fields[i].data));
+            }
+        }
+
+        // This enables ONNX compatibility mode
+        mParam.outputONNXIndices = true;
+        mParam.numOutputBoxes = mParam.numOutputBoxesPerClass;
+
+        auto* plugin = new EfficientNMSPlugin(mParam);
+        plugin->setPluginNamespace(mNamespace.c_str());
+        return plugin;
+    }
+    catch (const std::exception& e)
+    {
+        caughtError(e);
+    }
+    return nullptr;
+}
+
+IPluginV2DynamicExt* EfficientNMSONNXPluginCreator::deserializePlugin(
     const char* name, const void* serialData, size_t serialLength) noexcept
 {
     try

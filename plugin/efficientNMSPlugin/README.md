@@ -39,7 +39,7 @@ For *Standard NMS* mode, this tensor should contain the final box coordinates fo
 #### Scores Input
 The scores input has shape `[batch_size, number_boxes, number_classes]`, such that for each anchor box, there are `num_classes` elements with the predicted scores for each candidate class.
 
-Usually, the score values will have passed through a sigmoid activation function before reaching the NMS operation. However, as an optimization, the pre-sigmoid raw scores can also be provided to the NMS plugin to reduce overall network latency. If raw scores are given, enable the `score_sigmoid` parameter so they are processed accordingly.
+Usually, the score values will have passed through a sigmoid activation function before reaching the NMS operation. However, as an optimization, the pre-sigmoid raw scores can also be provided to the NMS plugin to reduce overall network latency. If raw scores are given, enable the `score_activation` parameter so they are processed accordingly.
 
 #### Anchors Input (Optional)
 Only used in *Fused Box Decoder* mode. It is much more efficient to perform the box decoding steps within this plugin. In this case, the boxes input will be treated as the raw box corrections, and this third input should contain the default anchor/prior box coordinates.
@@ -82,9 +82,8 @@ The following five output are generated:
 |`float`   |`score_threshold` *       |The scalar threshold for score (low scoring boxes are removed).
 |`float`   |`iou_threshold`           |The scalar threshold for IOU (additional boxes that have high IOU overlap with previously selected boxes are removed).
 |`int`     |`max_output_boxes`        |The maximum number of detections to output per image.
-|`int`     |`max_output_boxes_per_class` |The maximum number of detections to output per image and per class. The `max_output_boxes` limit will still apply for each image. To disable this limit, set it to `-1`.
 |`int`     |`background_class`        |The label ID for the background class. If there is no background class, set it to `-1`.
-|`bool`    |`score_sigmoid` *         |Set to true to calculate the sigmoid of confidence scores during the NMS operation.
+|`bool`    |`score_activation` *      |Set to true to apply sigmoid activation to the confidence scores during NMS operation.
 |`int`     |`box_coding`              |Coding type used for boxes (and anchors if applicable), 0 = BoxCorner, 1 = BoxCenterSize.
 
 Parameters marked with a `*` have a non-negligible effect on runtime latency. See the [Performance Tuning](#performance-tuning) section below for more details on how to set them optimally.
@@ -107,7 +106,7 @@ Specifically, the NMS algorithm does the following:
 
 - After sorting, the highest 4096 scores are processed by the `EfficientNMS` CUDA kernel. This algorithm uses the index data maintained throughout the previous steps to find the boxes corresponding to the remaining scores. If the fused box decoder is being used, decoding will happen until this stage, where only the top scoring boxes need to be decoded.
 
-- The NMS kernel uses an efficient filtering algorithm that largely reduces the number of IOU overlap cross-checks between box pairs. The boxes that survive the IOU filtering finally pass through to the output results. At this stage, the sigmoid activation is applied to only the final remaining scores, if `score_sigmoid` is enabled, thereby greatly reducing the amount of sigmoid calculations required otherwise.
+- The NMS kernel uses an efficient filtering algorithm that largely reduces the number of IOU overlap cross-checks between box pairs. The boxes that survive the IOU filtering finally pass through to the output results. At this stage, the sigmoid activation is applied to only the final remaining scores, if `score_activation` is enabled, thereby greatly reducing the amount of sigmoid calculations required otherwise.
 
 ### Performance Tuning
 
@@ -119,7 +118,7 @@ The algorithm is highly sensitive to the selected `score_threshold` parameter. W
 
 #### Using Sigmoid Activation
 
-Depending on network configuration, it is usually more efficient to provide raw scores (pre-sigmoid) to the NMS plugin scores input, and enable the `score_sigmoid` parameter. Doing so applies a sigmoid activation only to the last `max_output_boxes` selected scores, instead of all the predicted scores, largely reducing the computational cost.
+Depending on network configuration, it is usually more efficient to provide raw scores (pre-sigmoid) to the NMS plugin scores input, and enable the `score_activation` parameter. Doing so applies a sigmoid activation only to the last `max_output_boxes` selected scores, instead of all the predicted scores, largely reducing the computational cost.
 
 #### Using the Fused Box Decoder
 

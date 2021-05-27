@@ -108,9 +108,8 @@ __device__ void MapNMSData(EfficientNMSParameters param, int idx, int imageIdx, 
 
 template <typename T>
 __device__ void WriteNMSResult(EfficientNMSParameters param, int* __restrict__ numDetectionsOutput,
-    T* __restrict__ nmsScoresOutput, int* __restrict__ nmsClassesOutput, int* __restrict__ nmsIndicesOutput,
-    BoxCorner<T>* __restrict__ nmsBoxesOutput, T threadScore, int threadClass, BoxCorner<T> threadBox, int imageIdx,
-    int index, unsigned int resultsCounter, int* outputIndexData, int* outputClassData)
+    T* __restrict__ nmsScoresOutput, int* __restrict__ nmsClassesOutput, BoxCorner<T>* __restrict__ nmsBoxesOutput,
+    T threadScore, int threadClass, BoxCorner<T> threadBox, int imageIdx, unsigned int resultsCounter)
 {
     int outputIdx = imageIdx * param.numOutputBoxes + resultsCounter - 1;
     if (param.scoreSigmoid)
@@ -128,12 +127,35 @@ __device__ void WriteNMSResult(EfficientNMSParameters param, int* __restrict__ n
     nmsClassesOutput[outputIdx] = threadClass;
     nmsBoxesOutput[outputIdx] = threadBox;
     numDetectionsOutput[imageIdx] = resultsCounter;
+}
 
-    // This function is already boundary-checked, so no need to bound the atomic
-    int outputIndexIdx = atomicAdd((unsigned int*) &outputIndexData[0], 1);
-    nmsIndicesOutput[outputIndexIdx * 3 + 0] = imageIdx;
-    nmsIndicesOutput[outputIndexIdx * 3 + 1] = threadClass;
-    nmsIndicesOutput[outputIndexIdx * 3 + 2] = index;
+__device__ void WriteONNXResult(EfficientNMSParameters param, int* outputIndexData, int* __restrict__ nmsIndicesOutput,
+    int imageIdx, int threadClass, int boxIdxMap)
+{
+    int index = boxIdxMap % param.numAnchors;
+    int idx = atomicAdd((unsigned int*) &outputIndexData[0], 1);
+    nmsIndicesOutput[idx * 3 + 0] = imageIdx;
+    nmsIndicesOutput[idx * 3 + 1] = threadClass;
+    nmsIndicesOutput[idx * 3 + 2] = index;
+}
+
+__global__ void PadONNXResult(EfficientNMSParameters param, int* outputIndexData, int* __restrict__ nmsIndicesOutput)
+{
+    if (threadIdx.x > 0)
+    {
+        return;
+    }
+    int pidx = outputIndexData[0] - 1;
+    if (pidx < 0)
+    {
+        return;
+    }
+    for (int idx = pidx + 1; idx < param.batchSize * param.numOutputBoxes; idx++)
+    {
+        nmsIndicesOutput[idx * 3 + 0] = nmsIndicesOutput[pidx * 3 + 0];
+        nmsIndicesOutput[idx * 3 + 1] = nmsIndicesOutput[pidx * 3 + 1];
+        nmsIndicesOutput[idx * 3 + 2] = nmsIndicesOutput[pidx * 3 + 2];
+    }
 }
 
 template <typename T, typename Tb>
@@ -217,17 +239,28 @@ __global__ void EfficientNMS(EfficientNMSParameters param, const int* topNumData
                     // If the numOutputBoxesPerClass check is enabled, write the result only if the limit for this
                     // class on this image has not been reached yet. Other than (possibly) skipping the write, this
                     // won't affect anything else in the NMS threading.
-                    int classCounterIdx = imageIdx * param.numClasses + threadClass[tile];
-                    int classCounter = outputClassData[classCounterIdx];
-                    if (param.numOutputBoxesPerClass < 0 || classCounter < param.numOutputBoxesPerClass)
+                    bool write = true;
+                    if (param.numOutputBoxesPerClass >= 0)
+                    {
+                        int classCounterIdx = imageIdx * param.numClasses + threadClass[tile];
+                        write = (outputClassData[classCounterIdx] < param.numOutputBoxesPerClass);
+                        outputClassData[classCounterIdx]++;
+                    }
+                    if (write)
                     {
                         // This branch is visited by one thread per iteration, so it's safe to do non-atomic increments.
                         resultsCounter++;
-                        outputClassData[classCounterIdx]++;
-                        int index = boxIdxMap[tile] % param.numAnchors; // To output to nmsIndicesOutput
-                        WriteNMSResult<T>(param, numDetectionsOutput, nmsScoresOutput, nmsClassesOutput,
-                            nmsIndicesOutput, nmsBoxesOutput, threadScore[tile], threadClass[tile], threadBox[tile],
-                            imageIdx, index, resultsCounter, outputIndexData, outputClassData);
+                        if (param.outputONNXIndices)
+                        {
+                            WriteONNXResult(
+                                param, outputIndexData, nmsIndicesOutput, imageIdx, threadClass[tile], boxIdxMap[tile]);
+                        }
+                        else
+                        {
+                            WriteNMSResult<T>(param, numDetectionsOutput, nmsScoresOutput, nmsClassesOutput,
+                                nmsBoxesOutput, threadScore[tile], threadClass[tile], threadBox[tile], imageIdx,
+                                resultsCounter);
+                        }
                     }
                 }
             }
@@ -313,6 +346,11 @@ cudaError_t EfficientNMSLauncher(EfficientNMSParameters& param, int* topNumData,
             outputClassData, sortedIndexData, sortedScoresData, topClassData, topAnchorsData,
             (BoxCenterSize<T>*) boxesInput, (BoxCenterSize<T>*) anchorsInput, numDetectionsOutput, nmsScoresOutput,
             nmsClassesOutput, nmsIndicesOutput, (BoxCorner<T>*) nmsBoxesOutput);
+    }
+
+    if (param.outputONNXIndices)
+    {
+        PadONNXResult<<<{1}, {1}, 0, stream>>>(param, outputIndexData, nmsIndicesOutput);
     }
 
     return cudaGetLastError();
@@ -571,12 +609,18 @@ pluginStatus_t EfficientNMSDispatch(EfficientNMSParameters param, const void* bo
     const void* anchorsInput, void* numDetectionsOutput, void* nmsBoxesOutput, void* nmsScoresOutput,
     void* nmsClassesOutput, void* nmsIndicesOutput, void* workspace, cudaStream_t stream)
 {
-    // Clear Outputs (not all elements will get overwritten by the kernels, so safer to zero everything out)
-    cudaMemsetAsync(numDetectionsOutput, 0x00, param.batchSize * sizeof(int), stream);
-    cudaMemsetAsync(nmsScoresOutput, 0x00, param.batchSize * param.numOutputBoxes * sizeof(T), stream);
-    cudaMemsetAsync(nmsBoxesOutput, 0x00, param.batchSize * param.numOutputBoxes * 4 * sizeof(T), stream);
-    cudaMemsetAsync(nmsClassesOutput, 0x00, param.batchSize * param.numOutputBoxes * sizeof(int), stream);
-    cudaMemsetAsync(nmsIndicesOutput, 0xFF, param.batchSize * param.numOutputBoxes * 3 * sizeof(int), stream);
+    // Clear Outputs (not all elements will get overwritten by the kernels, so safer to clear everything out)
+    if (param.outputONNXIndices)
+    {
+        cudaMemsetAsync(nmsIndicesOutput, 0xFF, param.batchSize * param.numOutputBoxes * 3 * sizeof(int), stream);
+    }
+    else
+    {
+        cudaMemsetAsync(numDetectionsOutput, 0x00, param.batchSize * sizeof(int), stream);
+        cudaMemsetAsync(nmsScoresOutput, 0x00, param.batchSize * param.numOutputBoxes * sizeof(T), stream);
+        cudaMemsetAsync(nmsBoxesOutput, 0x00, param.batchSize * param.numOutputBoxes * 4 * sizeof(T), stream);
+        cudaMemsetAsync(nmsClassesOutput, 0x00, param.batchSize * param.numOutputBoxes * sizeof(int), stream);
+    }
 
     // Counters Workspace
     size_t workspaceOffset = 0;
