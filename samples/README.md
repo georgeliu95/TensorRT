@@ -25,6 +25,7 @@
 | [sampleUffPluginV2Ext](opensource/sampleUffPluginV2Ext) | C++ | UFF | Adding A Custom Layer That Supports INT8 I/O To Your Network |
 | [sampleUffSSD](opensource/sampleUffSSD) | C++ | UFF | Object Detection With A TensorFlow SSD Network |
 | [trtexec](opensource/trtexec) | C++ | All | TensorRT Command-Line Wrapper: trtexec |
+| [efficientdet](python/efficientdet) | Python | ONNX | EfficientDet with TensorRT |
 | [end_to_end_tensorflow_mnist](python/end_to_end_tensorflow_mnist) | Python | UFF | “Hello World” For TensorRT Using TensorFlow |
 | [engine_refit_mnist](python/engine_refit_mnist) | Python | INetwork | Refitting A TensorRT Engine |
 | [int8_caffe_mnist](python/int8_caffe_mnist) | Python | Caffe | INT8 Calibration |
