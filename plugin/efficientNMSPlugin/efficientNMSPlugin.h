@@ -21,12 +21,6 @@
 #include "plugin.h"
 #include "efficientNMSParameters.h"
 
-namespace
-{
-const char* EFFICIENT_NMS_PLUGIN_VERSION{"1"};
-const char* EFFICIENT_NMS_PLUGIN_NAME{"EfficientNMS_TRT"};
-} // namespace
-
 
 using namespace nvinfer1::plugin;
 namespace nvinfer1
