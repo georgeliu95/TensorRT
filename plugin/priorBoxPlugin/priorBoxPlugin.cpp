@@ -379,9 +379,9 @@ IPluginV2Ext* PriorBoxPluginCreator::createPlugin(const char* /*name*/, const Pl
     const PluginField* fields = fc->fields;
 
     PriorBoxParameters params;
-    std::unique_ptr<float> minSize;
-    std::unique_ptr<float> maxSize;
-    std::unique_ptr<float> aspectRatios;
+    std::unique_ptr<float[]> minSize;
+    std::unique_ptr<float[]> maxSize;
+    std::unique_ptr<float[]> aspectRatios;
     for (auto i = 0; i < fc->nbFields; ++i)
     {
         const char* attrName = fields[i].name;
