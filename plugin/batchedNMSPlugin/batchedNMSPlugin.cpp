@@ -601,7 +601,6 @@ bool BatchedNMSPlugin::canBroadcastInputAcrossBatch(int inputIndex) const noexce
 }
 
 BatchedNMSBasePluginCreator::BatchedNMSBasePluginCreator()
-    : params{}
 {
     mPluginAttributes.clear();
     mPluginAttributes.emplace_back(PluginField("shareLocation", nullptr, PluginFieldType::kINT32, 1));
@@ -618,19 +617,14 @@ BatchedNMSBasePluginCreator::BatchedNMSBasePluginCreator()
     mFC.fields = mPluginAttributes.data();
 }
 
-BatchedNMSPluginCreator::BatchedNMSPluginCreator()
+const char* BatchedNMSPluginCreator::getPluginName() const noexcept
 {
-    mPluginName = NMS_PLUGIN_NAMES[0];
+    return NMS_PLUGIN_NAMES[0];
 }
 
-BatchedNMSDynamicPluginCreator::BatchedNMSDynamicPluginCreator()
+const char* BatchedNMSDynamicPluginCreator::getPluginName() const noexcept
 {
-    mPluginName = NMS_PLUGIN_NAMES[1];
-}
-
-const char* BatchedNMSBasePluginCreator::getPluginName() const noexcept
-{
-    return mPluginName.c_str();
+    return NMS_PLUGIN_NAMES[1];
 }
 
 const char* BatchedNMSBasePluginCreator::getPluginVersion() const noexcept
@@ -647,9 +641,10 @@ IPluginV2Ext* BatchedNMSPluginCreator::createPlugin(const char* name, const Plug
 {
     try
     {
+        NMSParameters params;
         const PluginField* fields = fc->fields;
-        mClipBoxes = true;
-        mScoreBits = 16;
+        bool clipBoxes = true;
+        int32_t scoreBits = 16;
 
         for (int i = 0; i < fc->nbFields; ++i)
         {
@@ -694,17 +689,17 @@ IPluginV2Ext* BatchedNMSPluginCreator::createPlugin(const char* name, const Plug
             }
             else if (!strcmp(attrName, "clipBoxes"))
             {
-                mClipBoxes = *(static_cast<const bool*>(fields[i].data));
+                clipBoxes = *(static_cast<const bool*>(fields[i].data));
             }
             else if (!strcmp(attrName, "scoreBits"))
             {
-                mScoreBits = *(static_cast<const int32_t*>(fields[i].data));
+                scoreBits = *(static_cast<const int32_t*>(fields[i].data));
             }
         }
 
         auto* plugin = new BatchedNMSPlugin(params);
-        plugin->setClipParam(mClipBoxes);
-        plugin->setScoreBits(mScoreBits);
+        plugin->setClipParam(clipBoxes);
+        plugin->setScoreBits(scoreBits);
         plugin->setPluginNamespace(mNamespace.c_str());
         return plugin;
     }
@@ -720,9 +715,10 @@ IPluginV2DynamicExt* BatchedNMSDynamicPluginCreator::createPlugin(
 {
     try
     {
+        NMSParameters params;
         const PluginField* fields = fc->fields;
-        mClipBoxes = true;
-        mScoreBits = 16;
+        bool clipBoxes = true;
+        int32_t scoreBits = 16;
 
         for (int i = 0; i < fc->nbFields; ++i)
         {
@@ -767,17 +763,17 @@ IPluginV2DynamicExt* BatchedNMSDynamicPluginCreator::createPlugin(
             }
             else if (!strcmp(attrName, "clipBoxes"))
             {
-                mClipBoxes = *(static_cast<const bool*>(fields[i].data));
+                clipBoxes = *(static_cast<const bool*>(fields[i].data));
             }
             else if (!strcmp(attrName, "scoreBits"))
             {
-                mScoreBits = *(static_cast<const int32_t*>(fields[i].data));
+                scoreBits = *(static_cast<const int32_t*>(fields[i].data));
             }
         }
 
         auto* plugin = new BatchedNMSDynamicPlugin(params);
-        plugin->setClipParam(mClipBoxes);
-        plugin->setScoreBits(mScoreBits);
+        plugin->setClipParam(clipBoxes);
+        plugin->setScoreBits(scoreBits);
         plugin->setPluginNamespace(mNamespace.c_str());
         return plugin;
     }

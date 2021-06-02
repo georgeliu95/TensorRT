@@ -108,7 +108,7 @@ python build_engine.py \
     --calib_cache /path/to/calibration.cache
 ```
 
-Where `--calib_input` points to a directory with several thousands of images. For example, this could be a subset of the training or validation datasets that were used for the model. It's important that this data represents the runtime data distribution relatively well, therefore, the more images that are used for calibration, the better accuracy that will be achieved in INT8 precision. For ImageNet networks, we have found that 25,000 images gives a good result.
+Where `--calib_input` points to a directory with several thousands of images. For example, this could be a subset of the training or validation datasets that were used for the model. It's important that this data represents the runtime data distribution relatively well, therefore, the more images that are used for calibration, the better accuracy that will be achieved in INT8 precision. For models trained for the [COCO dataset](https://cocodataset.org/#home), we have found that 5,000 images gives a good result.
 
 The `--calib_cache` controls where the calibration cache file will be written to. This is useful to keep a cached copy of the calibration results. Next time you need to build the engine for the same network, if this file exists, it will skip the calibration step and use the cached values instead.
 
@@ -154,7 +154,7 @@ The TensorRT engine built with this process can also be used with either [Triton
 
 ## Validation
 
-Given a validation dataset (such as COCO val2017 data) and ground truth annotations (such as instances_val2017.json), you can get the mAP metrics for the built TensorRT engine. This will use the mAP metrics calculation script from the AutoML EfficientDet repository on `https://github.com/google/automl`.
+Given a validation dataset (such as [COCO val2017 data](http://images.cocodataset.org/zips/val2017.zip)) and ground truth annotations (such as [COCO instances_val2017.json](http://images.cocodataset.org/annotations/annotations_trainval2017.zip)), you can get the mAP metrics for the built TensorRT engine. This will use the mAP metrics calculation script from the AutoML EfficientDet repository on `https://github.com/google/automl`.
 
 ```
 python eval_coco.py \

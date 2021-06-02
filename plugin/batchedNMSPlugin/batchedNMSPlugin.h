@@ -131,25 +131,18 @@ public:
     BatchedNMSBasePluginCreator();
     ~BatchedNMSBasePluginCreator() override = default;
 
-    const char* getPluginName() const noexcept override;
     const char* getPluginVersion() const noexcept override;
     const PluginFieldCollection* getFieldNames() noexcept override;
 
 protected:
     static PluginFieldCollection mFC;
-    NMSParameters params;
     static std::vector<PluginField> mPluginAttributes;
-    bool mClipBoxes;
-    int32_t mScoreBits;
-    std::string mPluginName;
 };
 
 class BatchedNMSPluginCreator : public BatchedNMSBasePluginCreator
 {
 public:
-    BatchedNMSPluginCreator();
-    ~BatchedNMSPluginCreator() override = default;
-
+    const char* getPluginName() const noexcept override;
     IPluginV2Ext* createPlugin(const char* name, const PluginFieldCollection* fc) noexcept override;
     IPluginV2Ext* deserializePlugin(const char* name, const void* serialData, size_t serialLength) noexcept override;
 };
@@ -157,11 +150,10 @@ public:
 class BatchedNMSDynamicPluginCreator : public BatchedNMSBasePluginCreator
 {
 public:
-    BatchedNMSDynamicPluginCreator();
-    ~BatchedNMSDynamicPluginCreator() override = default;
-
+    const char* getPluginName() const noexcept override;
     IPluginV2DynamicExt* createPlugin(const char* name, const PluginFieldCollection* fc) noexcept override;
-    IPluginV2DynamicExt* deserializePlugin(const char* name, const void* serialData, size_t serialLength) noexcept override;
+    IPluginV2DynamicExt* deserializePlugin(
+        const char* name, const void* serialData, size_t serialLength) noexcept override;
 };
 
 } // namespace plugin

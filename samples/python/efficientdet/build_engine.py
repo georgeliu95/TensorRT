@@ -215,8 +215,8 @@ if __name__ == "__main__":
     parser.add_argument("--calib_input", help="The directory holding images to use for calibration")
     parser.add_argument("--calib_cache", default="./calibration.cache",
                         help="The file path for INT8 calibration cache to use, default: ./calibration.cache")
-    parser.add_argument("--calib_num_images", default=25000, type=int,
-                        help="The maximum number of images to use for calibration, multiple of 8, default: 25000")
+    parser.add_argument("--calib_num_images", default=5000, type=int,
+                        help="The maximum number of images to use for calibration, multiple of 8, default: 5000")
     args = parser.parse_args()
     if not all([args.onnx, args.engine]):
         parser.print_help()
