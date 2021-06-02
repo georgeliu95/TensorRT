@@ -26,7 +26,7 @@ namespace nvcaffeparser1
 class BinaryProtoBlob : public IBinaryProtoBlob
 {
 public:
-    BinaryProtoBlob(void* memory, nvinfer1::DataType type, nvinfer1::DimsNCHW dimensions)
+    BinaryProtoBlob(void* memory, nvinfer1::DataType type, nvinfer1::Dims4 dimensions)
         : mMemory(memory)
         , mDataType(type)
         , mDimensions(dimensions)
@@ -60,7 +60,7 @@ public:
 
     void* mMemory;
     nvinfer1::DataType mDataType;
-    nvinfer1::DimsNCHW mDimensions;
+    nvinfer1::Dims4 mDimensions;
 };
 } // namespace nvcaffeparser1
 #endif // TRT_CAFFE_PARSER_BINARY_PROTO_BLOB_H
