@@ -36,9 +36,9 @@ class MultilevelProposeROI : public IPluginV2Ext
 {
 public:
     MultilevelProposeROI(
-        int prenms_topk, int keep_topk, float fg_threshold, float iou_threshold, const nvinfer1::Dims image_size);
+        int prenms_topk, int keep_topk, float fg_threshold, float iou_threshold, const nvinfer1::Dims image_size) noexcept;
 
-    MultilevelProposeROI(const void* data, size_t length);
+    MultilevelProposeROI(const void* data, size_t length) noexcept;
 
     ~MultilevelProposeROI() noexcept override = default;
 
@@ -89,8 +89,8 @@ public:
     void detachFromContext() noexcept override;
 
 private:
-    void check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims);
-    void generate_pyramid_anchors(const nvinfer1::Dims& image_size);
+    void check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims) noexcept;
+    void generate_pyramid_anchors(const nvinfer1::Dims& image_size) noexcept;
 
     int mBackgroundLabel;
     int mPreNMSTopK;
@@ -105,8 +105,10 @@ private:
     std::vector<std::shared_ptr<CudaBind<float>>>
         mAnchorBoxesDevice; // [N, anchors(261888 for resnet101 + 1024*1024), (y1, x1, y2, x2)]
     std::vector<std::vector<float>> mAnchorBoxesHost;
-    std::vector<std::shared_ptr<CudaBind<float>>> mTempScores;
-    std::vector<std::shared_ptr<CudaBind<float>>> mTempBboxes;
+    std::vector<std::shared_ptr<CudaBind<float>>> mTempScores_float;
+    std::vector<std::shared_ptr<CudaBind<float>>> mTempBboxes_float;
+    std::vector<std::shared_ptr<CudaBind<uint16_t>>> mTempScores_half;
+    std::vector<std::shared_ptr<CudaBind<uint16_t>>> mTempBboxes_half;
     float** mDeviceScores;
     float** mDeviceBboxes;
     std::shared_ptr<CudaBind<float>> mRegWeightDevice;
@@ -121,9 +123,9 @@ private:
 class MultilevelProposeROIPluginCreator : public BaseCreator
 {
 public:
-    MultilevelProposeROIPluginCreator();
+    MultilevelProposeROIPluginCreator() noexcept;
 
-    ~MultilevelProposeROIPluginCreator(){};
+    ~MultilevelProposeROIPluginCreator() noexcept {};
 
     const char* getPluginName() const noexcept override;
 

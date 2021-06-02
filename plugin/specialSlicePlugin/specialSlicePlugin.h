@@ -33,15 +33,15 @@ namespace plugin
 class SpecialSlice : public IPluginV2Ext
 {
 public:
-    SpecialSlice();
+    SpecialSlice() noexcept;
 
-    SpecialSlice(const void* data, size_t length);
+    SpecialSlice(const void* data, size_t length) noexcept;
 
-    ~SpecialSlice() override = default;
+    ~SpecialSlice() noexcept override = default;
 
     int getNbOutputs() const noexcept override;
 
-    void check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims);
+    void check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims) noexcept;
 
     Dims getOutputDimensions(int index, const Dims* inputs, int nbInputDims) noexcept override;
 
@@ -98,9 +98,9 @@ private:
 class SpecialSlicePluginCreator : public BaseCreator
 {
 public:
-    SpecialSlicePluginCreator();
+    SpecialSlicePluginCreator() noexcept;
 
-    ~SpecialSlicePluginCreator() override = default;
+    ~SpecialSlicePluginCreator() noexcept override = default;
 
     const char* getPluginName() const noexcept override;
 

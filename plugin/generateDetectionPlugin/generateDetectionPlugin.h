@@ -37,11 +37,11 @@ class GenerateDetection : public IPluginV2Ext
 {
 public:
     GenerateDetection(
-        int num_classes, int keep_topk, float score_threshold, float iou_threshold, const nvinfer1::Dims& image_size);
+        int num_classes, int keep_topk, float score_threshold, float iou_threshold, const nvinfer1::Dims& image_size) noexcept;
 
-    GenerateDetection(const void* data, size_t length);
+    GenerateDetection(const void* data, size_t length) noexcept;
 
-    ~GenerateDetection() override = default;
+    ~GenerateDetection() noexcept override = default;
 
     int getNbOutputs() const noexcept override;
 
@@ -90,7 +90,7 @@ public:
     void detachFromContext() noexcept override;
 
 private:
-    void check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims);
+    void check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims) noexcept ;
 
     int mBackgroundLabel;
     int mNbClasses;
@@ -113,9 +113,9 @@ private:
 class GenerateDetectionPluginCreator : public BaseCreator
 {
 public:
-    GenerateDetectionPluginCreator();
+    GenerateDetectionPluginCreator() noexcept;
 
-    ~GenerateDetectionPluginCreator(){};
+    ~GenerateDetectionPluginCreator() noexcept {};
 
     const char* getPluginName() const noexcept override;
 

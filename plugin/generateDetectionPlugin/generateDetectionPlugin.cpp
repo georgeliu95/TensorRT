@@ -35,7 +35,7 @@ const char* GENERATEDETECTION_PLUGIN_NAME{"GenerateDetection_TRT"};
 PluginFieldCollection GenerateDetectionPluginCreator::mFC{};
 std::vector<PluginField> GenerateDetectionPluginCreator::mPluginAttributes;
 
-GenerateDetectionPluginCreator::GenerateDetectionPluginCreator()
+GenerateDetectionPluginCreator::GenerateDetectionPluginCreator() noexcept
 {
 
     mPluginAttributes.emplace_back(PluginField("num_classes", nullptr, PluginFieldType::kINT32, 1));
@@ -106,7 +106,7 @@ IPluginV2Ext* GenerateDetectionPluginCreator::deserializePlugin(const char* name
 };
 
 GenerateDetection::GenerateDetection(
-    int num_classes, int keep_topk, float score_threshold, float iou_threshold, const nvinfer1::Dims& image_size)
+    int num_classes, int keep_topk, float score_threshold, float iou_threshold, const nvinfer1::Dims& image_size) noexcept
     : mNbClasses(num_classes)
     , mKeepTopK(keep_topk)
     , mScoreThreshold(score_threshold)
@@ -206,7 +206,7 @@ void GenerateDetection::serialize(void* buffer) const noexcept
     ASSERT(d == a + getSerializationSize());
 };
 
-GenerateDetection::GenerateDetection(const void* data, size_t length)
+GenerateDetection::GenerateDetection(const void* data, size_t length) noexcept
 {
     const char *d = reinterpret_cast<const char*>(data), *a = d;
     int num_classes = read<int>(d);
@@ -232,7 +232,7 @@ GenerateDetection::GenerateDetection(const void* data, size_t length)
     mType = DataType::kFLOAT;
 };
 
-void GenerateDetection::check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims)
+void GenerateDetection::check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims) noexcept
 {
     // classifier_delta_bbox[N, anchors, num_classes*4, 1, 1]
     // classifier_class[N, anchors, num_classes, 1, 1]

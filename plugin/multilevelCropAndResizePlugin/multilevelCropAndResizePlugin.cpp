@@ -35,7 +35,7 @@ const char* MULTILEVELCROPANDRESIZE_PLUGIN_NAME{"MultilevelCropAndResize_TRT"};
 PluginFieldCollection MultilevelCropAndResizePluginCreator::mFC{};
 std::vector<PluginField> MultilevelCropAndResizePluginCreator::mPluginAttributes;
 
-MultilevelCropAndResizePluginCreator::MultilevelCropAndResizePluginCreator()
+MultilevelCropAndResizePluginCreator::MultilevelCropAndResizePluginCreator() noexcept
 {
     mPluginAttributes.emplace_back(PluginField("pooled_size", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("image_size", nullptr, PluginFieldType::kINT32, 3));
@@ -86,7 +86,7 @@ IPluginV2Ext* MultilevelCropAndResizePluginCreator::deserializePlugin(const char
     return new MultilevelCropAndResize(data, length);
 }
 
-MultilevelCropAndResize::MultilevelCropAndResize(int pooled_size, const nvinfer1::Dims& image_size)
+MultilevelCropAndResize::MultilevelCropAndResize(int pooled_size, const nvinfer1::Dims& image_size) noexcept
     : mPooledSize({pooled_size, pooled_size})
 {
 
@@ -124,7 +124,7 @@ size_t MultilevelCropAndResize::getWorkspaceSize(int) const noexcept
 
 bool MultilevelCropAndResize::supportsFormat(DataType type, PluginFormat format) const noexcept
 {
-    return (type == DataType::kFLOAT && format == PluginFormat::kLINEAR);
+    return ((type == DataType::kFLOAT || type == DataType::kHALF) && format == PluginFormat::kLINEAR);
 }
 
 const char* MultilevelCropAndResize::getPluginType() const noexcept
@@ -152,7 +152,7 @@ const char* MultilevelCropAndResize::getPluginNamespace() const noexcept
     return mNameSpace.c_str();
 }
 
-void MultilevelCropAndResize::check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims)
+void MultilevelCropAndResize::check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims) noexcept
 {
     // to be compatible with tensorflow node's input:
     // roi: [N, anchors, 4],
@@ -203,7 +203,7 @@ int32_t MultilevelCropAndResize::enqueue(
 
         mInputHeight, mInputWidth, inputs[0], &inputs[1], mFeatureSpatialSize,
 
-        pooled, mPooledSize);
+        pooled, mPooledSize, mPrecision);
 
     assert(status == cudaSuccess);
     return 0;
@@ -211,7 +211,7 @@ int32_t MultilevelCropAndResize::enqueue(
 
 size_t MultilevelCropAndResize::getSerializationSize() const noexcept
 {
-    return sizeof(int) * 2 + sizeof(int) * 4 + sizeof(float) + sizeof(int) * 2 * mFeatureMapCount;
+    return sizeof(int) * 2 + sizeof(int) * 4 + sizeof(float) + sizeof(int) * 2 * mFeatureMapCount + sizeof(DataType);
 }
 
 void MultilevelCropAndResize::serialize(void* buffer) const noexcept
@@ -229,10 +229,11 @@ void MultilevelCropAndResize::serialize(void* buffer) const noexcept
         write(d, mFeatureSpatialSize[i].y);
         write(d, mFeatureSpatialSize[i].x);
     }
+    write(d, mPrecision);
     assert(d == a + getSerializationSize());
 }
 
-MultilevelCropAndResize::MultilevelCropAndResize(const void* data, size_t length)
+MultilevelCropAndResize::MultilevelCropAndResize(const void* data, size_t length) noexcept
 {
     const char *d = reinterpret_cast<const char*>(data), *a = d;
     mPooledSize = {read<int>(d), read<int>(d)};
@@ -246,6 +247,7 @@ MultilevelCropAndResize::MultilevelCropAndResize(const void* data, size_t length
         mFeatureSpatialSize[i].y = read<int>(d);
         mFeatureSpatialSize[i].x = read<int>(d);
     }
+    mPrecision = read<DataType>(d);
 
     assert(d == a + length);
 }
@@ -254,6 +256,11 @@ MultilevelCropAndResize::MultilevelCropAndResize(const void* data, size_t length
 DataType MultilevelCropAndResize::getOutputDataType(int index, const nvinfer1::DataType* inputTypes, int nbInputs) const noexcept
 {
     // Only DataType::kFLOAT is acceptable by the plugin layer
+    // return DataType::kFLOAT;
+    // Align output types with the input feature map data types
+    if ((inputTypes[1] == DataType::kFLOAT) || (inputTypes[1] == DataType::kHALF))
+        return inputTypes[1];
+ 
     return DataType::kFLOAT;
 }
 
@@ -288,6 +295,8 @@ void MultilevelCropAndResize::configurePlugin(const Dims* inputDims, int nbInput
     {
         mFeatureSpatialSize[layer] = {inputDims[layer + 1].d[1], inputDims[layer + 1].d[2]};
     }
+
+    mPrecision = inputTypes[1];
 }
 
 // Attach the plugin object to an execution context and grant the plugin the access to some context resource.

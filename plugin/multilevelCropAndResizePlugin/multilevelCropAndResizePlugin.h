@@ -36,9 +36,9 @@ namespace plugin
 class MultilevelCropAndResize : public IPluginV2Ext
 {
 public:
-    MultilevelCropAndResize(int pooled_size, const nvinfer1::Dims& image_size);
+    MultilevelCropAndResize(int pooled_size, const nvinfer1::Dims& image_size) noexcept;
 
-    MultilevelCropAndResize(const void* data, size_t length);
+    MultilevelCropAndResize(const void* data, size_t length) noexcept;
 
     ~MultilevelCropAndResize() noexcept override = default;
 
@@ -89,7 +89,7 @@ public:
     void detachFromContext() noexcept override;
 
 private:
-    void check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims);
+    void check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims) noexcept;
 
     xy_t mPooledSize;
     static const int mFeatureMapCount = 5; // p2, p3, p4, p5, p6(Maxpooling)
@@ -100,14 +100,15 @@ private:
     int mInputWidth;
     xy_t mFeatureSpatialSize[mFeatureMapCount];
     std::string mNameSpace;
+    DataType mPrecision;
 };
 
 class MultilevelCropAndResizePluginCreator : public BaseCreator
 {
 public:
-    MultilevelCropAndResizePluginCreator();
+    MultilevelCropAndResizePluginCreator() noexcept;
 
-    ~MultilevelCropAndResizePluginCreator(){};
+    ~MultilevelCropAndResizePluginCreator() noexcept {};
 
     const char* getPluginName() const noexcept override;
 
