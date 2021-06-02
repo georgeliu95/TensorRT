@@ -1,17 +1,50 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright 1993-2021 NVIDIA Corporation.  All rights reserved.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * NOTICE TO LICENSEE:
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This source code and/or documentation ("Licensed Deliverables") are
+ * subject to NVIDIA intellectual property rights under U.S. and
+ * international Copyright laws.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * These Licensed Deliverables contained herein is PROPRIETARY and
+ * CONFIDENTIAL to NVIDIA and is being provided under the terms and
+ * conditions of a form of NVIDIA software license agreement by and
+ * between NVIDIA and Licensee ("License Agreement") or electronically
+ * accepted by Licensee.  Notwithstanding any terms or conditions to
+ * the contrary in the License Agreement, reproduction or disclosure
+ * of the Licensed Deliverables to any third party without the express
+ * written consent of NVIDIA is prohibited.
+ *
+ * NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
+ * LICENSE AGREEMENT, NVIDIA MAKES NO REPRESENTATION ABOUT THE
+ * SUITABILITY OF THESE LICENSED DELIVERABLES FOR ANY PURPOSE.  IT IS
+ * PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND.
+ * NVIDIA DISCLAIMS ALL WARRANTIES WITH REGARD TO THESE LICENSED
+ * DELIVERABLES, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY,
+ * NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE.
+ * NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
+ * LICENSE AGREEMENT, IN NO EVENT SHALL NVIDIA BE LIABLE FOR ANY
+ * SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, OR ANY
+ * DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+ * WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
+ * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
+ * OF THESE LICENSED DELIVERABLES.
+ *
+ * U.S. Government End Users.  These Licensed Deliverables are a
+ * "commercial item" as that term is defined at 48 C.F.R. 2.101 (OCT
+ * 1995), consisting of "commercial computer software" and "commercial
+ * computer software documentation" as such terms are used in 48
+ * C.F.R. 12.212 (SEPT 1995) and is provided to the U.S. Government
+ * only as a commercial end item.  Consistent with 48 C.F.R.12.212 and
+ * 48 C.F.R. 227.7202-1 through 227.7202-4 (JUNE 1995), all
+ * U.S. Government End Users acquire the Licensed Deliverables with
+ * only those rights set forth herein.
+ *
+ * Any use of the Licensed Deliverables in individual and commercial
+ * software must include, in the user documentation and internal
+ * comments to the code, the above Disclaimer and U.S. Government End
+ * Users Notice.
  */
 
 #ifndef NV_INFER_LEGACY_DIMS_H
@@ -177,94 +210,6 @@ public:
 };
 
 //!
-//! \class DimsCHW
-//! \brief Descriptor for data with one channel dimension and two spatial dimensions.
-//!
-class DimsCHW : public Dims3
-{
-public:
-    //!
-    //! \brief Construct an empty DimsCHW object.
-    //!
-    DimsCHW()
-        : Dims3()
-    {
-    }
-
-    //!
-    //! \brief Construct a DimsCHW given channel count, height and width.
-    //!
-    //! \param channels The channel count.
-    //! \param height The height of the data.
-    //! \param width The width of the data.
-    //!
-    DimsCHW(int32_t channels, int32_t height, int32_t width)
-        : Dims3(channels, height, width)
-    {
-    }
-
-    //!
-    //! \brief Get the channel count.
-    //!
-    //! \return The channel count.
-    //!
-    int32_t& c()
-    {
-        return d[0];
-    }
-
-    //!
-    //! \brief Get the channel count.
-    //!
-    //! \return The channel count.
-    //!
-    int32_t c() const
-    {
-        return d[0];
-    }
-
-    //!
-    //! \brief Get the height.
-    //!
-    //! \return The height.
-    //!
-    int32_t& h()
-    {
-        return d[1];
-    }
-
-    //!
-    //! \brief Get the height.
-    //!
-    //! \return The height.
-    //!
-    int32_t h() const
-    {
-        return d[1];
-    }
-
-    //!
-    //! \brief Get the width.
-    //!
-    //! \return The width.
-    //!
-    int32_t& w()
-    {
-        return d[2];
-    }
-
-    //!
-    //! \brief Get the width.
-    //!
-    //! \return The width.
-    //!
-    int32_t w() const
-    {
-        return d[2];
-    }
-};
-
-//!
 //! \class Dims4
 //! \brief Descriptor for four-dimensional data.
 //!
@@ -302,115 +247,6 @@ public:
         {
             d[i] = 0;
         }
-    }
-};
-
-//!
-//! \class DimsNCHW
-//! \brief Descriptor for data with one index dimension, one channel dimension and two spatial dimensions.
-//!
-class DimsNCHW : public Dims4
-{
-public:
-    //!
-    //! \brief Construct an empty DimsNCHW object.
-    //!
-    DimsNCHW()
-        : Dims4()
-    {
-    }
-
-    //!
-    //! \brief Construct a DimsNCHW given batch size, channel count, height and width.
-    //!
-    //! \param batchSize The batch size (commonly denoted N).
-    //! \param channels The channel count.
-    //! \param height The height of the data.
-    //! \param width The width of the data.
-    //!
-    DimsNCHW(int32_t batchSize, int32_t channels, int32_t height, int32_t width)
-        : Dims4(batchSize, channels, height, width)
-    {
-    }
-
-    //!
-    //! \brief Get the index count.
-    //!
-    //! \return The index count.
-    //!
-    int32_t& n()
-    {
-        return d[0];
-    }
-
-    //!
-    //! \brief Get the index count.
-    //!
-    //! \return The index count.
-    //!
-    int32_t n() const
-    {
-        return d[0];
-    }
-
-    //!
-    //! \brief Get the channel count.
-    //!
-    //! \return The channel count.
-    //!
-    int32_t& c()
-    {
-        return d[1];
-    }
-
-    //!
-    //! \brief Get the channel count.
-    //!
-    //! \return The channel count.
-    //!
-    int32_t c() const
-    {
-        return d[1];
-    }
-
-    //!
-    //! \brief Get the height.
-    //!
-    //! \return The height.
-    //!
-    int32_t& h()
-    {
-        return d[2];
-    }
-
-    //!
-    //! \brief Get the height.
-    //!
-    //! \return The height.
-    //!
-    int32_t h() const
-    {
-        return d[2];
-    }
-
-    //!
-    //! \brief Get the width.
-    //!
-    //! \return The width.
-    //!
-    int32_t& w()
-    {
-        return d[3];
-    }
-
-    //!
-    //! \brief Get the width.
-    //!
-    //! \return The width.
-    //!
-    int32_t w() const
-    {
-        return d[3];
     }
 };
 

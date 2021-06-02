@@ -15,7 +15,7 @@ This repository contains the Open Source Software (OSS) components of NVIDIA Ten
 To build the TensorRT-OSS components, you will first need the following software packages.
 
 **TensorRT GA build**
-* [TensorRT](https://developer.nvidia.com/nvidia-tensorrt-download) v8.0.1.0
+* [TensorRT](https://developer.nvidia.com/nvidia-tensorrt-download) v8.0.1.1
 
 **System Packages**
 * [CUDA](https://developer.nvidia.com/cuda-toolkit)
@@ -54,14 +54,7 @@ To build the TensorRT-OSS components, you will first need the following software
 ## Downloading TensorRT Build
 
 1. #### Download TensorRT OSS
-	**On Linux: Bash**
 	```bash
-	git clone -b master https://github.com/nvidia/TensorRT TensorRT
-	cd TensorRT
-	git submodule update --init --recursive
-	```
-	**On Windows: Powershell**
-	```powershell
 	git clone -b master https://github.com/nvidia/TensorRT TensorRT
 	cd TensorRT
 	git submodule update --init --recursive
@@ -69,31 +62,30 @@ To build the TensorRT-OSS components, you will first need the following software
 
 2. #### Specify the TensorRT Release build
 
-    If using NVIDIA build containers, TensorRT is preinstalled under `/usr/lib/x86_64-linux-gnu`.
+    If using the TensorRT OSS build container, TensorRT libraries are preinstalled under `/usr/lib/x86_64-linux-gnu` and you may skip this step.
 
-    Else download and extract the TensorRT build from [NVIDIA Developer Zone](https://developer.nvidia.com/nvidia-tensorrt-download).
+    Else download and extract the TensorRT GA build from [NVIDIA Developer Zone](https://developer.nvidia.com/nvidia-tensorrt-download).
 
     **Example: Ubuntu 18.04 on x86-64 with cuda-11.3**
 
     ```bash
     cd ~/Downloads
-    tar -xvzf TensorRT-8.0.1.0.Ubuntu-18.04.x86_64-gnu.cuda-11.3.cudnn8.2.tar.gz
-    export TRT_LIBPATH=`pwd`/TensorRT-8.0.1.0
+    tar -xvzf TensorRT-8.0.1.1.Ubuntu-18.04.x86_64-gnu.cuda-11.3.cudnn8.2.tar.gz
+    export TRT_LIBPATH=`pwd`/TensorRT-8.0.1.1
     ```
 
     **Example: Windows on x86-64 with cuda-11.3**
 
     ```powershell
     cd ~\Downloads
-    Expand-Archive .\TensorRT-8.0.1.0.Windows10.x86_64.cuda-11.3.cudnn8.2.zip
-    $Env:TRT_LIBPATH = '$(Get-Location)\TensorRT-8.0.1.0'
+    Expand-Archive .\TensorRT-8.0.1.1.Windows10.x86_64.cuda-11.3.cudnn8.2.zip
+    $Env:TRT_LIBPATH = '$(Get-Location)\TensorRT-8.0.1.1'
     $Env:PATH += 'C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\MSBuild\15.0\Bin\'
     ```
 
 
-3. #### (Optional) JetPack SDK for Jetson builds
-    Using the JetPack SDK manager, download the host components. Steps:
-    1. Download and launch the SDK manager. Login with your developer account.
+3. #### (Optional - for Jetson builds only) Download the JetPack SDK
+    1. Download and launch the JetPack SDK manager. Login with your NVIDIA developer account.
     2. Select the  platform and target OS  (example: Jetson AGX Xavier, `Linux Jetpack 4.4`), and click Continue.
     3. Under `Download & Install Options` change the download folder and select `Download now, Install later`. Agree to the license terms and click Continue.
     4. Move the extracted files into the `<TensorRT-OSS>/docker/jetpack_files` folder.
@@ -104,7 +96,7 @@ To build the TensorRT-OSS components, you will first need the following software
 For native builds, install the [prerequisite](#prerequisites) *System Packages*. Alternatively (recommended for non-Windows builds), install Docker and generate a build container as described below:
 
 1. #### Generate the TensorRT-OSS build container.
-    The TensorRT-OSS build container can be generated using the Dockerfiles and build script included with TensorRT-OSS. The build container is bundled with packages and environment required for building TensorRT OSS.
+    The TensorRT-OSS build container can be generated using the supplied Dockerfiles and build script. The build container is configured for building TensorRT OSS out-of-the-box.
 
     **Example: Ubuntu 18.04 on x86-64 with cuda-11.3**
     ```bash
@@ -114,7 +106,7 @@ For native builds, install the [prerequisite](#prerequisites) *System Packages*.
     ```bash
     ./docker/build.sh --file docker/centos-7.Dockerfile --tag tensorrt-centos --cuda 11.0
     ```
-    **Example: Ubuntu 18.04 cross-compile for Jetson (arm64) with cuda-10.2 (JetPack SDK)**
+    **Example: Ubuntu 18.04 cross-compile for Jetson (aarch64) with cuda-10.2 (JetPack SDK)**
     ```bash
     ./docker/build.sh --file docker/ubuntu-cross-aarch64.Dockerfile --tag tensorrt-cross-jetpack --cuda 10.2
     ```
@@ -125,9 +117,9 @@ For native builds, install the [prerequisite](#prerequisites) *System Packages*.
 	./docker/launch.sh --tag tensorrt-ubuntu18.04-cuda11.3 --gpus all
 	```
 	> NOTE:
-	1. Use the tag corresponding to the build container.
-	2. To run TensorRT programs in the build container, install [NVIDIA Container Toolkit](#prerequisites).
-	3. sudo password for Ubuntu containers is 'nvidia'.
+	1. Use the `--tag` corresponding to build container generated in Step 1.
+	2. [NVIDIA Container Toolkit](#prerequisites) is required for GPU access (running TensorRT applications) inside the build container.
+	3. `sudo` password for Ubuntu build containers is 'nvidia'.
 
 ## Building TensorRT-OSS
 * Generate Makefiles or VS project (Windows) and build.
@@ -170,7 +162,6 @@ For native builds, install the [prerequisite](#prerequisites) *System Packages*.
 	- `CMAKE_BUILD_TYPE`: Specify if binaries generated are for release or debug (contain debug symbols). Values consists of [`Release`] | `Debug`
 	- `CUDA_VERISON`: The version of CUDA to target, for example [`11.3.0`].
 	- `CUDNN_VERSION`: The version of cuDNN to target, for example [`8.2`].
-	- `NVCR_SUFFIX`: Optional nvcr/cuda image suffix. Set to "-rc" for CUDA11 RC builds until general availability. Blank by default.
 	- `PROTOBUF_VERSION`:  The version of Protobuf to use, for example [`3.0.0`]. Note: Changing this will not configure CMake to use a system version of Protobuf, it will configure CMake to download and try building that version.
 	- `CMAKE_TOOLCHAIN_FILE`: The path to a toolchain file for cross compilation.
 	- `BUILD_PARSERS`: Specify if the parsers should be built, for example [`ON`] | `OFF`.  If turned OFF, CMake will try to find precompiled versions of the parser libraries to use in compiling samples. First in `${TRT_LIB_DIR}`, then on the system. If the build type is Debug, then it will prefer debug builds of the libraries before release versions if available.
@@ -191,10 +182,10 @@ For native builds, install the [prerequisite](#prerequisites) *System Packages*.
 * [TensorRT Homepage](https://developer.nvidia.com/tensorrt)
 * [TensorRT Developer Guide](https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html)
 * [TensorRT Sample Support Guide](https://docs.nvidia.com/deeplearning/tensorrt/sample-support-guide/index.html)
+* [TensorRT ONNX Tools](https://docs.nvidia.com/deeplearning/tensorrt/index.html#tools)
 * [TensorRT Discussion Forums](https://devtalk.nvidia.com/default/board/304/tensorrt/)
-* [TensorRT Release Notes](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/index.html).
+* [TensorRT Release Notes](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/index.html)
 
 ## Known Issues
 
-#### TensorRT 8.0.1.0
 * None

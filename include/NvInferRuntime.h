@@ -1,17 +1,50 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION.  All rights reserved.
+ * Copyright 1993-2021 NVIDIA Corporation.  All rights reserved.
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * NOTICE TO LICENSEE:
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * This source code and/or documentation ("Licensed Deliverables") are
+ * subject to NVIDIA intellectual property rights under U.S. and
+ * international Copyright laws.
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * These Licensed Deliverables contained herein is PROPRIETARY and
+ * CONFIDENTIAL to NVIDIA and is being provided under the terms and
+ * conditions of a form of NVIDIA software license agreement by and
+ * between NVIDIA and Licensee ("License Agreement") or electronically
+ * accepted by Licensee.  Notwithstanding any terms or conditions to
+ * the contrary in the License Agreement, reproduction or disclosure
+ * of the Licensed Deliverables to any third party without the express
+ * written consent of NVIDIA is prohibited.
+ *
+ * NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
+ * LICENSE AGREEMENT, NVIDIA MAKES NO REPRESENTATION ABOUT THE
+ * SUITABILITY OF THESE LICENSED DELIVERABLES FOR ANY PURPOSE.  IT IS
+ * PROVIDED "AS IS" WITHOUT EXPRESS OR IMPLIED WARRANTY OF ANY KIND.
+ * NVIDIA DISCLAIMS ALL WARRANTIES WITH REGARD TO THESE LICENSED
+ * DELIVERABLES, INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY,
+ * NONINFRINGEMENT, AND FITNESS FOR A PARTICULAR PURPOSE.
+ * NOTWITHSTANDING ANY TERMS OR CONDITIONS TO THE CONTRARY IN THE
+ * LICENSE AGREEMENT, IN NO EVENT SHALL NVIDIA BE LIABLE FOR ANY
+ * SPECIAL, INDIRECT, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, OR ANY
+ * DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+ * WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
+ * ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
+ * OF THESE LICENSED DELIVERABLES.
+ *
+ * U.S. Government End Users.  These Licensed Deliverables are a
+ * "commercial item" as that term is defined at 48 C.F.R. 2.101 (OCT
+ * 1995), consisting of "commercial computer software" and "commercial
+ * computer software documentation" as such terms are used in 48
+ * C.F.R. 12.212 (SEPT 1995) and is provided to the U.S. Government
+ * only as a commercial end item.  Consistent with 48 C.F.R.12.212 and
+ * 48 C.F.R. 227.7202-1 through 227.7202-4 (JUNE 1995), all
+ * U.S. Government End Users acquire the Licensed Deliverables with
+ * only those rights set forth herein.
+ *
+ * Any use of the Licensed Deliverables in individual and commercial
+ * software must include, in the user documentation and internal
+ * comments to the code, the above Disclaimer and U.S. Government End
+ * Users Notice.
  */
 
 #ifndef NV_INFER_RUNTIME_H
@@ -58,33 +91,40 @@ protected:
 //!
 //! \brief List of supported engine capability flows.
 //!
-//! \details The EngineCapability determines the restrictions of a network during build time for what can be
-//! executed at runtime. EngineCapability::kDEFAULT does not provide any restrictions on functionality and the
-//! resulting serialized engine can be executed with TensorRT's standard runtime APIs in the nvinfer1 namespace.
-//! EngineCapability::kSAFE_GPU provides a restricted subset of network operations that are safety certified and
-//! the resulting serialized engine can be executed with TensorRT's safe runtime APIs in the nvinfer1::safe namespace.
-//! EngineCapability::kSAFE_DLA provides a restricted subset of network operations that are DLA compatible and
-//! the resulting serialized engine can be executed using NvMediaDLA's runtime APIs. See sampleNvmedia for an
-//! example of integrating NvMediaDLA APIs with TensorRT APIs.
+//! \details The EngineCapability determines the restrictions of a network during build time and what runtime
+//! it targets. When BuilderFlag::kSAFETY_SCOPE is not set (by default), EngineCapability::kSTANDARD does not provide
+//! any restrictions on functionality and the resulting serialized engine can be executed with TensorRT's standard
+//! runtime APIs in the nvinfer1 namespace. EngineCapability::kSAFETY provides a restricted subset of network
+//! operations that are safety certified and the resulting serialized engine can be executed with TensorRT's safe
+//! runtime APIs in the nvinfer1::safe namespace. EngineCapability::kDLA_STANDALONE provides a restricted subset of
+//! network operations that are DLA compatible and the resulting serialized engine can be executed using standalone
+//! DLA runtime APIs. See sampleNvmedia for an example of integrating NvMediaDLA APIs with TensorRT APIs.
 //!
+
 enum class EngineCapability : int32_t
 {
     //!
-    //! Unrestricted: TensorRT mode without any restrictions using TensorRT nvinfer1 APIs.
+    //! Standard: TensorRT flow without targeting the safety runtime.
+    //! This flow supports both DeviceType::kGPU and DeviceType::kDLA.
     //!
-    kDEFAULT = 0,
+    kSTANDARD = 0,
+    kDEFAULT TRT_DEPRECATED_ENUM = kSTANDARD,
 
     //!
-    //! Safety-restricted: TensorRT mode for GPU devices using TensorRT nvinfer1::safe APIs.
+    //! Safety: TensorRT flow with restrictions targeting the safety runtime.
     //! See safety documentation for list of supported layers and formats.
+    //! This flow supports only DeviceType::kGPU.
     //!
-    kSAFE_GPU = 1,
+    kSAFETY = 1,
+    kSAFE_GPU TRT_DEPRECATED_ENUM = kSAFETY,
 
     //!
-    //! DLA-restricted: TensorRT mode for DLA devices using NvMediaDLA APIs. Only FP16 and
-    //! Int8 modes are supported.
+    //! DLA Standalone: TensorRT flow with restrictions targeting external, to TensorRT, DLA runtimes.
+    //! See DLA documentation for list of supported layers and formats.
+    //! This flow supports only DeviceType::kDLA.
     //!
-    kSAFE_DLA = 2,
+    kDLA_STANDALONE = 2,
+    kSAFE_DLA TRT_DEPRECATED_ENUM = kDLA_STANDALONE,
 };
 
 namespace impl
@@ -770,6 +810,11 @@ public:
     //! \brief Updates associated engine.  Return true if successful.
     //!
     //! Failure occurs if getMissing() != 0 before the call.
+    //!
+    //! The behavior is undefined if the engine has pending enqueued work.
+    //!
+    //! Extant IExecutionContexts associated with the engine may continue
+    //! to be used afterwards.
     //!
     bool refitCudaEngine() noexcept
     {
@@ -1637,9 +1682,9 @@ public:
     //!
     //! \brief Determine what execution capability this engine has.
     //!
-    //! If the engine has EngineCapability::kDEFAULT, then all engine functionality is valid..
-    //! If the engine has EngineCapability::kSAFE_GPU, then only the functionality in safe engine is valid.
-    //! If the engine has EngineCapability::kSAFE_DLA, then only serialize, destroy, and const-accessor functions are
+    //! If the engine has EngineCapability::kSTANDARD, then all engine functionality is valid.
+    //! If the engine has EngineCapability::kSAFETY, then only the functionality in safe engine is valid.
+    //! If the engine has EngineCapability::kDLA_STANDALONE, then only serialize, destroy, and const-accessor functions are
     //! valid.
     //!
     //! \return The EngineCapability flag that the engine was built for.
@@ -1963,13 +2008,15 @@ public:
     //!
     //! \brief Set the dynamic dimensions of a binding
     //!
-    //! Requires the engine to be built without an implicit batch dimension.
-    //! The binding must be an input tensor, and all dimensions must be compatible with
-    //! the network definition (i.e. only the wildcard dimension -1 can be replaced with a
-    //! new dimension > 0). Furthermore, the dimensions must be in the valid range for the
-    //! currently selected optimization profile, and the corresponding engine must not be
-    //! safety-certified.
+    //! \param bindingIndex index of an input tensor whose dimensions must be compatible with
+    //!        the network definition (i.e. only the wildcard dimension -1 can be replaced with a
+    //!        new dimension >= 0).
     //!
+    //! \param dimensions specifies the dimensions of the input tensor. It must be in the valid
+    //!        range for the currently selected optimization profile, and the corresponding engine must
+    //!        not be safety-certified.
+    //!
+    //! This method requires the engine to be built without an implicit batch dimension.
     //! This method will fail unless a valid optimization profile is defined for the current
     //! execution context (getOptimizationProfile() must not be -1).
     //!
@@ -1981,7 +2028,12 @@ public:
     //!          call of enqueue[V2]()/execute[V2](), possibly resulting in performance bottlenecks,
     //!          if the dimensions are different than the previous set dimensions.
     //!
-    //! \return false if an error occurs (e.g. index out of range), else true
+    //! \return false if an error occurs (e.g. bindingIndex is out of range for the currently selected
+    //!         optimization profile or binding dimension is inconsistent with min-max range of the
+    //!         optimization profile), else true. Note that the network can still be invalid for certain
+    //!         combinations of input shapes that lead to invalid output shapes. To confirm the correctness
+    //!         of the network input shapes, check whether the output binding has valid
+    //!         dimensions using getBindingDimensions() on the output bindingIndex.
     //!
     //! \see ICudaEngine::getBindingIndex
     //!
@@ -2039,6 +2091,12 @@ public:
     //!          enqueue[V2]()/execute[V2](), possibly resulting in performance bottlenecks, if the
     //!          shapes are different than the previous set shapes.
     //!
+    //! \return false if an error occurs (e.g. bindingIndex is out of range for the currently selected
+    //!         optimization profile or shape data is inconsistent with min-max range of the
+    //!         optimization profile), else true. Note that the network can still be invalid for certain
+    //!         combinations of input shapes that lead to invalid output shapes. To confirm the correctness
+    //!         of the network input shapes, check whether the output binding has valid
+    //!         dimensions using getBindingDimensions() on the output bindingIndex.
     bool setInputShapeBinding(int32_t bindingIndex, int32_t const* data) noexcept
     {
         return mImpl->setInputShapeBinding(bindingIndex, data);
