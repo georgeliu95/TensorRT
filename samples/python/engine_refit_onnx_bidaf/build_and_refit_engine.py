@@ -127,8 +127,8 @@ def main():
         inputs[1].host = cc
         inputs[2].host = qw
         inputs[3].host = qc
-        context = engine.create_execution_context()
-        trt_outputs = common.do_inference_v2(context, bindings=bindings, inputs=inputs, outputs=outputs, stream=stream)
+        execution_context = engine.create_execution_context()
+        trt_outputs = common.do_inference_v2(execution_context, bindings=bindings, inputs=inputs, outputs=outputs, stream=stream)
 
         start = np.asscalar(trt_outputs[0])
         end = np.asscalar(trt_outputs[1])
