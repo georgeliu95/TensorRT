@@ -984,8 +984,10 @@ template <int Threads>
 cudaError_t argMaxGroup(cudaStream_t stream, int N, nvinfer1::DataType dtype, int samples, int NClass,
     const void* inScore, const void* inBbox, const void* validSamples, void* outScore, void* outLabel, void* outBbox)
 {
-    int maxGridX = dMIN(samples, 512 / N);
-    dim3 gridDim = {(unsigned int) nAlignDown(maxGridX, 32), (unsigned int) N, 1};
+    int gridX = nAlignDown(dMIN(samples, 512 / N), 32);
+    gridX = dMAX(gridX, 1);
+
+    dim3 gridDim = {static_cast<unsigned int>(gridX), static_cast<unsigned int>(N), 1};
     dim3 threads = {Threads, 1, 1};
     switch (dtype)
     {
@@ -1004,8 +1006,10 @@ template <int Threads>
 cudaError_t argMaxWOBackground(cudaStream_t stream, int N, nvinfer1::DataType dtype, int samples, int NClass,
     const void* inScore, const void* inBbox, const void* validSamples, void* outScore, void* outLabel, void* outBbox)
 {
-    int maxGridX = dMIN(samples, 512 / N);
-    dim3 gridDim = {(unsigned int) nAlignDown(maxGridX, 32), (unsigned int) N, 1};
+    int gridX = nAlignDown(dMIN(samples, 512 / N), 32);
+    gridX = dMAX(gridX, 1);
+
+    dim3 gridDim = {static_cast<unsigned int>(gridX), static_cast<unsigned int>(N), 1};
     dim3 threads = {Threads, 1, 1};
     switch (dtype)
     {

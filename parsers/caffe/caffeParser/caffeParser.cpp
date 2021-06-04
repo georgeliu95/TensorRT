@@ -66,7 +66,7 @@ std::vector<nvinfer1::PluginField> CaffeParser::parseNormalizeParam(const trtcaf
     // If .caffemodel is not provided, need to randomize the weight
     if (!weightFactory.isInitialized())
     {
-        int C = parserutils::getCHW(tensors[msg.bottom(0)]->getDimensions()).c();
+        int C = parserutils::getC(tensors[msg.bottom(0)]->getDimensions());
         w.emplace_back(weightFactory.allocateWeights(C, std::normal_distribution<float>(0.0F, 1.0F)));
     }
     else
@@ -391,12 +391,12 @@ const IBlobNameToTensor* CaffeParser::parse(INetworkDefinition& network,
         {
             if (mDeploy->input_shape_size())
             {
-                dims = DimsCHW{(int) mDeploy->input_shape().Get(i).dim().Get(1), (int) mDeploy->input_shape().Get(i).dim().Get(2), (int) mDeploy->input_shape().Get(i).dim().Get(3)};
+                dims = Dims3{(int) mDeploy->input_shape().Get(i).dim().Get(1), (int) mDeploy->input_shape().Get(i).dim().Get(2), (int) mDeploy->input_shape().Get(i).dim().Get(3)};
             }
             else
             {
                 // Deprecated, but still used in a lot of networks
-                dims = DimsCHW{(int) mDeploy->input_dim().Get(i * 4 + 1), (int) mDeploy->input_dim().Get(i * 4 + 2), (int) mDeploy->input_dim().Get(i * 4 + 3)};
+                dims = Dims3{(int) mDeploy->input_dim().Get(i * 4 + 1), (int) mDeploy->input_dim().Get(i * 4 + 2), (int) mDeploy->input_dim().Get(i * 4 + 3)};
             }
         }
         else
@@ -404,12 +404,12 @@ const IBlobNameToTensor* CaffeParser::parse(INetworkDefinition& network,
             std::cout << "Warning, setting batch size to 1. Update the dimension after parsing due to using explicit batch size." << std::endl;
             if (mDeploy->input_shape_size())
             {
-                dims = DimsNCHW{1, (int) mDeploy->input_shape().Get(i).dim().Get(1), (int) mDeploy->input_shape().Get(i).dim().Get(2), (int) mDeploy->input_shape().Get(i).dim().Get(3)};
+                dims = Dims4{1, (int) mDeploy->input_shape().Get(i).dim().Get(1), (int) mDeploy->input_shape().Get(i).dim().Get(2), (int) mDeploy->input_shape().Get(i).dim().Get(3)};
             }
             else
             {
                 // Deprecated, but still used in a lot of networks
-                dims = DimsNCHW{1, (int) mDeploy->input_dim().Get(i * 4 + 1), (int) mDeploy->input_dim().Get(i * 4 + 2), (int) mDeploy->input_dim().Get(i * 4 + 3)};
+                dims = Dims4{1, (int) mDeploy->input_dim().Get(i * 4 + 1), (int) mDeploy->input_dim().Get(i * 4 + 2), (int) mDeploy->input_dim().Get(i * 4 + 3)};
             }
         }
         ITensor* tensor = network.addInput(mDeploy->input().Get(i).c_str(), DataType::kFLOAT, dims);
@@ -556,14 +556,14 @@ const IBlobNameToTensor* CaffeParser::parse(INetworkDefinition& network,
                     Dims d;
                     if (network.hasImplicitBatchDimension())
                     {
-                        d = DimsCHW{(int) shape.dim().Get(1), (int) shape.dim().Get(2), (int) shape.dim().Get(3)};
+                        d = Dims3{(int) shape.dim().Get(1), (int) shape.dim().Get(2), (int) shape.dim().Get(3)};
                     }
                     else
                     {
                         std::cout << "Warning, setting batch size to 1. Update the dimension after parsing due to "
                                      "using explicit batch size."
                                   << std::endl;
-                        d = DimsNCHW{1, (int) shape.dim().Get(1), (int) shape.dim().Get(2), (int) shape.dim().Get(3)};
+                        d = Dims4{1, (int) shape.dim().Get(1), (int) shape.dim().Get(2), (int) shape.dim().Get(3)};
                     }
                     ITensor* tensor = network.addInput(layerMsg.top(i).c_str(), DataType::kFLOAT, d);
                     (*mBlobNameToTensor)[layerMsg.top().Get(i)] = tensor;
@@ -635,7 +635,7 @@ IBinaryProtoBlob* CaffeParser::parseBinaryProto(const char* fileName) noexcept
         RETURN_AND_LOG_ERROR(nullptr, "parseBinaryProto: Could not parse mean file");
     }
 
-    DimsNCHW dims{1, 1, 1, 1};
+    Dims4 dims{1, 1, 1, 1};
     if (blob.has_shape())
     {
         int size = blob.shape().dim_size(), s[4] = {1, 1, 1, 1};
@@ -644,14 +644,14 @@ IBinaryProtoBlob* CaffeParser::parseBinaryProto(const char* fileName) noexcept
             assert(blob.shape().dim(i) < INT32_MAX);
             s[i] = static_cast<int>(blob.shape().dim(i));
         }
-        dims = DimsNCHW{s[0], s[1], s[2], s[3]};
+        dims = Dims4{s[0], s[1], s[2], s[3]};
     }
     else
     {
-        dims = DimsNCHW{blob.num(), blob.channels(), blob.height(), blob.width()};
+        dims = Dims4{blob.num(), blob.channels(), blob.height(), blob.width()};
     }
 
-    const int dataSize = dims.n() * dims.c() * dims.h() * dims.w();
+    const int dataSize = parserutils::volume(dims);
     assert(dataSize > 0);
 
     const trtcaffe::Type blobProtoDataType = CaffeWeightFactory::getBlobProtoDataType(blob);

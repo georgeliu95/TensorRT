@@ -39,11 +39,21 @@ std::vector<PluginField> NMSBasePluginCreator::mPluginAttributes;
 // Constrcutor
 DetectionOutput::DetectionOutput(DetectionOutputParameters params)
     : param(params)
+    , C1(0)
+    , C2(0)
+    , numPriors(0)
+    , mType(DataType::kFLOAT)
+    , mScoreBits(16)
 {
 }
 
 DetectionOutputDynamic::DetectionOutputDynamic(DetectionOutputParameters params)
     : param(params)
+    , C1(0)
+    , C2(0)
+    , numPriors(0)
+    , mType(DataType::kFLOAT)
+    , mScoreBits(16)
 {
 }
 
@@ -52,6 +62,8 @@ DetectionOutput::DetectionOutput(DetectionOutputParameters params, int C1, int C
     , C1(C1)
     , C2(C2)
     , numPriors(numPriors)
+    , mType(DataType::kFLOAT)
+    , mScoreBits(16)
 {
 }
 
@@ -60,6 +72,8 @@ DetectionOutputDynamic::DetectionOutputDynamic(DetectionOutputParameters params,
     , C1(C1)
     , C2(C2)
     , numPriors(numPriors)
+    , mType(DataType::kFLOAT)
+    , mScoreBits(16)
 {
 }
 

@@ -3041,7 +3041,7 @@ constexpr inline int32_t EnumMax<RNNGateType>() noexcept
 //!
 //! This layer supersedes IRNNLayer.
 //!
-//! \deprecated IRNNv2Layer will be removed in TensorRT 9.0, use ILoop::addLoop instead.
+//! \deprecated IRNNv2Layer will be removed in TensorRT 9.0, use INetworkDefinition::addLoop instead.
 //!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
@@ -5427,7 +5427,7 @@ public:
     //! be specified at runtime. Input tensors with such a wildcard must have a corresponding entry in the
     //! IOptimizationProfiles indicating the permitted extrema, and the input dimensions must be set by
     //! IExecutionContext::setBindingDimensions. Different IExecutionContext instances can have different dimensions.
-    //! Wildcard dimensions are only supported for EngineCapability::kDEFAULT. They are not
+    //! Wildcard dimensions are only supported for EngineCapability::kSTANDARD. They are not
     //! supported in safety contexts. DLA does not support Wildcard dimensions.
     //!
     //! Tensor dimensions are specified independent of format.  For example, if a
@@ -6017,7 +6017,7 @@ public:
     //!
     //! \see IRNNv2Layer
     //!
-    //! \deprecated Superseded by ILoop::addLoop and will be removed in TensorRT 9.0.
+    //! \deprecated Superseded by INetworkDefinition::addLoop and will be removed in TensorRT 9.0.
     //!
     //! \warning RNN inputs do not support wildcard dimensions or explicit batch size networks.
     //! \warning Int32 tensors are not valid input tensors, only for sequence lengths.
@@ -7054,14 +7054,21 @@ enum class BuilderFlag : int32_t
     kTF32 = 7,
 
     //! Allow the builder to examine weights and use optimized functions when weights have suitable sparsity.
-    kSPARSE_WEIGHTS = 8
+    kSPARSE_WEIGHTS = 8,
+
+    //! Change the allowed parameters in the EngineCapability::kSTANDARD flow to
+    //! match the restrictions that EngineCapability::kSAFETY check against for DeviceType::kGPU
+    //! and EngineCapability::kDLA_STANDALONE check against the DeviceType::kDLA case. This flag
+    //! is forced to true if EngineCapability::kSAFETY at build time if it is unset.
+    //!
+    kSAFETY_SCOPE = 9
 };
 
 //! Maximum number of builder flags in BuilderFlag enum. \see BuilderFlag
 template <>
 constexpr inline int32_t EnumMax<BuilderFlag>() noexcept
 {
-    return 9;
+    return 10;
 }
 
 //!
@@ -7251,7 +7258,7 @@ public:
     //!
     //! \brief Query EngineCapability flow configured for the builder.
     //!
-    //! By default it returns EngineCapability::kDEFAULT.
+    //! By default it returns EngineCapability::kSTANDARD.
     //!
     //! \see setEngineCapability()
     //!
@@ -7375,7 +7382,7 @@ public:
     //! If DeviceType is not set or is reset, TensorRT will use the default DeviceType set in the builder.
     //!
     //! \note The device type for a layer must be compatible with the safety flow (if specified).
-    //! For example a layer cannot be marked for DLA execution while the builder is configured for kSAFE_GPU.
+    //! For example a layer cannot be marked for DLA execution while the builder is configured for kSAFETY.
     //!
     //! \see getDeviceType()
     //!
@@ -8045,6 +8052,28 @@ public:
     nvinfer1::IHostMemory* buildSerializedNetwork(INetworkDefinition& network, IBuilderConfig& config) noexcept
     {
         return mImpl->buildSerializedNetwork(network, config);
+    }
+
+    //!
+    //! \brief Checks that a network is within the scope of the IBuilderConfig settings.
+    //!
+    //! \param network The network definition to check for configuration compliance.
+    //! \param config The configuration of the builder to use when checking \p network.
+    //!
+    //! Given an INetworkDefinition, \p network, and an IBuilderConfig, \p config, check if
+    //! the network falls within the constraints of the builder configuration based on the
+    //! EngineCapability, BuilderFlag, and DeviceType. If the network is within the constraints,
+    //! then the function returns true, and false if a violation occurs. This function reports
+    //! the conditions that are violated to the registered ErrorRecorder.
+    //!
+    //! \return True if network is within the scope of the restrictions specified by the builder config,
+    //! false otherwise.
+    //!
+    //! \note This function will synchronize the cuda stream returned by \p config.getProfileStream() before returning.
+    //!
+    bool isNetworkSupported(INetworkDefinition const& network, IBuilderConfig const& config) const noexcept
+    {
+        return mImpl->isNetworkSupported(network, config);
     }
 
 protected:
