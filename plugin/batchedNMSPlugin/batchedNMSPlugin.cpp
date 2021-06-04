@@ -35,6 +35,27 @@ const char* NMS_PLUGIN_VERSION{"1"};
 const char* NMS_PLUGIN_NAMES[] = {"BatchedNMS_TRT", "BatchedNMSDynamic_TRT"};
 } // namespace
 
+namespace nvinfer1
+{
+namespace plugin
+{
+template <>
+void write<NMSParameters>(char*& buffer, const NMSParameters& val)
+{
+    auto* param = reinterpret_cast<NMSParameters*>(buffer);
+    param->shareLocation = val.shareLocation;
+    param->backgroundLabelId = val.backgroundLabelId;
+    param->numClasses = val.numClasses;
+    param->topK = val.topK;
+    param->keepTopK = val.keepTopK;
+    param->scoreThreshold = val.scoreThreshold;
+    param->iouThreshold = val.iouThreshold;
+    param->isNormalized = val.isNormalized;
+    buffer += sizeof(NMSParameters);
+}
+} // namespace plugin
+} // namespace nvinfer1
+
 PluginFieldCollection BatchedNMSBasePluginCreator::mFC{};
 std::vector<PluginField> BatchedNMSBasePluginCreator::mPluginAttributes;
 
