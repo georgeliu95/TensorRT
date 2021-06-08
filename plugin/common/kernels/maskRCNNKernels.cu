@@ -368,9 +368,9 @@ __global__ void sortPerClass_kernel_half(
     const void* inScorePtr, const void* inLabelPtr, const void* inBboxPtr, void* classStartPosPtr, void* outScorePtr,
     void* outLabelPtr, void* outSampleIdxPtr, void* outValidSampleCountPtr)
 {
-    typedef cub::BlockExchange<__half, Threads, IPerThread> BlockExchangeKey;
+    typedef cub::BlockExchange<float, Threads, IPerThread> BlockExchangeKey;
     typedef cub::BlockExchange<int, Threads, IPerThread> BlockExchangeI;
-    typedef cub::BlockRadixSort<__half, Threads, IPerThread, int> BlockRadixSort;
+    typedef cub::BlockRadixSort<float, Threads, IPerThread, int> BlockRadixSort;
     typedef cub::BlockScan<int, Threads> BlockScanClass;
     __shared__ union
     {
@@ -400,7 +400,7 @@ __global__ void sortPerClass_kernel_half(
     int N = blockIdx.x;
     int blockOffset = N * samples;
     int validSamples = validSampleCount[N];
-    __half key[IPerThread];
+    float key[IPerThread];
     int iSample[IPerThread];
     for (int i = 0; i < IPerThread; ++i)
     {
@@ -410,10 +410,10 @@ __global__ void sortPerClass_kernel_half(
         if (curIdx < validSamples)
         {
             int label = __half2int_rd(inLabel[blockOffset + curIdx]);
-            __half score = inScore[blockOffset + curIdx];
-            if (label != background && label != -1 && __half2float(score) >= scoreThreshold)
+            float score = __half2float(inScore[blockOffset + curIdx]);
+            if (label != background && label != -1 && score >= scoreThreshold)
             {
-                key[i] = __float2half(getKey<float>(__half2float(score), label, NClass));
+                key[i] = getKey<float>(score, label, NClass);
                 iSample[i] = curIdx;
             }
         }
@@ -430,15 +430,14 @@ __global__ void sortPerClass_kernel_half(
     cub::StoreDirectStriped<Threads>(threadIdx.x, outSampleIdx + blockOffset, iSample, validSamples);
     __half lable[IPerThread];
     __half score[IPerThread];
-    float label_float[IPerThread];
-    float score_float[IPerThread];
 
-#pragma unroll
     for (int i = 0; i < IPerThread; ++i)
     {
-        getScoreLable<float>(__half2float(key[i]), NClass, score_float[i], label_float[i]);
-        lable[i] = __float2half(label_float[i]);
-        score[i] = __float2half(score_float[i]);
+        float label_float;
+        float score_float;
+        getScoreLable<float>(key[i], NClass, score_float, label_float);
+        lable[i] = __float2half(label_float);
+        score[i] = __float2half(score_float);
     }
     cub::StoreDirectStriped<Threads>(threadIdx.x, outScore + blockOffset, score, validSamples);
     cub::StoreDirectStriped<Threads>(threadIdx.x, outLabel + blockOffset, lable, validSamples);
