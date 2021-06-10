@@ -14,9 +14,11 @@
 
 ARG CUDA_VERSION=10.2
 ARG OS_VERSION=18.04
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}
 
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
+
+ENV TRT_VERSION 8.0.1.2
 
 ARG uid=1000
 ARG gid=1000

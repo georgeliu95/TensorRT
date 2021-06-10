@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_VERSION=11.3.0
+ARG CUDA_VERSION=11.3.1
 ARG OS_VERSION=7
 
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.0.0.0
+ENV TRT_VERSION 8.0.1.2
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -44,22 +44,28 @@ RUN yum -y install \
     sudo
 
 # Install python3
-RUN cd /tmp &&\
-    curl -O https://www.python.org/ftp/python/3.8.3/Python-3.8.3.tgz &&\
-    tar -xzf Python-3.8.3.tgz && cd Python-3.8.3 &&\
-    ./configure --enable-optimizations && make altinstall &&\
-    rm -rf /tmp/Python-3.8.3
+RUN yum install -y python36 python3-devel
 
 # Install TensorRT
 # TODO update with ML-repo when available
+#RUN cd /tmp &&\
+#    wget https://developer.download.nvidia.com/compute/machine-learning/repos/rhel7/x86_64/nvidia-machine-learning-repo-rhel7-1.0.0-1.x86_64.rpm &&\
+#    rpm -Uvh nvidia-machine-learning-repo-*.rpm
+#RUN yum install -y libnvinfer7 libnvparsers7 libnvinfer-plugin7 libnvonnxparsers7 libnvinfer-devel libnvparsers-devel libnvinfer-plugin-devel python3-libnvinfer
 RUN cd /tmp &&\
-    wget https://developer.download.nvidia.com/compute/machine-learning/repos/rhel7/x86_64/nvidia-machine-learning-repo-rhel7-1.0.0-1.x86_64.rpm &&\
-    rpm -Uvh nvidia-machine-learning-repo-*.rpm
-RUN yum install -y libnvinfer7 libnvparsers7 libnvinfer-plugin7 libnvonnxparsers7 libnvinfer-devel libnvparsers-devel libnvinfer-plugin-devel python3-libnvinfer
+    allRPMs=( libnvinfer8-8.0.1-1.cuda11.3.x86_64.rpm libnvinfer-plugin8-8.0.1-1.cuda11.3.x86_64.rpm libnvparsers8-8.0.1-1.cuda11.3.x86_64.rpm libnvonnxparsers8-8.0.1-1.cuda11.3.x86_64.rpm libnvinfer-devel-8.0.1-1.cuda11.3.x86_64.rpm libnvinfer-plugin-devel-8.0.1-1.cuda11.3.x86_64.rpm libnvparsers-devel-8.0.1-1.cuda11.3.x86_64.rpm libnvonnxparsers-devel-8.0.1-1.cuda11.3.x86_64.rpm python3-libnvinfer-8.0.1-1.cuda11.3.x86_64.rpm python3-libnvinfer-devel-8.0.1-1.cuda11.3.x86_64.rpm ) &&\
+    baseURL=http://cuda-repo/release-candidates/Libraries/TensorRT/v8.0/8.0.1.2-95b2b0fc/11.3-r465/RHEL7_9-x64-agnostic/rpm/ &&\
+    for rpm in ${allRPMs[@]}; do \
+        url="$baseURL$rpm"; \
+        wget $url; \
+        rpm -Uvh $rpm; \
+    done &&\
+    rm *.rpm
 
 # Install PyPI packages
 RUN pip3 install --upgrade pip
-RUN pip3 install setuptools>=41.0.0
+RUN pip3 install setuptools>=41.0.0 &&\
+    pip3 install numpy
 COPY requirements.txt /tmp/requirements.txt
 RUN pip3 install -r /tmp/requirements.txt
 
