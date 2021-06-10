@@ -64,9 +64,7 @@ COPY requirements.txt /tmp/requirements.txt
 RUN pip3 install -r /tmp/requirements.txt
 
 # Download NGC client
-# Workaround regression by installing older NGC CLI.
-# RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.zip && unzip ngccli_cat_linux.zip && chmod u+x ngc && rm ngccli_cat_linux.zip ngc.md5 && echo "no-apikey\nascii\n" | ngc config set
-RUN cd /usr/local/bin && wget -O ngccli_cat_linux.zip https://ngc.nvidia.com/downloads/ngccli_cat_linux_1.27.0.zip && unzip -o ngccli_cat_linux.zip && chmod u+x ngc && rm ngccli_cat_linux.zip ngc.md5 && echo "no-apikey\nascii\n" | ngc config set
+RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.zip && unzip ngccli_cat_linux.zip && chmod u+x ngc && rm ngccli_cat_linux.zip ngc.md5 && echo "no-apikey\nascii\n" | ngc config set
 
 COPY docker/jetpack_files /pdk_files
 COPY scripts/stubify.sh /pdk_files

@@ -88,9 +88,7 @@ RUN cd /tmp && \
     rm ./cmake-3.14.4-Linux-x86_64.sh
 
 # Download NGC client
-# Workaround regression by installing older NGC CLI.
-# RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.zip && unzip ngccli_cat_linux.zip && chmod u+x ngc && rm ngccli_cat_linux.zip ngc.md5 && echo "no-apikey\nascii\n" | ngc config set
-RUN cd /usr/local/bin && wget -O ngccli_cat_linux.zip https://ngc.nvidia.com/downloads/ngccli_cat_linux_1.27.0.zip && unzip -o ngccli_cat_linux.zip && chmod u+x ngc && rm ngccli_cat_linux.zip ngc.md5 && echo "no-apikey\nascii\n" | ngc config set
+RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.zip && unzip ngccli_cat_linux.zip && chmod u+x ngc && rm ngccli_cat_linux.zip ngc.md5 && echo "no-apikey\nascii\n" | ngc config set
 
 # Set environment and working directory
 ENV TRT_LIBPATH /usr/lib/x86_64-linux-gnu
