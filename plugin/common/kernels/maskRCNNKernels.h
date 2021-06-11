@@ -244,9 +244,7 @@ cudaError_t DecodeBBoxes(cudaStream_t stream, int N,
     const float* regWeight, const float inputHeight, const float inputWidth,
     const void* anchors, // [N, anchors, (y1, x1, y2, x2)]
     const void* delta,   //[N, anchors, (dy, dx, log(dh), log(dw)]
-    void* outputBbox,
-    nvinfer1::DataType dtype
-    );
+    void* outputBbox);
 
 cudaError_t ApplyDelta2Bboxes(cudaStream_t stream, int N,
     int samples,         // number of anchors per image
@@ -281,7 +279,7 @@ cudaError_t roiAlignHalfCenter(cudaStream_t stream, int batchSize, int featureCo
 
     int inputHeight, int inputWidth, const void* rois, const void* const layers[], const xy_t* layerDims,
 
-    void* pooled, const xy_t poolDims, const DataType dtype);
+    void* pooled, const xy_t poolDims);
 
 // RESIZE NEAREST
 void resizeNearest(dim3 grid, dim3 block, cudaStream_t stream, int nbatch, float scale, int2 osize, float const* idata,
