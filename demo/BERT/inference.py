@@ -76,6 +76,9 @@ def parse_args():
     parser.add_argument('--n-best-size',
             help='Total number of n-best predictions to generate in the nbest_predictions.json output file',
             default=20, type=int)
+    parser.add_argument('--doc-stride',
+            help='When splitting up a long document into chunks, what stride to take between chunks',
+            default=128, type=int)
     args, _ = parser.parse_known_args()
     return args
 
@@ -106,7 +109,7 @@ if __name__ == '__main__':
 
     tokenizer = tokenization.FullTokenizer(vocab_file=args.vocab_file, do_lower_case=True)
     # When splitting up a long document into chunks, how much stride to take between chunks.
-    doc_stride = 128
+    doc_stride = args.doc_stride
     # The maximum total input sequence length after WordPiece tokenization.
     # Sequences longer than this will be truncated, and sequences shorter
     max_seq_length = args.sequence_length
@@ -130,7 +133,7 @@ if __name__ == '__main__':
         num_binding_per_profile = engine.num_bindings // engine.num_optimization_profiles
         for idx in range(engine.num_optimization_profiles):
             profile_shape = engine.get_profile_shape(profile_index = idx, binding = idx * num_binding_per_profile)
-            if profile_shape[0][1] <= args.batch_size and profile_shape[2][1] >= args.batch_size and profile_shape[0][0] <= max_seq_length and profile_shape[2][0] >= max_seq_length:
+            if profile_shape[0][0] <= args.batch_size and profile_shape[2][0] >= args.batch_size and profile_shape[0][1] <= max_seq_length and profile_shape[2][1] >= max_seq_length:
                 selected_profile = idx
                 break
         if selected_profile == -1:
@@ -141,7 +144,7 @@ if __name__ == '__main__':
 
         # Specify input shapes. These must be within the min/max bounds of the active profile
         # Note that input shapes can be specified on a per-inference basis, but in this case, we only have a single shape.
-        input_shape = (max_seq_length, args.batch_size)
+        input_shape = (args.batch_size, max_seq_length)
         input_nbytes = trt.volume(input_shape) * trt.int32.itemsize
         for binding in range(3):
             context.set_binding_shape(binding_idx_offset + binding, input_shape)
@@ -168,9 +171,9 @@ if __name__ == '__main__':
             eval_time_elapsed = 0
             for feature_index, feature in enumerate(features):
                 # Copy inputs
-                input_ids_batch = np.dstack([feature.input_ids] * args.batch_size).squeeze()
-                segment_ids_batch = np.dstack([feature.segment_ids] * args.batch_size).squeeze()
-                input_mask_batch = np.dstack([feature.input_mask] * args.batch_size).squeeze()
+                input_ids_batch = np.repeat(np.expand_dims(feature.input_ids, 0), args.batch_size, axis=0)
+                segment_ids_batch = np.repeat(np.expand_dims(feature.segment_ids, 0), args.batch_size, axis=0)
+                input_mask_batch = np.repeat(np.expand_dims(feature.input_mask, 0), args.batch_size, axis=0)
 
                 input_ids = cuda.register_host_memory(np.ascontiguousarray(input_ids_batch.ravel()))
                 segment_ids = cuda.register_host_memory(np.ascontiguousarray(segment_ids_batch.ravel()))
