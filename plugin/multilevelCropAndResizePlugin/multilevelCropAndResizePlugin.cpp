@@ -124,7 +124,7 @@ size_t MultilevelCropAndResize::getWorkspaceSize(int) const noexcept
 
 bool MultilevelCropAndResize::supportsFormat(DataType type, PluginFormat format) const noexcept
 {
-    return ((type == DataType::kFLOAT || type == DataType::kHALF )&& format == PluginFormat::kNCHW);
+    return ((type == DataType::kFLOAT || type == DataType::kHALF) && format == PluginFormat::kNCHW);
 };
 
 const char* MultilevelCropAndResize::getPluginType() const noexcept
@@ -260,7 +260,7 @@ DataType MultilevelCropAndResize::getOutputDataType(int index, const nvinfer1::D
     // Align output types with the input feature map data types
     if ((inputTypes[1] == DataType::kFLOAT) || (inputTypes[1] == DataType::kHALF))
         return inputTypes[1];
- 
+
     return DataType::kFLOAT;
 }
 
