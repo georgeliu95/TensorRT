@@ -35,7 +35,7 @@ If provided, the attention scores, i.e. the softmax distribution, are only compu
 The `bertQKVToContextPlugin` generates the following output:
 
 `output`
-output is a tensor with shape `[S, B, E, 1, 1]` where `B` is the batch size. 
+output is a tensor with shape `[S, B, E, 1, 1]` where `B` is the batch size.
 
 
 ## Parameters
