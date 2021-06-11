@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_VERSION=11.1
+ARG CUDA_VERSION=11.3.1
 ARG OS_VERSION=16.04
 
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 7.2.2.3
+ENV TRT_VERSION 8.0.1.2
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -54,19 +54,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install python3
 RUN add-apt-repository ppa:deadsnakes/ppa && apt-get update &&\
     apt-get remove -y python3 python && apt-get autoremove -y &&\
+    apt-get install -y python3.5 python3.5-dev &&\
     apt-get install -y python3.6 python3.6-dev &&\
     cd /tmp && wget https://bootstrap.pypa.io/get-pip.py && python3.6 get-pip.py &&\
-    python3.6 -m pip install wheel &&\
-    ln -s /usr/bin/python3.6 /usr/bin/python3 &&\
-    ln -s /usr/bin/python3.6 /usr/bin/python
+    python3.6 -m pip install wheel
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.5 1 &&\
+    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.6 2
+RUN apt-get install -y dh-python libpython3-stdlib python3 python3-minimal
+
+# Install cuDNN
+# RUN apt-get install -y libcudnn8-dev
 
 # Install TensorRT
-RUN cd /tmp &&\
-    wget https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64/nvidia-machine-learning-repo-ubuntu1604_1.0.0-1_amd64.deb &&\
-    dpkg -i nvidia-machine-learning-repo-*.deb && apt-get update
-RUN v="${TRT_VERSION%.*}-1+cuda${CUDA_VERSION%.*}" &&\
-    apt-get install -y libnvinfer7=${v} libnvinfer-plugin7=${v} libnvparsers7=${v} libnvonnxparsers7=${v} libnvinfer-dev=${v} libnvinfer-plugin-dev=${v} libnvparsers-dev=${v} python3-libnvinfer=${v} &&\
-    apt-mark hold libnvinfer7 libnvinfer-plugin7 libnvparsers7 libnvonnxparsers7 libnvinfer-dev libnvinfer-plugin-dev libnvparsers-dev python3-libnvinfer
+# TODO update with ML-repo when available
+#RUN cd /tmp &&\
+#    wget https://developer.download.nvidia.com/compute/machine-learning/repos/ubuntu1604/x86_64/nvidia-machine-learning-repo-ubuntu1604_1.0.0-1_amd64.deb &&\
+#    dpkg -i nvidia-machine-learning-repo-*.deb && apt-get update
+#RUN v="${TRT_VERSION%.*}-1+cuda${CUDA_VERSION%.*}" &&\
+#    apt-get install -y libnvinfer7=${v} libnvinfer-plugin7=${v} libnvparsers7=${v} libnvonnxparsers7=${v} libnvinfer-dev=${v} libnvinfer-plugin-dev=${v} libnvparsers-dev=${v} python3-libnvinfer=${v} &&\
+#    apt-mark hold libnvinfer7 libnvinfer-plugin7 libnvparsers7 libnvonnxparsers7 libnvinfer-dev libnvinfer-plugin-dev libnvparsers-dev python3-libnvinfer
+RUN mkdir -p /tmp/tensorrt && cd /tmp/tensorrt && \
+    wget -r -np -nd -k http://cuda-repo/release-candidates/Libraries/TensorRT/v8.0/8.0.1.2-95b2b0fc/11.3-r465/Ubuntu16_04-x64/deb/ &&\
+    yes | dpkg -i libnvinfer8_*.deb libnvinfer-plugin8_*.deb libnvparsers8_*.deb libnvonnxparsers8_*.deb libnvinfer-dev_*.deb libnvinfer-plugin-dev_*.deb libnvparsers-dev_*.deb libnvonnxparsers-dev_*.deb python3-libnvinfer_*.deb python3-libnvinfer-dev_*.deb && \
+    rm -f *
 
 # Install PyPI packages
 RUN pip3 install --upgrade pip
