@@ -260,7 +260,7 @@ DataType MultilevelCropAndResize::getOutputDataType(int index, const nvinfer1::D
     // Align output types with the input feature map data types
     if ((inputTypes[1] == DataType::kFLOAT) || (inputTypes[1] == DataType::kHALF))
         return inputTypes[1];
- 
+
     return DataType::kFLOAT;
 }
 

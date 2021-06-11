@@ -90,7 +90,7 @@ public:
     void detachFromContext() noexcept override;
 
 private:
-    void check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims) noexcept ;
+    void check_valid_inputs(const nvinfer1::Dims* inputs, int nbInputDims) noexcept;
 
     int mBackgroundLabel;
     int mNbClasses;

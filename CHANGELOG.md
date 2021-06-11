@@ -14,15 +14,20 @@
 
 ## [21.05](https://github.com/NVIDIA/TensorRT/releases/tag/21.05) - 2021-05-20
 ### Added
-- Support for 3D spatial inputs in `InstanceNormalization` ONNX operator
+- Extended support for ONNX operator `InstanceNormalization` to 5D tensors
+- Support negative indices in ONNX `Gather` operator
+- Add support for importing ONNX double-typed weights as float
 - [ONNX-GraphSurgeon (v0.3.7)](tools/onnx-graphsurgeon/CHANGELOG.md#v037-2021-03-31) support for models with externally stored weights
 
 ### Changed
+- Update ONNX-TensorRT to [21.05](https://github.com/onnx/onnx-tensorrt/releases/tag/21.05)
+- [Relicense ONNX-TensorRT](https://github.com/onnx/onnx-tensorrt/blob/master/LICENSE) under Apache2
 - demoBERT builder fixes for multi-batch
 - Speedup demoBERT build using global timing cache and disable cuDNN tactics
 - Standardize python package versions across OSS samples
 - Bugfixes in multilevelProposeROI and bertQKV plugin
 - Fix memleaks in samples logger
+
 
 ## [21.04](https://github.com/NVIDIA/TensorRT/releases/tag/21.04) - 2021-04-12
 ### Added
