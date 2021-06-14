@@ -313,7 +313,8 @@ def bert_model(config, init_dict, network, input_tensor, residual, mask_idx, cu_
         ss = "l{}_".format(layer)
         out_layer = transformer_layer_opt(ss, config, init_dict, network, prev_input, residual, mask_idx, cu_seqlens, max_seqlen)
         prev_input = out_layer.get_output(0)
-        if config.use_megatron:
+        # Skip reading residual from final layer
+        if config.use_megatron and (layer != config.num_hidden_layers - 1):
             residual = out_layer.get_output(1)
 
     if config.use_qat:
