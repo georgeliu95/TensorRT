@@ -375,7 +375,7 @@ Options specified:
 * `--int8 --il` : enable int8 tactics/plugins with interleaving.
 
 ```bash
-bash ./scripts/download_model.sh 384 # BERT-large model checkpoint
+bash ./scripts/download_model.sh 384 v1_1 # BERT-large model checkpoint fine-tuned for SQuAD 1.1
 bash ./scripts/download_model.sh pyt megatron-large int8-qat sparse # Megatron-LM model weights
 export CKPT_PATH=models/fine-tuned/bert_pyt_statedict_megatron_sparse_int8qat_v21.03.0/bert_pyt_statedict_megatron_sparse_int8_qat
 mkdir -p engines && python3 builder_varseqlen.py -c models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1 -b 1 -s 384 -o engines/megatron_large_seqlen384_int8qat_sparse.engine --fp16 --int8 --strict -il --megatron --pickle $CKPT_PATH -v models/fine-tuned/bert_tf_ckpt_large_qa_squad2_amp_384_v19.03.1/vocab.txt -sp
