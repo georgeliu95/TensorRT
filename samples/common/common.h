@@ -531,22 +531,19 @@ inline float getMaxValue(const float* buffer, int64_t size)
     return *std::max_element(buffer, buffer + size);
 }
 
-// Ensures that every tensor used by a network has a dynamic range set.
+// Ensures that every tensor used by a network has a scale.
 //
-// All tensors in a network must have a dynamic range specified if a calibrator is not used.
-// This function is just a utility to globally fill in missing scales and zero-points for the entire network.
+// All tensors in a network must have a range specified if a calibrator is not used.
+// This function is just a utility to globally fill in missing scales for the entire network.
 //
-// If a tensor does not have a dyanamic range set, it is assigned inRange or outRange as follows:
+// If a tensor does not have a scale, it is assigned inScales or outScales as follows:
 //
-// * If the tensor is the input to a layer or output of a pooling node, its dynamic range is derived from inRange.
-// * Otherwise its dynamic range is derived from outRange.
+// * If the tensor is the input to a layer or output of a pooling node, its scale is assigned inScales.
+// * Otherwise its scale is assigned outScales.
 //
 // The default parameter values are intended to demonstrate, for final layers in the network,
-// cases where dynamic ranges are asymmetric.
-//
-// The default parameter values choosen arbitrarily. Range values should be choosen such that
-// we avoid underflow or overflow. Also range value should be non zero to avoid uniform zero scale tensor.
-inline void setAllDynamicRanges(INetworkDefinition* network, float inRange = 2.0f, float outRange = 4.0f)
+// cases where scaling factors are asymmetric.
+inline void setAllTensorScales(INetworkDefinition* network, float inScales = 2.0f, float outScales = 4.0f)
 {
     // Ensure that all layer inputs have a scale.
     for (int i = 0; i < network->getNbLayers(); i++)
@@ -558,7 +555,7 @@ inline void setAllDynamicRanges(INetworkDefinition* network, float inRange = 2.0
             // Optional inputs are nullptr here and are from RNN layers.
             if (input != nullptr && !input->dynamicRangeIsSet())
             {
-                ASSERT(input->setDynamicRange(-inRange, inRange));
+                input->setDynamicRange(-inScales, inScales);
             }
         }
     }
@@ -578,15 +575,20 @@ inline void setAllDynamicRanges(INetworkDefinition* network, float inRange = 2.0
                 // Pooling must have the same input and output scales.
                 if (layer->getType() == LayerType::kPOOLING)
                 {
-                    ASSERT(output->setDynamicRange(-inRange, inRange));
+                    output->setDynamicRange(-inScales, inScales);
                 }
                 else
                 {
-                    ASSERT(output->setDynamicRange(-outRange, outRange));
+                    output->setDynamicRange(-outScales, outScales);
                 }
             }
         }
     }
+}
+
+inline void setAllDynamicRanges(INetworkDefinition* network, float inRange = 2.0f, float outRange = 4.0f)
+{
+    return setAllTensorScales(network, inRange, outRange);
 }
 
 inline void setDummyInt8DynamicRanges(const IBuilderConfig* c, INetworkDefinition* n)
