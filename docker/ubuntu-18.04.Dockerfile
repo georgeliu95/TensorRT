@@ -76,6 +76,7 @@ RUN pip3 install --upgrade pip
 RUN pip3 install setuptools>=41.0.0
 COPY requirements.txt /tmp/requirements.txt
 RUN pip3 install -r /tmp/requirements.txt
+RUN pip3 install jupyter jupyterlab
 
 # Install Cmake
 RUN cd /tmp && \

@@ -120,6 +120,7 @@ For native builds, install the [prerequisite](#prerequisites) *System Packages*.
 	1. Use the `--tag` corresponding to build container generated in Step 1.
 	2. [NVIDIA Container Toolkit](#prerequisites) is required for GPU access (running TensorRT applications) inside the build container.
 	3. `sudo` password for Ubuntu build containers is 'nvidia'.
+	4. Specify port number using `--jupyter <port>` for launching Jupyter notebooks.
 
 ## Building TensorRT-OSS
 * Generate Makefiles or VS project (Windows) and build.
