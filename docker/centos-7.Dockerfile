@@ -18,7 +18,7 @@ ARG OS_VERSION=7
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.0.1.2
+ENV TRT_VERSION 8.0.1.4
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -54,7 +54,7 @@ RUN yum install -y python36 python3-devel
 #RUN yum install -y libnvinfer7 libnvparsers7 libnvinfer-plugin7 libnvonnxparsers7 libnvinfer-devel libnvparsers-devel libnvinfer-plugin-devel python3-libnvinfer
 RUN cd /tmp &&\
     allRPMs=( libnvinfer8-8.0.1-1.cuda11.3.x86_64.rpm libnvinfer-plugin8-8.0.1-1.cuda11.3.x86_64.rpm libnvparsers8-8.0.1-1.cuda11.3.x86_64.rpm libnvonnxparsers8-8.0.1-1.cuda11.3.x86_64.rpm libnvinfer-devel-8.0.1-1.cuda11.3.x86_64.rpm libnvinfer-plugin-devel-8.0.1-1.cuda11.3.x86_64.rpm libnvparsers-devel-8.0.1-1.cuda11.3.x86_64.rpm libnvonnxparsers-devel-8.0.1-1.cuda11.3.x86_64.rpm python3-libnvinfer-8.0.1-1.cuda11.3.x86_64.rpm python3-libnvinfer-devel-8.0.1-1.cuda11.3.x86_64.rpm ) &&\
-    baseURL=http://cuda-repo/release-candidates/Libraries/TensorRT/v8.0/8.0.1.2-95b2b0fc/11.3-r465/RHEL7_9-x64-agnostic/rpm/ &&\
+    baseURL=http://cuda-repo/release-candidates/Libraries/TensorRT/v8.0/8.0.1.4-9e96bdec/11.3-r465/RHEL7_9-x64-agnostic/rpm/ &&\
     for rpm in ${allRPMs[@]}; do \
         url="$baseURL$rpm"; \
         wget $url; \
