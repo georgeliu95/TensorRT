@@ -1,12 +1,21 @@
 # TensorRT OSS Release Changelog
 
-## [21.06](https://github.com/NVIDIA/TensorRT/releases/tag/21.06) - 2021-06-xx
+## [21.06](https://github.com/NVIDIA/TensorRT/releases/tag/21.06) - 2021-06-23
+
+### Added
+- Add switch for batch-agnostic mode in NMS plugin
+- Add missing model.py in `uff_custom_plugin` sample
 
 ### Changed
 - Update to [Polygraphy v0.29.2](tools/Polygraphy/CHANGELOG.md#v0292-2021-04-30)
 - Update to [ONNX-GraphSurgeon v0.3.9](tools/onnx-graphsurgeon/CHANGELOG.md#v039-2021-04-20)
-- Add missing model.py in `uff_custom_plugin` sample
 - Fix numerical errors for float type in NMS/batchedNMS plugins
+- Update demoBERT input dimensions to match Triton requirement [#1051](https://github.com/NVIDIA/TensorRT/pull/1051)
+- Optimize TLT MaskRCNN plugins:
+  - enable fp16 precision in multilevelCropAndResizePlugin and multilevelProposeROIPlugin
+  - Algorithms optimization for NMS kernels and ROIAlign kernel
+  - Fix invalid cuda config issue when bs is larger than 32
+  - Fix issues found  on Jetson NANO
 
 ### Removed
 - Removed fcplugin from demoBERT to improve latency
