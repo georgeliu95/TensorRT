@@ -99,7 +99,7 @@ class TensorRTInfer:
             specs.append((o['shape'], o['dtype']))
         return specs
 
-    def infer(self, batch, scales=None):
+    def infer(self, batch, scales=None, nms_threshold=None):
         """
         Execute inference on a batch of images. The images should already be batched and preprocessed, as prepared by
         the ImageBatcher class. Memory copying to and from the GPU device will be performed here.
@@ -124,17 +124,20 @@ class TensorRTInfer:
         scores = outputs[2]
         classes = outputs[3]
         detections = []
+        normalized = (np.max(boxes) < 2.0)
         for i in range(self.batch_size):
             detections.append([])
             for n in range(int(nums[i])):
-                scale = 1
+                scale = self.inputs[0]['shape'][2] if normalized else 1.0
                 if scales and i < len(scales):
-                    scale = scales[i]
+                    scale /= scales[i]
+                if nms_threshold and scores[i][n] < nms_threshold:
+                    continue
                 detections[i].append({
-                    'ymin': boxes[i][n][0] / scale,
-                    'xmin': boxes[i][n][1] / scale,
-                    'ymax': boxes[i][n][2] / scale,
-                    'xmax': boxes[i][n][3] / scale,
+                    'ymin': boxes[i][n][0] * scale,
+                    'xmin': boxes[i][n][1] * scale,
+                    'ymax': boxes[i][n][2] * scale,
+                    'xmax': boxes[i][n][3] * scale,
                     'score': scores[i][n],
                     'class': int(classes[i][n]),
                 })
@@ -142,16 +145,25 @@ class TensorRTInfer:
 
 
 def main(args):
+    output_dir = os.path.realpath(args.output)
+    os.makedirs(output_dir, exist_ok=True)
+
+    labels = []
+    if args.labels:
+        with open(args.labels) as f:
+            for i, label in enumerate(f):
+                labels.append(label.strip())
+
     trt_infer = TensorRTInfer(args.engine)
     batcher = ImageBatcher(args.input, *trt_infer.input_spec())
     for batch, images, scales in batcher.get_batch():
         print("Processing Image {} / {}".format(batcher.image_index, batcher.num_images), end="\r")
-        detections = trt_infer.infer(batch, scales)
+        detections = trt_infer.infer(batch, scales, args.nms_threshold)
         for i in range(len(images)):
             basename = os.path.splitext(os.path.basename(images[i]))[0]
             # Image Visualizations
-            output_path = os.path.join(args.output, "{}.png".format(basename))
-            visualize_detections(images[i], output_path, detections[i])
+            output_path = os.path.join(output_dir, "{}.png".format(basename))
+            visualize_detections(images[i], output_path, detections[i], labels)
             # Text Results
             output_results = ""
             for d in detections[i]:
@@ -168,6 +180,10 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--engine", default=None, help="The serialized TensorRT engine")
     parser.add_argument("-i", "--input", default=None, help="Path to the image or directory to process")
     parser.add_argument("-o", "--output", default=None, help="Directory where to save the visualization results")
+    parser.add_argument("-l", "--labels", default="./labels_coco.txt", help="File to use for reading the class labels "
+                                                                            "from, default: ./labels_coco.txt")
+    parser.add_argument("-t", "--nms_threshold", type=float, help="Override the score threshold for the NMS operation, "
+                                                                  "if higher than the threshold in the engine.")
     args = parser.parse_args()
     if not all([args.engine, args.input, args.output]):
         parser.print_help()

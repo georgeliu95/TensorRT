@@ -26,8 +26,7 @@ from image_batcher import ImageBatcher
 
 def main(args):
     automl_path = os.path.realpath(args.automl_path)
-    sys_path = os.path.join(automl_path, "efficientdet")
-    sys.path.append(sys_path)
+    sys.path.insert(1, os.path.join(automl_path, "efficientdet"))
     try:
         import coco_metric
     except ImportError:
@@ -40,7 +39,7 @@ def main(args):
     evaluator = coco_metric.EvaluationMetric(filename=args.annotations)
     for batch, images, scales in batcher.get_batch():
         print("Processing Image {} / {}".format(batcher.image_index, batcher.num_images), end="\r")
-        detections = trt_infer.infer(batch, scales)
+        detections = trt_infer.infer(batch, scales, args.nms_threshold)
         coco_det = np.zeros((len(images), max([len(d) for d in detections]), 7))
         coco_det[:, :, -1] = -1
         for i in range(len(images)):
@@ -58,7 +57,7 @@ def main(args):
                 ]
         evaluator.update_state(None, coco_det)
     print()
-    evaluator.result()
+    evaluator.result(100)
 
 
 if __name__ == "__main__":
@@ -66,10 +65,12 @@ if __name__ == "__main__":
     parser.add_argument("-e", "--engine", help="The TensorRT engine to infer with")
     parser.add_argument("-i", "--input",
                         help="The input to infer, either a single image path, or a directory of images")
-    parser.add_argument("-a", "--annotations", help="Set the json file to use for COCO instance annotations")
+    parser.add_argument("-a", "--annotations", help="Set the path to the COCO 'instances_val2017.json' file")
     parser.add_argument("-p", "--automl_path", default="./automl",
                         help="Set the path where to find the AutoML repository, from "
                              "https://github.com/google/automl. Default: ./automl")
+    parser.add_argument("-t", "--nms_threshold", type=float, help="Override the score threshold for the NMS operation, "
+                                                                  "if higher than the threshold in the engine.")
     args = parser.parse_args()
     if not all([args.engine, args.input, args.annotations]):
         parser.print_help()

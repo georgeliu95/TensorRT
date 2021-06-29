@@ -29,16 +29,17 @@ from tf2onnx import tfonnx, optimizer, tf_loader
 import onnx_utils
 
 logging.basicConfig(level=logging.INFO)
-logging.getLogger("EfficientDetHelper").setLevel(logging.INFO)
-log = logging.getLogger("EfficientDetHelper")
+logging.getLogger("EfficientDetGraphSurgeon").setLevel(logging.INFO)
+log = logging.getLogger("EfficientDetGraphSurgeon")
 
 
 class EfficientDetGraphSurgeon:
-    def __init__(self, saved_model_path):
+    def __init__(self, saved_model_path, legacy_plugins=False):
         """
         Constructor of the EfficientDet Graph Surgeon object, to do the conversion of an EfficientDet TF saved model
         to an ONNX-TensorRT parsable model.
         :param saved_model_path: The path pointing to the TensorFlow saved model to load.
+        :param legacy_plugins: If using TensorRT version < 8.0.1, set this to True to use older (but slower) plugins.
         """
         saved_model_path = os.path.realpath(saved_model_path)
         assert os.path.exists(saved_model_path)
@@ -54,7 +55,10 @@ class EfficientDetGraphSurgeon:
         onnx_model = optimizer.optimize_graph(onnx_graph).make_model("Converted from {}".format(saved_model_path))
         self.graph = gs.import_onnx(onnx_model)
         assert self.graph
-        log.info("ONNX graph created successfully")
+        log.info("TF2ONNX graph created successfully")
+
+        # Fold constants via ONNX-GS that TF2ONNX may have missed
+        self.graph.fold_constants()
 
         # Try to auto-detect by finding if nodes match a specific name pattern expected for either of the APIs.
         self.api = None
@@ -66,18 +70,37 @@ class EfficientDetGraphSurgeon:
         log.info("Graph was detected as {}".format(self.api))
 
         self.batch_size = None
+        self.legacy_plugins = legacy_plugins
 
     def infer(self):
         """
-        Run shape inference on the ONNX graph to determine tensor shapes.
+        Sanitize the graph by cleaning any unconnected nodes, do a topological resort, and fold constant inputs values.
+        When possible, run shape inference on the ONNX graph to determine tensor shapes.
         """
-        self.graph.cleanup().toposort()
-        for node in self.graph.nodes:
-            # Some tensor shapes get reset to dims of 0 which throws off the shape inferer, so better reset all tensors
-            for o in node.outputs:
-                o.shape = None
-        model = shape_inference.infer_shapes(gs.export_onnx(self.graph))
-        self.graph = gs.import_onnx(model)
+        for i in range(3):
+            count_before = len(self.graph.nodes)
+
+            self.graph.cleanup().toposort()
+            try:
+                for node in self.graph.nodes:
+                    for o in node.outputs:
+                        o.shape = None
+                model = gs.export_onnx(self.graph)
+                model = shape_inference.infer_shapes(model)
+                self.graph = gs.import_onnx(model)
+            except Exception as e:
+                log.info("Shape inference could not be performed at this time:\n{}".format(e))
+            try:
+                self.graph.fold_constants(fold_shapes=True)
+            except TypeError as e:
+                log.error("This version of ONNX GraphSurgeon does not support folding shapes, please upgrade your "
+                          "onnx_graphsurgeon module. Error:\n{}".format(e))
+                raise
+
+            count_after = len(self.graph.nodes)
+            if count_before == count_after:
+                # No new folding occurred in this iteration, so we can stop for now.
+                break
 
     def save(self, output_path):
         """
@@ -111,6 +134,11 @@ class EfficientDetGraphSurgeon:
         self.batch_size = input_shape[0]
         self.graph.inputs[0].shape = input_shape
         self.graph.inputs[0].dtype = np.float32
+        if self.api == "TFOD" and self.batch_size > 1 and self.legacy_plugins:
+            log.error("TFOD models with a batch size larger than 1 are not currently supported in legacy plugin mode. "
+                      "Please upgrade to TensorRT >= 8.0.1 or use batch size 1 for now.")
+            sys.exit(1)
+        self.infer()
         log.info("ONNX graph input shape: {} [{} format detected]".format(self.graph.inputs[0].shape, input_format))
 
         # Find the initial nodes of the graph, whatever the input is first connected to, and disconnect them
@@ -137,57 +165,84 @@ class EfficientDetGraphSurgeon:
         if self.api == "TFOD":
             stem_name = "/stem_conv2d/"
         stem = [node for node in self.graph.nodes if node.op == "Conv" and stem_name in node.name][0]
-        log.debug("Found {} node '{}' as stem entry".format(stem.op, stem.name))
+        log.info("Found {} node '{}' as stem entry".format(stem.op, stem.name))
         stem.inputs[0] = mean_out[0]
 
-        # Run shape inference now
+        # Reshape nodes tend to update the batch dimension to a fixed value of 1, they should use the batch size instead
+        for node in [node for node in self.graph.nodes if node.op == "Reshape"]:
+            if type(node.inputs[1]) == gs.Constant and node.inputs[1].values[0] == 1:
+                node.inputs[1].values[0] = self.batch_size
+
         self.infer()
 
-    def update_resize(self):
+    def update_network(self):
         """
-        Updates the graph to replace the nearest neighbor resize ops by ResizeNearest_TRT TensorRT plugin nodes.
+        Updates the graph to replace certain nodes in the main EfficientDet network:
+        - the global average pooling nodes are optimized when running for TFOD models.
+        - the nearest neighbor resize ops in the FPN are replaced by a TRT plugin nodes when running in legacy mode.
         """
 
-        # Make sure to have the most recent shape inference results
-        self.infer()
+        if self.api == "TFOD":
+            for reduce in [node for node in self.graph.nodes if node.op == "ReduceMean"]:
+                # TFOD models have their ReduceMean nodes applied with some redundant transposes that can be
+                # optimized away for better performance
+                # Make sure the correct subgraph is being replaced, basically search for this:
+                # X > Transpose (0,2,3,1) > ReduceMean (1,2) > Reshape (?,1,1,?) > Reshape (?,?,1,1) > Conv > Y
+                # And change to this:
+                # X > ReduceMean (2,3) > Conv > Y
+                transpose = reduce.i()
+                if transpose.op != "Transpose" or transpose.attrs['perm'] != [0, 2, 3, 1]:
+                    continue
+                if len(reduce.attrs['axes']) != 2 or reduce.attrs['axes'] != [1, 2]:
+                    continue
+                reshape1 = reduce.o()
+                if reshape1.op != "Reshape" or len(reshape1.inputs[1].values) != 4:
+                    continue
+                if reshape1.inputs[1].values[1] != 1 or reshape1.inputs[1].values[2] != 1:
+                    continue
+                reshape2 = reshape1.o()
+                if reshape2.op != "Reshape" or len(reshape2.inputs[1].values) != 4:
+                    continue
+                if reshape2.inputs[1].values[2] != 1 or reshape2.inputs[1].values[3] != 1:
+                    continue
+                conv = reshape2.o()
+                if conv.op != "Conv":
+                    continue
+                # If all the checks above pass, then this node sequence can be optimized by just the ReduceMean itself
+                # operating on a different set of axes
+                input_tensor = transpose.inputs[0]  # Input tensor to the Transpose
+                reduce.inputs[0] = input_tensor  # Forward the Transpose input to the ReduceMean node
+                output_tensor = reduce.outputs[0]  # Output tensor of the ReduceMean
+                conv.inputs[0] = output_tensor  # Forward the ReduceMean output to the Conv node
+                reduce.attrs['axes'] = [2, 3]  # Update the axes that ReduceMean operates on
+                reduce.attrs['keepdims'] = 1  # Keep the reduced dimensions
+                log.info("Optimized subgraph around ReduceMean node '{}'".format(reduce.name))
 
-        count = 0
-        for i, node in enumerate([node for node in self.graph.nodes
-                                  if node.op == "Resize" and node.attrs['mode'] == "nearest"]):
-            # The scale factor should always be 2.0, but it's a bit safer to extract this from the ONNX graph, just in
-            # case. This can be done by analyzing the node input and parameters.
+        if self.legacy_plugins:
+            self.infer()
+            count = 1
+            for node in [node for node in self.graph.nodes if node.op == "Resize" and node.attrs['mode'] == "nearest"]:
+                # Older versions of TensorRT do not understand nearest neighbor resize ops, so a plugin is used to
+                # perform this operation.
+                self.graph.plugin(
+                    op="ResizeNearest_TRT",
+                    name="resize_nearest_{}".format(count),
+                    inputs=[node.inputs[0]],
+                    outputs=node.outputs,
+                    attrs={
+                        'plugin_version': "1",
+                        'scale': 2.0,  # All resize ops in the EfficientDet FPN should have an upscale factor of 2.0
+                    })
+                node.outputs.clear()
+                log.info(
+                    "Replaced '{}' ({}) with a ResizeNearest_TRT plugin node".format(node.name, count))
+                count += 1
 
-            # The size of the input tensor (last dimension only)
-            in_size = node.inputs[0].shape[-1]
-            # The infer operation doesn't find the output tensor shape for the Resize node correctly, but it can
-            # be found through the 'sizes' input of the Resize node, which is for the shape to resize to, with some
-            # manipulation, we can get the expected size of the output tensor (last dimension only)
-            out_size = node.i(3).inputs[1].values[-1]
-            # The scale is then just the ratio of these two
-            scale = out_size / in_size
-
-            self.graph.plugin(
-                op="ResizeNearest_TRT",
-                name="resize_nearest_{}".format(i),
-                inputs=[node.inputs[0]],
-                outputs=node.outputs,
-                attrs={
-                    'plugin_version': "1",
-                    'scale': scale,
-                })
-            node.outputs.clear()
-            log.debug(
-                "Replaced {} node '{}' with a ResizeNearest_TRT plugin node with scale {}".format(
-                    node.op, node.name, scale))
-            count += 1
-        log.info("Swapped {} Resize nodes with ResizeNearest_TRT plugin nodes".format(count))
-
-    def update_nms(self, threshold=None, efficient_nms_plugin=True):
+    def update_nms(self, threshold=None, detections=None):
         """
         Updates the graph to replace the NMS op by BatchedNMS_TRT TensorRT plugin node.
-        :param threshold: Override the score threshold value. If set to None, use the value in the graph.
-        :param efficient_nms_plugin: When True, use the newer EfficientNMS plugin, otherwise if the current TensorRT
-        installation does not yet support it, set to False to use the older (and slower) BatchedNMS plugin.
+        :param threshold: Override the score threshold attribute. If set to None, use the value in the graph.
+        :param detections: Override the max detections attribute. If set to None, use the value in the graph.
         """
 
         def find_head_concat(name_scope):
@@ -197,55 +252,30 @@ class EfficientDetGraphSurgeon:
             # and the concatenated Box Net node has the shape [batch_size, num_anchors, 4].
             # These concatenation nodes can be be found by searching for all Concat's and checking if the node two
             # steps above in the graph has a name that begins with either "box_net/..." or "class_net/...".
-            # While here, make sure that the 5 reshape nodes that feed into the concat take into account the correct
-            # batch size for their reshape operation.
             for node in [node for node in self.graph.nodes if node.op == "Transpose" and name_scope in node.name]:
                 concat = self.graph.find_descendant_by_op(node, "Concat")
                 assert concat and len(concat.inputs) == 5
-                for i in range(5):
-                    concat.i(i).inputs[1].values[0] = self.batch_size
-                log.debug("Found {} node '{}' as the tip of {}".format(concat.op, concat.name, name_scope))
+                log.info("Found {} node '{}' as the tip of {}".format(concat.op, concat.name, name_scope))
                 return concat
 
-        def reshape_boxes_tensor(input_tensor):
-            # This will insert a node so the coordinate tensors have the exact shape that NMS expects.
-            # The default box_net has shape [batch_size, number_boxes, 4], so this Unsqueeze will insert a "1" dimension
-            # in the second axis, to become [batch_size, number_boxes, 1, 4].
-            # The function returns the output tensor of the Unsqueeze operation.
-            return self.graph.unsqueeze("nms/box_net_reshape", input_tensor, [2])[0]
-
-        def find_decoder_concat():
-            # This will find the concatenation node at the end of the Box Decoder, which appears immediately after
-            # the Box Net. This box decoder is constructed by tf2onnx when converting the model, and as such, it follows
-            # ONNX-like NMS coding. This means that even though EfficientDet uses "Center+Size" (y, x, h, w) coding for
-            # the box predictions and anchors, this box decoder converts the coordinate coding to the alternate "Corner"
-            # format (y_min, x_min, y_max, x_max).
-            # The node we're looking for can be found by starting from the ONNX NMS node, and walk up the graph 4 steps.
-            nms_node = self.graph.find_node_by_op("NonMaxSuppression")
-            node = self.graph.find_ancestor_by_op(nms_node, "Concat")
-            assert node and len(node.inputs) == 4
-            log.debug("Found {} node '{}' as the tip of the box decoder".format(node.op, node.name))
-            return node
-
-        def extract_anchors_tensor(box_net):
-            # This will find the anchor data. This is available (one per coordinate) hardcoded on the ONNX graph as
-            # constants within the box decoder nodes. Each of these four constants have shape [batch_size, num_anchors],
-            # so some numpy operations are used to expand the dims and concatenate them as needed. The final anchor
-            # tensor shape then becomes [1, num_anchors, 1, 4]. Note that '1' is kept as the first dim, regardess of
+        def extract_anchors_tensor(split):
+            # This will find the anchors that have been hardcoded somewhere within the ONNX graph.
+            # The function will return a gs.Constant that can be directly used as an input to the NMS plugin.
+            # The anchor tensor shape will be [1, num_anchors, 4]. Note that '1' is kept as first dim, regardless of
             # batch size, as it's not necessary to replicate the anchors for all images in the batch.
-            # These constants can be found by starting from the Box Net, finding the "Split" operation that splits the
-            # box prediction data into each of the four coordinates, and for each of these, walking down two steps in
-            # graph until either an Add or Mul node is found. The second input of these nodes will be the anchor data.
-            split = self.graph.find_descendant_by_op(box_net, "Split")
-            assert split and len(split.outputs) == 4
 
+            # The anchors are available (one per coordinate) hardcoded as constants within certain box decoder nodes.
+            # Each of these four constants have shape [1, num_anchors], so some numpy operations are used to expand the
+            # dims and concatenate them as needed.
+
+            # These constants can be found by starting from the Box Net's split operation , and for each coordinate,
+            # walking down in the graph until either an Add or Mul node is found. The second input on this nodes will
+            # be the anchor data required.
             def get_anchor_np(output_idx, op):
                 node = self.graph.find_descendant_by_op(split.o(0, output_idx), op)
                 assert node
                 val = np.squeeze(node.inputs[1].values)
-                if len(val.shape) > 1:
-                    val = val[0]
-                return np.expand_dims(val, axis=(0, 2))
+                return np.expand_dims(val.flatten(), axis=(0, 2))
 
             anchors_y = get_anchor_np(0, "Add")
             anchors_x = get_anchor_np(1, "Add")
@@ -254,21 +284,38 @@ class EfficientDetGraphSurgeon:
             anchors = np.concatenate([anchors_y, anchors_x, anchors_h, anchors_w], axis=2)
             return gs.Constant(name="nms/anchors:0", values=anchors)
 
+        self.infer()
+
         head_names = []
         if self.api == "AutoML":
             head_names = ["class_net/", "box_net/"]
         if self.api == "TFOD":
             head_names = ["/WeightSharedConvolutionalClassHead/", "/WeightSharedConvolutionalBoxHead/"]
 
+        # There are five nodes at the bottom of the graph that provide important connection points:
+
+        # 1. Find the concat node at the end of the class net (multi-scale class predictor)
         class_net = find_head_concat(head_names[0])
         class_net_tensor = class_net.outputs[0]
 
+        # 2. Find the concat node at the end of the box net (multi-scale localization predictor)
         box_net = find_head_concat(head_names[1])
         box_net_tensor = box_net.outputs[0]
 
-        # NMS Configuration
+        # 3. Find the split node that separates the box net coordinates and feeds them into the box decoder.
+        box_net_split = self.graph.find_descendant_by_op(box_net, "Split")
+        assert box_net_split and len(box_net_split.outputs) == 4
+
+        # 4. Find the concat node at the end of the box decoder.
+        box_decoder = self.graph.find_descendant_by_op(box_net_split, "Concat")
+        assert box_decoder and len(box_decoder.inputs) == 4
+        box_decoder_tensor = box_decoder.outputs[0]
+
+        # 5. Find the NMS node.
         nms_node = self.graph.find_node_by_op("NonMaxSuppression")
-        num_detections = 3 * int(nms_node.inputs[2].values)
+
+        # Extract NMS Configuration
+        num_detections = int(nms_node.inputs[2].values) if detections is None else detections
         iou_threshold = float(nms_node.inputs[3].values)
         score_threshold = float(nms_node.inputs[4].values) if threshold is None else threshold
         num_classes = class_net.i().inputs[1].values[-1]
@@ -276,13 +323,13 @@ class EfficientDetGraphSurgeon:
 
         # NMS Inputs and Attributes
         # NMS expects these shapes for its input tensors:
-        # box_net: [batch_size, number_boxes, 1, 4]
+        # box_net: [batch_size, number_boxes, 4]
         # class_net: [batch_size, number_boxes, number_classes]
-        # anchors: [1, number_boxes, 1, 4] (if used)
+        # anchors: [1, number_boxes, 4] (if used)
         nms_op = None
         nms_attrs = None
         nms_inputs = None
-        if efficient_nms_plugin:
+        if not self.legacy_plugins:
             # EfficientNMS TensorRT Plugin
             # Fusing the decoder will always be faster, so this is the default NMS method supported. In this case,
             # three inputs are given to the NMS TensorRT node:
@@ -291,14 +338,14 @@ class EfficientDetGraphSurgeon:
             # - The default anchor coordinates (from the extracted anchor constants)
             # As the original tensors from EfficientDet will be used, the NMS code type is set to 1 (Center+Size),
             # because this is the internal box coding format used by the network.
-            anchors_tensor = extract_anchors_tensor(box_net)
+            anchors_tensor = extract_anchors_tensor(box_net_split)
             nms_inputs = [box_net_tensor, class_net_tensor, anchors_tensor]
             nms_op = "EfficientNMS_TRT"
             nms_attrs = {
                 'plugin_version': "1",
                 'background_class': -1,
                 'max_output_boxes': num_detections,
-                'score_threshold': score_threshold,
+                'score_threshold': max(0.01, score_threshold),  # Keep threshold to at least 0.01 for better efficiency
                 'iou_threshold': iou_threshold,
                 'score_activation': True,
                 'box_coding': 1,
@@ -311,13 +358,25 @@ class EfficientDetGraphSurgeon:
             # for reference. In this case, only two inputs are given to the NMS TensorRT node:
             # - The box predictions (already decoded through the ONNX Box Decoder node)
             # - The class predictions (from the Class Net node found above, but also needs to pass through a sigmoid)
-            # This time, the box predictions will have the coordinate coding from the ONNX box decoder, so the NMS code
-            # type is set to 0 (Corner).
-            box_decoder = find_decoder_concat()
-            box_decoder_tensor = reshape_boxes_tensor(box_decoder.outputs[0])
-            class_net_sigmoid_tensor = self.graph.sigmoid("nms/class_net_sigmoid", class_net_tensor)[0]
-            nms_inputs = [box_decoder_tensor, class_net_sigmoid_tensor]
-            nms_op = "BatchedNMSDynamic_TRT"
+            # This time, the box predictions will have the coordinate coding from the ONNX box decoder, which matches
+            # what the BatchedNMS plugin uses.
+
+            if self.api == "AutoML":
+                # The default boxes tensor has shape [batch_size, number_boxes, 4]. This will insert a "1" dimension
+                # in the second axis, to become [batch_size, number_boxes, 1, 4], the shape that BatchedNMS expects.
+                box_decoder_tensor = self.graph.unsqueeze("nms/box_net_reshape", box_decoder_tensor, axes=[2])[0]
+            if self.api == "TFOD":
+                # The default boxes tensor has shape [4, number_boxes]. This will transpose and insert a "1" dimension
+                # in the 0 and 2 axes, to become [1, number_boxes, 1, 4], the shape that BatchedNMS expects.
+                box_decoder_tensor = self.graph.transpose("nms/box_decoder_transpose", box_decoder_tensor, perm=[1, 0])
+                box_decoder_tensor = self.graph.unsqueeze("nms/box_decoder_reshape", box_decoder_tensor, axes=[0, 2])[0]
+
+            # BatchedNMS also expects the classes tensor to be already activated, in the case of EfficientDet, this is
+            # through a Sigmoid op.
+            class_net_tensor = self.graph.sigmoid("nms/class_net_sigmoid", class_net_tensor)[0]
+
+            nms_inputs = [box_decoder_tensor, class_net_tensor]
+            nms_op = "BatchedNMS_TRT"
             nms_attrs = {
                 'plugin_version': "1",
                 'shareLocation': True,
@@ -329,7 +388,7 @@ class EfficientDetGraphSurgeon:
                 'iouThreshold': iou_threshold,
                 'isNormalized': normalized,
                 'clipBoxes': False,
-                'scoreBits': 10,  # Older TensorRT versions will not support this parameter. If so, simply remove it.
+                # 'scoreBits': 10, # Some versions of the plugin may need this parameter. If so, uncomment this line.
             }
             nms_output_classes_dtype = np.float32
 
@@ -344,44 +403,28 @@ class EfficientDetGraphSurgeon:
 
         nms_outputs = [nms_output_num_detections, nms_output_boxes, nms_output_scores, nms_output_classes]
 
+        # Create the NMS Plugin node with the selected inputs. The outputs of the node will also become the final
+        # outputs of the graph.
         self.graph.plugin(
             op=nms_op,
             name="nms/non_maximum_suppression",
             inputs=nms_inputs,
             outputs=nms_outputs,
             attrs=nms_attrs)
+        log.info("Created NMS plugin '{}' with attributes: {}".format(nms_op, nms_attrs))
 
-        self.graph.outputs.clear()
         self.graph.outputs = nms_outputs
 
-    def add_debug_output(self, debug):
-        """
-        Updates the graph to add new outputs for a given set of tensor names. This is useful for debugging the values
-        of a particular node's output tensor or to get intermediate layer values.
-        :param debug: A list of tensor names that should be added to the graph outputs.
-        """
-        tensors = self.graph.tensors()
-        for n, name in enumerate(debug):
-            if name not in tensors:
-                log.warning("Could not find tensor '{}'".format(name))
-            debug_tensor = gs.Variable(name="debug:{}".format(n), dtype=tensors[name].dtype)
-            debug_node = gs.Node(op="Identity", name="debug_{}".format(n), inputs=[tensors[name]],
-                                 outputs=[debug_tensor])
-            self.graph.nodes.append(debug_node)
-            self.graph.outputs.append(debug_tensor)
-            log.info("Adding debug output '{}' for graph tensor '{}'".format(debug_tensor.name, name))
+        self.infer()
 
 
 def main(args):
-    if args.verbose:
-        log.setLevel(logging.DEBUG)
-    effdet_gs = EfficientDetGraphSurgeon(args.saved_model)
+    effdet_gs = EfficientDetGraphSurgeon(args.saved_model, args.legacy_plugins)
+    if args.tf2onnx:
+        effdet_gs.save(args.tf2onnx)
     effdet_gs.update_preprocessor(args.input_shape)
-    if args.legacy_plugins:
-        effdet_gs.update_resize()
-    effdet_gs.update_nms(args.nms_threshold, not args.legacy_plugins)
-    if args.debug:
-        effdet_gs.add_debug_output(args.debug)
+    effdet_gs.update_network()
+    effdet_gs.update_nms(args.nms_threshold, args.nms_detections)
     effdet_gs.save(args.onnx)
 
 
@@ -392,12 +435,14 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--input_shape", default="1,512,512,3",
                         help="Set the input shape of the graph, as comma-separated dimensions in NCHW or NHWC format, "
                              "default: 1,512,512,3")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable more verbose log output")
-    parser.add_argument("-t", "--nms_threshold", type=float, help="Override the score threshold for the NMS operation")
-    parser.add_argument("-d", "--debug", action='append', help="Add an extra output to debug a particular tensor, "
-                                                               "this argument can be used multiple times")
+    parser.add_argument("-t", "--nms_threshold", type=float, help="Override the score threshold for the NMS op, "
+                                                                  "default: use the original value in the model")
+    parser.add_argument("-d", "--nms_detections", type=int, help="Override the max detections for the NMS op, "
+                                                                 "default: use the original value in the model")
     parser.add_argument("--legacy_plugins", action="store_true", help="Use legacy plugins for support on TensorRT "
-                                                                      "version lower than 8.")
+                                                                      "versions lower than 8.0.1")
+    parser.add_argument("--tf2onnx", help="The path where to save the intermediate ONNX graph generated by tf2onnx, "
+                                          "useful for debugging purposes, default: not saved")
     args = parser.parse_args()
     if not all([args.saved_model, args.onnx]):
         parser.print_help()

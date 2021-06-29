@@ -38,7 +38,7 @@ COLORS = ['GoldenRod', 'MediumTurquoise', 'GreenYellow', 'SteelBlue', 'DarkSeaGr
           'RosyBrown', 'MediumOrchid', 'DarkTurquoise', 'LightGoldenRodYellow', 'LightSkyBlue']
 
 
-def visualize_detections(image_path, output_path, detections):
+def visualize_detections(image_path, output_path, detections, labels=[]):
     image = Image.open(image_path).convert(mode='RGB')
     draw = ImageDraw.Draw(image)
     line_width = 2
@@ -47,7 +47,13 @@ def visualize_detections(image_path, output_path, detections):
         color = COLORS[d['class'] % len(COLORS)]
         draw.line([(d['xmin'], d['ymin']), (d['xmin'], d['ymax']), (d['xmax'], d['ymax']), (d['xmax'], d['ymin']),
                    (d['xmin'], d['ymin'])], width=line_width, fill=color)
-        text = "Class {}: {}%".format(d['class'], int(100 * d['score']))
+        label = "Class {}".format(d['class'])
+        if d['class'] < len(labels):
+            label = "{}".format(labels[d['class']])
+        score = d['score']
+        text = "{}: {}%".format(label, int(100 * score))
+        if score < 0:
+            text = label
         text_width, text_height = font.getsize(text)
         text_bottom = max(text_height, d['ymin'])
         text_left = d['xmin']
@@ -55,4 +61,34 @@ def visualize_detections(image_path, output_path, detections):
         draw.rectangle([(text_left, text_bottom - text_height - 2 * margin), (text_left + text_width, text_bottom)],
                        fill=color)
         draw.text((text_left + margin, text_bottom - text_height - margin), text, fill='black', font=font)
+    if output_path is None:
+        return image
     image.save(output_path)
+
+
+def concat_visualizations(images, names, colors, output_path):
+    def draw_text(draw, font, text, width, bar_height, offset, color):
+        text_width, text_height = font.getsize(text)
+        draw.rectangle([(offset, 0), (offset + width, bar_height)], fill=color)
+        draw.text((offset + (width - text_width) / 2, text_height - text_height / 2), text, fill='black', font=font)
+
+    bar_height = 18
+    width = 0
+    height = 0
+    for im in images:
+        width += im.width
+        height = max(height, im.height)
+
+    concat = Image.new('RGB', (width, height + bar_height))
+    draw = ImageDraw.Draw(concat)
+    font = ImageFont.load_default()
+
+    offset = 0
+    for i, im in enumerate(images):
+        concat.paste(im, (offset, bar_height))
+        draw_text(draw, font, names[i], im.width, bar_height, offset, colors[i])
+        offset += im.width
+
+    if output_path is None:
+        return concat
+    concat.save(output_path)

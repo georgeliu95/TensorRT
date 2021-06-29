@@ -77,7 +77,7 @@ class EngineCalibrator(trt.IInt8EntropyCalibrator2):
         if not self.image_batcher:
             return None
         try:
-            batch, _, _ = next(self.batch_generator)
+            batch, _ = next(self.batch_generator)
             log.info("Calibrating image {} / {}".format(self.image_batcher.image_index, self.image_batcher.num_images))
             cuda.memcpy_htod(self.batch_allocation, np.ascontiguousarray(batch))
             return [int(self.batch_allocation)]
@@ -112,10 +112,9 @@ class EngineBuilder:
     Parses an ONNX graph and builds a TensorRT engine from it.
     """
 
-    def __init__(self, verbose=False, workspace=8):
+    def __init__(self, verbose=False):
         """
         :param verbose: If enabled, a higher verbosity level will be set on the TensorRT logger.
-        :param workspace: Max memory workspace to allow, in Gb.
         """
         self.trt_logger = trt.Logger(trt.Logger.INFO)
         if verbose:
@@ -125,7 +124,7 @@ class EngineBuilder:
 
         self.builder = trt.Builder(self.trt_logger)
         self.config = self.builder.create_builder_config()
-        self.config.max_workspace_size = workspace * (2 ** 30)
+        self.config.max_workspace_size = 8 * (2 ** 30)  # 8 GB
 
         self.batch_size = None
         self.network = None
@@ -161,8 +160,8 @@ class EngineBuilder:
         assert self.batch_size > 0
         self.builder.max_batch_size = self.batch_size
 
-    def create_engine(self, engine_path, precision, calib_input=None, calib_cache=None, calib_num_images=5000,
-                      calib_batch_size=8):
+    def create_engine(self, engine_path, precision, calib_input=None, calib_cache=None, calib_num_images=25000,
+                      calib_batch_size=8, calib_preprocessor=None):
         """
         Build the TensorRT engine and serialize it to disk.
         :param engine_path: The path where to serialize the engine to.
@@ -171,6 +170,7 @@ class EngineBuilder:
         :param calib_cache: The path where to write the calibration cache to, or if it already exists, load it from.
         :param calib_num_images: The maximum number of images to use for calibration.
         :param calib_batch_size: The batch size to use for the calibration process.
+        :param calib_preprocessor: The ImageBatcher preprocessor algorithm to use.
         """
         engine_path = os.path.realpath(engine_path)
         engine_dir = os.path.dirname(engine_path)
@@ -188,9 +188,6 @@ class EngineBuilder:
             if not self.builder.platform_has_fast_int8:
                 log.warning("INT8 is not supported natively on this platform/device")
             else:
-                if self.builder.platform_has_fast_fp16:
-                    # Also enable fp16, as some layers may be even more efficient in fp16 than int8
-                    self.config.set_flag(trt.BuilderFlag.FP16)
                 self.config.set_flag(trt.BuilderFlag.INT8)
                 self.config.int8_calibrator = EngineCalibrator(calib_cache)
                 if not os.path.exists(calib_cache):
@@ -198,7 +195,7 @@ class EngineBuilder:
                     calib_dtype = trt.nptype(inputs[0].dtype)
                     self.config.int8_calibrator.set_image_batcher(
                         ImageBatcher(calib_input, calib_shape, calib_dtype, max_num_images=calib_num_images,
-                                     exact_batches=True))
+                                     exact_batches=True, preprocessor=calib_preprocessor))
 
         with self.builder.build_engine(self.network, self.config) as engine, open(engine_path, "wb") as f:
             log.info("Serializing engine to file: {:}".format(engine_path))
@@ -206,10 +203,10 @@ class EngineBuilder:
 
 
 def main(args):
-    builder = EngineBuilder(args.verbose, args.workspace)
+    builder = EngineBuilder(args.verbose)
     builder.create_network(args.onnx)
     builder.create_engine(args.engine, args.precision, args.calib_input, args.calib_cache, args.calib_num_images,
-                          args.calib_batch_size)
+                          args.calib_batch_size, args.calib_preprocessor)
 
 
 if __name__ == "__main__":
@@ -219,22 +216,22 @@ if __name__ == "__main__":
     parser.add_argument("-p", "--precision", default="fp16", choices=["fp32", "fp16", "int8"],
                         help="The precision mode to build in, either 'fp32', 'fp16' or 'int8', default: 'fp16'")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable more verbose log output")
-    parser.add_argument("-w", "--workspace", default=8, type=int, help="The max memory workspace size to allow in Gb, "
-                                                                       "default: 8")
     parser.add_argument("--calib_input", help="The directory holding images to use for calibration")
     parser.add_argument("--calib_cache", default="./calibration.cache",
                         help="The file path for INT8 calibration cache to use, default: ./calibration.cache")
-    parser.add_argument("--calib_num_images", default=5000, type=int,
-                        help="The maximum number of images to use for calibration, default: 5000")
+    parser.add_argument("--calib_num_images", default=25000, type=int,
+                        help="The maximum number of images to use for calibration, default: 25000")
     parser.add_argument("--calib_batch_size", default=8, type=int,
-                        help="The batch size for the calibration process, default: 8")
+                        help="The batch size for the calibration process, default: 1")
+    parser.add_argument("--calib_preprocessor", default="V2", choices=["V1", "V1MS", "V2"],
+                        help="Set the calibration image preprocessor to use, either 'V2', 'V1' or 'V1MS', default: V2")
     args = parser.parse_args()
     if not all([args.onnx, args.engine]):
         parser.print_help()
         log.error("These arguments are required: --onnx and --engine")
         sys.exit(1)
-    if args.precision == "int8" and not (args.calib_input or os.path.exists(args.calib_cache)):
+    if args.precision == "int8" and not any([args.calib_input, args.calib_cache]):
         parser.print_help()
-        log.error("When building in int8 precision, --calib_input or an existing --calib_cache file is required")
+        log.error("When building in int8 precision, either --calib_input or --calib_cache are required")
         sys.exit(1)
     main(args)
