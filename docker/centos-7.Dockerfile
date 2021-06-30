@@ -18,7 +18,7 @@ ARG OS_VERSION=7
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.0.1.4
+ENV TRT_VERSION 8.0.1.6
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -47,27 +47,18 @@ RUN yum -y install \
 RUN yum install -y python36 python3-devel
 
 # Install TensorRT
-# TODO update with ML-repo when available
-#RUN cd /tmp &&\
-#    wget https://developer.download.nvidia.com/compute/machine-learning/repos/rhel7/x86_64/nvidia-machine-learning-repo-rhel7-1.0.0-1.x86_64.rpm &&\
-#    rpm -Uvh nvidia-machine-learning-repo-*.rpm
-#RUN yum install -y libnvinfer7 libnvparsers7 libnvinfer-plugin7 libnvonnxparsers7 libnvinfer-devel libnvparsers-devel libnvinfer-plugin-devel python3-libnvinfer
-RUN cd /tmp &&\
-    allRPMs=( libnvinfer8-8.0.1-1.cuda11.3.x86_64.rpm libnvinfer-plugin8-8.0.1-1.cuda11.3.x86_64.rpm libnvparsers8-8.0.1-1.cuda11.3.x86_64.rpm libnvonnxparsers8-8.0.1-1.cuda11.3.x86_64.rpm libnvinfer-devel-8.0.1-1.cuda11.3.x86_64.rpm libnvinfer-plugin-devel-8.0.1-1.cuda11.3.x86_64.rpm libnvparsers-devel-8.0.1-1.cuda11.3.x86_64.rpm libnvonnxparsers-devel-8.0.1-1.cuda11.3.x86_64.rpm python3-libnvinfer-8.0.1-1.cuda11.3.x86_64.rpm python3-libnvinfer-devel-8.0.1-1.cuda11.3.x86_64.rpm ) &&\
-    baseURL=http://cuda-repo/release-candidates/Libraries/TensorRT/v8.0/8.0.1.4-9e96bdec/11.3-r465/RHEL7_9-x64-agnostic/rpm/ &&\
-    for rpm in ${allRPMs[@]}; do \
-        url="$baseURL$rpm"; \
-        wget $url; \
-        rpm -Uvh $rpm; \
-    done &&\
-    rm *.rpm
+RUN yum-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel7/x86_64/cuda-rhel7.repo &&\
+    yum -y install libnvinfer8 libnvparsers8 libnvonnxparsers8 libnvinfer-plugin8 \
+        libnvinfer-devel libnvparsers-devel libnvonnxparsers-devel libnvinfer-plugin-devel \
+        python3-libnvinfer
 
 # Install PyPI packages
 RUN pip3 install --upgrade pip
-RUN pip3 install setuptools>=41.0.0 &&\
-    pip3 install numpy
+RUN pip3 install setuptools>=41.0.0
+RUN pip3 install numpy
 COPY requirements.txt /tmp/requirements.txt
 RUN pip3 install -r /tmp/requirements.txt
+RUN pip3 install jupyter jupyterlab
 
 # Install Cmake
 RUN cd /tmp && \
