@@ -14,10 +14,20 @@
  * limitations under the License.
  */
 
-// Top level docstring, for the whole Python package.
-#pragma once
+#include "utils.h"
 
 namespace tensorrt
 {
+namespace utils
+{
 
+void issueDeprecationWarning(const char* useInstead)
+{
+    std::string msg{"Use " + std::string{useInstead} + " instead."};
+
+    py::gil_scoped_acquire acquire{};
+    PyErr_WarnEx(PyExc_DeprecationWarning, msg.c_str(), 1);
+}
+
+} // namespace utils
 } // namespace tensorrt
