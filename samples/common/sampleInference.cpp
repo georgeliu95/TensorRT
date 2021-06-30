@@ -690,7 +690,6 @@ bool timeDeserialize(InferenceEnvironment& iEnv)
 
     // If the first deserialization is more than tolerance slower than
     // the average deserialization, return true, which means an error occurred.
-    // See http://nvbugs/2917825 for the motivation behind this condition.
     const auto tolerance = 1.50F;
     const bool isSlowerThanExpected = first > averageTime * tolerance;
     if (isSlowerThanExpected)
