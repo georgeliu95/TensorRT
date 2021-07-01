@@ -65,11 +65,12 @@ RUN apt-get install -y dh-python libpython3-stdlib python3 python3-minimal
 RUN ln -s /usr/bin/python3 /usr/bin/python
 
 # Install TensorRT
-RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/7fa2af80.pub &&\
+RUN v="${TRT_VERSION%.*}-1+cuda${CUDA_VERSION%.*}" &&\
+    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/7fa2af80.pub &&\
     apt-get update &&\
-    sudo apt-get install libnvinfer8 libnvonnxparsers8 libnvparsers8 libnvinfer-plugin8 \
-        libnvinfer-dev libnvonnxparsers-dev libnvparsers-dev libnvinfer-plugin-dev \
-        python3-libnvinfer
+    sudo apt-get install libnvinfer8=${v} libnvonnxparsers8=${v} libnvparsers8=${v} libnvinfer-plugin8=${v} \
+        libnvinfer-dev=${v} libnvonnxparsers-dev=${v} libnvparsers-dev=${v} libnvinfer-plugin-dev=${v} \
+        python3-libnvinfer=${v}
 
 # Install PyPI packages
 RUN pip3 install --upgrade pip

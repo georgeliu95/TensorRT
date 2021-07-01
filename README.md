@@ -60,7 +60,7 @@ To build the TensorRT-OSS components, you will first need the following software
 	git submodule update --init --recursive
 	```
 
-2. #### Specify the TensorRT Release build
+2. #### (Optional - if not using TensorRT container) Specify the TensorRT GA release build
 
     If using the TensorRT OSS build container, TensorRT libraries are preinstalled under `/usr/lib/x86_64-linux-gnu` and you may skip this step.
 
@@ -93,7 +93,7 @@ To build the TensorRT-OSS components, you will first need the following software
 
 ## Setting Up The Build Environment
 
-For native builds, install the [prerequisite](#prerequisites) *System Packages*. Alternatively (recommended for non-Windows builds), install Docker and generate a build container as described below:
+For Linux platforms, we recommend that you generate a docker container for building TensorRT OSS as described below. For native builds, on Windows for example, please install the [prerequisite](#prerequisites) *System Packages*.
 
 1. #### Generate the TensorRT-OSS build container.
     The TensorRT-OSS build container can be generated using the supplied Dockerfiles and build script. The build container is configured for building TensorRT OSS out-of-the-box.
@@ -102,13 +102,13 @@ For native builds, install the [prerequisite](#prerequisites) *System Packages*.
     ```bash
     ./docker/build.sh --file docker/ubuntu-18.04.Dockerfile --tag tensorrt-ubuntu18.04-cuda11.3 --cuda 11.3.1
     ```
-    **Example: CentOS/RedHat 7 on x86-64 with cuda-11.3**
+    **Example: CentOS/RedHat 8 on x86-64 with cuda-10.2**
     ```bash
-    ./docker/build.sh --file docker/centos-7.Dockerfile --tag tensorrt-centos --cuda 11.3.1
+    ./docker/build.sh --file docker/centos-8.Dockerfile --tag tensorrt-centos8-cuda10.2 --cuda 10.2
     ```
     **Example: Ubuntu 18.04 cross-compile for Jetson (aarch64) with cuda-10.2 (JetPack SDK)**
     ```bash
-    ./docker/build.sh --file docker/ubuntu-cross-aarch64.Dockerfile --tag tensorrt-cross-jetpack --cuda 10.2
+    ./docker/build.sh --file docker/ubuntu-cross-aarch64.Dockerfile --tag tensorrt-jetpack-cuda10.2 --cuda 10.2
     ```
 
 2. #### Launch the TensorRT-OSS build container.

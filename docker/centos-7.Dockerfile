@@ -47,10 +47,11 @@ RUN yum -y install \
 RUN yum install -y python36 python3-devel
 
 # Install TensorRT
-RUN yum-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel7/x86_64/cuda-rhel7.repo &&\
-    yum -y install libnvinfer8 libnvparsers8 libnvonnxparsers8 libnvinfer-plugin8 \
-        libnvinfer-devel libnvparsers-devel libnvonnxparsers-devel libnvinfer-plugin-devel \
-        python3-libnvinfer
+RUN v="${TRT_VERSION%.*}-1.cuda${CUDA_VERSION%.*}" &&\
+    yum-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel7/x86_64/cuda-rhel7.repo &&\
+    yum -y install libnvinfer8-${v} libnvparsers8-${v} libnvonnxparsers8-${v} libnvinfer-plugin8-${v} \
+        libnvinfer-devel-${v} libnvparsers-devel-${v} libnvonnxparsers-devel-${v} libnvinfer-plugin-devel-${v} \
+        python3-libnvinfer-${v}
 
 # Install PyPI packages
 RUN pip3 install --upgrade pip
@@ -69,6 +70,8 @@ RUN cd /tmp && \
 
 # Download NGC client
 RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.zip && unzip ngccli_cat_linux.zip && chmod u+x ngc && rm ngccli_cat_linux.zip ngc.md5 && echo "no-apikey\nascii\n" | ngc config set
+
+RUN rm /usr/bin/python && ln -s /usr/bin/python3 /usr/bin/python
 
 # Set environment and working directory
 ENV TRT_LIBPATH /usr/lib/x86_64-linux-gnu
