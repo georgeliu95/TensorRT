@@ -21,11 +21,11 @@
 - Added Python 3.9 support.
 
 ### Changed
-- TensorRT now declares API’s with the `noexcept` keyword. All TensorRT classes that an application inherits from (such as IPluginV2) must guarantee that methods called by TensorRT do not throw uncaught exceptions, or the behavior is undefined.
 - Update Polygraphy to [v0.30.3](tools/Polygraphy/CHANGELOG.md#v0303-2021-06-25).
 - Update ONNX-GraphSurgeon to [v0.3.10](tools/onnx-graphsurgeon/CHANGELOG.md#v0310-2021-05-20).
 - Update Pytorch Quantization toolkit to v2.1.0.
 - Notable TensorRT API updates
+  - TensorRT now declares API’s with the `noexcept` keyword. All TensorRT classes that an application inherits from (such as IPluginV2) must guarantee that methods called by TensorRT do not throw uncaught exceptions, or the behavior is undefined.
   - Destructors for classes with `destroy()` methods were previously protected. They are now public, enabling use of smart pointers for these classes. The `destroy()` methods are deprecated.
 - Moved `RefitMap` API from ONNX parser to core TensorRT.
 - Various bugfixes for plugins, samples and ONNX parser.
