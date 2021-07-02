@@ -14,6 +14,7 @@
   - Added support for tensor scales.
   - Added support for per-axis quantization.
 - Added `EfficientNMS_TRT`, `EfficientNMS_ONNX_TRT` plugins and experimental support for ONNX `NonMaxSuppression` operator.
+- Added `ScatterND` plugin.
 - Added TensorRT [QuickStart Guide](https://github.com/NVIDIA/TensorRT/tree/master/quickstart).
 - Added new samples: [engine_refit_onnx_bidaf](https://docs.nvidia.com/deeplearning/tensorrt/sample-support-guide/index.html#engine_refit_onnx_bidaf) builds an engine from ONNX BiDAF model and refits engine with new weights, [efficientdet](samples/python/efficientdet) and [efficientnet](samples/python/efficientnet) samples for demonstrating Object Detection using TensorRT.
 - Added support for Ubuntu20.04 and RedHat/CentOS 8.3.
@@ -34,6 +35,7 @@
 - `IPlugin` and `IPluginFactory` interfaces were deprecated in TensorRT 6.0 and have been removed in TensorRT 8.0. We recommend that you write new plugins or refactor existing ones to target the `IPluginV2DynamicExt` and `IPluginV2IOExt` interfaces. For more information, refer to [Migrating Plugins From TensorRT 6.x Or 7.x To TensorRT 8.x.x](https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html#migrating-plugins-6x-7x-to-8x).
   - For plugins based on `IPluginV2DynamicExt` and `IPluginV2IOExt`, certain methods with legacy function signatures (derived from `IPluginV2` and `IPluginV2Ext` base classes) which were deprecated and marked for removal in TensorRT 8.0 will no longer be available.
 - Removed `samplePlugin` since it showcased IPluginExt interface, which is no longer supported in TensorRT 8.0.
+- Removed `sampleMovieLens` and `sampleMovieLensMPS`.
 - Removed Dockerfile for Ubuntu 16.04. TensorRT 8.0 debians for Ubuntu 16.04 require python 3.5 while minimum required python version for TensorRT OSS is 3.6.
 - Removed support for PowerPC builds, consistent with TensorRT GA releases.
 
