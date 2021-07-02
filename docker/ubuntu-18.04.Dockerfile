@@ -75,6 +75,8 @@ RUN pip3 install setuptools>=41.0.0
 COPY requirements.txt /tmp/requirements.txt
 RUN pip3 install -r /tmp/requirements.txt
 RUN pip3 install jupyter jupyterlab
+# Workaround to remove numpy installed with tensorflow
+RUN pip3 install --upgrade numpy
 
 # Install Cmake
 RUN cd /tmp && \
