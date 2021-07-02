@@ -41,6 +41,7 @@
 
 ### Notes
 - We had deprecated the Caffe Parser and UFF Parser in TensorRT 7.0. They are still tested and functional in TensorRT 8.0, however, we plan to remove the support in a future release. Ensure you migrate your workflow to use `tf2onnx`, `keras2onnx` or [TensorFlow-TensorRT (TF-TRT)](https://docs.nvidia.com/deeplearning/frameworks/tf-trt-user-guide/index.html).
+- Refer to [TensorRT 8.0.1 GA Release Notes](https://docs.nvidia.com/deeplearning/tensorrt/archives/tensorrt-801/release-notes/tensorrt-8.html#rel_8-0-1) for additional details
 
 
 ## [21.06](https://github.com/NVIDIA/TensorRT/releases/tag/21.06) - 2021-06-23
