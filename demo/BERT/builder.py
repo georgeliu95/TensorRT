@@ -104,7 +104,7 @@ def attention_layer_opt(prefix, config, init_dict, network, input_tensor, imask)
 
     # FC_attention
     if config.use_int8:
-        mult_all = network.add_convolution(input_tensor, 3 * hidden_size, (1, 1), Wall, Ball)
+        mult_all = network.add_convolution_nd(input_tensor, 3 * hidden_size, (1, 1), Wall, Ball)
     else:
         mult_all = network.add_fully_connected(input_tensor, 3 * hidden_size, Wall, Ball)
 
@@ -210,7 +210,7 @@ def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, imas
     B_aout = init_dict[prefix + B_AOUT]
     if config.use_int8:
         W_aout = init_dict[prefix + W_AOUT]
-        attention_out_fc = network.add_convolution(attention_heads, hidden_size, (1, 1), W_aout, B_aout)
+        attention_out_fc = network.add_convolution_nd(attention_heads, hidden_size, (1, 1), W_aout, B_aout)
         B_aout = None
 
         if not config.use_int8_skipln:
@@ -233,7 +233,7 @@ def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, imas
     B_mid = init_dict[prefix + B_MID]
     W_mid = init_dict[prefix + W_MID]
     if config.use_int8:
-        mid_dense = network.add_convolution(attention_ln, config.intermediate_size, (1, 1), W_mid, B_mid)
+        mid_dense = network.add_convolution_nd(attention_ln, config.intermediate_size, (1, 1), W_mid, B_mid)
     else:
         mid_dense = network.add_fully_connected(attention_ln, config.intermediate_size, W_mid, B_mid)
 
@@ -270,7 +270,7 @@ def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, imas
     B_lout = init_dict[prefix + B_LOUT]
     if config.use_int8 and not config.use_fc2_gemm:
         W_lout = init_dict[prefix + W_LOUT]
-        out_dense = network.add_convolution(intermediate_act, hidden_size, (1, 1), W_lout, B_lout)
+        out_dense = network.add_convolution_nd(intermediate_act, hidden_size, (1, 1), W_lout, B_lout)
         B_lout = None
 
         if not config.use_int8_skipln:
