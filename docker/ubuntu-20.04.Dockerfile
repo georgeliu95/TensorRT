@@ -18,7 +18,7 @@ ARG OS_VERSION=20.04
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.0.1.2
+ENV TRT_VERSION 8.0.1.6
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -64,21 +64,22 @@ RUN apt-get install -y --no-install-recommends \
     ln -s /usr/bin/python3 python &&\
     ln -s /usr/bin/pip3 pip;
 
-# Install cuDNN
-# RUN apt-get install -y libcudnn8-dev
-
 # Install TensorRT
-# TODO update with ML-repo when available
-RUN mkdir -p /tmp/tensorrt && cd /tmp/tensorrt && \
-    wget -r -np -nd -k http://cuda-repo/release-candidates/Libraries/TensorRT/v8.0/8.0.1.2-95b2b0fc/11.3-r465/Ubuntu20_04-x64/deb/ &&\
-    yes | dpkg -i libnvinfer8_*.deb libnvinfer-plugin8_*.deb libnvparsers8_*.deb libnvonnxparsers8_*.deb libnvinfer-dev_*.deb libnvinfer-plugin-dev_*.deb libnvparsers-dev_*.deb libnvonnxparsers-dev_*.deb python3-libnvinfer_*.deb python3-libnvinfer-dev_*.deb && \
-    rm -f *
+RUN v="${TRT_VERSION%.*}-1+cuda${CUDA_VERSION%.*}" &&\
+    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/7fa2af80.pub &&\
+    apt-get update &&\
+    sudo apt-get install libnvinfer8=${v} libnvonnxparsers8=${v} libnvparsers8=${v} libnvinfer-plugin8=${v} \
+        libnvinfer-dev=${v} libnvonnxparsers-dev=${v} libnvparsers-dev=${v} libnvinfer-plugin-dev=${v} \
+        python3-libnvinfer=${v}
 
 # Install PyPI packages
 RUN pip3 install --upgrade pip
 RUN pip3 install setuptools>=41.0.0
 COPY requirements.txt /tmp/requirements.txt
 RUN pip3 install -r /tmp/requirements.txt
+RUN pip3 install jupyter jupyterlab
+# Workaround to remove numpy installed with tensorflow
+RUN pip3 install --upgrade numpy
 
 # Install Cmake
 RUN cd /tmp && \

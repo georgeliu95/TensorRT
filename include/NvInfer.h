@@ -2773,7 +2773,12 @@ struct EnumMaxImpl<ElementWiseOperation>
 //!
 //! This layer applies a per-element binary operation between corresponding elements of two tensors.
 //!
-//! The input dimensions of the two input tensors must be equal, and the output tensor is the same size as each input.
+//! The input tensors must have the same number of dimensions. For each dimension, their lengths must
+//! match, or one of them must be one. In the latter case, the tensor is broadcast along that axis.
+//!
+//! The output tensor has the same number of dimensions as the inputs. For each output dimension,
+//! its length is equal to the lengths of the corresponding input dimensions if they match,
+//! otherwise it is equal to the length that is not one.
 //！
 //! \warning When running this layer on the DLA with Int8 data type, the dynamic ranges of two input tensors shall be
 //! equal. If the dynamic ranges are generated using calibrator, the largest value shall be used.

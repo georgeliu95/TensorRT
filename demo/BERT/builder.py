@@ -50,6 +50,7 @@ plg_registry = trt.get_plugin_registry()
 emln_plg_creator = plg_registry.get_plugin_creator("CustomEmbLayerNormPluginDynamic", "1", "")
 qkv2_plg_creator = plg_registry.get_plugin_creator("CustomQKVToContextPluginDynamic", "1", "")
 skln_plg_creator = plg_registry.get_plugin_creator("CustomSkipLayerNormPluginDynamic", "1", "")
+fc_plg_creator = plg_registry.get_plugin_creator("CustomFCPluginDynamic", "1", "")
 
 class BertConfig:
     def __init__(self, bert_config_path, use_fp16, use_int8, use_strict, use_fc2_gemm, use_int8_skipln, use_int8_multihead, use_qat, use_sparsity, timing_cache):
@@ -103,7 +104,7 @@ def attention_layer_opt(prefix, config, init_dict, network, input_tensor, imask)
 
     # FC_attention
     if config.use_int8:
-        mult_all = network.add_convolution(input_tensor, 3 * hidden_size, (1, 1), Wall, Ball)
+        mult_all = network.add_convolution_nd(input_tensor, 3 * hidden_size, (1, 1), Wall, Ball)
     else:
         mult_all = network.add_fully_connected(input_tensor, 3 * hidden_size, Wall, Ball)
 
@@ -178,6 +179,16 @@ def skipln(prefix, config, init_dict, network, input_tensor, skip, bias=None):
     layer = network.add_plugin_v2(skipln_inputs, skipln_plug)
     return layer
 
+def custom_fc(config, network, input_tensor, out_dims, W):
+    pf_out_dims = trt.PluginField("out_dims", np.array([out_dims], dtype=np.int32), trt.PluginFieldType.INT32)
+    pf_W = trt.PluginField("W", W.numpy(), trt.PluginFieldType.FLOAT32)
+    pf_type = trt.PluginField("type_id", np.array([1 if config.use_fp16 else 0], np.int32), trt.PluginFieldType.INT32)
+    pfc = trt.PluginFieldCollection([pf_out_dims, pf_W, pf_type])
+    fc_plugin = fc_plg_creator.create_plugin("fcplugin", pfc)
+    plug_inputs = [input_tensor]
+    out_dense = network.add_plugin_v2(plug_inputs, fc_plugin)
+    return out_dense
+
 def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, imask):
     """
     Add the transformer layer
@@ -197,9 +208,10 @@ def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, imas
 
     # FC0
     B_aout = init_dict[prefix + B_AOUT]
-    W_aout = init_dict[prefix + W_AOUT]
     if config.use_int8:
-        attention_out_fc = network.add_convolution(attention_heads, hidden_size, (1, 1), W_aout, B_aout)
+        W_aout = init_dict[prefix + W_AOUT]
+        attention_out_fc = network.add_convolution_nd(attention_heads, hidden_size, (1, 1), W_aout, B_aout)
+        B_aout = None
 
         if not config.use_int8_skipln:
             attention_out_fc.set_output_type(0, trt.DataType.HALF if config.use_fp16 else trt.DataType.FLOAT)
@@ -208,9 +220,10 @@ def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, imas
             dr_fc_aout = init_dict[prefix + 'attention_output_add_local_input_quantizer_amax']
             set_output_range(attention_out_fc, dr_fc_aout)
     else:
-        attention_out_fc = network.add_fully_connected(attention_heads, hidden_size, W_aout, B_aout)
+        W_aoutT = init_dict[prefix + W_AOUT + "_notrans"]
+        attention_out_fc = custom_fc(config, network, attention_heads, hidden_size, W_aoutT)
 
-    skiplayer = skipln(prefix + "attention_output_layernorm_",config, init_dict, network, attention_out_fc.get_output(0), input_tensor, None)
+    skiplayer = skipln(prefix + "attention_output_layernorm_",config, init_dict, network, attention_out_fc.get_output(0), input_tensor, B_aout)
     attention_ln = skiplayer.get_output(0)
     if config.use_qat:
         dr_skln1 = init_dict[prefix + 'intermediate_dense_input_amax']
@@ -220,7 +233,7 @@ def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, imas
     B_mid = init_dict[prefix + B_MID]
     W_mid = init_dict[prefix + W_MID]
     if config.use_int8:
-        mid_dense = network.add_convolution(attention_ln, config.intermediate_size, (1, 1), W_mid, B_mid)
+        mid_dense = network.add_convolution_nd(attention_ln, config.intermediate_size, (1, 1), W_mid, B_mid)
     else:
         mid_dense = network.add_fully_connected(attention_ln, config.intermediate_size, W_mid, B_mid)
 
@@ -255,21 +268,23 @@ def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, imas
     # FC2
     # Dense to hidden size
     B_lout = init_dict[prefix + B_LOUT]
-    W_lout = init_dict[prefix + W_LOUT]
     if config.use_int8 and not config.use_fc2_gemm:
-        out_dense = network.add_convolution(intermediate_act, hidden_size, (1, 1), W_lout, B_lout)
+        W_lout = init_dict[prefix + W_LOUT]
+        out_dense = network.add_convolution_nd(intermediate_act, hidden_size, (1, 1), W_lout, B_lout)
+        B_lout = None
 
         if not config.use_int8_skipln:
             out_dense.set_output_type(0, trt.DataType.HALF if config.use_fp16 else trt.DataType.FLOAT)
     else:
-        out_dense = network.add_fully_connected(intermediate_act, hidden_size, W_lout, B_lout)
+        W_loutT = init_dict[prefix + W_LOUT + "_notrans"]
+        out_dense = custom_fc(config, network, intermediate_act, hidden_size, W_loutT)
 
     if config.use_qat:
         dr_fc_out = init_dict[prefix + 'output_add_local_input_quantizer_amax']
         set_output_range(out_dense, dr_fc_out)
     set_output_name(out_dense, prefix + "output_", "dense")
 
-    out_layer = skipln(prefix + "output_layernorm_", config, init_dict, network, out_dense.get_output(0), attention_ln, None)
+    out_layer = skipln(prefix + "output_layernorm_", config, init_dict, network, out_dense.get_output(0), attention_ln, B_lout)
     set_output_name(out_layer, prefix + "output_", "reshape")
 
     return out_layer

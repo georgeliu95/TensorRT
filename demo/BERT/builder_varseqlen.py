@@ -104,7 +104,7 @@ def attention_layer_opt(prefix, config, init_dict, network, input_tensor, mask_i
 
     # FC_attention
     if config.use_int8:
-        mult_all = network.add_convolution(input_tensor, 3 * hidden_size, (1, 1), Wall, Ball)
+        mult_all = network.add_convolution_nd(input_tensor, 3 * hidden_size, (1, 1), Wall, Ball)
     else:
         mult_all = network.add_fully_connected(input_tensor, 3 * hidden_size, Wall, Ball)
 
@@ -199,7 +199,7 @@ def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, resi
     B_aout = init_dict[prefix + B_AOUT]
     W_aout = init_dict[prefix + W_AOUT]
     if config.use_int8:
-        attention_out_fc = network.add_convolution(attention_heads, hidden_size, (1, 1), W_aout, B_aout)
+        attention_out_fc = network.add_convolution_nd(attention_heads, hidden_size, (1, 1), W_aout, B_aout)
     else:
         attention_out_fc = network.add_fully_connected(attention_heads, hidden_size, W_aout, B_aout)
     if config.use_int8 and config.use_qat:
@@ -222,7 +222,7 @@ def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, resi
     B_mid = init_dict[prefix + B_MID]
     W_mid = init_dict[prefix + W_MID]
     if config.use_int8:
-        mid_dense = network.add_convolution(attention_ln, config.intermediate_size, (1, 1), W_mid, B_mid)
+        mid_dense = network.add_convolution_nd(attention_ln, config.intermediate_size, (1, 1), W_mid, B_mid)
     else:
         mid_dense = network.add_fully_connected(attention_ln, config.intermediate_size, W_mid, B_mid)
 
@@ -244,7 +244,7 @@ def transformer_layer_opt(prefix, config, init_dict, network, input_tensor, resi
     W_lout = init_dict[prefix + W_LOUT]
 
     if config.use_int8:
-        out_dense = network.add_convolution(intermediate_act, hidden_size, (1, 1), W_lout, B_lout)
+        out_dense = network.add_convolution_nd(intermediate_act, hidden_size, (1, 1), W_lout, B_lout)
     else:
         out_dense = network.add_fully_connected(intermediate_act, hidden_size, W_lout, B_lout)
     if config.use_int8 and config.use_qat:
@@ -313,7 +313,8 @@ def bert_model(config, init_dict, network, input_tensor, residual, mask_idx, cu_
         ss = "l{}_".format(layer)
         out_layer = transformer_layer_opt(ss, config, init_dict, network, prev_input, residual, mask_idx, cu_seqlens, max_seqlen)
         prev_input = out_layer.get_output(0)
-        if config.use_megatron:
+        # Skip reading residual from final layer
+        if config.use_megatron and (layer != config.num_hidden_layers - 1):
             residual = out_layer.get_output(1)
 
     if config.use_qat:
@@ -335,7 +336,7 @@ def squad_output(prefix, config, init_dict, network, input_tensor):
     B_out = init_dict[prefix + SQD_B]
 
     if config.use_int8:
-        dense = network.add_convolution(input_tensor, 2, (1, 1), W_out, B_out)
+        dense = network.add_convolution_nd(input_tensor, 2, (1, 1), W_out, B_out)
     else:
         dense = network.add_fully_connected(input_tensor, 2, W_out, B_out)
 

@@ -1071,7 +1071,7 @@ class IGpuAllocator
 {
 public:
     //!
-    //! A callback implemented by the application to handle acquisition of GPU memory.
+    //! A thread-safe callback implemented by the application to handle acquisition of GPU memory.
     //!
     //! \param size The size of the memory required.
     //! \param alignment The required alignment of memory. Alignment will be zero
@@ -1084,14 +1084,20 @@ public:
     //!
     //! If an allocation request cannot be satisfied, nullptr should be returned.
     //!
+    //! \note The implementation must guarantee thread safety for concurrent allocate/free/reallocate
+    //! requests.
+    //!
     virtual void* allocate(uint64_t const size, uint64_t const alignment, AllocatorFlags const flags) noexcept = 0;
 
     //!
-    //! A callback implemented by the application to handle release of GPU memory.
+    //! A thread-safe callback implemented by the application to handle release of GPU memory.
     //!
     //! TensorRT may pass a nullptr to this function if it was previously returned by allocate().
     //!
     //! \param memory The acquired memory.
+    //!
+    //! \note The implementation must guarantee thread safety for concurrent allocate/free/reallocate
+    //! requests.
     //!
     virtual void free(void* const memory) noexcept = 0;
 
@@ -1103,7 +1109,7 @@ public:
     IGpuAllocator() = default;
 
     //!
-    //! A callback implemented by the application to resize an existing allocation.
+    //! A thread-safe callback implemented by the application to resize an existing allocation.
     //!
     //! Only allocations which were allocated with AllocatorFlag::kRESIZABLE will be resized.
     //!
@@ -1127,6 +1133,9 @@ public:
     //! \param alignment The alignment used by the original allocation.
     //! \param newSize The new memory size required.
     //! \return the address of the reallocated memory
+    //!
+    //! \note The implementation must guarantee thread safety for concurrent allocate/free/reallocate
+    //! requests.
     //!
     virtual void* reallocate(void* baseAddr, uint64_t alignment, uint64_t newSize) noexcept
     {

@@ -15,7 +15,7 @@ This repository contains the Open Source Software (OSS) components of NVIDIA Ten
 To build the TensorRT-OSS components, you will first need the following software packages.
 
 **TensorRT GA build**
-* [TensorRT](https://developer.nvidia.com/nvidia-tensorrt-download) v8.0.1.2
+* [TensorRT](https://developer.nvidia.com/nvidia-tensorrt-download) v8.0.1.6
 
 **System Packages**
 * [CUDA](https://developer.nvidia.com/cuda-toolkit)
@@ -38,12 +38,12 @@ To build the TensorRT-OSS components, you will first need the following software
   * (For Windows builds) [Visual Studio](https://visualstudio.microsoft.com/vs/older-downloads/) 2017 Community or Enterprise edition
   * (Cross compilation for QNX platform) [QNX Toolchain](https://blackberry.qnx.com/en)
 * PyPI packages (for demo applications/tests)
-  * [onnx](https://pypi.org/project/onnx/1.8.0/) 1.8.0
-  * [onnxruntime](https://pypi.org/project/onnxruntime/1.7.0/) 1.7.0
-  * [tensorflow-gpu](https://pypi.org/project/tensorflow/2.2.2/) >= 2.2.2
-  * [Pillow](https://pypi.org/project/Pillow/8.1.2/) >= 8.1.2
+  * [onnx](https://pypi.org/project/onnx/) 1.8.0
+  * [onnxruntime](https://pypi.org/project/onnxruntime/) 1.7.0
+  * [tensorflow-gpu](https://pypi.org/project/tensorflow/) >= 2.4.1
+  * [Pillow](https://pypi.org/project/Pillow/) >= 8.1.2
   * [pycuda](https://pypi.org/project/pycuda/) < 2020.1
-  * [numpy](https://pypi.org/project/numpy/)
+  * [numpy](https://pypi.org/project/numpy/) 1.21.0
   * [pytest](https://pypi.org/project/pytest/)
 * Code formatting tools (for contributors)
   * [Clang-format](https://clang.llvm.org/docs/ClangFormat.html)
@@ -60,7 +60,7 @@ To build the TensorRT-OSS components, you will first need the following software
 	git submodule update --init --recursive
 	```
 
-2. #### Specify the TensorRT Release build
+2. #### (Optional - if not using TensorRT container) Specify the TensorRT GA release build
 
     If using the TensorRT OSS build container, TensorRT libraries are preinstalled under `/usr/lib/x86_64-linux-gnu` and you may skip this step.
 
@@ -70,16 +70,16 @@ To build the TensorRT-OSS components, you will first need the following software
 
     ```bash
     cd ~/Downloads
-    tar -xvzf TensorRT-8.0.1.2.Ubuntu-18.04.x86_64-gnu.cuda-11.3.cudnn8.2.tar.gz
-    export TRT_LIBPATH=`pwd`/TensorRT-8.0.1.2
+    tar -xvzf TensorRT-8.0.1.6.Ubuntu-18.04.x86_64-gnu.cuda-11.3.cudnn8.2.tar.gz
+    export TRT_LIBPATH=`pwd`/TensorRT-8.0.1.6
     ```
 
     **Example: Windows on x86-64 with cuda-11.3**
 
     ```powershell
     cd ~\Downloads
-    Expand-Archive .\TensorRT-8.0.1.2.Windows10.x86_64.cuda-11.3.cudnn8.2.zip
-    $Env:TRT_LIBPATH = '$(Get-Location)\TensorRT-8.0.1.2'
+    Expand-Archive .\TensorRT-8.0.1.6.Windows10.x86_64.cuda-11.3.cudnn8.2.zip
+    $Env:TRT_LIBPATH = '$(Get-Location)\TensorRT-8.0.1.6'
     $Env:PATH += 'C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\MSBuild\15.0\Bin\'
     ```
 
@@ -93,7 +93,7 @@ To build the TensorRT-OSS components, you will first need the following software
 
 ## Setting Up The Build Environment
 
-For native builds, install the [prerequisite](#prerequisites) *System Packages*. Alternatively (recommended for non-Windows builds), install Docker and generate a build container as described below:
+For Linux platforms, we recommend that you generate a docker container for building TensorRT OSS as described below. For native builds, on Windows for example, please install the [prerequisite](#prerequisites) *System Packages*.
 
 1. #### Generate the TensorRT-OSS build container.
     The TensorRT-OSS build container can be generated using the supplied Dockerfiles and build script. The build container is configured for building TensorRT OSS out-of-the-box.
@@ -102,13 +102,13 @@ For native builds, install the [prerequisite](#prerequisites) *System Packages*.
     ```bash
     ./docker/build.sh --file docker/ubuntu-18.04.Dockerfile --tag tensorrt-ubuntu18.04-cuda11.3 --cuda 11.3.1
     ```
-    **Example: CentOS/RedHat 7 on x86-64 with cuda-11.3**
+    **Example: CentOS/RedHat 8 on x86-64 with cuda-10.2**
     ```bash
-    ./docker/build.sh --file docker/centos-7.Dockerfile --tag tensorrt-centos --cuda 11.3.1
+    ./docker/build.sh --file docker/centos-8.Dockerfile --tag tensorrt-centos8-cuda10.2 --cuda 10.2
     ```
     **Example: Ubuntu 18.04 cross-compile for Jetson (aarch64) with cuda-10.2 (JetPack SDK)**
     ```bash
-    ./docker/build.sh --file docker/ubuntu-cross-aarch64.Dockerfile --tag tensorrt-cross-jetpack --cuda 10.2
+    ./docker/build.sh --file docker/ubuntu-cross-aarch64.Dockerfile --tag tensorrt-jetpack-cuda10.2 --cuda 10.2
     ```
 
 2. #### Launch the TensorRT-OSS build container.
@@ -120,6 +120,7 @@ For native builds, install the [prerequisite](#prerequisites) *System Packages*.
 	1. Use the `--tag` corresponding to build container generated in Step 1.
 	2. [NVIDIA Container Toolkit](#prerequisites) is required for GPU access (running TensorRT applications) inside the build container.
 	3. `sudo` password for Ubuntu build containers is 'nvidia'.
+	4. Specify port number using `--jupyter <port>` for launching Jupyter notebooks.
 
 ## Building TensorRT-OSS
 * Generate Makefiles or VS project (Windows) and build.
@@ -179,7 +180,8 @@ For native builds, install the [prerequisite](#prerequisites) *System Packages*.
 
 ## TensorRT Resources
 
-* [TensorRT Homepage](https://developer.nvidia.com/tensorrt)
+* [TensorRT Developer Home](https://developer.nvidia.com/tensorrt)
+* [TensorRT QuickStart Guide](https://docs.nvidia.com/deeplearning/tensorrt/quick-start-guide/index.html)
 * [TensorRT Developer Guide](https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html)
 * [TensorRT Sample Support Guide](https://docs.nvidia.com/deeplearning/tensorrt/sample-support-guide/index.html)
 * [TensorRT ONNX Tools](https://docs.nvidia.com/deeplearning/tensorrt/index.html#tools)

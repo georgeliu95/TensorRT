@@ -689,7 +689,6 @@ bool setupNetworkAndConfig(const BuildOptions& build, const SystemOptions& sys, 
             try
             {
                 // Set dynamic ranges of int8 inputs / outputs to match scales loaded from calibration cache
-                // TODO http://nvbugs/3262234 Change the network validation so that this workaround can be removed
                 setTensorScalesFromCalibration(network, build.inputFormats, build.outputFormats, build.calibration);
             }
             catch (std::exception&)

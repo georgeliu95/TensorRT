@@ -239,7 +239,7 @@ int DetectionOutput::enqueue(
     pluginStatus_t status = detectionInference(stream, batchSize, C1, C2, param.shareLocation,
         param.varianceEncodedInTarget, param.backgroundLabelId, numPriors, param.numClasses, param.topK, param.keepTopK,
         param.confidenceThreshold, param.nmsThreshold, param.codeType, mType, locData, priorData, mType, confData,
-        keepCount, topDetections, workspace, param.isNormalized, param.confSigmoid, mScoreBits);
+        keepCount, topDetections, workspace, param.isNormalized, param.confSigmoid, mScoreBits, param.isBatchAgnostic);
     return status;
 }
 
@@ -258,7 +258,7 @@ int32_t DetectionOutputDynamic::enqueue(const PluginTensorDesc* inputDesc, const
     pluginStatus_t status = detectionInference(stream, inputDesc[0].dims.d[0], C1, C2, param.shareLocation,
         param.varianceEncodedInTarget, param.backgroundLabelId, numPriors, param.numClasses, param.topK, param.keepTopK,
         param.confidenceThreshold, param.nmsThreshold, param.codeType, mType, locData, priorData, mType, confData,
-        keepCount, topDetections, workspace, param.isNormalized, param.confSigmoid, mScoreBits);
+        keepCount, topDetections, workspace, param.isNormalized, param.confSigmoid, mScoreBits, false);
     return status;
 }
 
@@ -575,6 +575,7 @@ NMSBasePluginCreator::NMSBasePluginCreator()
     mPluginAttributes.emplace_back(PluginField("isNormalized", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("codeType", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("scoreBits", nullptr, PluginFieldType::kINT32, 1));
+    mPluginAttributes.emplace_back(PluginField("isBatchAgnostic", nullptr, PluginFieldType::kINT32, 1));
     mFC.nbFields = mPluginAttributes.size();
     mFC.fields = mPluginAttributes.data();
 }
@@ -691,6 +692,11 @@ IPluginV2Ext* NMSPluginCreator::createPlugin(const char* name, const PluginField
         {
             ASSERT(fields[i].type == PluginFieldType::kINT32);
             mScoreBits = *(static_cast<const int32_t*>(fields[i].data));
+        }
+        else if (!strcmp(attrName, "isBatchAgnostic"))
+        {
+            ASSERT(fields[i].type == PluginFieldType::kINT32);
+            params.isBatchAgnostic = static_cast<int>(*(static_cast<const int*>(fields[i].data)));
         }
     }
 
