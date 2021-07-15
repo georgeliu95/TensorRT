@@ -71,8 +71,14 @@ def gather(self, data, indices):
 
 
 @gs.Graph.register()
-def slice(self, data, starts, ends, axes, steps):
-    return self.layer(op="Slice", inputs=[data, starts, ends, axes, steps], outputs=["slice_out"])[0]
+def slice(self, data, starts=None, ends=None, axes=None, steps=None):
+    inputs = []
+    for inp in [data, starts, ends, axes, steps]:
+        if inp is None:
+            break
+        inputs.append(inp)
+
+    return self.layer(op="Slice", inputs=inputs, outputs=["slice_out"])[0]
 
 
 @gs.Graph.register()
@@ -935,7 +941,7 @@ class TestFoldConstants(object):
         (("batch", 3, 5, "width"), [-2], [4], [1], [1], None), # Dynamic case
         (("batch", 3, 5, 7), [1], [4], [0], [2], [3, 7]), # Non-one steps case
         (("batch", 3, 5, 7), [4], [0], [0], [-1], [7, 5, 3]), # Negative steps case
-    ]) 
+    ])
     def test_shape_slice(self, shape, starts, ends, axes, steps, expected):
         inp = Variable("input", dtype=np.float32, shape=shape)
         graph = Graph(inputs=[inp])
@@ -950,6 +956,30 @@ class TestFoldConstants(object):
             assert np.all(graph.outputs[0].values == expected)
         else:
             assert isinstance(graph.outputs[0], Variable)
+
+
+    # In the single input case, we should derive starts/ends/axes/steps from the attributes.
+    def test_shape_slice_single_input(self):
+        inp = Variable("input", dtype=np.int64, shape=(5, 6, 3, 2))
+        graph = Graph(inputs=[inp])
+
+        inp_shape = graph.shape(inp)
+        graph.outputs = [graph.slice(inp_shape)]
+
+        slice_node = graph.outputs[0].inputs[0]
+
+        slice_node.attrs = {
+            "axes": [0],
+            "starts": [1],
+            "ends": [3],
+            "steps": [2],
+        }
+
+        graph.fold_constants()
+
+        assert isinstance(graph.outputs[0], Constant)
+        assert np.all(graph.outputs[0].values == inp.shape[1:3:2])
+
 
 
     def test_with_nested_graph(self):

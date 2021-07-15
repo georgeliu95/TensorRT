@@ -550,7 +550,17 @@ class Graph(object):
             return inp
 
 
-        def handle_shape(tensor):
+        def get_scalar_value(tensor): 
+            """
+            Gets the scalar value of a tensor with a single item
+            """
+            if not tensor.shape:
+                return tensor.values
+            else:
+                return list(tensor.values)[0]
+
+
+        def fold_shape(tensor):
             inp = get_input(get_producer(tensor, "Shape"))
             if inp is None:
                 return None
@@ -560,7 +570,7 @@ class Graph(object):
             return np.array(inp.shape, dtype=np.int64)
 
 
-        def handle_shape_gather(tensor):
+        def fold_shape_gather(tensor):
             gather = get_producer(tensor, "Gather")
             if gather is None:
                 return None
@@ -588,33 +598,37 @@ class Graph(object):
             return np.array(shape, dtype=np.int64)
 
 
-        def handle_shape_slice(tensor):
+        def fold_shape_slice(tensor):
             slice = get_producer(tensor, "Slice")
             if slice is None:
                 return None
 
             data = slice.inputs[0]
-            starts, ends = slice.inputs[1:3]
+
+            if len(slice.inputs) >= 3:
+                starts, ends = slice.inputs[1:3]
+                if any(not isinstance(t, Constant) for t in [starts, ends]):
+                    return None
+                starts, ends = get_scalar_value(starts), get_scalar_value(ends)
+            elif "starts" in slice.attrs and "ends" in slice.attrs:
+                starts, ends = slice.attrs["starts"][0], slice.attrs["ends"][0]
+            else:
+                return None
 
             inp = get_input(get_producer(data, "Shape"))
             if inp is None or inp.shape is None:
                 return None
 
-            if any(not isinstance(t, Constant) for t in [starts, ends]):
-                return None
-
-            def get_value(tensor): # Gets the integer value of a tensor with a single item
-                if not tensor.shape:
-                    return tensor.values
-                else:
-                    return list(tensor.values)[0]
-
+            # For shape tensors, we can only slice on the 0th dimension.
             if len(slice.inputs) > 3:
                 axes = slice.inputs[3]
                 if not isinstance(axes, Constant):
                     return None
 
-                if get_value(axes) != 0:
+                if get_scalar_value(axes) != 0:
+                    return None
+            elif "axes" in slice.attrs:
+                if slice.attrs["axes"][0] != 0:
                     return None
 
             steps = 1
@@ -622,35 +636,35 @@ class Graph(object):
                 steps = slice.inputs[4]
                 if not isinstance(steps, Constant):
                     return None
+                steps = get_scalar_value(steps)
+            elif "steps" in slice.attrs:
+                steps = slice.attrs["steps"][0]
 
-                steps = get_value(steps)
-
-            shape = inp.shape[get_value(starts):get_value(ends):steps]
+            shape = inp.shape[starts:ends:steps]
             if misc.is_dynamic_shape(shape):
                 return None
             
             return np.array(shape, dtype=np.int64)
 
 
-        # Finds the static shape of a shape node output if possible, otherwise returns None.
-        def lower_shape(tensor):
-            SHAPE_FOLD_FUNCS = [handle_shape_gather, handle_shape_slice, handle_shape]
-            for fold_func in SHAPE_FOLD_FUNCS:
-                shape = fold_func(tensor)
-                if shape is not None:
-                    return shape
-
-
         if fold_shapes:
-            for tensor in clone_tensors.values():
-                shape_of = lower_shape(tensor)
+            # NOTE: The order of shape folding passes is important to maximize how much we fold (phase-ordering problem). 
+            SHAPE_FOLD_FUNCS = [fold_shape_gather, fold_shape_slice, fold_shape]
+            for shape_fold_func in SHAPE_FOLD_FUNCS:
+                try:
+                    for tensor in clone_tensors.values():
+                        shape_of = shape_fold_func(tensor)
 
-                if shape_of is not None:
-                    G_LOGGER.ultra_verbose("Folding shape tensor: {:} to: {:}".format(tensor.name, shape_of))
-                    graph_constants[tensor.name] = tensor.to_constant(shape_of)
-                    graph_constants[tensor.name].inputs.clear()
-
-            graph_constants = update_foldable_outputs(graph_constants)
+                        if shape_of is not None:
+                            G_LOGGER.ultra_verbose("Folding shape tensor: {:} to: {:}".format(tensor.name, shape_of))
+                            graph_constants[tensor.name] = tensor.to_constant(shape_of)
+                            graph_constants[tensor.name].inputs.clear()
+                except Exception as err:
+                    if not error_ok:
+                        raise err
+                    G_LOGGER.warning("'{:}' routine failed with:\n{:}".format(shape_fold_func.__name__, err))
+                else:
+                    graph_constants = update_foldable_outputs(graph_constants)
 
 
         def partition_and_infer(subgraph):
