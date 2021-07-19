@@ -1,14 +1,14 @@
-if __name__ == "__main__":
-    filepath = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.join(filepath, os.pardir)
-    sys.path.append(project_root)
-
 # std
 import os
 import sys
 import argparse
 
 from typing import List
+
+if __name__ == "__main__":
+    filepath = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.join(filepath, os.pardir)
+    sys.path.append(project_root)
 
 # huggingface
 from transformers import T5ForConditionalGeneration, T5Tokenizer, T5Config

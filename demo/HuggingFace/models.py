@@ -85,7 +85,7 @@ class Dims:
                             {'input_ids': (1, SEQUENCE_DIM)} => {'input_ids': (1, 512)}
         """
         result = {}
-        assert all(isinstance(v, int) for v in result.values())
+        assert all(isinstance(v, int) for v in subs.values())
         return result
 
     def get_torch_dynamic_axis_encoding(self) -> dict:
@@ -227,7 +227,11 @@ class TorchModel(NNModel):
         return load(self.fpath)
 
     def as_onnx_model(self, output_fpath: str, converter: ModelConverter = None):
-        """Converts the torch model into an onnx model."""
+        """
+        Converts the torch model into an onnx model.
+        Return:
+            (converter.onnx_class): Returns a converted instance of ONNXModel.
+        """
         onnx_model = None
         if converter:
             onnx_model = converter().torch_to_onnx(output_fpath, self.load_model())
@@ -239,7 +243,11 @@ class TorchModel(NNModel):
         return onnx_model
 
     def as_torch_model(self, output_fpath: str, converter: ModelConverter = None):
-        """Since the model is already a torch model, forces a save to specified folder and returns new TorchModel object from that file location."""
+        """
+        Since the model is already a torch model, forces a save to specified folder and returns new TorchModel object from that file location.
+        Return:
+            (converter.torch_class): Returns a converted instance of TorchModel.
+        """
         if self.is_loaded:
             save(self.model, output_fpath)
         else:
@@ -253,7 +261,7 @@ class TorchModel(NNModel):
 
         return torch_model
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         if self.model:
             debug("Freeing model from memory: {}".format(self.model))
             del self.model
@@ -276,7 +284,12 @@ class ONNXModel(NNModel):
         self.fpath = model
 
     def as_onnx_model(self, output_fpath: str, converter: ModelConverter = None):
-        """Since the model is already a torch model, forces a save to specified folder and returns new ONNXModel object from that file location."""
+        """
+        Since the model is already a torch model, forces a save to specified folder and returns new ONNXModel object from that file location.
+
+        Return:
+            (converter.onnx_class): Returns a converted instance of ONNXModel.
+        """
         copytree(self.fpath, output_fpath)
 
         onnx_model = None
@@ -288,7 +301,11 @@ class ONNXModel(NNModel):
         return onnx_model
 
     def as_torch_model(self, output_fpath: str, converter: ModelConverter = None):
-        """Converts the onnx model into an torch model."""
+        """
+        Converts the onnx model into an torch model.
+        Return:
+            (converter.torch_class): Returns a converted instance of TorchModel.
+        """
         torch_model = None
         if converter:
             torch_model = converter().onnx_to_torch(output_fpath, self.fpath)
@@ -297,7 +314,7 @@ class ONNXModel(NNModel):
 
         return torch_model
 
-    def cleanup(self):
+    def cleanup(self) -> None:
         debug("Removing saved ONNX model from location: {}".format(self.fpath))
         remove(self.fpath)
 
