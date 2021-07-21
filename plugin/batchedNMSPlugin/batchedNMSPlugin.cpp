@@ -29,6 +29,8 @@ using nvinfer1::plugin::BatchedNMSPlugin;
 using nvinfer1::plugin::BatchedNMSPluginCreator;
 using nvinfer1::plugin::NMSParameters;
 
+#define NVBUG_3321606_WAR 1
+
 namespace
 {
 const char* NMS_PLUGIN_VERSION{"1"};
@@ -431,8 +433,12 @@ void BatchedNMSDynamicPlugin::configurePlugin(
 
 bool BatchedNMSPlugin::supportsFormat(DataType type, PluginFormat format) const noexcept
 {
+#if NVBUG_3321606_WAR
+    return ((type == DataType::kFLOAT || type == DataType::kINT32) && format == PluginFormat::kLINEAR);
+#else
     return ((type == DataType::kHALF || type == DataType::kFLOAT || type == DataType::kINT32)
         && format == PluginFormat::kLINEAR);
+#endif // NVBUG_3321606_WAR
 }
 
 bool BatchedNMSDynamicPlugin::supportsFormatCombination(
