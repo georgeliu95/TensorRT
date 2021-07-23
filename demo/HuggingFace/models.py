@@ -3,7 +3,8 @@ File for containing ONNX model abstraction. Useful for generating models.
 """
 
 # std
-from os import remove
+import os
+
 from abc import ABCMeta, abstractmethod
 from typing import Union, Tuple
 from collections import OrderedDict
@@ -15,7 +16,7 @@ from torch import load, save
 from torch.nn import Module
 
 
-class ModelConverter:
+class ModelFileConverter:
     """Abstract class for converting one model format to another."""
 
     def __init__(self, onnx_class, torch_class):
@@ -30,7 +31,7 @@ class ModelConverter:
             output_fpath (str): File location of the generated ONNX file.
 
         Returns:
-            ONNXModel: Newly generated ONNXModel
+            ONNXModelFile: Newly generated ONNXModelFile
         """
         raise NotImplementedError(
             "Current model does not support exporting to ONNX model."
@@ -44,7 +45,7 @@ class ModelConverter:
             output_fpath (str): File location of the generated ONNX file.
 
         Returns:
-            TorchModel: Newly generated TorchModel
+            TorchModelFile: Newly generated TorchModelFile
         """
         raise NotImplementedError(
             "Current model does not support exporting to torch model."
@@ -110,7 +111,7 @@ class Dims:
         return dynamic_axes
 
 
-class NNModel(metaclass=ABCMeta):
+class NNModelFile(metaclass=ABCMeta):
     """
     Model abstraction. Allows for loading model as various formats.
     The class assumes models live on the disk in order to reduce complexity of model loading into memory.
@@ -118,7 +119,7 @@ class NNModel(metaclass=ABCMeta):
     code to parse or use in other libraries.
     """
 
-    def __init__(self, default_converter: ModelConverter = None):
+    def __init__(self, default_converter: ModelFileConverter = None):
         """
         Since torch functions often allow for models to either be from disk as fpath or from a loaded object,
         we provide a similar option here. Arguments can either be a path on disk or from model itself.
@@ -132,29 +133,35 @@ class NNModel(metaclass=ABCMeta):
             self.default_converter = NullConverter()
 
     @abstractmethod
-    def as_torch_model(self, output_fpath: str, converter: ModelConverter = None):
+    def as_torch_model(self, output_fpath: str, converter: ModelFileConverter = None, force_overwrite: bool = False):
         """
         Converts ONNX file into torch.Model which is written to disk.
         Uses provided converter to convert object or default_convert is used instead if available.
 
         Arg:
-            output_fpath (str): File location of the generated ONNX file.
+            output_fpath (str): File location of the generated torch file.
+            converter (ModelFileConverter): Class to convert current model instance into another.
+            force_overwrite (bool): If the file already exists, tell whether or not to overwrite.
+                                    Since torch models folders, can potentially erase entire folders.
 
         Returns:
-            TorchModel: Newly generated TorchModel
+            TorchModelFile: Newly generated TorchModelFile
         """
 
     @abstractmethod
-    def as_onnx_model(self, output_fpath: str, converter: ModelConverter = None):
+    def as_onnx_model(self, output_fpath: str, converter: ModelFileConverter = None, force_overwrite: bool= False):
         """
         Converts current model into an ONNX model.
         Uses provided converter to convert object or default_convert is used instead if available.
 
         Args:
             output_fpath (str): File location of the generated ONNX file.
+            converter (ModelFileConverter): Class to convert current model instance into another.
+            force_overwrite (bool): If the file already exists, tell whether or not to overwrite.
+                                    Since torch models folders, can potentially erase entire folders.
 
         Returns:
-            ONNXModel: Newly generated ONNXModel
+            ONNXModelFile: Newly generated ONNXModelFile
         """
 
     @abstractmethod
@@ -186,10 +193,10 @@ class NNModel(metaclass=ABCMeta):
         """
 
 
-class TorchModel(NNModel):
+class TorchModelFile(NNModelFile):
 
     def __init__(
-        self, model: Union[str, Module], default_converter: ModelConverter = None
+        self, model: Union[str, Module], default_converter: ModelFileConverter = None
     ):
         """
         Since torch functions often allow for models to either be from disk as fpath or from a loaded object,
@@ -226,40 +233,46 @@ class TorchModel(NNModel):
 
         return load(self.fpath)
 
-    def as_onnx_model(self, output_fpath: str, converter: ModelConverter = None):
+    def as_onnx_model(self, output_fpath: str, converter: ModelFileConverter = None, force_overwrite: bool = False):
         """
         Converts the torch model into an onnx model.
-        Return:
-            (converter.onnx_class): Returns a converted instance of ONNXModel.
-        """
-        onnx_model = None
-        if converter:
-            onnx_model = converter().torch_to_onnx(output_fpath, self.load_model())
-        else:
-            onnx_model = self.default_converter.torch_to_onnx(
-                output_fpath, self.load_model()
-            )
 
-        return onnx_model
-
-    def as_torch_model(self, output_fpath: str, converter: ModelConverter = None):
-        """
-        Since the model is already a torch model, forces a save to specified folder and returns new TorchModel object from that file location.
+        Args:
+            output_fpath (str): File location of the generated ONNX file.
+            converter (ModelFileConverter): Class to convert current model instance into another.
+            force_overwrite (bool): If the file already exists, tell whether or not to overwrite.
+                                    Since torch models folders, can potentially erase entire folders.
         Return:
-            (converter.torch_class): Returns a converted instance of TorchModel.
+            (converter.onnx_class): Returns a converted instance of ONNXModelFile.
         """
+        converter = self.default_converter if converter is None else converter()
+        if not force_overwrite and os.path.exists(output_fpath):
+            return converter.onnx_class(output_fpath)
+
+        return converter.torch_to_onnx(output_fpath, self.load_model())
+
+    def as_torch_model(self, output_fpath: str, converter: ModelFileConverter = None, force_overwrite: bool = False):
+        """
+        Since the model is already a torch model, forces a save to specified folder and returns new TorchModelFile object from that file location.
+
+        Args:
+            output_fpath (str): File location of the generated ONNX file.
+            converter (ModelFileConverter): Class to convert current model instance into another.
+            force_overwrite (bool): If the file already exists, tell whether or not to overwrite.
+                                    Since torch models folders, can potentially erase entire folders.
+        Return:
+            (converter.torch_class): Returns a converted instance of TorchModelFile.
+        """
+        converter = self.default_converter if converter is None else converter()
+        if not force_overwrite and os.path.exists(output_fpath):
+            return converter.torch_class(output_fpath)
+
         if self.is_loaded:
             save(self.model, output_fpath)
         else:
             copytree(self.fpath, output_fpath)
 
-        torch_model = None
-        if converter:
-            torch_model = converter().torch_class(output_fpath)
-        else:
-            torch_model = self.default_converter.torch_class(output_fpath)
-
-        return torch_model
+        return converter.torch_class(output_fpath)
 
     def cleanup(self) -> None:
         if self.model:
@@ -271,9 +284,9 @@ class TorchModel(NNModel):
             rmtree(self.fpath)
 
 
-class ONNXModel(NNModel):
+class ONNXModelFile(NNModelFile):
 
-    def __init__(self, model: str, default_converter: ModelConverter = None):
+    def __init__(self, model: str, default_converter: ModelFileConverter = None):
         """
         Keeps track of ONNX model file. Does not support loading into memory. Only reads and writes to disk.
 
@@ -283,42 +296,49 @@ class ONNXModel(NNModel):
         super().__init__(default_converter)
         self.fpath = model
 
-    def as_onnx_model(self, output_fpath: str, converter: ModelConverter = None):
+    def as_onnx_model(self, output_fpath: str, converter: ModelFileConverter = None, force_overwrite: bool = False):
         """
-        Since the model is already a torch model, forces a save to specified folder and returns new ONNXModel object from that file location.
+        Since the model is already a torch model, forces a save to specified folder and returns new ONNXModelFile object from that file location.
+
+        Args:
+            output_fpath (str): File location of the generated ONNX file.
+            converter (ModelFileConverter): Class to convert current model instance into another.
+            force_overwrite (bool): If the file already exists, tell whether or not to overwrite.
 
         Return:
-            (converter.onnx_class): Returns a converted instance of ONNXModel.
+            (converter.onnx_class): Returns a converted instance of ONNXModelFile.
         """
-        copytree(self.fpath, output_fpath)
-
-        onnx_model = None
-        if converter:
-            onnx_model = converter().onnx_class(output_fpath)
+        converter = self.default_converter if converter is None else converter()
+        if not force_overwrite and os.path.exists(output_fpath):
+            return converter.onnx_class(output_fpath)
         else:
-            onnx_model = self.default_converter.onnx_class(output_fpath)
+            copytree(self.fpath, output_fpath)
 
-        return onnx_model
+        return converter.onnx_class(output_fpath)
 
-    def as_torch_model(self, output_fpath: str, converter: ModelConverter = None):
+    def as_torch_model(self, output_fpath: str, converter: ModelFileConverter = None, force_overwrite: bool = False):
         """
         Converts the onnx model into an torch model.
-        Return:
-            (converter.torch_class): Returns a converted instance of TorchModel.
-        """
-        torch_model = None
-        if converter:
-            torch_model = converter().onnx_to_torch(output_fpath, self.fpath)
-        else:
-            torch_model = self.default_converter.onnx_to_torch(output_fpath, self.fpath)
 
-        return torch_model
+        Args:
+            output_fpath (str): File location of the generated ONNX file.
+            converter (ModelFileConverter): Class to convert current model instance into another.
+            force_overwrite (bool): If the file already exists, tell whether or not to overwrite.
+                                    Since torch models folders, can potentially erase entire folders.
+        Return:
+            (converter.torch_class): Returns a converted instance of TorchModelFile.
+        """
+        converter = self.default_converter if converter is None else converter()
+        if not force_overwrite and os.path.exists(output_fpath):
+            return converter.torch_class(output_fpath)
+
+        return converter.onnx_to_torch(output_fpath, self.fpath)
 
     def cleanup(self) -> None:
         debug("Removing saved ONNX model from location: {}".format(self.fpath))
-        remove(self.fpath)
+        os.remove(self.fpath)
 
 
-class NullConverter(ModelConverter):
+class NullConverter(ModelFileConverter):
     def __init__(self):
-        super().__init__(ONNXModel, TorchModel)
+        super().__init__(ONNXModelFile, TorchModelFile)

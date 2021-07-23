@@ -7,14 +7,24 @@ from collections import OrderedDict
 
 # torch
 import torch
+from transformers.utils.dummy_pt_objects import (
+    PreTrainedModel,
+)
 
-from models import TorchModel, ONNXModel, ModelConverter, Dims
+from models import TorchModelFile, ONNXModelFile, ModelFileConverter, Dims
 from torch.nn import Module
 
+# huggingface
+from transformers.generation_utils import GenerationMixin
+from transformers.modeling_outputs import Seq2SeqLMOutput
 
-class T5TorchDecoder(TorchModel):
-    class TorchModule(Module):
-        """Decoder with lm-head attached."""
+
+class T5DecoderTorchFile(TorchModelFile):
+    class TorchModule(Module, GenerationMixin):
+        """
+        A simplied definition of T5 Decoder without support for loss.
+        Decoder with lm-head attached.
+        """
 
         def __init__(self, decoder, lm_head, config):
             super().__init__()
@@ -22,16 +32,30 @@ class T5TorchDecoder(TorchModel):
             self.lm_head = lm_head
             self.config = config
 
-        def forward(self, input_ids, encoder_hidden_states):
-            # self.config.d_model ** -0.5 is most probably for normalization
-            # it was in the original code from ONNX model repo.
-            decoder_output = self.decoder(
-                input_ids=input_ids, encoder_hidden_states=encoder_hidden_states
-            )[0] * (self.config.d_model ** -0.5)
-            return self.lm_head(decoder_output)
+        def prepare_inputs_for_generation(self, input_ids, **kwargs):
+            return {
+                "input_ids": input_ids,
+                "encoder_hidden_states": kwargs["encoder_hidden_states"],
+            }
+
+        def forward(self, input_ids, encoder_hidden_states, **kwargs):
+            decoder_outputs = self.decoder(
+                input_ids=input_ids,
+                encoder_hidden_states=encoder_hidden_states,
+                **kwargs
+            )
+
+            # self.config.d_model ** -0.5 for rescaling output on vocab.
+            # as seen in https://huggingface.co/transformers/_modules/transformers/models/t5/modeling_t5.html#T5ForConditionalGeneration
+            sequence_output = decoder_outputs[0] * self.config.d_model ** -0.5
+            logits = self.lm_head(sequence_output)
+            if not kwargs.get("return_dict", False):
+                return (logits,) + decoder_outputs[1:]
+
+            return Seq2SeqLMOutput(logits=logits)
 
     def __init__(self, model):
-        super().__init__(model, T5DecoderConverter)
+        TorchModelFile.__init__(self, model, T5DecoderConverter)
 
     @staticmethod
     def get_input_dims():
@@ -50,10 +74,10 @@ class T5TorchDecoder(TorchModel):
         return Dims(OrderedDict({"hidden_states": (Dims.BATCH, Dims.SEQUENCE)}))
 
 
-class T5TorchEncoder(TorchModel):
-    class TorchModule(Module):
-        """Creation of a class to output only the last hidden state from the encoder."""
+class T5EncoderTorchFile(TorchModelFile, GenerationMixin, PreTrainedModel):
+    """Creation of a class to output only the last hidden state from the encoder."""
 
+    class TorchModule(Module):
         def __init__(self, encoder):
             super().__init__()
             self.encoder = encoder
@@ -61,8 +85,11 @@ class T5TorchEncoder(TorchModel):
         def forward(self, *input, **kwargs):
             return self.encoder(*input, **kwargs)[0]
 
+        def __call__(self, *args, **kwargs):
+            return self.forward(*args, **kwargs)
+
     def __init__(self, model):
-        super().__init__(model, T5EncoderConverter)
+        TorchModelFile.__init__(self, model, T5EncoderConverter)
 
     @staticmethod
     def get_input_dims():
@@ -74,7 +101,7 @@ class T5TorchEncoder(TorchModel):
         return Dims(OrderedDict({"hidden_states": (Dims.BATCH, Dims.SEQUENCE)}))
 
 
-class T5ONNXEncoder(ONNXModel):
+class T5EncoderONNXFile(ONNXModelFile):
     def __init__(self, model):
         super().__init__(model, T5EncoderConverter)
 
@@ -95,7 +122,7 @@ class T5ONNXEncoder(ONNXModel):
         return Dims(OrderedDict({"hidden_states": (Dims.BATCH, Dims.SEQUENCE)}))
 
 
-class T5ONNXDecoder(ONNXModel):
+class T5DecoderONNXFile(ONNXModelFile):
     def __init__(self, model):
         super().__init__(model, T5DecoderConverter)
 
@@ -110,9 +137,9 @@ class T5ONNXDecoder(ONNXModel):
 
 
 # Converters
-class T5DecoderConverter(ModelConverter):
+class T5DecoderConverter(ModelFileConverter):
     def __init__(self):
-        super().__init__(T5TorchDecoder, T5ONNXDecoder)
+        super().__init__(T5DecoderTorchFile, T5DecoderONNXFile)
 
     def torch_to_onnx(self, output_fpath: str, model: Module):
         """
@@ -124,18 +151,19 @@ class T5DecoderConverter(ModelConverter):
             model (torch.Model): Model loaded torch class
 
         Returns:
-            T5ONNXDecoder: ONNX decoder object.
+            T5DecoderONNXFile: ONNX decoder object.
         """
 
         input_ids = torch.tensor([[42] * 10])
-        simplified_encoder = T5TorchEncoder.TorchModule(model.encoder)
-
+        # Exporting the decoder requires a basic instance of the encoder
+        # Create on temporarily
+        simplified_encoder = T5EncoderTorchFile.TorchModule(model.encoder)
         # Exports to ONNX
-        decoder_with_lm_head = T5TorchDecoder.TorchModule(
+        decoder_with_lm_head = T5DecoderTorchFile.TorchModule(
             model.decoder, model.lm_head, model.config
         )
-        inputs = T5TorchDecoder.get_input_dims()
-        outputs = T5TorchDecoder.get_output_dims()
+        inputs = T5DecoderTorchFile.get_input_dims()
+        outputs = T5DecoderTorchFile.get_output_dims()
         torch.onnx.export(
             decoder_with_lm_head,
             (input_ids, simplified_encoder(input_ids)),
@@ -151,12 +179,12 @@ class T5DecoderConverter(ModelConverter):
             training=False,
         )
 
-        return T5ONNXDecoder(output_fpath)
+        return T5DecoderONNXFile(output_fpath)
 
 
-class T5EncoderConverter(ModelConverter):
+class T5EncoderConverter(ModelFileConverter):
     def __init__(self):
-        super().__init__(T5TorchEncoder, T5ONNXEncoder)
+        super().__init__(T5EncoderTorchFile, T5EncoderONNXFile)
 
     def torch_to_onnx(self, output_fpath: str, model: Module):
         """
@@ -171,9 +199,9 @@ class T5EncoderConverter(ModelConverter):
             Tuple[str]: Names of generated models
         """
         input_ids = torch.tensor([[42] * 10])
-        simplified_encoder = T5TorchEncoder.TorchModule(model.encoder)
-        inputs = T5TorchEncoder.get_input_dims()
-        outputs = T5TorchEncoder.get_output_dims()
+        simplified_encoder = T5EncoderTorchFile.TorchModule(model.encoder)
+        inputs = T5EncoderTorchFile.get_input_dims()
+        outputs = T5EncoderTorchFile.get_output_dims()
         encoder_hidden_states = Dims(
             OrderedDict({"encoder_hidden_states": (Dims.BATCH, Dims.SEQUENCE)})
         )
@@ -195,4 +223,4 @@ class T5EncoderConverter(ModelConverter):
             training=False,
         )
 
-        return T5ONNXEncoder(output_fpath)
+        return T5EncoderONNXFile(output_fpath)

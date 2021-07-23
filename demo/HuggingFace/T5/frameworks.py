@@ -5,13 +5,21 @@ import argparse
 
 from typing import List
 
+
 if __name__ == "__main__":
     filepath = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.join(filepath, os.pardir)
     sys.path.append(project_root)
 
 # huggingface
-from transformers import T5ForConditionalGeneration, T5Tokenizer, T5Config
+from transformers import (
+    T5ForConditionalGeneration,
+    T5Tokenizer,
+    T5Config,
+)
+
+# torch
+import torch
 
 # helpers
 from interface import FrameworkCommand
@@ -23,14 +31,19 @@ from networks import (
     NNFolderWorkspace,
     TimingProfile,
 )
-from T5.export import T5TorchEncoder, T5TorchDecoder
+from T5.export import T5EncoderTorchFile, T5DecoderTorchFile
 from T5.T5ModelConfig import T5ModelTRTConfig
 from utils import confirm_folder_delete, measure_frameworks_inference_speed
 
 
 TARGET_MODELS = ["t5-small", "t5-base", "t5-large"]
 NUMBER_OF_LAYERS = {TARGET_MODELS[0]: 6, TARGET_MODELS[1]: 12, TARGET_MODELS[2]: 24}
-NETWORK_INPUT_DEFAULT = ["mnli premise: I hate pigeons. hypothesis: My feelings towards pigeons are filled with animosity."]
+NETWORK_INPUT_DEFAULT = [
+    "premise: I hate pigeons. hypothesis: My feelings towards pigeons are filled with animosity.",
+    "translate English to German: That is good.",
+    "cola sentence: All your base are belong to us.",
+    "premise: If I fall sleep then I am going to wake up in 8 hours. hypothesis: I fell asleep but did not wake up in 8 hours.",
+]
 
 
 class T5FHuggingFace(FrameworkCommand):
@@ -95,10 +108,14 @@ class T5FHuggingFace(FrameworkCommand):
         encoder_onnx_model_fpath = root_onnx_model_fpath + "-encoder.onnx"
         decoder_onnx_model_fpath = root_onnx_model_fpath + "-decoder-with-lm-head.onnx"
 
-        t5_encoder = T5TorchEncoder(model)
-        t5_decoder = T5TorchDecoder(model)
-        self.onnx_t5_encoder = t5_encoder.as_onnx_model(encoder_onnx_model_fpath)
-        self.onnx_t5_decoder = t5_decoder.as_onnx_model(decoder_onnx_model_fpath)
+        t5_encoder = T5EncoderTorchFile(model)
+        t5_decoder = T5DecoderTorchFile(model)
+        self.onnx_t5_encoder = t5_encoder.as_onnx_model(
+            encoder_onnx_model_fpath, force_overwrite=False
+        )
+        self.onnx_t5_decoder = t5_decoder.as_onnx_model(
+            decoder_onnx_model_fpath, force_overwrite=False
+        )
 
         onnx_fpaths = (self.onnx_t5_decoder.fpath, self.onnx_t5_encoder.fpath)
         torch_fpaths = (pytorch_model_dir,)
@@ -143,7 +160,6 @@ class T5FHuggingFace(FrameworkCommand):
         full_variant_name = "t5-{}".format(metadata.variant)
         tokenizer = T5Tokenizer.from_pretrained(full_variant_name)
         input_ids = tokenizer(inference_input, return_tensors="pt").input_ids
-        decoder_input_ids = tokenizer("</s>", return_tensors="pt").input_ids
 
         # By default, huggingface model structure is one giant file.
         t5_torch_fpath = network_fpaths.torch[0]
@@ -151,26 +167,45 @@ class T5FHuggingFace(FrameworkCommand):
             use_cache=metadata.other.kv_cache,
             num_layers=NUMBER_OF_LAYERS[full_variant_name],
         )
-        encoder_model = T5ForConditionalGeneration(config).from_pretrained(
-            t5_torch_fpath
-        )
+        t5_model = T5ForConditionalGeneration(config).from_pretrained(t5_torch_fpath)
 
-        stmt = lambda: encoder_model(
-            input_ids=input_ids, decoder_input_ids=decoder_input_ids
+        t5_torch_encoder = T5EncoderTorchFile.TorchModule(t5_model.encoder)
+        t5_torch_decoder = T5DecoderTorchFile.TorchModule(
+            t5_model.decoder, t5_model.lm_head, t5_model.config
         )
+        encoder_stmt = lambda: t5_torch_encoder(input_ids=input_ids)
 
         fastest_time = measure_frameworks_inference_speed(
-            stmt, number=timing_profile.number, iterations=timing_profile.iterations
+            encoder_stmt,
+            number=timing_profile.number,
+            iterations=timing_profile.iterations,
         )
 
         # Finally get the result
-        tensor_output = encoder_model(
-            input_ids=input_ids, decoder_input_ids=decoder_input_ids
-        ).logits
+        encoder_last_hidden_state = t5_torch_encoder(input_ids=input_ids)
+
+        # Preprocess for semantic output
+        # Set beams to one because of greedy algorithm
+        num_beams = 1
+        decoder_input_ids = torch.full(
+            (num_beams, 1), tokenizer.convert_tokens_to_ids(tokenizer.pad_token)
+        )
+        encoder_last_hidden_state = torch.cat([encoder_last_hidden_state] * num_beams)
+        decoder_output_greedy = t5_torch_decoder.greedy_search(
+            input_ids=decoder_input_ids, encoder_hidden_states=encoder_last_hidden_state
+        ).detach()
+
+        # Remove the padding and end tokens.
+        semantic_outputs = tokenizer.convert_ids_to_tokens(
+            decoder_output_greedy.tolist()[0]
+        )[1:-1]
+        remove_underscore = "".join(
+            [s.replace("\u2581", " ") for s in semantic_outputs]
+        )
 
         return NetworkResult(
-            output_tensor=tensor_output.detach().numpy(),
-            semantic_output="xx",
+            output_tensor=encoder_last_hidden_state,
+            semantic_output=remove_underscore.strip(),
             median_runtime=fastest_time,
             models=network_fpaths,
         )
@@ -203,8 +238,6 @@ class T5FHuggingFace(FrameworkCommand):
         finally:
             self.cleanup(workspace, save_onnx_model, save_pytorch_model)
 
-        print(results)
-
         return results
 
     def add_args(self, parser) -> NetworkMetadata:
@@ -236,7 +269,7 @@ class T5FHuggingFace(FrameworkCommand):
         parser.add_argument(
             "--working-dir",
             help="Location of where to save the model if --save-* is enabled.",
-            required=True
+            required=True,
         )
 
     def args_to_network_metadata(self, args: argparse.Namespace) -> NetworkMetadata:
@@ -251,4 +284,5 @@ class T5FHuggingFace(FrameworkCommand):
 RUN_CMD = T5FHuggingFace()
 
 if __name__ == "__main__":
-    RUN_CMD()
+    result = RUN_CMD()
+    print("Results: {}".format(result))
