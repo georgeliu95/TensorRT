@@ -27,12 +27,28 @@ class NetworkCommand(metaclass=ABCMeta):
             logging.basicConfig(level=logging.DEBUG)
 
         self.metadata = self.args_to_network_metadata(self.args)
+        self.check_network_metadata_is_supported(self.metadata)
 
     def add_args(self, parser) -> argparse.ArgumentParser:
         general_group = parser.add_argument_group("general")
         general_group.add_argument(
             "--verbose", help="Display verbose logs.", action="store_true"
         )
+
+    def check_network_metadata_is_supported(self, metadata: NetworkMetadata) -> None:
+        """
+        Checks if current command support the given metadata
+        Args:
+            metadata (NetworkMetadata): NetworkMetadata to check if input is supported.
+
+        Throws:
+            NotImplementedError: If the given metadata is not a valid configuration for this network.
+
+        Returns:
+            None
+        """
+        if metadata not in self.config.variants:
+            raise NotImplementedError("The following network config is not yet supported by our scripts: {}".format(metadata))
 
     @abstractmethod
     def args_to_network_metadata(self, args) -> NetworkMetadata:
@@ -56,7 +72,7 @@ class FrameworkCommand(NetworkCommand):
 
     def __call__(self):
         super().__call__()
-        self.run_framework(
+        return self.run_framework(
             self.metadata,
             self.inference_input,
             self.args.working_dir,

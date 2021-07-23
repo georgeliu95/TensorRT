@@ -19,7 +19,7 @@ FILENAME_VALID_CHARS = "-~_.() {}{}".format(string.ascii_letters, string.digits)
 # TODO: Used by testing framework, do not remove yet
 NNDTResult = namedtuple("NNDTResult", ["polygraphy", "trtexec", "frameworks"])
 
-"""NetworkResult(output_tensor: np.array, semantic_output: np.array, median_runtime: float, model_location: [str])"""
+"""NetworkResult(output_tensor: np.array, semantic_output: np.array, median_runtime: float, models: [str])"""
 NetworkResult = namedtuple(
     "NetworkResult", ["output_tensor", "semantic_output", "median_runtime", "models"]
 )
@@ -44,18 +44,18 @@ NetworkModels = namedtuple("NetworkModels", ["torch", "onnx"])
 class NNFolderWorkspace:
     """For keeping track of workspace folder and for cleaning them up."""
 
-    def __init__(self, network_name, metadata, working_directory):
+    def __init__(self, network_name: str, metadata: NetworkMetadata, working_directory: str):
         self.rootdir = working_directory
         self.metadata = metadata
         self.network_name = network_name
         self.dpath = os.path.join(self.rootdir, self.network_name)
         os.makedirs(self.dpath, exist_ok=True)
 
-    def get_path(self):
+    def get_path(self) -> str:
         dpath = os.path.join(self.rootdir, self.network_name)
         return dpath
 
-    def cleanup(self, force_remove=False):
+    def cleanup(self, force_remove: bool = False) -> None:
         fpath = self.get_path()
         if force_remove:
             return shutil.rmtree(fpath)
