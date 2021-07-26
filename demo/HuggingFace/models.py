@@ -53,6 +53,7 @@ class ModelFileConverter:
 
 
 class Dims:
+    """Helper class for interfacing dimension constructs with Polygraphy and PyTorch."""
     BATCH = "BATCH_DIM"
     SEQUENCE = "SEQUENCE_DIM"
 
@@ -298,7 +299,7 @@ class ONNXModelFile(NNModelFile):
 
     def as_onnx_model(self, output_fpath: str, converter: ModelFileConverter = None, force_overwrite: bool = False):
         """
-        Since the model is already a torch model, forces a save to specified folder and returns new ONNXModelFile object from that file location.
+        Since the model is already a onnx model, forces a save to specified folder and returns new ONNXModelFile object from that file location.
 
         Args:
             output_fpath (str): File location of the generated ONNX file.

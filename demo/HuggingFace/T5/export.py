@@ -55,7 +55,7 @@ class T5DecoderTorchFile(TorchModelFile):
             return Seq2SeqLMOutput(logits=logits)
 
     def __init__(self, model):
-        TorchModelFile.__init__(self, model, T5DecoderConverter)
+        super().__init__(model, T5DecoderConverter)
 
     @staticmethod
     def get_input_dims():
@@ -74,10 +74,10 @@ class T5DecoderTorchFile(TorchModelFile):
         return Dims(OrderedDict({"hidden_states": (Dims.BATCH, Dims.SEQUENCE)}))
 
 
-class T5EncoderTorchFile(TorchModelFile, GenerationMixin, PreTrainedModel):
+class T5EncoderTorchFile(TorchModelFile):
     """Creation of a class to output only the last hidden state from the encoder."""
 
-    class TorchModule(Module):
+    class TorchModule(Module, GenerationMixin):
         def __init__(self, encoder):
             super().__init__()
             self.encoder = encoder
@@ -89,7 +89,7 @@ class T5EncoderTorchFile(TorchModelFile, GenerationMixin, PreTrainedModel):
             return self.forward(*args, **kwargs)
 
     def __init__(self, model):
-        TorchModelFile.__init__(self, model, T5EncoderConverter)
+        super().__init__(model, T5EncoderConverter)
 
     @staticmethod
     def get_input_dims():
@@ -156,7 +156,7 @@ class T5DecoderConverter(ModelFileConverter):
 
         input_ids = torch.tensor([[42] * 10])
         # Exporting the decoder requires a basic instance of the encoder
-        # Create on temporarily
+        # Create one temporarily
         simplified_encoder = T5EncoderTorchFile.TorchModule(model.encoder)
         # Exports to ONNX
         decoder_with_lm_head = T5DecoderTorchFile.TorchModule(
