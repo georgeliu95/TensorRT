@@ -15,6 +15,8 @@ from logging import debug
 from torch import load, save
 from torch.nn import Module
 
+# TRT-HuggingFace
+from networks import NetworkMetadata
 
 class ModelFileConverter:
     """Abstract class for converting one model format to another."""
@@ -23,7 +25,7 @@ class ModelFileConverter:
         self.onnx_class = onnx_class
         self.torch_class = torch_class
 
-    def torch_to_onnx(self, output_fpath: str, model: Module):
+    def torch_to_onnx(self, output_fpath: str, model: Module, network_metadata: NetworkMetadata):
         """
         Converts a torch.Model into an ONNX model on disk specified at output_fpath.
 
@@ -37,7 +39,7 @@ class ModelFileConverter:
             "Current model does not support exporting to ONNX model."
         )
 
-    def onnx_to_torch(self, output_fpath: str, input_fpath: str):
+    def onnx_to_torch(self, output_fpath: str, input_fpath: str, network_metadata: NetworkMetadata):
         """
         Converts ONNX file into torch.Model which is written to disk.
 
@@ -120,7 +122,7 @@ class NNModelFile(metaclass=ABCMeta):
     code to parse or use in other libraries.
     """
 
-    def __init__(self, default_converter: ModelFileConverter = None):
+    def __init__(self, default_converter: ModelFileConverter = None, network_metadata: NetworkMetadata = None):
         """
         Since torch functions often allow for models to either be from disk as fpath or from a loaded object,
         we provide a similar option here. Arguments can either be a path on disk or from model itself.
@@ -132,6 +134,8 @@ class NNModelFile(metaclass=ABCMeta):
             self.default_converter = default_converter()
         else:
             self.default_converter = NullConverter()
+
+        self.network_metadata = network_metadata
 
     @abstractmethod
     def as_torch_model(self, output_fpath: str, converter: ModelFileConverter = None, force_overwrite: bool = False):
@@ -169,35 +173,12 @@ class NNModelFile(metaclass=ABCMeta):
     def cleanup(self) -> None:
         """Cleans up any saved models or loaded models from memory."""
 
-    @staticmethod
-    @abstractmethod
-    def get_input_dims(self) -> Dims:
-        """
-        Returns the required input id format used by the model
-        Arg:
-            None
-
-        Return:
-            Dims: obtains the dimensions from input.
-        """
-
-    @staticmethod
-    @abstractmethod
-    def get_output_dims(self) -> Dims:
-        """
-        Returns the required output id format, used by the model.
-        Arg:
-            None
-
-        Return:
-            Dims: the dimensions from output.
-        """
-
 
 class TorchModelFile(NNModelFile):
 
     def __init__(
-        self, model: Union[str, Module], default_converter: ModelFileConverter = None
+        self, model: Union[str, Module], default_converter: ModelFileConverter = None,
+              network_metadata: NetworkMetadata = None,
     ):
         """
         Since torch functions often allow for models to either be from disk as fpath or from a loaded object,
@@ -206,7 +187,7 @@ class TorchModelFile(NNModelFile):
         Args:
             model (Union[str, torch.Model]): Location of the model as fpath OR loaded torch.Model object.
         """
-        super().__init__(default_converter)
+        super().__init__(default_converter, network_metadata)
 
         if isinstance(model, Module):
             self.is_loaded = True
@@ -248,9 +229,9 @@ class TorchModelFile(NNModelFile):
         """
         converter = self.default_converter if converter is None else converter()
         if not force_overwrite and os.path.exists(output_fpath):
-            return converter.onnx_class(output_fpath)
+            return converter.onnx_class(output_fpath, self.network_metadata)
 
-        return converter.torch_to_onnx(output_fpath, self.load_model())
+        return converter.torch_to_onnx(output_fpath, self.load_model(), self.network_metadata)
 
     def as_torch_model(self, output_fpath: str, converter: ModelFileConverter = None, force_overwrite: bool = False):
         """
@@ -266,14 +247,14 @@ class TorchModelFile(NNModelFile):
         """
         converter = self.default_converter if converter is None else converter()
         if not force_overwrite and os.path.exists(output_fpath):
-            return converter.torch_class(output_fpath)
+            return converter.torch_class(output_fpath, self.network_metadata)
 
         if self.is_loaded:
             save(self.model, output_fpath)
         else:
             copytree(self.fpath, output_fpath)
 
-        return converter.torch_class(output_fpath)
+        return converter.torch_class(output_fpath, self.network_metadata)
 
     def cleanup(self) -> None:
         if self.model:
@@ -287,14 +268,14 @@ class TorchModelFile(NNModelFile):
 
 class ONNXModelFile(NNModelFile):
 
-    def __init__(self, model: str, default_converter: ModelFileConverter = None):
+    def __init__(self, model: str, default_converter: ModelFileConverter = None, network_metadata: NetworkMetadata = None):
         """
         Keeps track of ONNX model file. Does not support loading into memory. Only reads and writes to disk.
 
         Args:
             model (str): Location of the model as fpath OR loaded torch.Model object.
         """
-        super().__init__(default_converter)
+        super().__init__(default_converter, network_metadata)
         self.fpath = model
 
     def as_onnx_model(self, output_fpath: str, converter: ModelFileConverter = None, force_overwrite: bool = False):
@@ -311,11 +292,11 @@ class ONNXModelFile(NNModelFile):
         """
         converter = self.default_converter if converter is None else converter()
         if not force_overwrite and os.path.exists(output_fpath):
-            return converter.onnx_class(output_fpath)
+            return converter.onnx_class(output_fpath, self.network_metadata)
         else:
             copytree(self.fpath, output_fpath)
 
-        return converter.onnx_class(output_fpath)
+        return converter.onnx_class(output_fpath, self.network_metadata)
 
     def as_torch_model(self, output_fpath: str, converter: ModelFileConverter = None, force_overwrite: bool = False):
         """
@@ -331,9 +312,9 @@ class ONNXModelFile(NNModelFile):
         """
         converter = self.default_converter if converter is None else converter()
         if not force_overwrite and os.path.exists(output_fpath):
-            return converter.torch_class(output_fpath)
+            return converter.torch_class(output_fpath, self.network_metadata)
 
-        return converter.onnx_to_torch(output_fpath, self.fpath)
+        return converter.onnx_to_torch(output_fpath, self.fpath, self.network_metadata)
 
     def cleanup(self) -> None:
         debug("Removing saved ONNX model from location: {}".format(self.fpath))

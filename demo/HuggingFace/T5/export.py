@@ -7,17 +7,17 @@ from collections import OrderedDict
 
 # torch
 import torch
-from transformers.utils.dummy_pt_objects import (
-    PreTrainedModel,
-)
 
-from models import TorchModelFile, ONNXModelFile, ModelFileConverter, Dims
 from torch.nn import Module
 
 # huggingface
 from transformers.generation_utils import GenerationMixin
 from transformers.modeling_outputs import Seq2SeqLMOutput
 
+# TRT-HuggingFace
+from T5.T5ModelConfig import T5ModelTRTConfig
+from networks import NetworkMetadata
+from models import TorchModelFile, ONNXModelFile, ModelFileConverter, Dims
 
 class T5DecoderTorchFile(TorchModelFile):
     class TorchModule(Module, GenerationMixin):
@@ -54,25 +54,8 @@ class T5DecoderTorchFile(TorchModelFile):
 
             return Seq2SeqLMOutput(logits=logits)
 
-    def __init__(self, model):
-        super().__init__(model, T5DecoderConverter)
-
-    @staticmethod
-    def get_input_dims():
-        """Returns the input ids for T5."""
-        return Dims(
-            OrderedDict(
-                {
-                    "input_ids": (Dims.BATCH, Dims.SEQUENCE),
-                    "encoder_hidden_states": (Dims.BATCH, Dims.SEQUENCE),
-                }
-            )
-        )
-
-    @staticmethod
-    def get_output_dims():
-        return Dims(OrderedDict({"hidden_states": (Dims.BATCH, Dims.SEQUENCE)}))
-
+    def __init__(self, model, network_metadata):
+        super().__init__(model, T5DecoderConverter, network_metadata)
 
 class T5EncoderTorchFile(TorchModelFile):
     """Creation of a class to output only the last hidden state from the encoder."""
@@ -88,52 +71,16 @@ class T5EncoderTorchFile(TorchModelFile):
         def __call__(self, *args, **kwargs):
             return self.forward(*args, **kwargs)
 
-    def __init__(self, model):
-        super().__init__(model, T5EncoderConverter)
-
-    @staticmethod
-    def get_input_dims():
-        """Returns the input ids for T5."""
-        return Dims(OrderedDict({"input_ids": (Dims.BATCH, Dims.SEQUENCE)}))
-
-    @staticmethod
-    def get_output_dims():
-        return Dims(OrderedDict({"hidden_states": (Dims.BATCH, Dims.SEQUENCE)}))
-
+    def __init__(self, model, network_metadata):
+        super().__init__(model, T5EncoderConverter, network_metadata)
 
 class T5EncoderONNXFile(ONNXModelFile):
-    def __init__(self, model):
-        super().__init__(model, T5EncoderConverter)
-
-    @staticmethod
-    def get_input_dims():
-        """Returns the i3put ids for T5."""
-        return Dims(
-            OrderedDict(
-                {
-                    "input_ids": (Dims.BATCH, Dims.SEQUENCE),
-                    "encoder_hidden_states": (Dims.BATCH, Dims.SEQUENCE),
-                }
-            )
-        )
-
-    @staticmethod
-    def get_output_dims():
-        return Dims(OrderedDict({"hidden_states": (Dims.BATCH, Dims.SEQUENCE)}))
-
+    def __init__(self, model, network_metadata):
+        super().__init__(model, T5EncoderConverter, network_metadata)
 
 class T5DecoderONNXFile(ONNXModelFile):
-    def __init__(self, model):
-        super().__init__(model, T5DecoderConverter)
-
-    @staticmethod
-    def get_input_dims():
-        """Returns the input ids for T5."""
-        return Dims(OrderedDict({"input_ids": (Dims.BATCH, Dims.SEQUENCE)}))
-
-    @staticmethod
-    def get_output_dims():
-        return Dims(OrderedDict({"hidden_states": (Dims.BATCH, Dims.SEQUENCE)}))
+    def __init__(self, model, network_metadata):
+        super().__init__(model, T5DecoderConverter, network_metadata)
 
 
 # Converters
@@ -141,7 +88,7 @@ class T5DecoderConverter(ModelFileConverter):
     def __init__(self):
         super().__init__(T5DecoderTorchFile, T5DecoderONNXFile)
 
-    def torch_to_onnx(self, output_fpath: str, model: Module):
+    def torch_to_onnx(self, output_fpath: str, model: Module, network_metadata: NetworkMetadata):
         """
         Exports a given huggingface T5 to decoder architecture only.
         Inspired by https://github.com/onnx/models/blob/master/text/machine_comprehension/t5/dependencies/T5-export.py
@@ -162,8 +109,9 @@ class T5DecoderConverter(ModelFileConverter):
         decoder_with_lm_head = T5DecoderTorchFile.TorchModule(
             model.decoder, model.lm_head, model.config
         )
-        inputs = T5DecoderTorchFile.get_input_dims()
-        outputs = T5DecoderTorchFile.get_output_dims()
+        inputs = T5ModelTRTConfig.get_input_dims(network_metadata)["decoder"]
+        outputs = T5ModelTRTConfig.get_output_dims(network_metadata)["decoder"]
+
         torch.onnx.export(
             decoder_with_lm_head,
             (input_ids, simplified_encoder(input_ids)),
@@ -179,14 +127,14 @@ class T5DecoderConverter(ModelFileConverter):
             training=False,
         )
 
-        return T5DecoderONNXFile(output_fpath)
+        return T5DecoderONNXFile(output_fpath, network_metadata)
 
 
 class T5EncoderConverter(ModelFileConverter):
     def __init__(self):
         super().__init__(T5EncoderTorchFile, T5EncoderONNXFile)
 
-    def torch_to_onnx(self, output_fpath: str, model: Module):
+    def torch_to_onnx(self, output_fpath: str, model: Module, network_metadata: NetworkMetadata):
         """
         Exports a given huggingface T5 to encoder architecture only.
         Inspired by https://github.com/onnx/models/blob/master/text/machine_comprehension/t5/dependencies/T5-export.py
@@ -200,8 +148,8 @@ class T5EncoderConverter(ModelFileConverter):
         """
         input_ids = torch.tensor([[42] * 10])
         simplified_encoder = T5EncoderTorchFile.TorchModule(model.encoder)
-        inputs = T5EncoderTorchFile.get_input_dims()
-        outputs = T5EncoderTorchFile.get_output_dims()
+        inputs = T5ModelTRTConfig.get_input_dims(network_metadata)["encoder"]
+        outputs = T5ModelTRTConfig.get_output_dims(network_metadata)["encoder"]
         encoder_hidden_states = Dims(
             OrderedDict({"encoder_hidden_states": (Dims.BATCH, Dims.SEQUENCE)})
         )
@@ -223,4 +171,4 @@ class T5EncoderConverter(ModelFileConverter):
             training=False,
         )
 
-        return T5EncoderONNXFile(output_fpath)
+        return T5EncoderONNXFile(output_fpath, network_metadata)
