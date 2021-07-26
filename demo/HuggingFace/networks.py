@@ -7,7 +7,7 @@ import os
 import shutil
 import string
 
-from typing import List
+from typing import Dict
 from collections import namedtuple
 
 # helpers
@@ -84,6 +84,29 @@ class NNConfig:
             self.MetadataClass = type(self.variants[0].other)
         else:
             self.MetadataClass = None
+
+    @staticmethod
+    def get_output_dims(metadata) -> Dict:
+        """
+        Returns the output dimensions of the current network.
+        Since some networks can have multiple parts, should be a dictionary encoding.
+
+        Returns:
+            (Dict): {"network_section": Dims}
+        """
+        raise NotImplementedError("Output dims not yet defined.")
+
+    @staticmethod
+    def get_input_dims(metadata) -> Dict:
+        """
+        Returns the input dimensions of the current network.
+        Since some networks can have multiple parts, should be a dictionary encoding.
+
+        Returns:
+            (Dict): {"network_section": Dims} example:
+                {"encoder": Dims(...), "decoder": Dims(...)}
+        """
+        raise NotImplementedError("Input dims not yet defined.")
 
     def _is_valid_filename(self, filename: str) -> bool:
         """

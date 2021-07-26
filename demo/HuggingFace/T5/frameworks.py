@@ -5,7 +5,6 @@ import argparse
 
 from typing import List
 
-
 if __name__ == "__main__":
     filepath = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.join(filepath, os.pardir)
@@ -63,12 +62,6 @@ class T5FHuggingFace(FrameworkCommand):
         self, metadata: NetworkMetadata, workspace: NNFolderWorkspace
     ) -> None:
 
-        model_fullvariant = "t5-{}".format(metadata.variant)
-        if model_fullvariant not in TARGET_MODELS:
-            raise RuntimeError(
-                "{} is not a supported variant for T5".format(metadata.variant)
-            )
-
         cache_variant = False
         if metadata.other.kv_cache:
             cache_variant = True
@@ -83,12 +76,12 @@ class T5FHuggingFace(FrameworkCommand):
 
         model = None
         tfm_config = T5Config(
-            use_cache=cache_variant, num_layers=NUMBER_OF_LAYERS[model_fullvariant]
+            use_cache=cache_variant, num_layers=NUMBER_OF_LAYERS[metadata.variant]
         )
         if not os.path.exists(pytorch_model_dir):
             # Generate the pre-trained weights
             model = T5ForConditionalGeneration(tfm_config).from_pretrained(
-                model_fullvariant
+                metadata.variant
             )
             model.save_pretrained(pytorch_model_dir)
             print("Pytorch Model saved to {}".format(pytorch_model_dir))
@@ -108,8 +101,8 @@ class T5FHuggingFace(FrameworkCommand):
         encoder_onnx_model_fpath = root_onnx_model_fpath + "-encoder.onnx"
         decoder_onnx_model_fpath = root_onnx_model_fpath + "-decoder-with-lm-head.onnx"
 
-        t5_encoder = T5EncoderTorchFile(model)
-        t5_decoder = T5DecoderTorchFile(model)
+        t5_encoder = T5EncoderTorchFile(model, metadata)
+        t5_decoder = T5DecoderTorchFile(model, metadata)
         self.onnx_t5_encoder = t5_encoder.as_onnx_model(
             encoder_onnx_model_fpath, force_overwrite=False
         )
@@ -157,15 +150,14 @@ class T5FHuggingFace(FrameworkCommand):
     ) -> NetworkResult:
 
         # Execute some tests
-        full_variant_name = "t5-{}".format(metadata.variant)
-        tokenizer = T5Tokenizer.from_pretrained(full_variant_name)
+        tokenizer = T5Tokenizer.from_pretrained(metadata.variant)
         input_ids = tokenizer(inference_input, return_tensors="pt").input_ids
 
         # By default, huggingface model structure is one giant file.
         t5_torch_fpath = network_fpaths.torch[0]
         config = T5Config(
             use_cache=metadata.other.kv_cache,
-            num_layers=NUMBER_OF_LAYERS[full_variant_name],
+            num_layers=NUMBER_OF_LAYERS[metadata.variant],
         )
         t5_model = T5ForConditionalGeneration(config).from_pretrained(t5_torch_fpath)
 
@@ -274,7 +266,7 @@ class T5FHuggingFace(FrameworkCommand):
 
     def args_to_network_metadata(self, args: argparse.Namespace) -> NetworkMetadata:
         return NetworkMetadata(
-            variant=args.variant.lstrip("t5-"),
+            variant=args.variant,
             precision=Precision(fp16=False, int8=False),
             other=self.config.MetadataClass(kv_cache=args.enable_kv_cache),
         )
