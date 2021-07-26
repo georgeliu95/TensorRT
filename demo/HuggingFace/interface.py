@@ -37,7 +37,7 @@ class NetworkCommand(metaclass=ABCMeta):
 
     def check_network_metadata_is_supported(self, metadata: NetworkMetadata) -> None:
         """
-        Checks if current command support the given metadata
+        Checks if current command supports the given metadata as defined by the NNConfig.
         Args:
             metadata (NetworkMetadata): NetworkMetadata to check if input is supported.
 
