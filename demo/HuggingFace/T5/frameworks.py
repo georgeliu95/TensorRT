@@ -5,11 +5,6 @@ import argparse
 
 from typing import List
 
-if __name__ == "__main__":
-    filepath = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.join(filepath, os.pardir)
-    sys.path.append(project_root)
-
 # huggingface
 from transformers import (
     T5ForConditionalGeneration,
@@ -17,32 +12,28 @@ from transformers import (
     T5Config,
 )
 
-# torch
-import torch
+# Add syspath for custom library
+if __name__ == "__main__":
+    filepath = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.join(filepath, os.pardir)
+    sys.path.append(project_root)
 
-# helpers
+# TRT-HuggingFace
 from interface import FrameworkCommand
 from networks import (
     NetworkResult,
     NetworkMetadata,
+    NetworkRuntime,
     Precision,
     NetworkModels,
+    NetworkModel,
     NNFolderWorkspace,
     TimingProfile,
 )
 from T5.export import T5EncoderTorchFile, T5DecoderTorchFile
 from T5.T5ModelConfig import T5ModelTRTConfig
-from utils import confirm_folder_delete, measure_frameworks_inference_speed
-
-
-TARGET_MODELS = ["t5-small", "t5-base", "t5-large"]
-NUMBER_OF_LAYERS = {TARGET_MODELS[0]: 6, TARGET_MODELS[1]: 12, TARGET_MODELS[2]: 24}
-NETWORK_INPUT_DEFAULT = [
-    "premise: I hate pigeons. hypothesis: My feelings towards pigeons are filled with animosity.",
-    "translate English to German: That is good.",
-    "cola sentence: All your base are belong to us.",
-    "premise: If I fall sleep then I am going to wake up in 8 hours. hypothesis: I fell asleep but did not wake up in 8 hours.",
-]
+from T5.measurements import decoder_inference, encoder_inference, full_inference_greedy
+from general_utils import confirm_folder_delete
 
 
 class T5FHuggingFace(FrameworkCommand):
@@ -51,16 +42,13 @@ class T5FHuggingFace(FrameworkCommand):
             T5ModelTRTConfig, description="Runs framework results for T5 model."
         )
 
-        # Default inference input used during inference stage
-        self.inference_input = NETWORK_INPUT_DEFAULT
-
         self.onnx_t5_encoder = None
         self.onnx_t5_decoder = None
         self.torch_t5_dir = None
 
     def generate_and_download_framework(
         self, metadata: NetworkMetadata, workspace: NNFolderWorkspace
-    ) -> None:
+    ) -> NetworkModels:
 
         cache_variant = False
         if metadata.other.kv_cache:
@@ -76,14 +64,14 @@ class T5FHuggingFace(FrameworkCommand):
 
         model = None
         tfm_config = T5Config(
-            use_cache=cache_variant, num_layers=NUMBER_OF_LAYERS[metadata.variant]
+            use_cache=cache_variant,
+            num_layers=T5ModelTRTConfig.NUMBER_OF_LAYERS[metadata.variant],
         )
         if not os.path.exists(pytorch_model_dir):
             # Generate the pre-trained weights
             model = T5ForConditionalGeneration(tfm_config).from_pretrained(
                 metadata.variant
             )
-            model.save_pretrained(pytorch_model_dir)
             print("Pytorch Model saved to {}".format(pytorch_model_dir))
         else:
             print(
@@ -110,35 +98,51 @@ class T5FHuggingFace(FrameworkCommand):
             decoder_onnx_model_fpath, force_overwrite=False
         )
 
-        onnx_fpaths = (self.onnx_t5_decoder.fpath, self.onnx_t5_encoder.fpath)
-        torch_fpaths = (pytorch_model_dir,)
+        onnx_models = [
+            NetworkModel(
+                name=T5ModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME,
+                fpath=self.onnx_t5_decoder.fpath,
+            ),
+            NetworkModel(
+                name=T5ModelTRTConfig.NETWORK_ENCODER_SEGMENT_NAME,
+                fpath=self.onnx_t5_encoder.fpath,
+            ),
+        ]
+        torch_models = [
+            NetworkModel(
+                name=T5ModelTRTConfig.NETWORK_FULL_NAME, fpath=pytorch_model_dir
+            )
+        ]
 
-        return NetworkModels(torch=torch_fpaths, onnx=onnx_fpaths)
+        return NetworkModels(torch=torch_models, onnx=onnx_models, trt=None)
 
     def cleanup(
         self,
         workspace: NNFolderWorkspace,
-        save_onnx_model: bool = True,
-        save_pytorch_model: bool = False,
+        keep_onnx_model: bool = True,
+        keep_pytorch_model: bool = False,
     ) -> None:
         """
         Cleans up the working directory and leaves models if available.
-        Returns:
+        Should not assume any functions from the framework class has been called.
+        Return:
             None
         """
         # Clean-up generated files
-        if not save_onnx_model:
-            self.onnx_t5_decoder.cleanup()
-            self.onnx_t5_encoder.cleanup()
+        if not keep_onnx_model:
+            if self.onnx_t5_decoder is not None:
+                self.onnx_t5_decoder.cleanup()
+            if self.onnx_t5_encoder is not None:
+                self.onnx_t5_encoder.cleanup()
 
-        if not save_pytorch_model:
+        if not keep_pytorch_model:
             # Using rmtree can be dangerous, have user confirm before deleting.
             confirm_folder_delete(
                 self.torch_t5_dir,
                 prompt="Confirm you want to delete downloaded pytorch model folder?",
             )
 
-        if not save_pytorch_model and not save_onnx_model:
+        if not keep_pytorch_model and not keep_onnx_model:
             workspace.cleanup(force_remove=False)
 
     def execute_inference(
@@ -154,10 +158,10 @@ class T5FHuggingFace(FrameworkCommand):
         input_ids = tokenizer(inference_input, return_tensors="pt").input_ids
 
         # By default, huggingface model structure is one giant file.
-        t5_torch_fpath = network_fpaths.torch[0]
+        t5_torch_fpath = network_fpaths.torch[0].fpath
         config = T5Config(
             use_cache=metadata.other.kv_cache,
-            num_layers=NUMBER_OF_LAYERS[metadata.variant],
+            num_layers=T5ModelTRTConfig.NUMBER_OF_LAYERS[metadata.variant],
         )
         t5_model = T5ForConditionalGeneration(config).from_pretrained(t5_torch_fpath)
 
@@ -165,27 +169,17 @@ class T5FHuggingFace(FrameworkCommand):
         t5_torch_decoder = T5DecoderTorchFile.TorchModule(
             t5_model.decoder, t5_model.lm_head, t5_model.config
         )
-        encoder_stmt = lambda: t5_torch_encoder(input_ids=input_ids)
 
-        fastest_time = measure_frameworks_inference_speed(
-            encoder_stmt,
-            number=timing_profile.number,
-            iterations=timing_profile.iterations,
+        encoder_last_hidden_state, encoder_e2e_median_time = encoder_inference(
+            t5_torch_encoder, input_ids, timing_profile
         )
-
-        # Finally get the result
-        encoder_last_hidden_state = t5_torch_encoder(input_ids=input_ids)
-
-        # Preprocess for semantic output
-        # Set beams to one because of greedy algorithm
-        num_beams = 1
-        decoder_input_ids = torch.full(
-            (num_beams, 1), tokenizer.convert_tokens_to_ids(tokenizer.pad_token)
+        _, decoder_e2e_median_time = decoder_inference(
+            t5_torch_decoder, input_ids, encoder_last_hidden_state, timing_profile
         )
-        encoder_last_hidden_state = torch.cat([encoder_last_hidden_state] * num_beams)
-        decoder_output_greedy = t5_torch_decoder.greedy_search(
-            input_ids=decoder_input_ids, encoder_hidden_states=encoder_last_hidden_state
-        ).detach()
+        decoder_output_greedy, full_e2e_median_runtime = full_inference_greedy(
+            t5_torch_encoder, t5_torch_decoder, input_ids, tokenizer, timing_profile,
+            max_length=T5ModelTRTConfig.MAX_SEQUENCE_LENGTH
+        )
 
         # Remove the padding and end tokens.
         semantic_outputs = tokenizer.convert_ids_to_tokens(
@@ -198,7 +192,20 @@ class T5FHuggingFace(FrameworkCommand):
         return NetworkResult(
             output_tensor=encoder_last_hidden_state,
             semantic_output=remove_underscore.strip(),
-            median_runtime=fastest_time,
+            median_runtime=[
+                NetworkRuntime(
+                    name=T5ModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME,
+                    runtime=decoder_e2e_median_time,
+                ),
+                NetworkRuntime(
+                    name=T5ModelTRTConfig.NETWORK_ENCODER_SEGMENT_NAME,
+                    runtime=encoder_e2e_median_time,
+                ),
+                NetworkRuntime(
+                    name=T5ModelTRTConfig.NETWORK_FULL_NAME,
+                    runtime=full_e2e_median_runtime,
+                ),
+            ],
             models=network_fpaths,
         )
 
@@ -207,8 +214,8 @@ class T5FHuggingFace(FrameworkCommand):
         metadata: NetworkMetadata,
         network_input: List[str],
         working_directory: str,
-        save_onnx_model: bool,
-        save_pytorch_model: bool,
+        keep_onnx_model: bool,
+        keep_pytorch_model: bool,
         timing_profile: TimingProfile,
     ) -> List[NetworkResult]:
         """
@@ -228,16 +235,16 @@ class T5FHuggingFace(FrameworkCommand):
                     )
                 )
         finally:
-            self.cleanup(workspace, save_onnx_model, save_pytorch_model)
+            self.cleanup(workspace, keep_onnx_model, keep_pytorch_model)
 
         return results
 
-    def add_args(self, parser) -> NetworkMetadata:
+    def add_args(self, parser) -> None:
         super().add_args(parser)
         parser.add_argument(
             "--variant",
             help="T5 variant to generate",
-            choices=TARGET_MODELS,
+            choices=T5ModelTRTConfig.TARGET_MODELS,
             required=True,
         )
         parser.add_argument(
@@ -247,20 +254,8 @@ class T5FHuggingFace(FrameworkCommand):
             default=False,
         )
         parser.add_argument(
-            "--save-onnx-model",
-            help="Save the onnx model.",
-            action="store_true",
-            default=False,
-        )
-        parser.add_argument(
-            "--save-torch-model",
-            help="Save the torch model in model directory.",
-            action="store_true",
-            default=False,
-        )
-        parser.add_argument(
             "--working-dir",
-            help="Location of where to save the model if --save-* is enabled.",
+            help="Location of where to save the model if --keep-* is enabled.",
             required=True,
         )
 

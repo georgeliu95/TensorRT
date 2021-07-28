@@ -3,11 +3,10 @@ Contains logic that captures T5 HuggingFace models into ONNX models.
 Inspired by https://github.com/onnx/models/blob/master/text/machine_comprehension/t5/dependencies/T5-export.py
 """
 # std
-from collections import OrderedDict
+from polygraphy.backend.trt import Profile
 
 # torch
 import torch
-
 from torch.nn import Module
 
 # huggingface
@@ -17,8 +16,10 @@ from transformers.modeling_outputs import Seq2SeqLMOutput
 # TRT-HuggingFace
 from T5.T5ModelConfig import T5ModelTRTConfig
 from networks import NetworkMetadata
-from models import TorchModelFile, ONNXModelFile, ModelFileConverter, Dims
+from models import TRTEngineFile, TorchModelFile, ONNXModelFile, ModelFileConverter, Dims
 
+
+# Torch File Encoding #
 class T5DecoderTorchFile(TorchModelFile):
     class TorchModule(Module, GenerationMixin):
         """
@@ -57,6 +58,7 @@ class T5DecoderTorchFile(TorchModelFile):
     def __init__(self, model, network_metadata):
         super().__init__(model, T5DecoderConverter, network_metadata)
 
+
 class T5EncoderTorchFile(TorchModelFile):
     """Creation of a class to output only the last hidden state from the encoder."""
 
@@ -74,21 +76,68 @@ class T5EncoderTorchFile(TorchModelFile):
     def __init__(self, model, network_metadata):
         super().__init__(model, T5EncoderConverter, network_metadata)
 
+
+# ONNX File Encoding #
 class T5EncoderONNXFile(ONNXModelFile):
     def __init__(self, model, network_metadata):
         super().__init__(model, T5EncoderConverter, network_metadata)
+
 
 class T5DecoderONNXFile(ONNXModelFile):
     def __init__(self, model, network_metadata):
         super().__init__(model, T5DecoderConverter, network_metadata)
 
 
-# Converters
+# TRT Engine File Encoding #
+class T5DecoderTRTEngine(TRTEngineFile):
+    def __init__(self, model, network_metadata):
+        super().__init__(model, T5DecoderConverter, network_metadata)
+
+    def get_dynamic_shape_profiles(self):
+        max_sequence_length = T5ModelTRTConfig.MAX_SEQUENCE_LENGTH[
+            self.network_metadata.variant
+        ]
+        profile = Profile()
+        profile.add(
+            "input_ids",
+            min=(1, 256),
+            opt=(1, 256),
+            max=(1, 256),
+        )
+        profile.add(
+            "encoder_hidden_states",
+            min=(1, 256, max_sequence_length),
+            opt=(1, 256, max_sequence_length),
+            max=(1, 256, max_sequence_length),
+        )
+        return [profile]
+
+class T5EncoderTRTEngine(TRTEngineFile):
+    def __init__(self, model, network_metadata):
+        super().__init__(model, T5EncoderConverter, network_metadata)
+
+    def get_dynamic_shape_profiles(self):
+        max_sequence_length = T5ModelTRTConfig.MAX_SEQUENCE_LENGTH[
+            self.network_metadata.variant
+        ]
+        return [
+            Profile().add(
+                "input_ids",
+                min=(1, 1),
+                opt=(1, max_sequence_length // 2),
+                max=(1, max_sequence_length),
+            )
+        ]
+
+
+# Converters #
 class T5DecoderConverter(ModelFileConverter):
     def __init__(self):
-        super().__init__(T5DecoderTorchFile, T5DecoderONNXFile)
+        super().__init__(T5DecoderTorchFile, T5DecoderONNXFile, T5DecoderTRTEngine)
 
-    def torch_to_onnx(self, output_fpath: str, model: Module, network_metadata: NetworkMetadata):
+    def torch_to_onnx(
+        self, output_fpath: str, model: Module, network_metadata: NetworkMetadata
+    ):
         """
         Exports a given huggingface T5 to decoder architecture only.
         Inspired by https://github.com/onnx/models/blob/master/text/machine_comprehension/t5/dependencies/T5-export.py
@@ -132,9 +181,11 @@ class T5DecoderConverter(ModelFileConverter):
 
 class T5EncoderConverter(ModelFileConverter):
     def __init__(self):
-        super().__init__(T5EncoderTorchFile, T5EncoderONNXFile)
+        super().__init__(T5EncoderTorchFile, T5EncoderONNXFile, T5EncoderTRTEngine)
 
-    def torch_to_onnx(self, output_fpath: str, model: Module, network_metadata: NetworkMetadata):
+    def torch_to_onnx(
+        self, output_fpath: str, model: Module, network_metadata: NetworkMetadata
+    ):
         """
         Exports a given huggingface T5 to encoder architecture only.
         Inspired by https://github.com/onnx/models/blob/master/text/machine_comprehension/t5/dependencies/T5-export.py
@@ -150,9 +201,6 @@ class T5EncoderConverter(ModelFileConverter):
         simplified_encoder = T5EncoderTorchFile.TorchModule(model.encoder)
         inputs = T5ModelTRTConfig.get_input_dims(network_metadata)["encoder"]
         outputs = T5ModelTRTConfig.get_output_dims(network_metadata)["encoder"]
-        encoder_hidden_states = Dims(
-            OrderedDict({"encoder_hidden_states": (Dims.BATCH, Dims.SEQUENCE)})
-        )
 
         # Exports to ONNX
         torch.onnx._export(
@@ -165,7 +213,6 @@ class T5EncoderConverter(ModelFileConverter):
             output_names=outputs.get_names(),
             dynamic_axes={
                 **inputs.get_torch_dynamic_axis_encoding(),
-                **encoder_hidden_states.get_torch_dynamic_axis_encoding(),
                 **outputs.get_torch_dynamic_axis_encoding(),
             },
             training=False,

@@ -3,6 +3,8 @@ from collections import namedtuple, OrderedDict
 from itertools import product
 from typing import Dict
 
+from transformers.utils.dummy_pt_objects import T5Model
+
 # TRT-HuggingFace
 from models import Dims
 from networks import Precision, NetworkMetadata, NNConfig
@@ -17,7 +19,16 @@ class T5ModelTRTConfig(NNConfig):
 
     TARGET_MODELS = ["t5-small", "t5-base", "t5-large"]
     NUMBER_OF_LAYERS = {TARGET_MODELS[0]: 6, TARGET_MODELS[1]: 12, TARGET_MODELS[2]: 24}
-    MAX_SEQUENCE_LENGTH = {TARGET_MODELS[0]: 512, TARGET_MODELS[1]: 768, TARGET_MODELS[2]: 1024}
+    MAX_SEQUENCE_LENGTH = {
+        TARGET_MODELS[0]: 512,
+        TARGET_MODELS[1]: 768,
+        TARGET_MODELS[2]: 1024,
+    }
+
+    NETWORK_FULL_NAME = "full"
+    NETWORK_DECODER_SEGMENT_NAME = "decoder"
+    NETWORK_ENCODER_SEGMENT_NAME = "encoder"
+    NETWORK_SEGMENTS = [NETWORK_DECODER_SEGMENT_NAME, NETWORK_ENCODER_SEGMENT_NAME]
 
     def __init__(self):
         precision_fp16 = [False]
@@ -38,15 +49,30 @@ class T5ModelTRTConfig(NNConfig):
 
         super().__init__("T5", variants=variants)
 
-    def get_python_requirements():
+    def get_python_requirements(self):
         base_requirements = super().get_python_requirements()
         base_requirements.append("transformers==4.6.1")
         return base_requirements
+
+    def get_network_segments(self):
+        """
+        Returns exportable segments for the given network.
+        Used in the case where a single network needs to
+        be exported into multiple parts.
+        """
+        return T5ModelTRTConfig.NETWORK_SEGMENTS
+
+    def get_metadata_string(self, metadata: NetworkMetadata) -> str:
+        # Remove redundant t5 name
+        metadata = metadata._replace(variant=metadata.variant.lstrip("t5-"))
+        return super().get_metadata_string(metadata)
 
     @staticmethod
     def get_input_dims(metadata) -> Dict:
         """
         Returns dictionary encoding of input dimensions.
+        Keys will be equal to get_model_segments()
+
         Returns:
             (Dict[str, Dims]): {"decoder": Dims, "encoder": Dims}
         """
@@ -54,7 +80,11 @@ class T5ModelTRTConfig(NNConfig):
             OrderedDict(
                 {
                     "input_ids": (Dims.BATCH, Dims.SEQUENCE),
-                    "encoder_hidden_states": (Dims.BATCH, Dims.SEQUENCE, T5ModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant]),
+                    "encoder_hidden_states": (
+                        Dims.BATCH,
+                        Dims.SEQUENCE,
+                        T5ModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant],
+                    ),
                 }
             )
         )
@@ -62,22 +92,35 @@ class T5ModelTRTConfig(NNConfig):
         encoder_inputs = Dims(OrderedDict({"input_ids": (Dims.BATCH, Dims.SEQUENCE)}))
 
         return {
-            "decoder": decoder_inputs,
-            "encoder": encoder_inputs
+            T5ModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME: decoder_inputs,
+            T5ModelTRTConfig.NETWORK_ENCODER_SEGMENT_NAME: encoder_inputs,
         }
 
     @staticmethod
     def get_output_dims(metadata) -> Dict:
         """
         Returns dictionary encoding of output dimensions.
+        Keys will be equal to get_model_segments()
 
         Returns:
             (Dict[str, Dims]): {"decoder": Dims, "encoder": Dims}
         """
-        decoder_outputs = Dims(OrderedDict({"hidden_states": (Dims.BATCH, Dims.SEQUENCE)}))
-        encoder_outputs = Dims(OrderedDict({"hidden_states": (Dims.BATCH, Dims.SEQUENCE, T5ModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant])}))
+        decoder_outputs = Dims(
+            OrderedDict({"hidden_states": (Dims.BATCH, Dims.SEQUENCE)})
+        )
+        encoder_outputs = Dims(
+            OrderedDict(
+                {
+                    "hidden_states": (
+                        Dims.BATCH,
+                        Dims.SEQUENCE,
+                        T5ModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant],
+                    )
+                }
+            )
+        )
 
         return {
-            "decoder": decoder_outputs,
-            "encoder": encoder_outputs
+            T5ModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME: decoder_outputs,
+            T5ModelTRTConfig.NETWORK_ENCODER_SEGMENT_NAME: encoder_outputs,
         }

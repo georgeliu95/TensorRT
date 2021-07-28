@@ -1,0 +1,40 @@
+[T5.t5-small.premise_a]
+
+label = "contradiction"
+
+[T.t5-small.cola_a]
+
+label = "acceptable"
+
+[T5.default.premise_a]
+
+input = '''
+premise: I hate pigeons. hypothesis: My feelings towards pigeons are filled with animosity.
+'''
+
+label = "entailment"
+
+
+[T5.default.translate_a]
+
+input = '''
+translate English to German: That is good.
+'''
+
+label = "Dat ist gud."
+
+[T5.default.cola_a]
+
+input = '''
+cola sentence: All your base are belong to us.
+'''
+
+label = "unacceptable"
+
+[T5.default.premise_b]
+
+input = '''
+premise: If I fall asleep then I am going to wake up in 8 hours. hypothesis: I fell asleep but did not wake up in 8 hours.
+'''
+
+label = "contradiction"
