@@ -1,5 +1,6 @@
 """
-Helper files containing several namedtuples that communicate between individual scripts.
+Helpers for abstracting high-level neural network concepts. Different from 'models.py' which deals
+with IO abstraction. This file deals with high level network configurations.
 """
 
 # std
@@ -11,7 +12,7 @@ from typing import Dict
 from collections import namedtuple
 
 # helpers
-from utils import remove_if_empty
+from general_utils import remove_if_empty
 
 FILENAME_VALID_CHARS = "-~_.() {}{}".format(string.ascii_letters, string.digits)
 
@@ -34,17 +35,32 @@ NetworkMetadata = namedtuple("NetworkMetadata", ["variant", "precision", "other"
 """TimingProfile(iterations: int, repeat: int)"""
 TimingProfile = namedtuple("TimingProfile", ["iterations", "number", "warmup"])
 
+
+"""NetworkModel(name: str, fpath: str)"""
+NetworkModel = namedtuple("NetworkModel", ["name", "fpath"])
+
 """
 String encodings to genereted network models.
-    NetworkModels(torch: Tuple[str], onnx: Tuple[str])
+    NetworkModels(torch: Tuple[NetworkModel], onnx: Tuple[NetworkModel])
 """
-NetworkModels = namedtuple("NetworkModels", ["torch", "onnx"])
+NetworkModels = namedtuple("NetworkModels", ["torch", "onnx", "trt"])
+
+"""
+Args:
+    name: Name of the network / parts of the network timed.
+    runtime: Runtime of the time.
+
+NetworkRuntime(name: str, runtime: float)
+"""
+NetworkRuntime = namedtuple("NetworkRuntime", ["name", "runtime"])
 
 
 class NNFolderWorkspace:
     """For keeping track of workspace folder and for cleaning them up."""
 
-    def __init__(self, network_name: str, metadata: NetworkMetadata, working_directory: str):
+    def __init__(
+        self, network_name: str, metadata: NetworkMetadata, working_directory: str
+    ):
         self.rootdir = working_directory
         self.metadata = metadata
         self.network_name = network_name
@@ -70,6 +86,8 @@ class NNFolderWorkspace:
 class NNConfig:
     """Contains info for a given network that we support."""
 
+    NETWORK_SEGMENTS = ["full"]
+
     def __init__(self, network_name, variants=None):
         assert self._is_valid_filename(
             network_name
@@ -84,6 +102,14 @@ class NNConfig:
             self.MetadataClass = type(self.variants[0].other)
         else:
             self.MetadataClass = None
+
+    def get_network_segments(self):
+        """
+        Returns exportable segments for the given network.
+        Used in the case where a single network needs to
+        be exported into multiple parts.
+        """
+        return self.NETWORK_SEGMENTS
 
     @staticmethod
     def get_output_dims(metadata) -> Dict:
