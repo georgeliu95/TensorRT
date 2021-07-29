@@ -1,5 +1,5 @@
 """
-Contains logic that captures GPT2 HuggingFace models into ONNX models.
+Contains logic that captures GPT2 HuggingFace models into ONNX models and TRT engines.
 """
 # torch
 import torch

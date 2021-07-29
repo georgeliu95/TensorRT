@@ -96,8 +96,6 @@ class GPT2HuggingFace(FrameworkCommand):
             NetworkModel(name=GPT2ModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME, fpath=pytorch_model_dir)
         ]
 
-        #torch_fpaths = (pytorch_model_dir,)
-
         return NetworkModels(torch=torch_models, onnx=onnx_models, trt=None)
 
     def cleanup(
@@ -214,7 +212,6 @@ class GPT2HuggingFace(FrameworkCommand):
             choices=GPT2ModelTRTConfig.TARGET_MODELS,
             required=True,
         )
-
         parser.add_argument(
             "--enable-kv-cache",
             help="GPT2 enable KV cache",
@@ -222,20 +219,8 @@ class GPT2HuggingFace(FrameworkCommand):
             default=False,
         )
         parser.add_argument(
-            "--save-onnx-model",
-            help="Save the onnx model.",
-            action="store_true",
-            default=False,
-        )
-        parser.add_argument(
-            "--save-torch-model",
-            help="Save the torch model in model directory.",
-            action="store_true",
-            default=False,
-        )
-        parser.add_argument(
             "--working-dir",
-            help="Location of where to save the model if --save-* is enabled.",
+            help="Location of where to save the model if --keep-* is enabled.",
             required=True,
         )
 
