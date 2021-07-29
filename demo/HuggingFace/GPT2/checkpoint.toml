@@ -1,0 +1,9 @@
+[GPT2.default.generate]
+
+input = '''
+TensorRT is a Deep Learning compiler used for deep learning.
+'''
+
+label = '''
+TensorRT is a Deep Learning compiler used for deep learning. It is a very powerful compiler that
+'''

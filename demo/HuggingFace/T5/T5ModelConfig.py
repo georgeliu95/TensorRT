@@ -32,17 +32,16 @@ class T5ModelTRTConfig(NNConfig):
 
     def __init__(self):
         precision_fp16 = [False]
-        precision_int8 = [False]
         kv_caches = [False, True]
 
         variants = []
-        for variant, fp16, int8, kv_cache in product(
-            T5ModelTRTConfig.TARGET_MODELS, precision_fp16, precision_int8, kv_caches
+        for variant, fp16, kv_cache in product(
+            T5ModelTRTConfig.TARGET_MODELS, precision_fp16, kv_caches
         ):
             variants.append(
                 NetworkMetadata(
                     variant=variant,
-                    precision=Precision(fp16=fp16, int8=int8),
+                    precision=Precision(fp16=fp16),
                     other=T5Metadata(kv_cache=kv_cache),
                 )
             )
