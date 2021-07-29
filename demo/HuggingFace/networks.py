@@ -26,8 +26,8 @@ NetworkResult = namedtuple(
 )
 
 # Tracks TRT Precision Config
-"""Precision(fp16: Bool, int8: Bool, tf32: Bool)"""
-Precision = namedtuple("Precision", ["fp16", "int8"])
+"""Precision(fp16: Bool)"""
+Precision = namedtuple("Precision", ["fp16"])
 
 """NetworkMetadata(variant: str, precision: Precision, other: Union[namedtuple, None])"""
 NetworkMetadata = namedtuple("NetworkMetadata", ["variant", "precision", "other"])

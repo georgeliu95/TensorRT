@@ -298,10 +298,9 @@ class T5Polygraphy(PolygraphyCommand):
     def args_to_network_metadata(self, args) -> NetworkMetadata:
         frameworks_parsed_metadata = self.frameworks_cmd.args_to_network_metadata(args)
 
-        # We do not support int8 for HF demo.
         return NetworkMetadata(
             variant=frameworks_parsed_metadata.variant,
-            precision=Precision(fp16=args.fp16, int8=False),
+            precision=Precision(fp16=args.fp16),
             other=frameworks_parsed_metadata.other,
         )
 

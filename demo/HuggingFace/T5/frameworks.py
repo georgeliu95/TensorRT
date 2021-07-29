@@ -262,7 +262,7 @@ class T5FHuggingFace(FrameworkCommand):
     def args_to_network_metadata(self, args: argparse.Namespace) -> NetworkMetadata:
         return NetworkMetadata(
             variant=args.variant,
-            precision=Precision(fp16=False, int8=False),
+            precision=Precision(fp16=False),
             other=self.config.MetadataClass(kv_cache=args.enable_kv_cache),
         )
 

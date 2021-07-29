@@ -428,7 +428,6 @@ class ONNXModelFile(NNModelFile):
         result = converter.trt_engine_class(output_fpath, self.network_metadata)
         self.trt_inference_config = CreateConfig(
             fp16=self.network_metadata.precision.fp16,
-            int8=self.network_metadata.precision.int8,
             max_workspace_size=result.DEFAULT_TRT_WORKSPACE_MB * 1024 * 1024,
             profiles=result.get_dynamic_shape_profiles(),
         )
