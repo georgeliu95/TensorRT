@@ -72,7 +72,7 @@ class GPT2Converter(ModelFileConverter):
             model (torch.Model): Model loaded torch class
 
         Returns:
-            T5DecoderONNXFile: ONNX decoder object.
+            GPT2ONNXFile: ONNX GPT2 decoder object.
         """
         tokenizer = GPT2Tokenizer.from_pretrained(network_metadata.variant)
         input_ids = torch.tensor(
