@@ -10,13 +10,95 @@ import logging
 import argparse
 import importlib
 
+from abc import abstractmethod
 from typing import List
 
 ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(ROOT_DIR)
 
+# Wrapper actions supported
+WRAPPER_RUN_ACTION = "run"
+WRAPPER_LIST_ACTION = "list"
+WRAPPER_COMPARE_ACTION = "compare"
+WRAPPER_ACTIONS = [
+    WRAPPER_RUN_ACTION,
+    WRAPPER_LIST_ACTION,
+    WRAPPER_COMPARE_ACTION
+]
 
-def get_parser(
+class Action:
+    def __init__(self, networks, parser):
+        self.networks = networks
+        self.parser = parser
+        self.add_args(self.parser)
+
+    @abstractmethod
+    def execute(self, args):
+        pass
+
+    @abstractmethod
+    def add_args(self, parser):
+        pass
+
+class NetworkScriptAction(Action):
+
+    # Reserved files names for each network folder
+    FRAMEWORKS_SCRIPT_NAME = "frameworks"
+    POLYGRAPHY_SCRIPT_NAME = "trt_polygraphy"
+    PER_NETWORK_SCRIPTS = [
+        FRAMEWORKS_SCRIPT_NAME,
+        POLYGRAPHY_SCRIPT_NAME
+    ]
+
+    def add_args(self, parser):
+        network_group = parser.add_argument_group("specify network")
+        network_group.add_argument("network", help="Network to run.", choices=self.networks)
+
+    def load_script(self, script_name: str, args: argparse.Namespace):
+        """Helper for loading a specific script for given network."""
+        assert script_name in self.PER_NETWORK_SCRIPTS, "Script must be a reserved name."
+
+        # Load the specific commandline script
+        return importlib.import_module("{}.{}".format(args.network, script_name))
+
+
+class RunAction(NetworkScriptAction):
+    def execute(self, args):
+        module = self.load_script(args.script, args)
+        module.RUN_CMD._parser = self.parser
+        os.chdir(args.network)
+        print(module.RUN_CMD())
+
+    def add_args(self, parser):
+        super().add_args(parser)
+        run_group = parser.add_argument_group("run args")
+        run_group.add_argument("script", choices=self.PER_NETWORK_SCRIPTS)
+
+class CompareAction(NetworkScriptAction):
+    pass
+
+class ListAction(Action):
+    def __init__(self, networks):
+        self.networks = networks
+
+    def execute(self, args):
+        print("Networks that are supported by HuggingFace Demo:")
+        [print(n) for n in self.networks]
+        return 0
+
+def get_action(
+    action_name: str,
+    networks: List[str],
+    parser: argparse.ArgumentParser
+) -> Action:
+    return {
+        WRAPPER_COMPARE_ACTION: CompareAction,
+        WRAPPER_LIST_ACTION: ListAction,
+        WRAPPER_RUN_ACTION: RunAction
+    }[action_name](networks, parser)
+
+
+def get_default_parser(
     networks: List[str], description: str = "", add_default_help=False
 ) -> argparse.ArgumentParser:
     """
@@ -30,11 +112,10 @@ def get_parser(
     parser = argparse.ArgumentParser(description=description, add_help=add_default_help)
     required_group = parser.add_argument_group("required wrapper arguments")
 
-    # We purposely don't toggle "required" parameter here because argparse will force an exit with usage which
-    # won't allow us to parse "--help" using custom logic.
     required_group.add_argument(
-        "--network", "-n", help="Network name.", choices=networks
+        "action", choices=WRAPPER_ACTIONS
     )
+
     if not add_default_help:
         parser.add_argument(
             "--help",
@@ -60,30 +141,17 @@ def main() -> None:
 
     # Add network folder for entry point
     description = (
-        "Runs TensorRT networks that are based-off of HuggingFace network variants."
+        "Runs TensorRT networks that are based-off of HuggingFace variants."
     )
-    parser = get_parser(networks, description, add_default_help=False)
+    parser = get_default_parser(networks, description, add_default_help=False)
 
     # Get the general network wrapper help
     known_args, _ = parser.parse_known_args()
 
-    # Get network value
-    network_selected = None
-    network_selected = known_args.network
-    if network_selected is None:
-        parser.print_help()
-        return
-
-    # Load the specific commandline script
-    framework_module = importlib.import_module("{}.frameworks".format(network_selected))
-
-    # Override parser to get an prepended help message
-    description = description + " {}".format(framework_module.RUN_CMD.description)
-    framework_module.RUN_CMD._parser = get_parser(
-        networks, description=description, add_default_help=True
-    )
-    framework_module.RUN_CMD()
-
+    # Delegate parser to action specifics
+    action = get_action(known_args.action, networks, parser)
+    known_args, _ = parser.parse_known_args()
+    return action.execute(known_args)
 
 if __name__ == "__main__":
     main()

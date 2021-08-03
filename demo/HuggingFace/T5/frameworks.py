@@ -72,6 +72,7 @@ class T5FHuggingFace(FrameworkCommand):
             model = T5ForConditionalGeneration(tfm_config).from_pretrained(
                 metadata.variant
             )
+            model.save_pretrained(pytorch_model_dir)
             print("Pytorch Model saved to {}".format(pytorch_model_dir))
         else:
             print(
@@ -120,7 +121,7 @@ class T5FHuggingFace(FrameworkCommand):
         self,
         workspace: NNFolderWorkspace,
         keep_onnx_model: bool = True,
-        keep_pytorch_model: bool = False,
+        keep_pytorch_model: bool = True,
     ) -> None:
         """
         Cleans up the working directory and leaves models if available.
@@ -178,7 +179,7 @@ class T5FHuggingFace(FrameworkCommand):
         )
         decoder_output_greedy, full_e2e_median_runtime = full_inference_greedy(
             t5_torch_encoder, t5_torch_decoder, input_ids, tokenizer, timing_profile,
-            max_length=T5ModelTRTConfig.MAX_SEQUENCE_LENGTH
+            max_length=T5ModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant]
         )
 
         # Remove the padding and end tokens.

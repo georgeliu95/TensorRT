@@ -2,7 +2,6 @@
 import os
 from re import S
 import sys
-import logging
 from typing import Dict, List, Tuple
 
 # Add syspath for custom library
@@ -57,11 +56,6 @@ class T5TRTEncoder(TRTHFRunner):
         if not isinstance(input_ids, np.ndarray):
             input_ids = input_ids.numpy().astype(np.int32)
 
-        # TODO:WAR static shapes for now
-        new_input_ids = np.zeros((1, 256), dtype=np.int32)
-        new_input_ids[:, :input_ids.shape[1]] = input_ids
-        input_ids = new_input_ids
-
         return self.trt_context.infer({"input_ids": input_ids})["hidden_states"]
 
 class T5TRTDecoder(TRTHFRunner):
@@ -77,14 +71,13 @@ class T5TRTDecoder(TRTHFRunner):
         if not isinstance(encoder_hidden_states, np.ndarray):
             encoder_hidden_states = encoder_hidden_states.numpy().astype(np.float32)
 
-        if encoder_hidden_states.shape[1] < input_ids.shape[1]:
-            new_encoder_hidden_states = np.zeros((encoder_hidden_states.shape[0], input_ids.shape[1], encoder_hidden_states.shape[2]), dtype=np.float32)
-            new_encoder_hidden_states[:, :encoder_hidden_states.shape[1], :] = encoder_hidden_states
+        input_sequence_shape = input_ids.shape[1]
+        encoder_sequence_shape = encoder_hidden_states.shape[1]
+        if encoder_sequence_shape != input_sequence_shape:
+            new_encoder_hidden_states = np.zeros((encoder_hidden_states.shape[0], input_sequence_shape, encoder_hidden_states.shape[2]), dtype=np.float32)
+            encoder_broadcast = min(input_sequence_shape, encoder_sequence_shape)
+            new_encoder_hidden_states[:, :encoder_broadcast, :] = encoder_hidden_states[:, :encoder_broadcast, :]
             encoder_hidden_states = new_encoder_hidden_states
-        elif encoder_hidden_states.shape[1] > input_ids.shape[1]:
-            new_input_ids = np.zeros((1, encoder_hidden_states.shape[1]), dtype=np.int32)
-            new_input_ids[:, :input_ids.shape[1]] = input_ids
-            input_ids = new_input_ids
 
         logits = self.trt_context.infer(
             {"input_ids": input_ids, "encoder_hidden_states": encoder_hidden_states}
@@ -95,7 +88,7 @@ class T5TRTDecoder(TRTHFRunner):
 class T5Polygraphy(PolygraphyCommand):
     def __init__(self):
         super().__init__(
-            T5ModelTRTConfig, "Runs polygraphy results for T5 model.", T5FHuggingFace
+            T5ModelTRTConfig, "Runs polygraphy results for T5 model. Only supports FP16 variants.", T5FHuggingFace
         )
         self.t5_trt_decoder = None
         self.t5_trt_encoder = None
@@ -263,11 +256,6 @@ class T5Polygraphy(PolygraphyCommand):
         )
         polygraphy_group.add_argument(
             "--fp16", action="store_true", help="Enables fp16 TensorRT tactics."
-        )
-        polygraphy_group.add_argument(
-            "--save-trt-engine",
-            action="store_true",
-            help="Saves TensorRT runtime engine in working directory.",
         )
 
     def args_to_network_models(self, args) -> List[NetworkModel]:
