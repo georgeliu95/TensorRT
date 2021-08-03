@@ -100,15 +100,15 @@ class T5DecoderTRTEngine(TRTEngineFile):
         profile = Profile()
         profile.add(
             "input_ids",
-            min=(1, 256),
-            opt=(1, 256),
-            max=(1, 256),
+            min=(1, 1),
+            opt=(1, max_sequence_length // 2),
+            max=(1, max_sequence_length),
         )
         profile.add(
             "encoder_hidden_states",
-            min=(1, 256, max_sequence_length),
-            opt=(1, 256, max_sequence_length),
-            max=(1, 256, max_sequence_length),
+            min=(1, 1, max_sequence_length),
+            opt=(1, max_sequence_length // 2, max_sequence_length),
+            max=(1, max_sequence_length, max_sequence_length),
         )
         return [profile]
 
