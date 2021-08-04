@@ -19,21 +19,20 @@ if __name__ == "__main__":
     sys.path.append(project_root)
 
 # TRT-HuggingFace
-from interface import FrameworkCommand
-from networks import (
+from NNDF.interface import FrameworkCommand
+from NNDF.networks import (
     NetworkResult,
     NetworkMetadata,
     NetworkRuntime,
     Precision,
     NetworkModels,
     NetworkModel,
-    NNFolderWorkspace,
     TimingProfile,
 )
 from T5.export import T5EncoderTorchFile, T5DecoderTorchFile
 from T5.T5ModelConfig import T5ModelTRTConfig
 from T5.measurements import decoder_inference, encoder_inference, full_inference_greedy
-from general_utils import confirm_folder_delete
+from NNDF.general_utils import confirm_folder_delete, NNFolderWorkspace
 
 
 class T5FHuggingFace(FrameworkCommand):
@@ -178,8 +177,12 @@ class T5FHuggingFace(FrameworkCommand):
             t5_torch_decoder, input_ids, encoder_last_hidden_state, timing_profile
         )
         decoder_output_greedy, full_e2e_median_runtime = full_inference_greedy(
-            t5_torch_encoder, t5_torch_decoder, input_ids, tokenizer, timing_profile,
-            max_length=T5ModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant]
+            t5_torch_encoder,
+            t5_torch_decoder,
+            input_ids,
+            tokenizer,
+            timing_profile,
+            max_length=T5ModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant],
         )
 
         # Remove the padding and end tokens.
@@ -191,6 +194,7 @@ class T5FHuggingFace(FrameworkCommand):
         )
 
         return NetworkResult(
+            input=inference_input,
             output_tensor=encoder_last_hidden_state,
             semantic_output=remove_underscore.strip(),
             median_runtime=[
@@ -239,33 +243,6 @@ class T5FHuggingFace(FrameworkCommand):
             self.cleanup(workspace, keep_onnx_model, keep_pytorch_model)
 
         return results
-
-    def add_args(self, parser) -> None:
-        super().add_args(parser)
-        parser.add_argument(
-            "--variant",
-            help="T5 variant to generate",
-            choices=T5ModelTRTConfig.TARGET_MODELS,
-            required=True,
-        )
-        parser.add_argument(
-            "--enable-kv-cache",
-            help="T5 enable KV cache",
-            action="store_true",
-            default=False,
-        )
-        parser.add_argument(
-            "--working-dir",
-            help="Location of where to save the model if --keep-* is enabled.",
-            required=True,
-        )
-
-    def args_to_network_metadata(self, args: argparse.Namespace) -> NetworkMetadata:
-        return NetworkMetadata(
-            variant=args.variant,
-            precision=Precision(fp16=False),
-            other=self.config.MetadataClass(kv_cache=args.enable_kv_cache),
-        )
 
 
 # Entry point

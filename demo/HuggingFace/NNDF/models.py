@@ -20,8 +20,7 @@ from polygraphy.backend.trt import (
     save_engine,
 )
 
-from polygraphy.backend.trt import TrtRunner, CreateConfig, engine_from_bytes
-from polygraphy.backend.common import bytes_from_path
+from polygraphy.backend.trt import CreateConfig
 from polygraphy.logger import G_LOGGER
 
 # torch
@@ -29,7 +28,7 @@ from torch import load, save
 from torch.nn import Module
 
 # TRT-HuggingFace
-from networks import NetworkMetadata
+from NNDF.networks import NetworkMetadata
 
 
 class ModelFileConverter:
@@ -180,7 +179,9 @@ class NNModelFile(metaclass=ABCMeta):
         Returns:
             TorchModelFile: Newly generated TorchModelFile
         """
-        raise NotImplementedError("Current model does not support exporting to pytorch model.")
+        raise NotImplementedError(
+            "Current model does not support exporting to pytorch model."
+        )
 
     def as_onnx_model(
         self,
@@ -201,7 +202,9 @@ class NNModelFile(metaclass=ABCMeta):
         Returns:
             ONNXModelFile: Newly generated ONNXModelFile
         """
-        raise NotImplementedError("Current model does not support exporting to onnx model.")
+        raise NotImplementedError(
+            "Current model does not support exporting to onnx model."
+        )
 
     def as_trt_engine(
         self,
@@ -222,8 +225,9 @@ class NNModelFile(metaclass=ABCMeta):
         Returns:
             TRTEngineFile: Newly generated ONNXModelFile
         """
-        raise NotImplementedError("Current model does not support exporting to trt engine.")
-
+        raise NotImplementedError(
+            "Current model does not support exporting to trt engine."
+        )
 
     @abstractmethod
     def cleanup(self) -> None:
@@ -407,7 +411,7 @@ class ONNXModelFile(NNModelFile):
         self,
         output_fpath: str,
         converter: ModelFileConverter = None,
-        force_overwrite: bool = False
+        force_overwrite: bool = False,
     ):
         """
         Converts the onnx model into an trt engine.
@@ -432,7 +436,11 @@ class ONNXModelFile(NNModelFile):
             profiles=result.get_dynamic_shape_profiles(),
         )
 
-        g_logger_verbosity = G_LOGGER.EXTRA_VERBOSE if logging.root.level == logging.DEBUG else G_LOGGER.WARNING
+        g_logger_verbosity = (
+            G_LOGGER.EXTRA_VERBOSE
+            if logging.root.level == logging.DEBUG
+            else G_LOGGER.WARNING
+        )
         with G_LOGGER.verbosity(g_logger_verbosity):
             self.trt_engine = engine_from_network(
                 network_from_onnx_path(self.fpath), config=self.trt_inference_config
@@ -441,6 +449,7 @@ class ONNXModelFile(NNModelFile):
 
         return result
 
+
 class TRTEngineFile(NNModelFile):
     DEFAULT_TRT_WORKSPACE_MB = 1024
 
@@ -448,7 +457,12 @@ class TRTEngineFile(NNModelFile):
     def get_dynamic_shape_profiles(self):
         pass
 
-    def __init__(self, model: str, default_converter: ModelFileConverter = None, network_metadata: NetworkMetadata = None):
+    def __init__(
+        self,
+        model: str,
+        default_converter: ModelFileConverter = None,
+        network_metadata: NetworkMetadata = None,
+    ):
         super().__init__(default_converter, network_metadata)
         self.fpath = model
 
@@ -458,6 +472,7 @@ class TRTEngineFile(NNModelFile):
 
     def cleanup(self) -> None:
         debug("Removing saved engine model from location: {}".format(self.fpath))
+
 
 class NullConverter(ModelFileConverter):
     def __init__(self):

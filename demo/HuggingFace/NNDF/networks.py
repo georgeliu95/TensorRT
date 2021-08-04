@@ -4,25 +4,22 @@ with IO abstraction. This file deals with high level network configurations.
 """
 
 # std
-import os
-import shutil
 import string
 
 from typing import Dict
 from collections import namedtuple
 
-# helpers
-from general_utils import remove_if_empty
-
 FILENAME_VALID_CHARS = "-~_.() {}{}".format(string.ascii_letters, string.digits)
 
-"""NNDTResult(polygraphy: NetworkResult, trtexec: NetworkResult, frameworks: NetworkResult)"""
-# TODO: Used by testing framework, do not remove yet
-NNDTResult = namedtuple("NNDTResult", ["polygraphy", "trtexec", "frameworks"])
-
-"""NetworkResult(output_tensor: np.array, semantic_output: np.array, median_runtime: float, models: [str])"""
+"""NetworkResult(input: str, output_tensor: np.array, semantic_output: np.array, median_runtime: NetworkRuntime, models: [str])"""
 NetworkResult = namedtuple(
-    "NetworkResult", ["output_tensor", "semantic_output", "median_runtime", "models"]
+    "NetworkResult",
+    ["input", "output_tensor", "semantic_output", "median_runtime", "models"],
+)
+
+"""CheckpointResult(network_results: List[NetworkResult], accuracy: float)"""
+NetworkCheckpointResult = namedtuple(
+    "NetworkCheckpointResult", ["network_results", "accuracy"]
 )
 
 # Tracks TRT Precision Config
@@ -53,34 +50,6 @@ Args:
 NetworkRuntime(name: str, runtime: float)
 """
 NetworkRuntime = namedtuple("NetworkRuntime", ["name", "runtime"])
-
-
-class NNFolderWorkspace:
-    """For keeping track of workspace folder and for cleaning them up."""
-
-    def __init__(
-        self, network_name: str, metadata: NetworkMetadata, working_directory: str
-    ):
-        self.rootdir = working_directory
-        self.metadata = metadata
-        self.network_name = network_name
-        self.dpath = os.path.join(self.rootdir, self.network_name)
-        os.makedirs(self.dpath, exist_ok=True)
-
-    def get_path(self) -> str:
-        dpath = os.path.join(self.rootdir, self.network_name)
-        return dpath
-
-    def cleanup(self, force_remove: bool = False) -> None:
-        fpath = self.get_path()
-        if force_remove:
-            return shutil.rmtree(fpath)
-        remove_if_empty(
-            fpath,
-            success_msg="Sucessfully removed workspace.",
-            error_msg="Unable to remove workspace.",
-        )
-
 
 # Config Class
 class NNConfig:

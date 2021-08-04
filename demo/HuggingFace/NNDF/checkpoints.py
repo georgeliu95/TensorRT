@@ -2,9 +2,11 @@
 Helper file for generating common checkpoints.
 """
 
-# TRT-HuggingFace
+# std
 from typing import List
-from networks import NetworkMetadata
+
+# TRT-HuggingFace
+from NNDF.networks import NetworkMetadata, NetworkResult
 
 # externals
 import toml
@@ -31,6 +33,9 @@ class NNTomlCheckpoint:
         self.data = {
             k: {**self.data[k], **addendum.get(k, {})} for k in self.data.keys()
         }
+
+        # Used when accuracy() is called
+        self._lookup_cache = None
 
     def _iterate_data(self, slice: List[str], skip_keyword: str = "skip"):
         """
@@ -71,3 +76,18 @@ class NNSemanticCheckpoint(NNTomlCheckpoint):
 
     def inputs(self):
         return self._iterate_data(["input"])
+
+    def accuracy(self, results: List[NetworkResult]) -> float:
+        # Hash checkpoints by their input
+        if self._lookup_cache is None:
+            self._lookup_cache = {}
+            for k, v in self.data.items():
+                self._lookup_cache[v["input"]] = k
+
+        correct_count = 0
+        for r in results:
+            # Find the data the corresponds to input
+            key = self._lookup_cache[r.input]
+            correct_count += int(self.data[key]["label"] == r.semantic_output)
+
+        return correct_count / len(results)
