@@ -15,8 +15,14 @@ from transformers.modeling_outputs import Seq2SeqLMOutput
 
 # TRT-HuggingFace
 from T5.T5ModelConfig import T5ModelTRTConfig
-from networks import NetworkMetadata
-from models import TRTEngineFile, TorchModelFile, ONNXModelFile, ModelFileConverter, Dims
+from NNDF.networks import NetworkMetadata
+from NNDF.models import (
+    TRTEngineFile,
+    TorchModelFile,
+    ONNXModelFile,
+    ModelFileConverter,
+    Dims,
+)
 
 
 # Torch File Encoding #
@@ -111,6 +117,7 @@ class T5DecoderTRTEngine(TRTEngineFile):
             max=(1, max_sequence_length, max_sequence_length),
         )
         return [profile]
+
 
 class T5EncoderTRTEngine(TRTEngineFile):
     def __init__(self, model, network_metadata):

@@ -1,18 +1,59 @@
 # std
+import argparse
+
 from collections import namedtuple, OrderedDict
 from itertools import product
 from typing import Dict
 
-from transformers.utils.dummy_pt_objects import T5Model
-
 # TRT-HuggingFace
-from models import Dims
-from networks import Precision, NetworkMetadata, NNConfig
+from NNDF.models import Dims
+from NNDF.networks import Precision, NetworkMetadata, NNConfig
+from NNDF.interface import MetadataArgparseInteropMixin
 
 # Limitation of namedtuples. You must declare namedtuples in module scope and not in classes.
 # Otherwise pickle doesn't work.
 # See: https://stackoverflow.com/questions/4677012/python-cant-pickle-type-x-attribute-lookup-failed
-T5Metadata = namedtuple("T5Metadata", ["kv_cache"])
+_T5Metadata = namedtuple("T5Metadata", ["kv_cache"])
+
+
+class T5Metadata(_T5Metadata, MetadataArgparseInteropMixin):
+    @staticmethod
+    def add_args(parser: argparse.ArgumentParser) -> None:
+        """Add commandline interface parser."""
+        network_group = parser.add_argument_group("T5 network")
+        network_group.add_argument(
+            "--variant",
+            help="T5 variant to generate",
+            choices=T5ModelTRTConfig.TARGET_MODELS,
+            required=True,
+        )
+        network_group.add_argument(
+            "--enable-kv-cache",
+            help="T5 enable KV cache",
+            action="store_true",
+            default=False,
+        )
+
+    @staticmethod
+    def from_args(args: argparse.Namespace):
+        return NetworkMetadata(
+            variant=args.variant,
+            precision=Precision(fp16=False),
+            other=T5Metadata(kv_cache=args.enable_kv_cache),
+        )
+
+    @staticmethod
+    def add_inference_args(parser: argparse.ArgumentParser) -> None:
+        T5Metadata.add_args(parser)
+        inference_group = parser.add_argument_group("inference group")
+        inference_group.add_argument(
+            "--fp16", action="store_true", help="Enables fp16 TensorRT tactics."
+        )
+
+    @staticmethod
+    def from_inference_args(args: argparse.Namespace):
+        base_metadata = T5Metadata.from_args(args)
+        return base_metadata._replace(precision=Precision(fp16=args.fp16))
 
 
 class T5ModelTRTConfig(NNConfig):
