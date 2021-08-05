@@ -15,8 +15,14 @@ from transformers.modeling_outputs import Seq2SeqLMOutput
 
 # TRT-HuggingFace
 from T5.T5ModelConfig import T5ModelTRTConfig
-from networks import NetworkMetadata
-from models import TRTEngineFile, TorchModelFile, ONNXModelFile, ModelFileConverter, Dims
+from NNDF.networks import NetworkMetadata
+from NNDF.models import (
+    TRTEngineFile,
+    TorchModelFile,
+    ONNXModelFile,
+    ModelFileConverter,
+    Dims,
+)
 
 
 # Torch File Encoding #
@@ -100,17 +106,18 @@ class T5DecoderTRTEngine(TRTEngineFile):
         profile = Profile()
         profile.add(
             "input_ids",
-            min=(1, 256),
-            opt=(1, 256),
-            max=(1, 256),
+            min=(1, 1),
+            opt=(1, max_sequence_length // 2),
+            max=(1, max_sequence_length),
         )
         profile.add(
             "encoder_hidden_states",
-            min=(1, 256, max_sequence_length),
-            opt=(1, 256, max_sequence_length),
-            max=(1, 256, max_sequence_length),
+            min=(1, 1, max_sequence_length),
+            opt=(1, max_sequence_length // 2, max_sequence_length),
+            max=(1, max_sequence_length, max_sequence_length),
         )
         return [profile]
+
 
 class T5EncoderTRTEngine(TRTEngineFile):
     def __init__(self, model, network_metadata):

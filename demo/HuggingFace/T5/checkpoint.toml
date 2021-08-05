@@ -2,7 +2,7 @@
 
 label = "contradiction"
 
-[T.t5-small.cola_a]
+[T5.t5-small.cola_a]
 
 label = "acceptable"
 
@@ -21,7 +21,7 @@ input = '''
 translate English to German: That is good.
 '''
 
-label = "Dat ist gud."
+label = "Das ist gut."
 
 [T5.default.cola_a]
 

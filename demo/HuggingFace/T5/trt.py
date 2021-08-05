@@ -1,8 +1,8 @@
 # std
+import argparse
 import os
 from re import S
 import sys
-import logging
 from typing import Dict, List, Tuple
 
 # Add syspath for custom library
@@ -25,9 +25,8 @@ from transformers.configuration_utils import PretrainedConfig
 from transformers.generation_utils import GenerationMixin
 
 # TRT-HuggingFace
-from interface import PolygraphyCommand
-from networks import (
-    NNFolderWorkspace,
+from NNDF.interface import TRTInferenceCommand
+from NNDF.networks import (
     NetworkMetadata,
     NetworkModels,
     NetworkModel,
@@ -37,18 +36,26 @@ from networks import (
     TimingProfile,
 )
 
-from polygraphy_utils import TRTRunner
+from NNDF.polygraphy_utils import TRTRunner
+from NNDF.general_utils import NNFolderWorkspace
 from T5.frameworks import T5FHuggingFace
 from T5.T5ModelConfig import T5ModelTRTConfig
 from T5.measurements import decoder_inference, encoder_inference, full_inference_greedy
-from T5.export import T5DecoderONNXFile, T5EncoderONNXFile, T5EncoderTRTEngine
+from T5.export import T5DecoderONNXFile, T5EncoderONNXFile
+
 
 class TRTHFRunner(TRTRunner, GenerationMixin):
     """Runner that adds interop support for HF and HF provided greedy_search functions."""
 
-    def __init__(self, engine_fpath: str, network_metadata: NetworkMetadata, hf_config: PretrainedConfig):
+    def __init__(
+        self,
+        engine_fpath: str,
+        network_metadata: NetworkMetadata,
+        hf_config: PretrainedConfig,
+    ):
         super().__init__(engine_fpath, network_metadata)
         self.config = hf_config
+
 
 class T5TRTEncoder(TRTHFRunner):
     """TRT implemented network interface that can be used to measure inference time."""
@@ -57,12 +64,8 @@ class T5TRTEncoder(TRTHFRunner):
         if not isinstance(input_ids, np.ndarray):
             input_ids = input_ids.numpy().astype(np.int32)
 
-        # TODO:WAR static shapes for now
-        new_input_ids = np.zeros((1, 256), dtype=np.int32)
-        new_input_ids[:, :input_ids.shape[1]] = input_ids
-        input_ids = new_input_ids
-
         return self.trt_context.infer({"input_ids": input_ids})["hidden_states"]
+
 
 class T5TRTDecoder(TRTHFRunner):
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
@@ -77,14 +80,22 @@ class T5TRTDecoder(TRTHFRunner):
         if not isinstance(encoder_hidden_states, np.ndarray):
             encoder_hidden_states = encoder_hidden_states.numpy().astype(np.float32)
 
-        if encoder_hidden_states.shape[1] < input_ids.shape[1]:
-            new_encoder_hidden_states = np.zeros((encoder_hidden_states.shape[0], input_ids.shape[1], encoder_hidden_states.shape[2]), dtype=np.float32)
-            new_encoder_hidden_states[:, :encoder_hidden_states.shape[1], :] = encoder_hidden_states
+        input_sequence_shape = input_ids.shape[1]
+        encoder_sequence_shape = encoder_hidden_states.shape[1]
+        if encoder_sequence_shape != input_sequence_shape:
+            new_encoder_hidden_states = np.zeros(
+                (
+                    encoder_hidden_states.shape[0],
+                    input_sequence_shape,
+                    encoder_hidden_states.shape[2],
+                ),
+                dtype=np.float32,
+            )
+            encoder_broadcast = min(input_sequence_shape, encoder_sequence_shape)
+            new_encoder_hidden_states[:, :encoder_broadcast, :] = encoder_hidden_states[
+                :, :encoder_broadcast, :
+            ]
             encoder_hidden_states = new_encoder_hidden_states
-        elif encoder_hidden_states.shape[1] > input_ids.shape[1]:
-            new_input_ids = np.zeros((1, encoder_hidden_states.shape[1]), dtype=np.int32)
-            new_input_ids[:, :input_ids.shape[1]] = input_ids
-            input_ids = new_input_ids
 
         logits = self.trt_context.infer(
             {"input_ids": input_ids, "encoder_hidden_states": encoder_hidden_states}
@@ -92,10 +103,13 @@ class T5TRTDecoder(TRTHFRunner):
 
         return Seq2SeqLMOutput(logits=torch.from_numpy(logits))
 
-class T5Polygraphy(PolygraphyCommand):
+
+class T5Polygraphy(TRTInferenceCommand):
     def __init__(self):
         super().__init__(
-            T5ModelTRTConfig, "Runs polygraphy results for T5 model.", T5FHuggingFace
+            T5ModelTRTConfig,
+            "Runs polygraphy results for T5 model. Only supports FP16 variants.",
+            T5FHuggingFace,
         )
         self.t5_trt_decoder = None
         self.t5_trt_encoder = None
@@ -128,12 +142,14 @@ class T5Polygraphy(PolygraphyCommand):
         tokenizer = T5Tokenizer.from_pretrained(metadata.variant)
         input_ids = tokenizer(inference_input, return_tensors="pt").input_ids
         encoder_last_hidden_state, encoder_e2e_median_time = encoder_inference(
-            self.t5_trt_encoder, input_ids, timing_profile,
-            use_cuda=False
+            self.t5_trt_encoder, input_ids, timing_profile, use_cuda=False
         )
         _, decoder_e2e_median_time = decoder_inference(
-            self.t5_trt_decoder, input_ids, encoder_last_hidden_state, timing_profile,
-            use_cuda=False
+            self.t5_trt_decoder,
+            input_ids,
+            encoder_last_hidden_state,
+            timing_profile,
+            use_cuda=False,
         )
         decoder_output_greedy, full_e2e_median_runtime = full_inference_greedy(
             self.t5_trt_encoder,
@@ -142,7 +158,7 @@ class T5Polygraphy(PolygraphyCommand):
             tokenizer,
             timing_profile,
             max_length=40,
-            use_cuda=False
+            use_cuda=False,
         )
 
         # Remove the padding and end tokens.
@@ -154,6 +170,7 @@ class T5Polygraphy(PolygraphyCommand):
         )
 
         return NetworkResult(
+            input=inference_input,
             output_tensor=encoder_last_hidden_state,
             semantic_output=remove_underscore.strip(),
             median_runtime=[
@@ -186,7 +203,7 @@ class T5Polygraphy(PolygraphyCommand):
             ),
         )
 
-    def run_polygraphy(
+    def run_trt(
         self,
         metadata: NetworkMetadata,
         onnx_fpaths: Tuple[NetworkModel],
@@ -215,7 +232,9 @@ class T5Polygraphy(PolygraphyCommand):
             # Output networks shall not exceed number of network segments explicitly defined by configuraiton file.
             assert len(onnx_fpaths) == len(
                 T5ModelTRTConfig.NETWORK_SEGMENTS
-            ), "There should only be {} exported ONNX segments in T5 model."
+            ), "There should only be {} exported ONNX segments in T5 model.".format(
+                len(T5ModelTRTConfig.NETWORK_SEGMENTS)
+            )
 
             hash_onnx_fpath = {v.name: v for v in onnx_fpaths}
 
@@ -226,14 +245,22 @@ class T5Polygraphy(PolygraphyCommand):
                 T5ModelTRTConfig.NETWORK_ENCODER_SEGMENT_NAME
             ].fpath
 
-            self.t5_trt_encoder_engine = T5EncoderONNXFile(encoder_onnx_fpath, metadata).as_trt_engine(encoder_onnx_fpath + ".engine")
-            self.t5_trt_decoder_engine = T5DecoderONNXFile(decoder_onnx_fpath, metadata).as_trt_engine(decoder_onnx_fpath + ".engine")
+            self.t5_trt_encoder_engine = T5EncoderONNXFile(
+                encoder_onnx_fpath, metadata
+            ).as_trt_engine(encoder_onnx_fpath + ".engine")
+            self.t5_trt_decoder_engine = T5DecoderONNXFile(
+                decoder_onnx_fpath, metadata
+            ).as_trt_engine(decoder_onnx_fpath + ".engine")
             tfm_config = T5Config(
                 use_cache=metadata.other.kv_cache,
                 num_layers=T5ModelTRTConfig.NUMBER_OF_LAYERS[metadata.variant],
             )
-            self.t5_trt_encoder = T5TRTEncoder(self.t5_trt_encoder_engine.fpath, metadata, tfm_config)
-            self.t5_trt_decoder = T5TRTDecoder(self.t5_trt_decoder_engine.fpath, metadata, tfm_config)
+            self.t5_trt_encoder = T5TRTEncoder(
+                self.t5_trt_encoder_engine.fpath, metadata, tfm_config
+            )
+            self.t5_trt_decoder = T5TRTDecoder(
+                self.t5_trt_decoder_engine.fpath, metadata, tfm_config
+            )
 
             for ninput in network_input:
                 results.append(
@@ -248,9 +275,8 @@ class T5Polygraphy(PolygraphyCommand):
         return results
 
     def add_args(self, parser) -> None:
-        # use the same args as frameworks.py
-        self.frameworks_cmd.add_args(parser)
-        polygraphy_group = parser.add_argument_group("polygraphy")
+        super().add_args(parser)
+        polygraphy_group = parser.add_argument_group("polygraphy models")
         polygraphy_group.add_argument(
             "--onnx-decoder-fpath",
             default=None,
@@ -260,14 +286,6 @@ class T5Polygraphy(PolygraphyCommand):
             "--onnx-encoder-fpath",
             default=None,
             help="Path to ONNX encoder. If None is supplied, scripts will generate them from HuggingFace.",
-        )
-        polygraphy_group.add_argument(
-            "--fp16", action="store_true", help="Enables fp16 TensorRT tactics."
-        )
-        polygraphy_group.add_argument(
-            "--save-trt-engine",
-            action="store_true",
-            help="Saves TensorRT runtime engine in working directory.",
         )
 
     def args_to_network_models(self, args) -> List[NetworkModel]:

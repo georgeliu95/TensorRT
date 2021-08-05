@@ -18,25 +18,22 @@ if __name__ == "__main__":
     project_root = os.path.join(filepath, os.pardir)
     sys.path.append(project_root)
 
-# torch
-import torch
-
 # helpers
-from interface import FrameworkCommand
-from networks import (
+from NNDF.interface import FrameworkCommand
+from NNDF.general_utils import confirm_folder_delete, NNFolderWorkspace
+from NNDF.networks import (
     NetworkResult,
     NetworkMetadata,
     NetworkRuntime,
     Precision,
     NetworkModel,
     NetworkModels,
-    NNFolderWorkspace,
     TimingProfile,
 )
 from GPT2.export import GPT2TorchFile
 from GPT2.GPT2ModelConfig import GPT2ModelTRTConfig
 from GPT2.measurements import gpt2_inference, full_inference_greedy
-from general_utils import confirm_folder_delete
+
 
 class GPT2HuggingFace(FrameworkCommand):
     def __init__(self):
@@ -85,15 +82,19 @@ class GPT2HuggingFace(FrameworkCommand):
         onnx_model_fpath = root_onnx_model_fpath
 
         gpt2 = GPT2TorchFile(model, metadata)
-        self.onnx_gpt2 = gpt2.as_onnx_model(
-            onnx_model_fpath, force_overwrite=False
-        )
+        self.onnx_gpt2 = gpt2.as_onnx_model(onnx_model_fpath, force_overwrite=False)
 
         onnx_models = [
-            NetworkModel(name=GPT2ModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME, fpath=self.onnx_gpt2.fpath)
+            NetworkModel(
+                name=GPT2ModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME,
+                fpath=self.onnx_gpt2.fpath,
+            )
         ]
         torch_models = [
-            NetworkModel(name=GPT2ModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME, fpath=pytorch_model_dir)
+            NetworkModel(
+                name=GPT2ModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME,
+                fpath=pytorch_model_dir,
+            )
         ]
 
         return NetworkModels(torch=torch_models, onnx=onnx_models, trt=None)
@@ -141,25 +142,32 @@ class GPT2HuggingFace(FrameworkCommand):
         gpt2_torch_fpath = network_fpaths.torch[0].fpath
         config = GPT2Config(use_cache=metadata.other.kv_cache)
         gpt2_model = GPT2LMHeadModel(config).from_pretrained(gpt2_torch_fpath)
-        gpt2_torch = GPT2TorchFile.TorchModule(gpt2_model.transformer, gpt2_model.lm_head, gpt2_model.config)
-        #greedy_output = gpt2_torch.generate(input_ids) #greedy search
+        gpt2_torch = GPT2TorchFile.TorchModule(
+            gpt2_model.transformer, gpt2_model.lm_head, gpt2_model.config
+        )
+        greedy_output = gpt2_torch.generate(input_ids) #greedy search
 
-        # get single decoder iteration inference timing profile 
+        # get single decoder iteration inference timing profile
         _, decoder_e2e_median_time = gpt2_inference(
             gpt2_torch, input_ids, timing_profile
         )
 
-        # get complete decoder inference result and its timing profile 
+        # get complete decoder inference result and its timing profile
         sample_output, full_e2e_median_runtime = full_inference_greedy(
-            gpt2_torch, input_ids, timing_profile,
-            max_length=GPT2ModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant]
+            gpt2_torch,
+            input_ids,
+            timing_profile,
+            max_length=GPT2ModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant],
         )
 
         semantic_outputs = []
         for i, sample_output in enumerate(sample_output):
-            semantic_outputs.append(tokenizer.decode(sample_output, skip_special_tokens=True))
+            semantic_outputs.append(
+                tokenizer.decode(sample_output, skip_special_tokens=True)
+            )
         
         return NetworkResult(
+            input=inference_input,
             output_tensor=greedy_output,
             semantic_output=semantic_outputs,
             median_runtime=[
@@ -168,9 +176,9 @@ class GPT2HuggingFace(FrameworkCommand):
                     runtime=decoder_e2e_median_time,
                 ),
                 NetworkRuntime(
-                    name=GPT2ModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME,
+                    name=GPT2ModelTRTConfig.NETWORK_FULL_NAME,
                     runtime=full_e2e_median_runtime,
-                )
+                ),
             ],
             models=network_fpaths,
         )
@@ -203,26 +211,6 @@ class GPT2HuggingFace(FrameworkCommand):
             self.cleanup(workspace, save_onnx_model, save_pytorch_model)
 
         return results
-
-    def add_args(self, parser) -> None:
-        super().add_args(parser)
-        parser.add_argument(
-            "--variant",
-            help="GPT2 variant to generate",
-            choices=GPT2ModelTRTConfig.TARGET_MODELS,
-            required=True,
-        )
-        parser.add_argument(
-            "--enable-kv-cache",
-            help="GPT2 enable KV cache",
-            action="store_true",
-            default=False,
-        )
-        parser.add_argument(
-            "--working-dir",
-            help="Location of where to save the model if --keep-* is enabled.",
-            required=True,
-        )
 
     def args_to_network_metadata(self, args: argparse.Namespace) -> NetworkMetadata:
         return NetworkMetadata(

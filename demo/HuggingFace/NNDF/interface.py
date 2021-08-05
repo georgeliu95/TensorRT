@@ -9,14 +9,39 @@ from typing import List, Tuple
 # polygraphy
 from polygraphy.logger import G_LOGGER
 
-from networks import (
+from NNDF.networks import (
     NetworkResult,
     NetworkMetadata,
+    NetworkCheckpointResult,
     NNConfig,
     NetworkModel,
     TimingProfile,
 )
-from checkpoints import NNSemanticCheckpoint
+from NNDF.checkpoints import NNSemanticCheckpoint
+
+
+class MetadataArgparseInteropMixin:
+    """Add argparse support where the class can add new arguments to an argparse object."""
+
+    @staticmethod
+    @abstractmethod
+    def add_args(parser):
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def from_args(args):
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def add_inference_args(parser):
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def from_inference_args(args):
+        pass
 
 
 class NetworkCommand(metaclass=ABCMeta):
@@ -31,6 +56,7 @@ class NetworkCommand(metaclass=ABCMeta):
 
     def __call__(self):
         self.add_args(self._parser)
+        self.config.MetadataClass.add_args(self._parser)
         self._args = self._parser.parse_args()
 
         if self._args.verbose:
@@ -39,14 +65,20 @@ class NetworkCommand(metaclass=ABCMeta):
         self.metadata = self.args_to_network_metadata(self._args)
         self.check_network_metadata_is_supported(self.metadata)
 
-    def add_args(self, parser) -> argparse.ArgumentParser:
+    def add_args(self, parser) -> None:
         general_group = parser.add_argument_group("general")
         general_group.add_argument(
             "--verbose", help="Display verbose logs.", action="store_true"
         )
         general_group.add_argument(
-            "--cleanup", help="Cleans up user-specified workspace. Can not be cleaned if external files exist in workspace.",
-            action="store_false"
+            "--cleanup",
+            help="Cleans up user-specified workspace. Can not be cleaned if external files exist in workspace.",
+            action="store_false",
+        )
+        general_group.add_argument(
+            "--working-dir",
+            help="Location of where to save the model and other downloaded files.",
+            required=True,
         )
 
         timing_group = parser.add_argument_group("inference measurement")
@@ -83,9 +115,8 @@ class NetworkCommand(metaclass=ABCMeta):
                 )
             )
 
-    @abstractmethod
     def args_to_network_metadata(self, args) -> NetworkMetadata:
-        pass
+        return self.config.MetadataClass.from_args(args)
 
 
 class FrameworkCommand(NetworkCommand):
@@ -111,7 +142,7 @@ class FrameworkCommand(NetworkCommand):
             network_name=self.config.network_name,
             metadata=self.metadata,
         )
-        network_result = self.run_framework(
+        network_results = self.run_framework(
             self.metadata,
             list(checkpoint.inputs()),
             self._args.working_dir,
@@ -124,13 +155,16 @@ class FrameworkCommand(NetworkCommand):
             ),
         )
 
-        return network_result
+        return NetworkCheckpointResult(
+            network_results=network_results,
+            accuracy=checkpoint.accuracy(network_results),
+        )
 
     def add_args(self, parser) -> argparse.ArgumentParser:
         super().add_args(parser)
 
 
-class PolygraphyCommand(NetworkCommand):
+class TRTInferenceCommand(NetworkCommand):
     """Base class that is associated with Polygraphy related scripts."""
 
     def __init__(
@@ -144,7 +178,7 @@ class PolygraphyCommand(NetworkCommand):
         self.frameworks_cmd = frameworks_cmd()
 
     @abstractmethod
-    def run_polygraphy(
+    def run_trt(
         self,
         metadata: NetworkMetadata,
         onnx_fpaths: Tuple[NetworkModel],
@@ -158,6 +192,7 @@ class PolygraphyCommand(NetworkCommand):
         pass
 
     def __call__(self):
+        self.config.MetadataClass.add_inference_args(self._parser)
         super().__call__()
         onnx_fpaths = self.args_to_network_models(self._args)
 
@@ -166,7 +201,7 @@ class PolygraphyCommand(NetworkCommand):
             network_name=self.config.network_name,
             metadata=self.metadata,
         )
-        network_result = self.run_polygraphy(
+        network_results = self.run_trt(
             self.metadata,
             onnx_fpaths,
             list(checkpoint.inputs()),
@@ -181,8 +216,13 @@ class PolygraphyCommand(NetworkCommand):
             ),
         )
 
-        # compare each result to a known output
-        return network_result
+        return NetworkCheckpointResult(
+            network_results=network_results,
+            accuracy=checkpoint.accuracy(network_results),
+        )
+
+    def args_to_network_metadata(self, args) -> NetworkMetadata:
+        return self.config.MetadataClass.from_inference_args(args)
 
     @abstractmethod
     def args_to_network_models(self, args) -> Tuple[NetworkModel]:
@@ -192,15 +232,3 @@ class PolygraphyCommand(NetworkCommand):
         Return:
             List[NetworkModel]: List of network model names.
         """
-
-
-class TRTCommand(NetworkCommand):
-    """Base class that is associated with TensorRT related scripts."""
-
-    @abstractmethod
-    def run_tensorrt() -> List[NetworkResult]:
-        # TODO: Still need to define interface
-        pass
-
-    def __call__(self):
-        super().__call__()
