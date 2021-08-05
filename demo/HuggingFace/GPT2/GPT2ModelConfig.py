@@ -15,7 +15,7 @@ GPT2Metadata = namedtuple("GPT2Metadata", ["kv_cache"])
 
 class GPT2ModelTRTConfig(NNConfig):
     VOCAB_SIZE = 50257 # Vocabulary size of the GPT-2 model
-    TARGET_MODELS = ["gpt2"]
+    TARGET_MODELS = ["gpt2", "gpt2-large"]
     NETWORK_DECODER_SEGMENT_NAME = "gpt2_decoder"
     NETWORK_SEGMENTS = [NETWORK_DECODER_SEGMENT_NAME]
     MAX_SEQUENCE_LENGTH = {

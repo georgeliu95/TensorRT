@@ -102,7 +102,7 @@ class GPT2HuggingFace(FrameworkCommand):
         self,
         workspace: NNFolderWorkspace,
         save_onnx_model: bool = True,
-        save_pytorch_model: bool = False,
+        save_pytorch_model: bool = True,
     ) -> None:
         """
         Cleans up the working directory and leaves models if available.
@@ -142,7 +142,7 @@ class GPT2HuggingFace(FrameworkCommand):
         config = GPT2Config(use_cache=metadata.other.kv_cache)
         gpt2_model = GPT2LMHeadModel(config).from_pretrained(gpt2_torch_fpath)
         gpt2_torch = GPT2TorchFile.TorchModule(gpt2_model.transformer, gpt2_model.lm_head, gpt2_model.config)
-        greedy_output = gpt2_torch.generate(input_ids) #greedy search
+        #greedy_output = gpt2_torch.generate(input_ids) #greedy search
 
         # get single decoder iteration inference timing profile 
         _, decoder_e2e_median_time = gpt2_inference(
@@ -156,7 +156,7 @@ class GPT2HuggingFace(FrameworkCommand):
         )
 
         semantic_outputs = []
-        for i, sample_output in enumerate(greedy_output):
+        for i, sample_output in enumerate(sample_output):
             semantic_outputs.append(tokenizer.decode(sample_output, skip_special_tokens=True))
         
         return NetworkResult(

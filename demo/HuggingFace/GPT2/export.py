@@ -1,6 +1,9 @@
 """
 Contains logic that captures GPT2 HuggingFace models into ONNX models and TRT engines.
 """
+# std
+from polygraphy.backend.trt import Profile
+
 # torch
 import torch
 
@@ -57,6 +60,19 @@ class GPT2ONNXFile(ONNXModelFile):
 class GPT2TRTEngine(TRTEngineFile):
     def __init__(self, model, network_metadata):
         super().__init__(model, GPT2Converter, network_metadata)
+
+    def get_dynamic_shape_profiles(self):
+        max_sequence_length = GPT2ModelTRTConfig.MAX_SEQUENCE_LENGTH[
+            self.network_metadata.variant
+        ]
+        profile = Profile()
+        profile.add(
+            "input_ids",
+            min=(1, 1),
+            opt=(1, max_sequence_length // 2),
+            max=(1, max_sequence_length),
+        )
+        return [profile]
 
 # Converters
 class GPT2Converter(ModelFileConverter):
