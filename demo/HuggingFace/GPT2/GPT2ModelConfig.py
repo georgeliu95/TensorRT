@@ -60,6 +60,8 @@ class GPT2ModelTRTConfig(NNConfig):
     TARGET_MODELS = ["gpt2", "gpt2-large"]
     NETWORK_DECODER_SEGMENT_NAME = "gpt2_decoder"
     NETWORK_SEGMENTS = [NETWORK_DECODER_SEGMENT_NAME]
+    NETWORK_FULL_NAME = "full"
+
     MAX_SEQUENCE_LENGTH = {
         TARGET_MODELS[0]: 64,
     }
