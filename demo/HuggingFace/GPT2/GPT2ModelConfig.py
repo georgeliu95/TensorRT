@@ -57,7 +57,7 @@ class GPT2Metadata(_GPT2Metadata, MetadataArgparseInteropMixin):
 
 class GPT2ModelTRTConfig(NNConfig):
     VOCAB_SIZE = 50257  # Vocabulary size of the GPT-2 model
-    TARGET_MODELS = ["gpt2", "gpt2-large"]
+    TARGET_MODELS = ["gpt2"]
     NETWORK_DECODER_SEGMENT_NAME = "gpt2_decoder"
     NETWORK_SEGMENTS = [NETWORK_DECODER_SEGMENT_NAME]
     NETWORK_FULL_NAME = "full"
