@@ -118,6 +118,9 @@ class T5DecoderTRTEngine(TRTEngineFile):
         )
         return [profile]
 
+    def use_strict_types(self):
+        return self.network_metadata.precision.fp16
+
 
 class T5EncoderTRTEngine(TRTEngineFile):
     def __init__(self, model, network_metadata):
@@ -136,6 +139,8 @@ class T5EncoderTRTEngine(TRTEngineFile):
             )
         ]
 
+    def use_strict_types(self):
+        return self.network_metadata.precision.fp16
 
 # Converters #
 class T5DecoderConverter(ModelFileConverter):

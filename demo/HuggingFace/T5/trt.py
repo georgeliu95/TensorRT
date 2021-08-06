@@ -122,8 +122,10 @@ class T5Polygraphy(TRTInferenceCommand):
         keep_torch_model: bool = False,
     ) -> None:
         # Deactivates context
-        self.t5_trt_encoder.release()
-        self.t5_trt_decoder.release()
+        if self.t5_trt_encoder:
+            self.t5_trt_encoder.release()
+        if self.t5_trt_decoder:
+            self.t5_trt_decoder.release()
 
         if not keep_trt_engine:
             self.t5_trt_encoder_engine.cleanup()
