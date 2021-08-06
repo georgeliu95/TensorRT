@@ -61,6 +61,9 @@ class GPT2TRTEngine(TRTEngineFile):
     def __init__(self, model, network_metadata):
         super().__init__(model, GPT2Converter, network_metadata)
 
+    def use_strict_types(self):
+        return self.network_metadata.precision.fp16
+
     def get_dynamic_shape_profiles(self):
         max_sequence_length = GPT2ModelTRTConfig.MAX_SEQUENCE_LENGTH[
             self.network_metadata.variant
@@ -73,6 +76,9 @@ class GPT2TRTEngine(TRTEngineFile):
             max=(1, max_sequence_length),
         )
         return [profile]
+
+    def get_network_definition(self, network_definition):
+        return network_definition
 
 # Converters
 class GPT2Converter(ModelFileConverter):

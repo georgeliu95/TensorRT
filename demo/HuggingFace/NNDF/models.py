@@ -434,6 +434,7 @@ class ONNXModelFile(NNModelFile):
             fp16=self.network_metadata.precision.fp16,
             max_workspace_size=result.DEFAULT_TRT_WORKSPACE_MB * 1024 * 1024,
             profiles=result.get_dynamic_shape_profiles(),
+            strict_types=result.use_strict_types()
         )
 
         g_logger_verbosity = (
@@ -442,8 +443,10 @@ class ONNXModelFile(NNModelFile):
             else G_LOGGER.WARNING
         )
         with G_LOGGER.verbosity(g_logger_verbosity):
+            network_definition = result.get_network_definition(network_from_onnx_path(self.fpath))
+
             self.trt_engine = engine_from_network(
-                network_from_onnx_path(self.fpath), config=self.trt_inference_config
+                network_definition, config=self.trt_inference_config
             )
             save_engine(self.trt_engine, output_fpath)
 
@@ -457,6 +460,16 @@ class TRTEngineFile(NNModelFile):
     def get_dynamic_shape_profiles(self):
         pass
 
+    @abstractmethod
+    def use_strict_types(self):
+        pass
+    
+    # get_network_definition can be overloaded to alter the network definition.
+    # For example, this function can be used to change the precisions of ops or
+    # data type of intermediate tensors.
+    def get_network_definition(self, network_definition):
+        return network_definition
+    
     def __init__(
         self,
         model: str,

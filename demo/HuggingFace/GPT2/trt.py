@@ -1,8 +1,6 @@
 # std
 import os
-from re import S
 import sys
-import logging
 from typing import Dict, List, Tuple
 
 # Add syspath for custom library
@@ -25,9 +23,8 @@ from transformers.configuration_utils import PretrainedConfig
 from transformers.generation_utils import GenerationMixin
 
 # TRT-HuggingFace
-from interface import PolygraphyCommand
-from networks import (
-    NNFolderWorkspace,
+from NNDF.interface import TRTInferenceCommand
+from NNDF.networks import (
     NetworkMetadata,
     NetworkModels,
     NetworkModel,
@@ -37,15 +34,22 @@ from networks import (
     TimingProfile,
 )
 
-from polygraphy_utils import TRTRunner
+from NNDF.polygraphy_utils import TRTRunner
 from GPT2.frameworks import GPT2HuggingFace
+from NNDF.general_utils import NNFolderWorkspace
 from GPT2.GPT2ModelConfig import GPT2ModelTRTConfig
 from GPT2.measurements import gpt2_inference, full_inference_greedy
 from GPT2.export import GPT2ONNXFile, GPT2TRTEngine
 
 class TRTHFRunner(TRTRunner, GenerationMixin):
     """Runner that adds interop support for HF and HF provided greedy_search functions."""
-    def __init__(self, engine_fpath: str, network_metadata: NetworkMetadata, hf_config: PretrainedConfig):
+
+    def __init__(
+        self,
+        engine_fpath: str,
+        network_metadata: NetworkMetadata,
+        hf_config: PretrainedConfig,
+    ):
         super().__init__(engine_fpath, network_metadata)
         self.config = hf_config
 
@@ -68,7 +72,7 @@ class GPT2TRTDecoder(TRTHFRunner):
 
         return CausalLMOutputWithCrossAttentions(logits=torch.from_numpy(logits).to("cuda"))
         
-class GPT2Polygraphy(PolygraphyCommand):
+class GPT2Polygraphy(TRTInferenceCommand):
     def __init__(self):
         super().__init__(
             GPT2ModelTRTConfig, "Runs polygraphy results for GPT2 model.", GPT2HuggingFace
@@ -118,6 +122,7 @@ class GPT2Polygraphy(PolygraphyCommand):
             semantic_outputs.append(tokenizer.decode(sample_output, skip_special_tokens=True))
 
         return NetworkResult(
+            input=inference_input,
             output_tensor=sample_output,
             semantic_output=semantic_outputs,
             median_runtime=[
@@ -142,7 +147,7 @@ class GPT2Polygraphy(PolygraphyCommand):
             ),
         )
 
-    def run_polygraphy(
+    def run_trt(
         self,
         metadata: NetworkMetadata,
         onnx_fpaths: Tuple[NetworkModel],

@@ -103,7 +103,7 @@ class GPT2HuggingFace(FrameworkCommand):
         self,
         workspace: NNFolderWorkspace,
         save_onnx_model: bool = True,
-        save_pytorch_model: bool = True,
+        keep_pytorch_model: bool = True,
     ) -> None:
         """
         Cleans up the working directory and leaves models if available.
@@ -116,14 +116,14 @@ class GPT2HuggingFace(FrameworkCommand):
             if self.onnx_gpt2 is not None:
                 self.onnx_gpt2.cleanup()
 
-        if not save_pytorch_model:
+        if not keep_pytorch_model:
             # Using rmtree can be dangerous, have user confirm before deleting.
             confirm_folder_delete(
                 self.torch_gpt2_dir,
                 prompt="Confirm you want to delete downloaded pytorch model folder?",
             )
 
-        if not save_pytorch_model and not save_onnx_model:
+        if not keep_pytorch_model and not save_onnx_model:
             workspace.cleanup(force_remove=False)
 
     def execute_inference(
@@ -189,7 +189,7 @@ class GPT2HuggingFace(FrameworkCommand):
         network_input: List[str],
         working_directory: str,
         save_onnx_model: bool,
-        save_pytorch_model: bool,
+        keep_pytorch_model: bool,
         timing_profile: TimingProfile,
     ) -> List[NetworkResult]:
         """
@@ -208,7 +208,7 @@ class GPT2HuggingFace(FrameworkCommand):
                     )
                 )
         finally:
-            self.cleanup(workspace, save_onnx_model, save_pytorch_model)
+            self.cleanup(workspace, save_onnx_model, keep_pytorch_model)
 
         return results
 
