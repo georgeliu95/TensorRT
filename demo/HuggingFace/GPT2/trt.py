@@ -131,7 +131,7 @@ class GPT2Polygraphy(TRTInferenceCommand):
                     runtime=decoder_e2e_median_time,
                 ),
                 NetworkRuntime(
-                    name=GPT2ModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME,
+                    name=GPT2ModelTRTConfig.NETWORK_FULL_NAME,
                     runtime=full_e2e_median_runtime,
                 ),
             ],
