@@ -232,3 +232,7 @@ def ext_weights():
 def const_foldable():
     path = os.path.join(TEST_ROOT, "models", "const_foldable.onnx")
     return Model(path, inputs=None, outputs=None, nodes=None, opset=None)  # Only used for path.
+
+def shape_cast_elision():
+    path = os.path.join(TEST_ROOT, "models", "shape_cast_elision.onnx")
+    return Model(path, inputs=None, outputs=None, nodes=None, opset=None)  # Only used for path.
