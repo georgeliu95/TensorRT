@@ -43,6 +43,7 @@ template <>
 void write<NMSParameters>(char*& buffer, const NMSParameters& val)
 {
     auto* param = reinterpret_cast<NMSParameters*>(buffer);
+    std::memset(param, 0, sizeof(NMSParameters));
     param->shareLocation = val.shareLocation;
     param->backgroundLabelId = val.backgroundLabelId;
     param->numClasses = val.numClasses;
