@@ -75,39 +75,3 @@ def full_inference_greedy(
     )
 
     return (_e2e(), full_e2e_median_time)
-
-
-@use_cuda
-def full_inference_beam(
-    t5_encoder,
-    t5_decoder,
-    input_ids,
-    tokenizer,
-    num_beams,
-    timing_profile,
-    use_cuda=True,
-):
-    decoder_input_ids = torch.full(
-        (num_beams, 1), tokenizer.convert_tokens_to_ids(tokenizer.pad_token)
-    )
-
-    if use_cuda:
-        decoder_input_ids = decoder_input_ids.to("cuda")
-
-    # Set beams to one because of greedy algorithm
-    def _e2e():
-        encoder_last_hidden_state = t5_encoder(input_ids=input_ids)
-
-        # Reformat hidden state for greedy search
-        encoder_last_hidden_state = torch.cat([encoder_last_hidden_state] * num_beams)
-        return t5_decoder.beam_search(
-            input_ids=decoder_input_ids,
-            encoder_hidden_states=encoder_last_hidden_state,
-            num_beams=num_beams,
-        )
-
-    full_e2e_median_time = measure_python_inference_code(
-        _e2e, number=timing_profile.number, iterations=timing_profile.iterations
-    )
-
-    return (_e2e(), full_e2e_median_time)

@@ -6,8 +6,7 @@ from itertools import product
 from typing import Dict
 
 # TRT-HuggingFace
-from NNDF.models import Dims
-from NNDF.networks import Precision, NetworkMetadata, NNConfig
+from NNDF.networks import Precision, NetworkMetadata, NNConfig, Dims
 from NNDF.interface import MetadataArgparseInteropMixin
 
 # Limitation of namedtuples. You must declare namedtuples in module scope and not in classes.

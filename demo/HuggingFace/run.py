@@ -11,9 +11,7 @@ import argparse
 import importlib
 
 from abc import abstractmethod
-from typing import DefaultDict, List
-from statistics import mean
-from copy import deepcopy
+from typing import List
 
 # tabulate
 from tabulate import tabulate

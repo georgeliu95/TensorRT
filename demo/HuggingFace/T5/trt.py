@@ -24,6 +24,9 @@ from transformers.modeling_outputs import Seq2SeqLMOutput
 from transformers.configuration_utils import PretrainedConfig
 from transformers.generation_utils import GenerationMixin
 
+# TensorRT
+import tensorrt as trt
+
 # TRT-HuggingFace
 from NNDF.interface import TRTInferenceCommand
 from NNDF.networks import (
@@ -36,75 +39,128 @@ from NNDF.networks import (
     TimingProfile,
 )
 
-from NNDF.polygraphy_utils import TRTRunner
+from NNDF.tensorrt_utils import TRTNativeRunner
 from NNDF.general_utils import NNFolderWorkspace
 from T5.frameworks import T5FHuggingFace
 from T5.T5ModelConfig import T5ModelTRTConfig
 from T5.measurements import decoder_inference, encoder_inference, full_inference_greedy
 from T5.export import T5DecoderONNXFile, T5EncoderONNXFile
+from NNDF.models import TRTEngineFile
 
 
-class TRTHFRunner(TRTRunner, GenerationMixin):
+class TRTHFRunner(TRTNativeRunner, GenerationMixin):
     """Runner that adds interop support for HF and HF provided greedy_search functions."""
+
+    def _allocate_memory(self, input_dict: Dict[str, np.ndarray], output_dict: Dict[str, np.ndarray]):
+        """Helper function for binding several inputs at once and pre-allocating the results."""
+        bindings = [None] * self.trt_engine.num_bindings
+
+        for input_name, input_array in input_dict.items():
+            # Allocate memory for inputs
+            input_idx = self.trt_engine.get_binding_index(input_name)
+            self.trt_context.set_binding_shape(input_idx, input_array.shape)
+            bindings[input_idx] = input_array.data_ptr()
+
+        assert self.trt_context.all_binding_shapes_specified
+
+        for output_name, output_array in output_dict.items():
+            # Output shape should be allocated from context size
+            output_idx = self.trt_engine.get_binding_index(output_name)
+            bindings[output_idx] = output_array.data_ptr()
+
+        return bindings
 
     def __init__(
         self,
-        engine_fpath: str,
+        trt_engine_file: TRTEngineFile,
         network_metadata: NetworkMetadata,
         hf_config: PretrainedConfig,
     ):
-        super().__init__(engine_fpath, network_metadata)
+        super().__init__(trt_engine_file, network_metadata)
         self.config = hf_config
-
 
 class T5TRTEncoder(TRTHFRunner):
     """TRT implemented network interface that can be used to measure inference time."""
 
+    def __init__(
+        self,
+        trt_engine_file: str,
+        network_metadata: NetworkMetadata,
+        hf_config: PretrainedConfig,
+    ):
+        super().__init__(trt_engine_file, network_metadata, hf_config)
+        self.max_sequence_length = T5ModelTRTConfig.MAX_SEQUENCE_LENGTH[network_metadata.variant]
+
+        # For T5, we only have one profile to optimize
+        assert len(trt_engine_file.get_dynamic_shape_profiles()) == 1, "T5 should only have one dynamic shapes profile."
+
+        # We only have one profile to select so we can just grab the profile at the start of the class
+        self.profile_idx = self.get_optimization_profile(batch_size=1, sequence_length=1)
+        self.inputs = {
+            "input_ids": torch.zeros(1, self.max_sequence_length, dtype=torch.int32).cuda()
+        }
+        self.outputs = {
+            "hidden_states": torch.zeros(1, self.max_sequence_length, self.max_sequence_length, dtype=torch.float32).cuda()
+        }
+        self.bindings = self._allocate_memory(self.inputs, self.outputs)
+
     def forward(self, input_ids, *args, **kwargs):
-        if not isinstance(input_ids, np.ndarray):
-            input_ids = input_ids.numpy().astype(np.int32)
+        self.inputs["input_ids"][:, :input_ids.shape[1]] = input_ids
+        self.trt_context.set_binding_shape(0, input_ids.shape)
 
-        return self.trt_context.infer({"input_ids": input_ids})["hidden_states"]
+        # Copy to device
+        self.trt_context.execute_v2(bindings=self.bindings)
 
+        # No need to return encoding back to CPU due to encoder used directly by decoder
+        return self.outputs["hidden_states"]
 
 class T5TRTDecoder(TRTHFRunner):
+
+    def __init__(
+        self,
+        trt_engine_file: str,
+        network_metadata: NetworkMetadata,
+        hf_config: PretrainedConfig,
+    ):
+        super().__init__(trt_engine_file, network_metadata, hf_config)
+        self.max_sequence_length = T5ModelTRTConfig.MAX_SEQUENCE_LENGTH[network_metadata.variant]
+
+        # For T5, we only have one profile to optimize
+        assert len(trt_engine_file.get_dynamic_shape_profiles()) == 1, "T5 should only have one dynamic shapes profile."
+
+        # We only have one profile to select so we can just grab the profile at the start of the class
+        self.profile_idx = self.get_optimization_profile(batch_size=1, sequence_length=1)
+        self.inputs = {
+            "input_ids": torch.zeros(1, self.max_sequence_length, dtype=torch.int32).cuda(),
+            "encoder_hidden_states": torch.zeros(1, self.max_sequence_length, self.max_sequence_length, dtype=torch.float32).cuda()
+        }
+        self.outputs = {
+            "hidden_states": torch.zeros(1, self.max_sequence_length, 32128, dtype=torch.float32).cuda()
+        }
+        self.bindings = self._allocate_memory(self.inputs, self.outputs)
+
+    def forward(self, input_ids, encoder_hidden_states, *args, **kwargs):
+        self.inputs["input_ids"][:, :input_ids.shape[1]] = input_ids
+        self.inputs["encoder_hidden_states"][:, :input_ids.shape[1], :] = encoder_hidden_states[:, :input_ids.shape[1], :]
+
+        # TODO: This can be better generalized
+        self.trt_context.set_binding_shape(0, input_ids.shape)
+        self.trt_context.set_binding_shape(1, (1, input_ids.shape[1], self.max_sequence_length))
+
+        # Copy to device
+        self.trt_context.execute_v2(bindings=self.bindings)
+
+        # Transfer predictions back from GPU to do greedy search
+        return Seq2SeqLMOutput(logits=self.outputs["hidden_states"][:, :input_ids.shape[1]].cpu())
+
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         return {
             "input_ids": input_ids,
             "encoder_hidden_states": kwargs["encoder_hidden_states"],
         }
 
-    def forward(self, input_ids, encoder_hidden_states, *args, **kwargs):
-        if not isinstance(input_ids, np.ndarray):
-            input_ids = input_ids.numpy().astype(np.int32)
-        if not isinstance(encoder_hidden_states, np.ndarray):
-            encoder_hidden_states = encoder_hidden_states.numpy().astype(np.float32)
 
-        input_sequence_shape = input_ids.shape[1]
-        encoder_sequence_shape = encoder_hidden_states.shape[1]
-        if encoder_sequence_shape != input_sequence_shape:
-            new_encoder_hidden_states = np.zeros(
-                (
-                    encoder_hidden_states.shape[0],
-                    input_sequence_shape,
-                    encoder_hidden_states.shape[2],
-                ),
-                dtype=np.float32,
-            )
-            encoder_broadcast = min(input_sequence_shape, encoder_sequence_shape)
-            new_encoder_hidden_states[:, :encoder_broadcast, :] = encoder_hidden_states[
-                :, :encoder_broadcast, :
-            ]
-            encoder_hidden_states = new_encoder_hidden_states
-
-        logits = self.trt_context.infer(
-            {"input_ids": input_ids, "encoder_hidden_states": encoder_hidden_states}
-        )["hidden_states"]
-
-        return Seq2SeqLMOutput(logits=torch.from_numpy(logits))
-
-
-class T5Polygraphy(TRTInferenceCommand):
+class T5TRT(TRTInferenceCommand):
     def __init__(self):
         super().__init__(
             T5ModelTRTConfig,
@@ -144,7 +200,7 @@ class T5Polygraphy(TRTInferenceCommand):
         tokenizer = T5Tokenizer.from_pretrained(metadata.variant)
         input_ids = tokenizer(inference_input, return_tensors="pt").input_ids
         encoder_last_hidden_state, encoder_e2e_median_time = encoder_inference(
-            self.t5_trt_encoder, input_ids, timing_profile, use_cuda=False
+            self.t5_trt_encoder, input_ids, timing_profile
         )
         _, decoder_e2e_median_time = decoder_inference(
             self.t5_trt_decoder,
@@ -159,7 +215,7 @@ class T5Polygraphy(TRTInferenceCommand):
             input_ids,
             tokenizer,
             timing_profile,
-            max_length=40,
+            max_length=T5ModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant],
             use_cuda=False,
         )
 
@@ -258,10 +314,10 @@ class T5Polygraphy(TRTInferenceCommand):
                 num_layers=T5ModelTRTConfig.NUMBER_OF_LAYERS[metadata.variant],
             )
             self.t5_trt_encoder = T5TRTEncoder(
-                self.t5_trt_encoder_engine.fpath, metadata, tfm_config
+                self.t5_trt_encoder_engine, metadata, tfm_config
             )
             self.t5_trt_decoder = T5TRTDecoder(
-                self.t5_trt_decoder_engine.fpath, metadata, tfm_config
+                self.t5_trt_decoder_engine, metadata, tfm_config
             )
 
             for ninput in network_input:
@@ -325,7 +381,7 @@ class T5Polygraphy(TRTInferenceCommand):
         )
 
 
-RUN_CMD = T5Polygraphy()
+RUN_CMD = T5TRT()
 
 if __name__ == "__main__":
     result = RUN_CMD()
