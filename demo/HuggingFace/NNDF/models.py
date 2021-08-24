@@ -7,15 +7,13 @@ import os
 import logging
 
 from abc import ABCMeta, abstractmethod
-from typing import Union, Tuple
-from collections import OrderedDict
+from typing import Union
 from shutil import copytree, rmtree
 from logging import debug
 
 # polygraphy
 from polygraphy.backend.trt import (
     network_from_onnx_path,
-    Profile,
     engine_from_network,
     save_engine,
 )
@@ -70,68 +68,6 @@ class ModelFileConverter:
         raise NotImplementedError(
             "Current model does not support exporting to torch model."
         )
-
-
-class Dims:
-    """Helper class for interfacing dimension constructs with Polygraphy and PyTorch."""
-
-    BATCH = "BATCH_DIM"
-    SEQUENCE = "SEQUENCE_DIM"
-
-    def __init__(self, encoding: OrderedDict):
-        self.encoding = encoding
-
-    def get_dims(self):
-        """
-        Returns the encoding dimensions.
-
-        Return:
-            OrderedDict[str, Union[int, str]]: Returns dimensional encoding. Example: {'input_ids': (1, SEQUENCE_DIM)}
-        """
-        return self.encoding
-
-    def get_names(self) -> Tuple[str]:
-        return tuple(self.encoding.keys())
-
-    def get_lengths(self) -> Tuple[Union[int, str]]:
-        return tuple(self.encoding.values())
-
-    def get_dims_with_substitute(self, subs: OrderedDict):
-        """
-        Subtitutes values used in encoding with valid numbers.
-
-        Args:
-            subs (OrderedDict[str, int]): Dictionary encoding to disambiguate values. Example: {BATCH_DIM: 1, SEQUENCE_DIM: 128}
-
-        Return:
-            OrderedDict[str, int]: Dictionary encoding of dimensions with values substituted:
-                            {'input_ids': (1, SEQUENCE_DIM)} => {'input_ids': (1, 512)}
-        """
-        result = {}
-        assert all(isinstance(v, int) for v in subs.values())
-        return result
-
-    def get_torch_dynamic_axis_encoding(self) -> dict:
-        """
-        Returns a Pytorch "dynamic_axes" encoding for onnx.export.
-
-        Returns:
-            dict: Returns a 'dynamic' index with corresponding names according to:
-                https://pytorch.org/docs/stable/onnx.html
-        """
-
-        dynamic_axes = {}
-        for k, v in self.encoding.items():
-            encodings = []
-            for e in v:
-                if e == self.BATCH:
-                    encodings.append("batch")
-                elif e == self.SEQUENCE:
-                    encodings.append("sequence")
-            dynamic_axes[k] = {c: v for c, v in enumerate(encodings)}
-
-        return dynamic_axes
-
 
 class NNModelFile(metaclass=ABCMeta):
     """

@@ -26,17 +26,7 @@ def register_network_folders(
     return networks
 
 
-def compare_result_accuracy(
-    result_a: NetworkResult, result_b: NetworkResult, threshold: int
-):
-    """
-    Compares two network results and returns statistics regarding each accuracy comparisons.
-    """
-    diff_array = result_b - result_a
-    print(diff_array)
-
-
-def process_results(category: List[str], results: NetworkResult, nconfig: NNConfig):
+def process_results(category: List[str], results: List[NetworkResult], nconfig: NNConfig):
     """
     Calculate and process results across multiple runs.
     """

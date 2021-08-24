@@ -1,14 +1,15 @@
-"""Interface classes required for each registered network script."""
+"""
+Interface classes required for each registered network script.
+"""
 
+# std
 import argparse
 
 import logging
 from abc import ABCMeta, abstractmethod
 from typing import List, Tuple
 
-# polygraphy
-from polygraphy.logger import G_LOGGER
-
+# NNDF
 from NNDF.networks import (
     NetworkResult,
     NetworkMetadata,
@@ -17,7 +18,9 @@ from NNDF.networks import (
     NetworkModel,
     TimingProfile,
 )
-from NNDF.checkpoints import NNSemanticCheckpoint
+
+# externals
+# None, there should be no external dependencies for testing purposes.
 
 
 class MetadataArgparseInteropMixin:
@@ -49,10 +52,14 @@ class NetworkCommand(metaclass=ABCMeta):
 
     description = "NetworkCommand"
 
+    DEFAULT_ITERATIONS = 10
+    DEFAULT_NUMBER = 10
+    DEFAULT_WARMUP = 3
+
     def __init__(self, network_config: NNConfig, description: str):
         self.config = network_config()
         self.description = description
-        self._parser = argparse.ArgumentParser(description=description)
+        self._parser = argparse.ArgumentParser(description=description, conflict_handler="resolve")
 
     def __call__(self):
         self.add_args(self._parser)
@@ -83,17 +90,17 @@ class NetworkCommand(metaclass=ABCMeta):
 
         timing_group = parser.add_argument_group("inference measurement")
         timing_group.add_argument(
-            "--iterations", help="Number of iterations to measure.", default=10
+            "--iterations", help="Number of iterations to measure.", default=self.DEFAULT_ITERATIONS
         )
         timing_group.add_argument(
             "--number",
             help="Number of actual inference cycles per iterations.",
-            default=10,
+            default=self.DEFAULT_NUMBER,
         )
         timing_group.add_argument(
             "--warmup",
             help="Number of warmup iterations before actual measurement occurs.",
-            default=3,
+            default=self.DEFAULT_WARMUP,
         )
 
     def check_network_metadata_is_supported(self, metadata: NetworkMetadata) -> None:
@@ -137,6 +144,9 @@ class FrameworkCommand(NetworkCommand):
     def __call__(self):
         super().__call__()
 
+        # Differ import so that interface file can use used without
+        # dependency install for our testing.
+        from NNDF.checkpoints import NNSemanticCheckpoint
         checkpoint = NNSemanticCheckpoint(
             "checkpoint.toml",
             network_name=self.config.network_name,
@@ -196,6 +206,9 @@ class TRTInferenceCommand(NetworkCommand):
         super().__call__()
         onnx_fpaths = self.args_to_network_models(self._args)
 
+        # Differ import so that interface file can use used without
+        # dependency install for our testing.
+        from NNDF.checkpoints import NNSemanticCheckpoint
         checkpoint = NNSemanticCheckpoint(
             "checkpoint.toml",
             network_name=self.config.network_name,

@@ -15,13 +15,12 @@ from transformers.modeling_outputs import Seq2SeqLMOutput
 
 # TRT-HuggingFace
 from T5.T5ModelConfig import T5ModelTRTConfig
-from NNDF.networks import NetworkMetadata
+from NNDF.networks import NetworkMetadata, Dims
 from NNDF.models import (
     TRTEngineFile,
     TorchModelFile,
     ONNXModelFile,
     ModelFileConverter,
-    Dims,
 )
 
 
@@ -96,6 +95,8 @@ class T5DecoderONNXFile(ONNXModelFile):
 
 # TRT Engine File Encoding #
 class T5DecoderTRTEngine(TRTEngineFile):
+    DEFAULT_TRT_WORKSPACE_MB = 2048
+
     def __init__(self, model, network_metadata):
         super().__init__(model, T5DecoderConverter, network_metadata)
 
@@ -123,6 +124,8 @@ class T5DecoderTRTEngine(TRTEngineFile):
 
 
 class T5EncoderTRTEngine(TRTEngineFile):
+    DEFAULT_TRT_WORKSPACE_MB = 2048
+
     def __init__(self, model, network_metadata):
         super().__init__(model, T5EncoderConverter, network_metadata)
 
@@ -170,6 +173,15 @@ class T5DecoderConverter(ModelFileConverter):
         decoder_with_lm_head = T5DecoderTorchFile.TorchModule(
             model.decoder, model.lm_head, model.config
         )
+
+        # This code allows for huggingface compatible torch file to use onnx exporter
+        old_forward = decoder_with_lm_head.forward
+        def _export_forward(*args, **kwargs):
+            result = old_forward(*args, **kwargs)
+            return result[0]
+
+        decoder_with_lm_head.forward = _export_forward
+
         inputs = T5ModelTRTConfig.get_input_dims(network_metadata)["decoder"]
         outputs = T5ModelTRTConfig.get_output_dims(network_metadata)["decoder"]
 

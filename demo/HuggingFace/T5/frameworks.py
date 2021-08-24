@@ -24,7 +24,6 @@ from NNDF.networks import (
     NetworkResult,
     NetworkMetadata,
     NetworkRuntime,
-    Precision,
     NetworkModels,
     NetworkModel,
     TimingProfile,
