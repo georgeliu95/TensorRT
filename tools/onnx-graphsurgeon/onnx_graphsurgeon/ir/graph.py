@@ -99,6 +99,7 @@ class Graph(object):
         doc_string=None,
         opset=None,
         import_domains=None,
+        ir_version=None,
     ):
         """
         Args:
@@ -107,6 +108,7 @@ class Graph(object):
             outputs (Sequence[Tensor]): A list of graph output Tensors.
             name (str): The name of the graph. Defaults to "onnx_graphsurgeon_graph".
             doc_string (str): A doc_string for the graph. Defaults to "".
+            opset (int): The ONNX opset to use when exporting this graph.
         """
         self.nodes = misc.default_value(nodes, [])
         self.inputs = list(misc.default_value(inputs, []))
@@ -117,7 +119,8 @@ class Graph(object):
 
         self.doc_string = misc.default_value(doc_string, "")
         self.opset = misc.default_value(opset, Graph.DEFAULT_OPSET)
-        self.import_domains = misc.default_value(import_domains, None)
+        self.import_domains = import_domains
+        self.ir_version = ir_version
         # Printing graphs can be very expensive
         G_LOGGER.ultra_verbose(lambda: "Created Graph: {:}".format(self))
         # For layer() function
@@ -487,8 +490,10 @@ class Graph(object):
         # This pattern is problematic for TensorRT since these operations may be performed on Shape Tensors, which
         # are not allowed to be floating point type. Attempt to fold the pattern here
         VALID_CAST_ELISION_OPS = ["Add", "Sub", "Mul", "Div", "Max", "Min", "Equal", "Greater", "Less", "Concat"]
+
         def run_cast_elision(node):
             import onnx
+
             if node.op not in VALID_CAST_ELISION_OPS:
                 return
 
@@ -517,7 +522,7 @@ class Graph(object):
 
             for out_tensor in node.outputs:
                 for out_node in out_tensor.outputs:
-                    if (out_node.op != "Cast" or out_node.attrs["to"] not in [6, 7]):
+                    if out_node.op != "Cast" or out_node.attrs["to"] not in [6, 7]:
                         # Can exit early if any of the output nodes are not valid casts
                         return
                     out_casts.append(out_node)
@@ -553,8 +558,7 @@ class Graph(object):
             except Exception as err:
                 if not error_ok:
                     raise err
-                G_LOGGER.warning("'{:}' routine failed with:
-{:}".format("Shape tensor cast elision", err))
+                G_LOGGER.warning("'{:}' routine failed with: {:}".format("Shape tensor cast elision", err))
 
         G_LOGGER.debug("Folding constants in {:}".format(self.name))
 
