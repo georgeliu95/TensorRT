@@ -34,26 +34,64 @@ from NNDF.networks import (
     TimingProfile,
 )
 
-from NNDF.polygraphy_utils import TRTRunner
+from NNDF.tensorrt_utils import TRTNativeRunner, TRTPolygraphyRunner
 from GPT2.frameworks import GPT2HuggingFace
 from NNDF.general_utils import NNFolderWorkspace
 from GPT2.GPT2ModelConfig import GPT2ModelTRTConfig
 from GPT2.measurements import gpt2_inference, full_inference_greedy
 from GPT2.export import GPT2ONNXFile, GPT2TRTEngine
 
-class TRTHFRunner(TRTRunner, GenerationMixin):
+class TRTHFRunner(TRTNativeRunner, GenerationMixin):
     """Runner that adds interop support for HF and HF provided greedy_search functions."""
+
+    def _allocate_memory(self, input_dict: Dict[str, np.ndarray], output_dict: Dict[str, np.ndarray]):
+        """Helper function for binding several inputs at once and pre-allocating the results."""
+        bindings = [None] * self.trt_engine.num_bindings
+
+        for input_name, input_array in input_dict.items():
+            # Allocate memory for inputs
+            input_idx = self.trt_engine.get_binding_index(input_name)
+            self.trt_context.set_binding_shape(input_idx, input_array.shape)
+            bindings[input_idx] = input_array.data_ptr()
+
+        assert self.trt_context.all_binding_shapes_specified
+
+        for output_name, output_array in output_dict.items():
+            # Output shape should be allocated from context size
+            output_idx = self.trt_engine.get_binding_index(output_name)
+            bindings[output_idx] = output_array.data_ptr()
+
+        return bindings
 
     def __init__(
         self,
-        engine_fpath: str,
+        trt_engine_file: str,
         network_metadata: NetworkMetadata,
         hf_config: PretrainedConfig,
     ):
-        super().__init__(engine_fpath, network_metadata)
+        super().__init__(trt_engine_file, network_metadata)
         self.config = hf_config
 
 class GPT2TRTDecoder(TRTHFRunner):
+    def __init__(
+        self,
+        trt_engine_file: str,
+        network_metadata: NetworkMetadata,
+        hf_config: PretrainedConfig,
+    ):
+        super().__init__(trt_engine_file, network_metadata, hf_config)
+        self.max_sequence_length = GPT2ModelTRTConfig.MAX_SEQUENCE_LENGTH[network_metadata.variant]
+        assert len(trt_engine_file.get_dynamic_shape_profiles()) == 1, "GPT2 should only have one dynamic shapes profile."
+
+        # We only have one profile to select so we can just grab the profile at the start of the class
+        self.profile_idx = self.get_optimization_profile(batch_size=1, sequence_length=1)
+        self.inputs = {
+            "input_ids": torch.zeros(1, self.max_sequence_length, dtype=torch.int32).cuda(),
+        }
+        self.outputs = {
+            "logits": torch.zeros(1, self.max_sequence_length, GPT2ModelTRTConfig.VOCAB_SIZE, dtype=torch.float32).cuda()
+        }
+        self.bindings = self._allocate_memory(self.inputs, self.outputs)
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):  
         # Todo (@pchadha): add position_ids, token_type_ids support
@@ -62,15 +100,10 @@ class GPT2TRTDecoder(TRTHFRunner):
         }
 
     def forward(self, input_ids, **kwargs):
-        if not isinstance(input_ids, np.ndarray):
-            assert isinstance(input_ids, torch.Tensor)
-            input_ids = input_ids.cpu().numpy().astype(np.int32)
- 
-        logits = self.trt_context.infer(
-            {"input_ids": input_ids}
-        )["logits"]
-
-        return CausalLMOutputWithCrossAttentions(logits=torch.from_numpy(logits).to("cuda"))
+        self.inputs["input_ids"][:, :input_ids.shape[1]] = input_ids
+        self.trt_context.set_binding_shape(0, input_ids.shape)
+        self.trt_context.execute_v2(bindings=self.bindings)
+        return CausalLMOutputWithCrossAttentions(logits=self.outputs["logits"][:, :input_ids.shape[1], :].to("cuda"))
         
 class GPT2Polygraphy(TRTInferenceCommand):
     def __init__(self):
@@ -188,7 +221,7 @@ class GPT2Polygraphy(TRTInferenceCommand):
             tfm_config = GPT2Config(
                 use_cache=metadata.other.kv_cache,
             )
-            self.gpt2_trt = GPT2TRTDecoder(self.gpt2_engine.fpath, metadata, tfm_config)
+            self.gpt2_trt = GPT2TRTDecoder(self.gpt2_engine, metadata, tfm_config)
 
             for ninput in network_input:
                 results.append(
