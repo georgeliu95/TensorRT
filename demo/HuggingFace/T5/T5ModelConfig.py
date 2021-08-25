@@ -121,7 +121,7 @@ class T5ModelTRTConfig(NNConfig):
                     "input_ids": (Dims.BATCH, Dims.SEQUENCE),
                     "encoder_hidden_states": (
                         Dims.BATCH,
-                        Dims.SEQUENCE,
+                        Dims.create_new_sequence_dim("encoder_hidden_length"),
                         T5ModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant],
                     ),
                 }

@@ -50,7 +50,9 @@ from NNDF.models import TRTEngineFile
 
 class TRTHFRunner(TRTNativeRunner, GenerationMixin):
     """Runner that adds interop support for HF and HF provided greedy_search functions."""
-
+    
+    # Stores the encoder input length received at runtime, which is used to slice decoder inputs.
+    ENCODER_LENGTH = 0
     def _allocate_memory(self, input_dict: Dict[str, np.ndarray], output_dict: Dict[str, np.ndarray]):
         """Helper function for binding several inputs at once and pre-allocating the results."""
         bindings = [None] * self.trt_engine.num_bindings
@@ -105,6 +107,7 @@ class T5TRTEncoder(TRTHFRunner):
         self.bindings = self._allocate_memory(self.inputs, self.outputs)
 
     def forward(self, input_ids, *args, **kwargs):
+        TRTHFRunner.ENCODER_LENGTH = input_ids.shape[1]
         self.inputs["input_ids"][:, :input_ids.shape[1]] = input_ids
         self.trt_context.set_binding_shape(0, input_ids.shape)
 
@@ -141,11 +144,11 @@ class T5TRTDecoder(TRTHFRunner):
 
     def forward(self, input_ids, encoder_hidden_states, *args, **kwargs):
         self.inputs["input_ids"][:, :input_ids.shape[1]] = input_ids
-        self.inputs["encoder_hidden_states"][:, :input_ids.shape[1], :] = encoder_hidden_states[:, :input_ids.shape[1], :]
+        self.inputs["encoder_hidden_states"][:, :TRTHFRunner.ENCODER_LENGTH, :] = encoder_hidden_states[:, :TRTHFRunner.ENCODER_LENGTH, :]
 
         # TODO: This can be better generalized
         self.trt_context.set_binding_shape(0, input_ids.shape)
-        self.trt_context.set_binding_shape(1, (1, input_ids.shape[1], self.max_sequence_length))
+        self.trt_context.set_binding_shape(1, (1, TRTHFRunner.ENCODER_LENGTH, self.max_sequence_length))
 
         # Copy to device
         self.trt_context.execute_v2(bindings=self.bindings)

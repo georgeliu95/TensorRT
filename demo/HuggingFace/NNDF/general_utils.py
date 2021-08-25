@@ -14,6 +14,7 @@ from glob import glob
 
 # NNDF
 from NNDF.networks import NNConfig, NetworkResult, NetworkMetadata
+RANDOM_SEED = 42
 
 # Networks #
 def register_network_folders(
