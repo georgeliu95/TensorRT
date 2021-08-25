@@ -88,6 +88,7 @@ class NNSemanticCheckpoint(NNTomlCheckpoint):
         for r in results:
             # Find the data the corresponds to input
             key = self._lookup_cache[r.input]
-            correct_count += int(self.data[key]["label"] == r.semantic_output)
+            # remove new line characters
+            correct_count += int(self.data[key]["label"].replace('\\n','').replace('\n','') == r.semantic_output[0].replace('\\n','').replace('\n',''))
 
         return correct_count / len(results)

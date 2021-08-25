@@ -27,7 +27,10 @@ WRAPPER_ACTIONS = [WRAPPER_RUN_ACTION, WRAPPER_LIST_ACTION, WRAPPER_COMPARE_ACTI
 
 # TRT-HuggingFace
 from NNDF.general_utils import process_results, register_network_folders
+from transformers import set_seed
 
+# Force seed to 42 for reproducibility.
+set_seed(42)
 
 class Action:
     def __init__(self, networks: List[str], parser: argparse.ArgumentParser):

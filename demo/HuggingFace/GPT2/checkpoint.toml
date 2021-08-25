@@ -5,5 +5,5 @@ TensorRT is a Deep Learning compiler used for deep learning.
 '''
 
 label = '''
-TensorRT is a Deep Learning compiler used for deep learning. It is a very powerful compiler that
+TensorRT is a Deep Learning compiler used for deep learning.\n\nThe main goal of the project is to create a tool that can be used to train neural networks.\n\nThe main goal of the project is to create a tool that can be used to train neural networks. The main goal of the project is
 '''
