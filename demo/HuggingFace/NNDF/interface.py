@@ -53,7 +53,7 @@ class NetworkCommand(metaclass=ABCMeta):
     description = "NetworkCommand"
 
     DEFAULT_ITERATIONS = 10
-    DEFAULT_NUMBER = 10
+    DEFAULT_NUMBER = 1
     DEFAULT_WARMUP = 3
 
     def __init__(self, network_config: NNConfig, description: str):
