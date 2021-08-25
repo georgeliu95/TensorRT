@@ -124,8 +124,7 @@ def measure_python_inference_code(
     warmup_mintime = timeit.repeat(stmt, number=number, repeat=warmup)
     logging.debug("Warmup times: {}".format(warmup_mintime))
 
-    return median(timeit.repeat(stmt, number=number, repeat=iterations))
-
+    return median(timeit.repeat(stmt, number=number, repeat=iterations)) / number
 
 class NNFolderWorkspace:
     """For keeping track of workspace folder and for cleaning them up."""

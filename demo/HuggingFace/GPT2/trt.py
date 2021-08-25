@@ -41,6 +41,7 @@ from GPT2.GPT2ModelConfig import GPT2ModelTRTConfig
 from GPT2.measurements import gpt2_inference, full_inference_greedy
 from GPT2.export import GPT2ONNXFile, GPT2TRTEngine
 
+
 class TRTHFRunner(TRTNativeRunner, GenerationMixin):
     """Runner that adds interop support for HF and HF provided greedy_search functions."""
 
@@ -103,8 +104,8 @@ class GPT2TRTDecoder(TRTHFRunner):
         self.inputs["input_ids"][:, :input_ids.shape[1]] = input_ids
         self.trt_context.set_binding_shape(0, input_ids.shape)
         self.trt_context.execute_v2(bindings=self.bindings)
-        return CausalLMOutputWithCrossAttentions(logits=self.outputs["logits"][:, :input_ids.shape[1], :].to("cuda"))
-        
+        return CausalLMOutputWithCrossAttentions(logits=self.outputs["logits"][:, :input_ids.shape[1], :])
+
 class GPT2Polygraphy(TRTInferenceCommand):
     def __init__(self):
         super().__init__(
