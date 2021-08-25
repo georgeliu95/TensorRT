@@ -6,6 +6,12 @@ label = "contradiction"
 
 label = "acceptable"
 
+
+[T5.t5-base.translate_a]
+
+label = "Das ist gut so."
+
+
 [T5.default.premise_a]
 
 input = '''
