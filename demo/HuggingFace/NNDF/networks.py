@@ -6,8 +6,8 @@ with IO abstraction. This file deals with high level network configurations.
 # std
 import string
 
-from typing import Dict, OrderedDict, Union, Tuple
-from collections import namedtuple
+from typing import Dict, Union, Tuple
+from collections import namedtuple, OrderedDict
 
 # externals
 # None. Should not have any external dependencies.
@@ -57,11 +57,20 @@ NetworkRuntime = namedtuple("NetworkRuntime", ["name", "runtime"])
 class Dims:
     """Helper class for interfacing dimension constructs with Polygraphy and PyTorch."""
 
-    BATCH = "BATCH_DIM"
-    SEQUENCE = "SEQUENCE_DIM"
+    BATCH = "batch"
+    SEQUENCE = "sequence"
 
     def __init__(self, encoding: OrderedDict):
         self.encoding = encoding
+
+    def create_new_sequence_dim(dim_type: str) -> str:
+        """
+        Returns a new sequence dimension.
+
+        Return:
+            str: Returns a sequence dimension which Dims.SEQUENCE appended by dim_type.
+        """
+        return Dims.SEQUENCE + dim_type
 
     def get_dims(self):
         """
@@ -78,21 +87,6 @@ class Dims:
     def get_lengths(self) -> Tuple[Union[int, str]]:
         return tuple(self.encoding.values())
 
-    def get_dims_with_substitute(self, subs: OrderedDict):
-        """
-        Subtitutes values used in encoding with valid numbers.
-
-        Args:
-            subs (OrderedDict[str, int]): Dictionary encoding to disambiguate values. Example: {BATCH_DIM: 1, SEQUENCE_DIM: 128}
-
-        Return:
-            OrderedDict[str, int]: Dictionary encoding of dimensions with values substituted:
-                            {'input_ids': (1, SEQUENCE_DIM)} => {'input_ids': (1, 512)}
-        """
-        result = {}
-        assert all(isinstance(v, int) for v in subs.values())
-        return result
-
     def get_torch_dynamic_axis_encoding(self) -> dict:
         """
         Returns a Pytorch "dynamic_axes" encoding for onnx.export.
@@ -106,10 +100,8 @@ class Dims:
         for k, v in self.encoding.items():
             encodings = []
             for e in v:
-                if e == self.BATCH:
-                    encodings.append("batch")
-                elif e == self.SEQUENCE:
-                    encodings.append("sequence")
+                if isinstance(e, str) and (e == self.BATCH or self.SEQUENCE in e):
+                    encodings.append(e)
             dynamic_axes[k] = {c: v for c, v in enumerate(encodings)}
 
         return dynamic_axes
