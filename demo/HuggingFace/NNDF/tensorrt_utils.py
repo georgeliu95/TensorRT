@@ -64,13 +64,12 @@ class TRTNativeRunner:
         self.trt_context.active_optimization_profile = self.profile_idx
         return self.forward(*args, **kwargs)
 
-class OnnxRunner:
+class PolygraphyOnnxRunner:
     def __init__(self, onnx_fpath: str, network_metadata: NetworkMetadata):
         self.network_metadata = network_metadata
         self.trt_session = SessionFromOnnx(onnx_fpath)
         self.trt_context = OnnxrtRunner(self.trt_session)
         self.trt_context.activate()
-
 
     def __call__(self, *args, **kwargs):
         # hook polygraphy verbosity for inference

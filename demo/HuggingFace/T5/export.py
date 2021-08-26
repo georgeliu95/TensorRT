@@ -15,7 +15,7 @@ from transformers.modeling_outputs import Seq2SeqLMOutput
 
 # TRT-HuggingFace
 from T5.T5ModelConfig import T5ModelTRTConfig
-from NNDF.networks import NetworkMetadata, Dims
+from NNDF.networks import NetworkMetadata
 from NNDF.models import (
     TRTEngineFile,
     TorchModelFile,
