@@ -154,12 +154,12 @@ class FrameworkCommand(NetworkCommand):
             metadata=self.metadata,
         )
         network_results = self.run_framework(
-            self.metadata,
-            list(checkpoint.inputs()),
-            self._args.working_dir,
-            self._args.cleanup,
-            self._args.cleanup,
-            TimingProfile(
+            metadata=self.metadata,
+            network_input=list(checkpoint.inputs()),
+            working_directory=self._args.working_dir,
+            keep_onnx_model=self._args.cleanup,
+            keep_pytorch_model=self._args.cleanup,
+            timing_profile=TimingProfile(
                 iterations=int(self._args.iterations),
                 number=int(self._args.number),
                 warmup=int(self._args.warmup),
@@ -217,14 +217,14 @@ class TRTInferenceCommand(NetworkCommand):
             metadata=self.metadata,
         )
         network_results = self.run_trt(
-            self.metadata,
-            onnx_fpaths,
-            list(checkpoint.inputs()),
-            self._args.working_dir,
-            self._args.cleanup,
-            self._args.cleanup,
-            self._args.cleanup,
-            TimingProfile(
+            metadata=self.metadata,
+            onnx_fpaths=onnx_fpaths,
+            network_input=list(checkpoint.inputs()),
+            working_directory=self._args.working_dir,
+            keep_trt_engine=self._args.cleanup,
+            keep_onnx_model=self._args.cleanup,
+            keep_torch_model=self._args.cleanup,
+            timing_profile=TimingProfile(
                 iterations=int(self._args.iterations),
                 number=int(self._args.number),
                 warmup=int(self._args.warmup),
@@ -289,13 +289,13 @@ class OnnxRTCommand(NetworkCommand):
             metadata=self.metadata,
         )
         network_results = self.run_onnxrt(
-            self.metadata,
-            onnx_fpaths,
-            list(checkpoint.inputs()),
-            self._args.working_dir,
-            self._args.cleanup,
-            self._args.cleanup,
-            TimingProfile(
+            metadata=self.metadata,
+            onnx_fpaths=onnx_fpaths,
+            network_input=list(checkpoint.inputs()),
+            working_directory=self._args.working_dir,
+            keep_onnx_model=self._args.cleanup,
+            keep_torch_model=self._args.cleanup,
+            timing_profile=TimingProfile(
                 iterations=int(self._args.iterations),
                 number=int(self._args.number),
                 warmup=int(self._args.warmup),
