@@ -165,7 +165,7 @@ class GPT2HuggingFace(FrameworkCommand):
             semantic_outputs.append(
                 tokenizer.decode(sample_output, skip_special_tokens=True)
             )
-        
+
         return NetworkResult(
             input=inference_input,
             output_tensor=greedy_output,
@@ -188,7 +188,7 @@ class GPT2HuggingFace(FrameworkCommand):
         metadata: NetworkMetadata,
         network_input: List[str],
         working_directory: str,
-        save_onnx_model: bool,
+        keep_onnx_model: bool,
         keep_pytorch_model: bool,
         timing_profile: TimingProfile,
     ) -> List[NetworkResult]:
@@ -208,7 +208,7 @@ class GPT2HuggingFace(FrameworkCommand):
                     )
                 )
         finally:
-            self.cleanup(workspace, save_onnx_model, keep_pytorch_model)
+            self.cleanup(workspace, keep_onnx_model, keep_pytorch_model)
 
         return results
 
