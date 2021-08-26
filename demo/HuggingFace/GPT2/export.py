@@ -18,7 +18,8 @@ from transformers import GPT2Tokenizer
 from GPT2.GPT2ModelConfig import GPT2ModelTRTConfig
 from NNDF.networks import NetworkMetadata
 from NNDF.models import TRTEngineFile, TorchModelFile, ONNXModelFile, ModelFileConverter
-
+import tensorrt as trt
+from itertools import tee
 
 class GPT2TorchFile(TorchModelFile):
     class TorchModule(Module, GenerationMixin):
@@ -78,6 +79,32 @@ class GPT2TRTEngine(TRTEngineFile):
         return [profile]
 
     def get_network_definition(self, network_definition):
+
+        def pairwise(iterable):
+            a, b = tee(iterable)
+            next(b, None)
+            return zip(a, b)
+
+        indices = list(range(0, network_definition[1].num_layers))
+        for i, i_next in pairwise(indices):
+            l = network_definition[1].get_layer(i)
+            l_next = network_definition[1].get_layer(i_next)
+
+            if not all([l.get_output(i).is_execution_tensor for i in range(l.num_outputs)]):
+                continue
+
+            if l.get_output_type(0) != trt.float32:
+                continue
+
+            if l.type == trt.LayerType.ELEMENTWISE and l_next.type == trt.LayerType.REDUCE:
+                l.__class__ = getattr(trt, "IElementWiseLayer")
+                if l.op == trt.ElementWiseOperation.POW:
+                    l.precision = trt.float32
+                    l.set_output_type(0, trt.float32)
+
+                l_next.precision = trt.float32
+                l_next.set_output_type(0, trt.float32)
+
         return network_definition
 
 # Converters
@@ -130,5 +157,6 @@ class GPT2Converter(ModelFileConverter):
                 **outputs.get_torch_dynamic_axis_encoding(),
             },
             training=False,
+            use_external_data_format=True
         )
         return GPT2ONNXFile(output_fpath, network_metadata)
