@@ -15,7 +15,7 @@ import toml
 class NNTomlCheckpoint:
     """Loads a toml checkpoint file for comparing labels and inputs."""
 
-    def __init__(self, fpath: str, network_name: str, metadata: NetworkMetadata):
+    def __init__(self, fpath: str, framework: str, network_name: str, metadata: NetworkMetadata):
         """Loads the toml file for processing."""
         data = {}
         with open(fpath) as f:
@@ -24,14 +24,19 @@ class NNTomlCheckpoint:
         # Select the current input data
         # try to get the base data
         network = data.get(network_name, {})
-        self.data = network.get("default", {})
+        self.baseline = network.get("all", {}).get("default", {})
+        specific_general_data = network.get("all", {}).get(metadata.variant, {})
         # Defaults are also used as baselines for the network in case there are deviations known in variants.
-        self.baseline = self.data.copy()
 
         # then apply specific data
-        addendum = network.get(metadata.variant, {})
+        addendum = network.get(framework, {})
+        addendum_default = addendum.get("default", {})
+        addendum_specific = addendum.get(metadata.variant, {})
         self.data = {
-            k: {**self.data[k], **addendum.get(k, {})} for k in self.data.keys()
+            k: {**self.baseline[k],
+                **specific_general_data.get(k, {}),
+                **addendum_default.get(k, {}),
+                **addendum_specific.get(k, {})} for k in self.baseline.keys()
         }
 
         # Used when accuracy() is called
@@ -58,7 +63,7 @@ class NNTomlCheckpoint:
 class NNSemanticCheckpoint(NNTomlCheckpoint):
     """Requires the following data structure:
 
-    [<network>.<variant>]
+    [<network>.<framework>.<variant>]
         [input_a]
         label = "sample_label"
         input = "sample_input"
@@ -66,6 +71,10 @@ class NNSemanticCheckpoint(NNTomlCheckpoint):
         [input_b]
         label = "sample_label"
         input = "sample_input"
+
+    Following are reserved keywords:
+    <framework> = "all" indicates rules apply to all frameworks
+    <variant> = "default" indicates rules apply to all networks.
     """
 
     def __iter__(self):

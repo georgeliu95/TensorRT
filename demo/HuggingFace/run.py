@@ -52,7 +52,8 @@ class NetworkScriptAction(Action):
     # Reserved files names for each network folder
     FRAMEWORKS_SCRIPT_NAME = "frameworks"
     TRT_SCRIPT_NAME = "trt"
-    PER_NETWORK_SCRIPTS = [FRAMEWORKS_SCRIPT_NAME, TRT_SCRIPT_NAME]
+    ONNX_SCRIPT_NAME = "onnxrt"
+    PER_NETWORK_SCRIPTS = [FRAMEWORKS_SCRIPT_NAME, TRT_SCRIPT_NAME, ONNX_SCRIPT_NAME]
 
     def add_args(self, parser):
         network_group = parser.add_argument_group("specify network")

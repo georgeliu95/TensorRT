@@ -149,6 +149,7 @@ class FrameworkCommand(NetworkCommand):
         from NNDF.checkpoints import NNSemanticCheckpoint
         checkpoint = NNSemanticCheckpoint(
             "checkpoint.toml",
+            framework="native",
             network_name=self.config.network_name,
             metadata=self.metadata,
         )
@@ -211,6 +212,7 @@ class TRTInferenceCommand(NetworkCommand):
         from NNDF.checkpoints import NNSemanticCheckpoint
         checkpoint = NNSemanticCheckpoint(
             "checkpoint.toml",
+            framework="native",
             network_name=self.config.network_name,
             metadata=self.metadata,
         )
@@ -220,6 +222,77 @@ class TRTInferenceCommand(NetworkCommand):
             list(checkpoint.inputs()),
             self._args.working_dir,
             self._args.cleanup,
+            self._args.cleanup,
+            self._args.cleanup,
+            TimingProfile(
+                iterations=int(self._args.iterations),
+                number=int(self._args.number),
+                warmup=int(self._args.warmup),
+            ),
+        )
+
+        return NetworkCheckpointResult(
+            network_results=network_results,
+            accuracy=checkpoint.accuracy(network_results),
+        )
+
+    def args_to_network_metadata(self, args) -> NetworkMetadata:
+        return self.config.MetadataClass.from_inference_args(args)
+
+    @abstractmethod
+    def args_to_network_models(self, args) -> Tuple[NetworkModel]:
+        """
+        Converts argparse arguments into a list of valid NetworkModel fpaths. Specifically for ONNX.
+        Invokes conversion scripts if not.
+        Return:
+            List[NetworkModel]: List of network model names.
+        """
+
+class OnnxRTCommand(NetworkCommand):
+    """ONNX Runtime command."""
+
+    def __init__(
+        self,
+        network_config: NNConfig,
+        description: str,
+        frameworks_cmd: FrameworkCommand,
+    ):
+        super().__init__(network_config, description)
+        # Should be set by
+        self.frameworks_cmd = frameworks_cmd()
+
+    @abstractmethod
+    def run_onnxrt(
+        self,
+        metadata: NetworkMetadata,
+        onnx_fpaths: Tuple[NetworkModel],
+        network_input: List[str],
+        working_directory: str,
+        keep_onnx_model: bool,
+        keep_torch_model: bool,
+        timing_profile: TimingProfile,
+    ) -> List[NetworkResult]:
+        pass
+
+    def __call__(self):
+        self.config.MetadataClass.add_inference_args(self._parser)
+        super().__call__()
+        onnx_fpaths = self.args_to_network_models(self._args)
+
+        # Differ import so that interface file can use used without
+        # dependency install for our testing.
+        from NNDF.checkpoints import NNSemanticCheckpoint
+        checkpoint = NNSemanticCheckpoint(
+            "checkpoint.toml",
+            framework="native",
+            network_name=self.config.network_name,
+            metadata=self.metadata,
+        )
+        network_results = self.run_onnxrt(
+            self.metadata,
+            onnx_fpaths,
+            list(checkpoint.inputs()),
+            self._args.working_dir,
             self._args.cleanup,
             self._args.cleanup,
             TimingProfile(

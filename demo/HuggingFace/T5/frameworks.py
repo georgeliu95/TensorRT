@@ -1,7 +1,6 @@
 # std
 import os
 import sys
-import argparse
 
 from typing import List
 

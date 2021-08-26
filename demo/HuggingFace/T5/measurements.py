@@ -6,6 +6,9 @@ Utils specific to T5 network.
 import torch
 
 # numpy
+import numpy as np
+
+# numpy
 from transformers.generation_stopping_criteria import (
     MaxLengthCriteria,
     StoppingCriteriaList,
@@ -53,7 +56,7 @@ def full_inference_greedy(
 ):
     stopping_criteria = StoppingCriteriaList([MaxLengthCriteria(max_length)])
     decoder_input_ids = torch.full(
-        (1, 1), tokenizer.convert_tokens_to_ids(tokenizer.pad_token)
+        (1, 1), tokenizer.convert_tokens_to_ids(tokenizer.pad_token), dtype=torch.int32
     )
 
     if use_cuda:
