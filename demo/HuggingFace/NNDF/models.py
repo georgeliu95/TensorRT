@@ -390,7 +390,7 @@ class ONNXModelFile(NNModelFile):
 
 
 class TRTEngineFile(NNModelFile):
-    DEFAULT_TRT_WORKSPACE_MB = 1024
+    DEFAULT_TRT_WORKSPACE_MB = 3072
 
     @abstractmethod
     def get_dynamic_shape_profiles(self):
