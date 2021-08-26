@@ -3,10 +3,13 @@ Contains logic that captures GPT2 HuggingFace models into ONNX models and TRT en
 """
 # std
 from polygraphy.backend.trt import Profile
+from itertools import tee
+
+# tensorrt
+import tensorrt as trt
 
 # torch
 import torch
-
 from torch.nn import Module
 
 # # huggingface
@@ -18,8 +21,6 @@ from transformers import GPT2Tokenizer
 from GPT2.GPT2ModelConfig import GPT2ModelTRTConfig
 from NNDF.networks import NetworkMetadata
 from NNDF.models import TRTEngineFile, TorchModelFile, ONNXModelFile, ModelFileConverter
-import tensorrt as trt
-from itertools import tee
 
 class GPT2TorchFile(TorchModelFile):
     class TorchModule(Module, GenerationMixin):
