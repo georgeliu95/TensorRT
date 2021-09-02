@@ -117,6 +117,9 @@ class CompareAction(NetworkScriptAction):
         self.parser.parse_known_args()
 
         results = []
+        # It is possible certain scripts are not implemented
+        # Allow the results to generate even if script does not exist.
+        modified_compare_group = []
         for g in compare_group:
             cwd = os.getcwd()
             try:
@@ -126,13 +129,14 @@ class CompareAction(NetworkScriptAction):
                 module = self.load_script(g, args)
                 module.RUN_CMD._parser = self.parser
                 results.append(module.RUN_CMD())
+                modified_compare_group.append(g)
             except ModuleNotFoundError as e:
-                print("{} is not valid, the demo does not support this script yet.".format(g))
-                exit(1)
+                print("{} is not valid, the demo does not support this script yet. Ignoring.".format(g))
+
             finally:
                 os.chdir(cwd)
 
-        headers, rows = process_results(compare_group, results, nconfig)
+        headers, rows = process_results(modified_compare_group, results, nconfig)
         print()
         print(tabulate(rows, headers=headers))
         return 0
