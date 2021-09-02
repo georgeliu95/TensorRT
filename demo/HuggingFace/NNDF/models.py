@@ -4,12 +4,9 @@ File for containing model file abstraction. Useful for generating models.
 
 # std
 import os
-import logging
-
 from abc import ABCMeta, abstractmethod
 from typing import Union
 from shutil import copytree, rmtree
-from logging import debug
 
 # polygraphy
 from polygraphy.backend.trt import (
@@ -19,7 +16,7 @@ from polygraphy.backend.trt import (
 )
 
 from polygraphy.backend.trt import CreateConfig
-from polygraphy.logger import G_LOGGER
+from polygraphy.logger import G_LOGGER as PG_LOGGER
 
 # torch
 from torch import load, save
@@ -27,6 +24,7 @@ from torch.nn import Module
 
 # TRT-HuggingFace
 from NNDF.networks import NetworkMetadata
+from NNDF.logger import G_LOGGER
 
 
 class ModelFileConverter:
@@ -45,6 +43,8 @@ class ModelFileConverter:
 
         Arg:
             output_fpath (str): File location of the generated ONNX file.
+            input_fpath (str): Input file location of the generated ONNX file.
+            network_metadata (NetworkMetadata): Network metadata of the network being converted.
 
         Returns:
             ONNXModelFile: Newly generated ONNXModelFile
@@ -61,6 +61,8 @@ class ModelFileConverter:
 
         Arg:
             output_fpath (str): File location of the generated ONNX file.
+            input_fpath (str): Input file location of the generated ONNX file.
+            network_metadata (NetworkMetadata): Network metadata of the network being converted.
 
         Returns:
             TorchModelFile: Newly generated TorchModelFile
@@ -68,6 +70,46 @@ class ModelFileConverter:
         raise NotImplementedError(
             "Current model does not support exporting to torch model."
         )
+
+    def onnx_to_trt(
+        self, output_fpath: str, input_fpath: str, network_metadata: NetworkMetadata
+    ):
+        """
+        Converts ONNX file to TRT engine.
+        Since TensorRT already supplies converter functions and scripts,
+        a default implementation is already provided.
+
+        Arg:
+            output_fpath (str): File location of the generated ONNX file.
+            input_fpath (str): Input file location of the generated ONNX file.
+            network_metadata (NetworkMetadata): Network metadata of the network being converted.
+
+        Returns:
+            TRTEngineFile: Newly generated engine.
+        """
+        result = self.trt_engine_class(output_fpath, network_metadata)
+        self.trt_inference_config = CreateConfig(
+            fp16=network_metadata.precision.fp16,
+            max_workspace_size=result.DEFAULT_TRT_WORKSPACE_MB * 1024 * 1024,
+            profiles=result.get_dynamic_shape_profiles(),
+            strict_types=result.use_strict_types()
+        )
+
+        g_logger_verbosity = (
+            PG_LOGGER.EXTRA_VERBOSE
+            if G_LOGGER.level == G_LOGGER.DEBUG
+            else PG_LOGGER.WARNING
+        )
+        with PG_LOGGER.verbosity(g_logger_verbosity):
+            network_definition = result.get_network_definition(network_from_onnx_path(input_fpath))
+
+            trt_engine = engine_from_network(
+                network_definition, config=self.trt_inference_config
+            )
+            save_engine(trt_engine, output_fpath)
+
+        return result
+
 
 class NNModelFile(metaclass=ABCMeta):
     """
@@ -267,11 +309,11 @@ class TorchModelFile(NNModelFile):
 
     def cleanup(self) -> None:
         if self.model:
-            debug("Freeing model from memory: {}".format(self.model))
+            G_LOGGER.debug("Freeing model from memory: {}".format(self.model))
             del self.model
 
         if self.fpath:
-            debug("Removing saved torch model from location: {}".format(self.fpath))
+            G_LOGGER.debug("Removing saved torch model from location: {}".format(self.fpath))
             rmtree(self.fpath)
 
 
@@ -340,7 +382,8 @@ class ONNXModelFile(NNModelFile):
         return converter.onnx_to_torch(output_fpath, self.fpath, self.network_metadata)
 
     def cleanup(self) -> None:
-        debug("Removing saved ONNX model from location: {}".format(self.fpath))
+        G_LOGGER.debug("Removing saved ONNX model from location: {}".format(self.fpath))
+        # Does not cleanup external data and weights.
         os.remove(self.fpath)
 
     def as_trt_engine(
@@ -365,28 +408,7 @@ class ONNXModelFile(NNModelFile):
         if not force_overwrite and os.path.exists(output_fpath):
             return converter.trt_engine_class(output_fpath, self.network_metadata)
 
-        result = converter.trt_engine_class(output_fpath, self.network_metadata)
-        self.trt_inference_config = CreateConfig(
-            fp16=self.network_metadata.precision.fp16,
-            max_workspace_size=result.DEFAULT_TRT_WORKSPACE_MB * 1024 * 1024,
-            profiles=result.get_dynamic_shape_profiles(),
-            strict_types=result.use_strict_types()
-        )
-
-        g_logger_verbosity = (
-            G_LOGGER.EXTRA_VERBOSE
-            if logging.root.level == logging.DEBUG
-            else G_LOGGER.WARNING
-        )
-        with G_LOGGER.verbosity(g_logger_verbosity):
-            network_definition = result.get_network_definition(network_from_onnx_path(self.fpath))
-
-            self.trt_engine = engine_from_network(
-                network_definition, config=self.trt_inference_config
-            )
-            save_engine(self.trt_engine, output_fpath)
-
-        return result
+        return converter.onnx_to_trt(output_fpath, self.fpath, self.network_metadata)
 
 
 class TRTEngineFile(NNModelFile):
@@ -399,13 +421,13 @@ class TRTEngineFile(NNModelFile):
     @abstractmethod
     def use_strict_types(self):
         pass
-    
+
     # get_network_definition can be overloaded to alter the network definition.
     # For example, this function can be used to change the precisions of ops or
     # data type of intermediate tensors.
     def get_network_definition(self, network_definition):
         return network_definition
-    
+
     def __init__(
         self,
         model: str,
@@ -420,7 +442,8 @@ class TRTEngineFile(NNModelFile):
             return
 
     def cleanup(self) -> None:
-        debug("Removing saved engine model from location: {}".format(self.fpath))
+        G_LOGGER.debug("Removing saved engine model from location: {}".format(self.fpath))
+        os.remove(self.fpath)
 
 
 class NullConverter(ModelFileConverter):

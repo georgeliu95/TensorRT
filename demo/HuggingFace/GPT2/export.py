@@ -2,11 +2,13 @@
 Contains logic that captures GPT2 HuggingFace models into ONNX models and TRT engines.
 """
 # std
-from polygraphy.backend.trt import Profile
 from itertools import tee
 
 # tensorrt
 import tensorrt as trt
+
+# polygraphy
+from polygraphy.backend.trt import Profile
 
 # torch
 import torch

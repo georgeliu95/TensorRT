@@ -71,7 +71,7 @@ class T5ModelTRTConfig(NNConfig):
     NETWORK_SEGMENTS = [NETWORK_DECODER_SEGMENT_NAME, NETWORK_ENCODER_SEGMENT_NAME]
 
     def __init__(self):
-        precision_fp16 = [False]
+        precision_fp16 = [False, True]
         kv_caches = [False, True]
 
         variants = []

@@ -5,7 +5,6 @@ Interface classes required for each registered network script.
 # std
 import argparse
 
-import logging
 from abc import ABCMeta, abstractmethod
 from typing import List, Tuple
 
@@ -18,6 +17,7 @@ from NNDF.networks import (
     NetworkModel,
     TimingProfile,
 )
+from NNDF.logger import G_LOGGER
 
 # externals
 # None, there should be no external dependencies for testing purposes.
@@ -46,7 +46,6 @@ class MetadataArgparseInteropMixin:
     def from_inference_args(args):
         pass
 
-
 class NetworkCommand(metaclass=ABCMeta):
     """Base class that each network script's command module should inherit."""
 
@@ -67,7 +66,7 @@ class NetworkCommand(metaclass=ABCMeta):
         self._args = self._parser.parse_args()
 
         if self._args.verbose:
-            logging.basicConfig(level=logging.DEBUG)
+            G_LOGGER.setLevel(level=G_LOGGER.DEBUG)
 
         self.metadata = self.args_to_network_metadata(self._args)
         self.check_network_metadata_is_supported(self.metadata)

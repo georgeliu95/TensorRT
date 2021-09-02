@@ -94,7 +94,7 @@ class GPT2TRTDecoder(TRTHFRunner):
         }
         self.bindings = self._allocate_memory(self.inputs, self.outputs)
 
-    def prepare_inputs_for_generation(self, input_ids, **kwargs):  
+    def prepare_inputs_for_generation(self, input_ids, **kwargs):
         # Todo (@pchadha): add position_ids, token_type_ids support
         return {
             "input_ids": input_ids,
@@ -140,12 +140,12 @@ class GPT2Polygraphy(TRTInferenceCommand):
         tokenizer = GPT2Tokenizer.from_pretrained(metadata.variant)
         input_ids = tokenizer(inference_input, return_tensors="pt").input_ids
 
-        # get single decoder iteration inference timing profile 
+        # get single decoder iteration inference timing profile
         _, decoder_e2e_median_time = gpt2_inference(
             self.gpt2_trt, input_ids, timing_profile
         )
 
-        # get complete decoder inference result and its timing profile 
+        # get complete decoder inference result and its timing profile
         sample_output, full_e2e_median_runtime = full_inference_greedy(
             self.gpt2_trt, input_ids, timing_profile,
             max_length=GPT2ModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant]

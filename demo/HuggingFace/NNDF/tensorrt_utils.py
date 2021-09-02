@@ -1,8 +1,6 @@
 """Utilities related to Polygraphy"""
 
 # std
-import logging
-
 from typing import List
 
 # polygraphy
@@ -14,18 +12,61 @@ from polygraphy.logger import G_LOGGER
 # tensorrt
 import tensorrt as trt
 
+# ONNX
+import onnx
+import onnx_graphsurgeon as gs
 
-# TRT-HuggingFace
+# numpy
+import numpy as np
+
+# NNDF
 from NNDF.networks import NetworkMetadata
 from NNDF.models import TRTEngineFile
+from NNDF.logger import G_LOGGER
 
+# Helper Functions
+def clamp_weights_onnx(onnx_input_fpath: str, onnx_output_fpath: str, min: float, max: float, ignore_nodes: List = None):
+    """
+    Clamps given onnx model to targeted upper and lower bounds.
+    """
+
+    graph = gs.import_onnx(onnx.load(onnx_input_fpath))
+    if ignore_nodes is None:
+        ignore_nodes = {}
+    else:
+        ignore_nodes = {k: True for k in ignore_nodes}
+
+    for tensor in graph.tensors().values():
+        if tensor.name in ignore_nodes or isinstance(tensor, gs.ir.tensor.Variable):
+            continue
+
+        np.clip(tensor.values, min, max, out=tensor.values)
+
+    for tensor in graph.nodes:
+        node_attr = tensor.attrs.get("value", None)
+        if tensor.name in ignore_nodes:
+            continue
+
+        if node_attr is not None:
+            np.clip(node_attr.values, min, max, out=node_attr.values)
+
+    model = gs.export_onnx(graph)
+    onnx.save(model, onnx_output_fpath)
+
+
+def clamp_weights_onnx_to_fp16_bounds(onnx_input_fpath: str, onnx_output_fpath: str, ignore_nodes: List = None):
+    upper_bound = 65504
+    return clamp_weights_onnx(onnx_input_fpath, onnx_output_fpath, -upper_bound, upper_bound, ignore_nodes)
+
+
+# Helper Classes
 class TRTNativeRunner:
     """TRTNativeRunner avoids the high overheads with Polygraphy runner providing performance comparable to C++ implementation."""
     def __init__(self, trt_engine_file: TRTEngineFile, network_metadata: NetworkMetadata):
         self.trt_engine_file = trt_engine_file
-        trt_logger = trt.Logger(trt.Logger.VERBOSE if logging.root.level == logging.DEBUG else trt.Logger.WARNING)
+        trt_logger = trt.Logger(trt.Logger.VERBOSE if G_LOGGER.root.level == G_LOGGER.DEBUG else trt.Logger.WARNING)
 
-        logging.info("Reading and loading engine file {} using trt native runner.".format(self.trt_engine_file.fpath))
+        G_LOGGER.info("Reading and loading engine file {} using trt native runner.".format(self.trt_engine_file.fpath))
         with open(self.trt_engine_file.fpath, "rb") as f:
             self.trt_runtime = trt.Runtime(trt_logger)
             self.trt_engine = self.trt_runtime.deserialize_cuda_engine(f.read())
@@ -36,7 +77,7 @@ class TRTNativeRunner:
 
         # Other metadata required by the profile
         self._num_bindings_per_profile = self.trt_engine.num_bindings // self.trt_engine.num_optimization_profiles
-        logging.debug("Number of profiles detected in engine: {}".format(self._num_bindings_per_profile))
+        G_LOGGER.debug("Number of profiles detected in engine: {}".format(self._num_bindings_per_profile))
 
     def release(self):
         pass
@@ -51,7 +92,7 @@ class TRTNativeRunner:
 
             if profile_shape[0][0] <= batch_size and profile_shape[2][0] >= batch_size \
                and profile_shape[0][1] <=  sequence_length and profile_shape[2][1] >= sequence_length:
-                logging.debug("Selected profile: {}".format(profile_shape))
+                G_LOGGER.debug("Selected profile: {}".format(profile_shape))
                 selected_profile_idx = idx
                 break
 
@@ -75,7 +116,7 @@ class PolygraphyOnnxRunner:
         # hook polygraphy verbosity for inference
         g_logger_verbosity = (
             G_LOGGER.EXTRA_VERBOSE
-            if logging.root.level == logging.DEBUG
+            if G_LOGGER.root.level == G_LOGGER.DEBUG
             else G_LOGGER.WARNING
         )
         with G_LOGGER.verbosity(g_logger_verbosity):
@@ -101,7 +142,7 @@ class TRTPolygraphyRunner:
         # hook polygraphy verbosity for inference
         g_logger_verbosity = (
             G_LOGGER.EXTRA_VERBOSE
-            if logging.root.level == logging.DEBUG
+            if G_LOGGER.root.level == G_LOGGER.DEBUG
             else G_LOGGER.WARNING
         )
 
