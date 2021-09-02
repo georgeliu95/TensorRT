@@ -112,9 +112,17 @@ class GPT2HuggingFace(FrameworkCommand):
             None
         """
         # Clean-up generated files
-        if not save_onnx_model:
-            if self.onnx_gpt2 is not None:
-                self.onnx_gpt2.cleanup()
+        if not save_onnx_model and self.onnx_gpt2 is not None:
+            self.onnx_gpt2.cleanup()
+
+            # Remove any onnx external files by removing integer named values and weight files
+            workspace_path = workspace.get_path()
+            for d in os.listdir(workspace_path):
+                fpath = os.path.join(workspace_path, d)
+                if os.path.isfile(fpath) and os.path.splitext(d)[1] == ".weight":
+                    os.remove(fpath)
+                elif d.isnumeric():
+                    os.remove(fpath)
 
         if not keep_pytorch_model:
             # Using rmtree can be dangerous, have user confirm before deleting.
@@ -122,15 +130,6 @@ class GPT2HuggingFace(FrameworkCommand):
                 self.torch_gpt2_dir,
                 prompt="Confirm you want to delete downloaded pytorch model folder?",
             )
-
-        # Remove any onnx external files by removing integer named values and weight files
-        workspace_path = workspace.get_path()
-        for d in os.listdir(workspace_path):
-            fpath = os.path.join(workspace_path, d)
-            if os.path.isfile(fpath) and os.path.splitext(d)[1] == ".weight":
-                os.remove(fpath)
-            elif d.isnumeric():
-                os.remove(fpath)
 
         if not keep_pytorch_model and not save_onnx_model:
             workspace.cleanup(force_remove=False)

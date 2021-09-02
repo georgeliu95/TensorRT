@@ -7,7 +7,7 @@ from typing import List
 from polygraphy.backend.trt import engine_from_bytes, TrtRunner
 from polygraphy.backend.onnxrt import OnnxrtRunner, SessionFromOnnx, OnnxrtRunner
 from polygraphy.backend.common import bytes_from_path
-from polygraphy.logger import G_LOGGER
+from polygraphy.logger import G_LOGGER as PG_LOGGER
 
 # tensorrt
 import tensorrt as trt
@@ -119,7 +119,7 @@ class PolygraphyOnnxRunner:
             if G_LOGGER.root.level == G_LOGGER.DEBUG
             else G_LOGGER.WARNING
         )
-        with G_LOGGER.verbosity(g_logger_verbosity):
+        with PG_LOGGER.verbosity(g_logger_verbosity):
             return self.forward(*args, **kwargs)
 
     def release(self):
@@ -146,7 +146,7 @@ class TRTPolygraphyRunner:
             else G_LOGGER.WARNING
         )
 
-        with G_LOGGER.verbosity(g_logger_verbosity):
+        with PG_LOGGER.verbosity(g_logger_verbosity):
             return self.forward(*args, **kwargs)
 
     def release(self):
