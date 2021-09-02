@@ -4,7 +4,6 @@
 import os
 import shutil
 import timeit
-import logging
 
 from shutil import rmtree
 from typing import Callable, Union, List
@@ -14,6 +13,9 @@ from glob import glob
 
 # NNDF
 from NNDF.networks import NNConfig, NetworkResult, NetworkMetadata
+from NNDF.logger import G_LOGGER
+
+# Used for HuggingFace setting random seed
 RANDOM_SEED = 42
 
 # Networks #
@@ -75,7 +77,7 @@ def confirm_folder_delete(
     if confirm == "Y":
         rmtree(fpath)
     else:
-        logging.info("Skipping file removal.")
+        G_LOGGER.info("Skipping file removal.")
 
 
 def remove_if_empty(
@@ -96,9 +98,9 @@ def remove_if_empty(
     """
     if len(os.listdir(fpath)) == 0:
         os.rmdir(fpath)
-        logging.info(success_msg + " {}".format(fpath))
+        G_LOGGER.info(success_msg + " {}".format(fpath))
     else:
-        logging.info(error_msg + " {}".format(fpath))
+        G_LOGGER.info(error_msg + " {}".format(fpath))
 
 
 def measure_python_inference_code(
@@ -115,14 +117,14 @@ def measure_python_inference_code(
         number (int): Number of times to call function per iteration.
         iterations (int): Number of measurement cycles.
     """
-    logging.debug(
+    G_LOGGER.debug(
         "Measuring inference call with warmup: {} and number: {} and iterations {}".format(
             warmup, number, iterations
         )
     )
     # Warmup
     warmup_mintime = timeit.repeat(stmt, number=number, repeat=warmup)
-    logging.debug("Warmup times: {}".format(warmup_mintime))
+    G_LOGGER.debug("Warmup times: {}".format(warmup_mintime))
 
     return median(timeit.repeat(stmt, number=number, repeat=iterations)) / number
 

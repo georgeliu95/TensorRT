@@ -6,7 +6,6 @@ Requires Python 3.5+
 # std
 import os
 import sys
-import logging
 import argparse
 import importlib
 
@@ -25,8 +24,11 @@ WRAPPER_LIST_ACTION = "list"
 WRAPPER_COMPARE_ACTION = "compare"
 WRAPPER_ACTIONS = [WRAPPER_RUN_ACTION, WRAPPER_LIST_ACTION, WRAPPER_COMPARE_ACTION]
 
-# TRT-HuggingFace
+# NNDF
 from NNDF.general_utils import process_results, register_network_folders, RANDOM_SEED
+from NNDF.logger import G_LOGGER
+
+# huggingface
 from transformers import set_seed
 
 # Force seed to 42 for reproducibility.
@@ -96,7 +98,7 @@ class CompareAction(NetworkScriptAction):
             compare_group = args.compare
 
         if len(compare_group) <= 1:
-            logging.error(
+            G_LOGGER.error(
                 "Comparison command must have atleast two groups to compare to."
             )
             exit()
