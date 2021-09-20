@@ -7621,8 +7621,9 @@ public:
     //! \param selection The user writes indices of selected choices in to selection buffer which is of size nbChoices.
     //!
     //! \note TensorRT uses its default algorithm selection to choose from the list provided.
-    //!       If return value is 0, TensorRT’s default algorithm selection is used unless strict type constraints are
-    //!       set. The list of choices is valid only for this specific algorithm context.
+    //!       If return value is 0, TensorRT's default algorithm selection is used unless
+    //!       BuilderFlag::kREJECT_EMPTY_ALGORITHMS or BuilderFlag::kSTRICT_TYPES is set.
+    //!       The list of choices is valid only for this specific algorithm context.
     //!
     virtual int32_t selectAlgorithms(const IAlgorithmContext& context, const IAlgorithm* const* choices,
         int32_t nbChoices, int32_t* selection) noexcept
@@ -7695,7 +7696,14 @@ enum class BuilderFlag : int32_t
     kINT8 = 1,         //!< Enable Int8 layer selection, with FP32 fallback with FP16 fallback if kFP16 also specified.
     kDEBUG = 2,        //!< Enable debugging of layers via synchronizing after every layer.
     kGPU_FALLBACK = 3, //!< Enable layers marked to execute on GPU if layer cannot execute on DLA.
-    kSTRICT_TYPES = 4, //!< Enables strict type constraints.
+
+    //! Legacy flag with effect similar to setting all of these three flags:
+    //!
+    //! * kPREFER_PRECISION_CONSTRAINTS
+    //! * kDIRECT_IO
+    //! * kREJECT_EMPTY_ALGORITHMS
+    kSTRICT_TYPES TRT_DEPRECATED_ENUM = 4,
+
     kREFIT = 5,        //!< Enable building a refittable engine.
     kDISABLE_TIMING_CACHE = 6, //!< Disable reuse of timing information across identical layers.
 
@@ -7712,14 +7720,29 @@ enum class BuilderFlag : int32_t
     //! and EngineCapability::kDLA_STANDALONE check against the DeviceType::kDLA case. This flag
     //! is forced to true if EngineCapability::kSAFETY at build time if it is unset.
     //!
-    kSAFETY_SCOPE = 9
+    kSAFETY_SCOPE = 9,
+
+    //! Require that layers execute in specified precisions. Build fails otherwise.
+    kOBEY_PRECISION_CONSTRAINTS = 10,
+
+    //! Prefer that layers execute in specified precisions.
+    //! Fall back (with warning) to another precision if build would otherwise fail.
+    kPREFER_PRECISION_CONSTRAINTS = 11,
+
+    //! Require that no reformats be inserted between a layer and a network I/O tensor
+    //! for which ITensor::setAllowedFormats was called.
+    //! Build fails if a reformat is required for functional correctness.
+    kDIRECT_IO = 12,
+
+    //! Fail if IAlgorithmSelector::selectAlgorithms returns an empty set of algorithms.
+    kREJECT_EMPTY_ALGORITHMS = 13
 };
 
 //! Maximum number of builder flags in BuilderFlag enum. \see BuilderFlag
 template <>
 constexpr inline int32_t EnumMax<BuilderFlag>() noexcept
 {
-    return 10;
+    return 14;
 }
 
 //!
