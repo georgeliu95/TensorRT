@@ -627,13 +627,20 @@ void QKVToContextVarSeqlenPlugin::createMHARunner()
 
     if (mSM == kSM_86 || mSM == kSM_80 || mSM == kSM_75 || mSM == kSM_72)
     {
+        int32_t headSize = mHeadSize;
+        if (mHeadSize != 32 && mHeadSize != 64)
+        {
+            patcher.reset(new QkvPaddingRunner(mHeadSize, mType));
+            headSize = patcher->getPaddingHeadSize();
+        }
+
         if (mType == DataType::kHALF)
         {
-            dispatcher.reset(new FusedMHARunnerFP16v2(mNumHeads, mHeadSize, mSM));
+            dispatcher.reset(new FusedMHARunnerFP16v2(mNumHeads, headSize, mSM));
         }
         else if (mType == DataType::kINT8)
         {
-            dispatcher.reset(new FusedMHARunnerInt8v2(mNumHeads, mHeadSize, mSM, mDqProbs));
+            dispatcher.reset(new FusedMHARunnerInt8v2(mNumHeads, headSize, mSM, mDqProbs));
         }
     }
     else
@@ -812,10 +819,15 @@ void QKVToContextVarSeqlenPlugin::configurePlugin(
     }
 }
 
-size_t QKVToContextVarSeqlenPlugin::getWorkspaceSize(const PluginTensorDesc* /*inputs*/, int32_t /*nbInputs*/,
-    const PluginTensorDesc* /*outputs*/, int32_t /*nbOutputs*/) const noexcept
+size_t QKVToContextVarSeqlenPlugin::getWorkspaceSize(
+    const PluginTensorDesc* inputs, int32_t nbInputs, const PluginTensorDesc* outputs, int32_t nbOutputs) const noexcept
 {
-    return this->dispatcher->getWorkspaceSize();
+    size_t paddingWorkpaceSize = 0;
+    if (patcher)
+    {
+        paddingWorkpaceSize = patcher->getWorkspaceSize(inputs[0].dims.d[0], mNumHeads);
+    }
+    return this->dispatcher->getWorkspaceSize() + paddingWorkpaceSize;
 }
 
 // IPluginV2Ext Methods
@@ -933,7 +945,33 @@ int32_t QKVToContextVarSeqlenPlugin::enqueue(const nvinfer1::PluginTensorDesc* i
         }
 
         this->dispatcher->setup(S, B);
-        this->dispatcher->run(inputDesc, outputDesc, inputs, outputs, workspace, stream);
+
+        if (patcher)
+        {
+            auto sumSeqLen = inputDesc[0].dims.d[0];
+            auto paddingWorkspace = patcher->get16BytesAlignedPointer(workspace, dispatcher->getWorkspaceSize());
+            auto ret = patcher->pad(inputs[0], paddingWorkspace, sumSeqLen, mNumHeads, mHeadSize, stream);
+            if (ret != cudaSuccess)
+            {
+                return ret;
+            }
+
+            MhaRunParameter paddingArgs
+                = patcher->patchMhaArgs(inputDesc, outputDesc, inputs, outputs, paddingWorkspace, sumSeqLen, mNumHeads);
+            this->dispatcher->run(paddingArgs.inputDesc, paddingArgs.outputDesc, paddingArgs.inputs,
+                paddingArgs.outputs, workspace, stream);
+
+            ret = patcher->unpad(paddingArgs.outputs[0], outputs[0], sumSeqLen, mNumHeads, mHeadSize, stream);
+            if (ret != cudaSuccess)
+            {
+                return ret;
+            }
+        }
+        else
+        {
+            this->dispatcher->run(inputDesc, outputDesc, inputs, outputs, workspace, stream);
+        }
+
         return cudaGetLastError();
     }
     else
