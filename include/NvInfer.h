@@ -577,13 +577,19 @@ public:
     //!
     //! \brief Set the computational precision of this layer
     //!
-    //! Setting the precision allows TensorRT to choose implementation which run at this computational precision.
+    //! Setting the precision allows TensorRT to choose an implementation which run at this computational precision.
     //! Layer input type would also get inferred from layer computational precision. TensorRT could still choose a
-    //! non-conforming fastest implementation ignoring set layer precision. Use BuilderFlag::kSTRICT_TYPES to force
-    //! choose implementations with requested precision. In case no implementation is found with requested precision,
-    //! TensorRT would choose available fastest implementation. If precision is not set, TensorRT will select the layer
-    //! computational precision and layer input type based on performance considerations and the flags specified to the
-    //! builder.
+    //! non-conforming fastest implementation that ignores the requested precision. To force choosing an implementation
+    //! with the requested precision, set exactly one of the following flags, which differ in what happens
+    //! if no such implementation exists:
+    //!
+    //! * BuilderFlag::kOBEY_PRECISION_CONSTRAINTS - build fails with an error message.
+    //!
+    //! * BuilderFlag::kPREFER_PRECISION_CONSTRAINTS - TensorRT falls back to an
+    //!   implementation without the requested precision.
+    //!
+    //! If precision is not set, or falling back, TensorRT will select the layer computational precision
+    //! and layer input type based on global performance considerations and the flags specified to the builder.
     //!
     //! \param dataType the computational precision.
     //!
@@ -633,9 +639,16 @@ public:
     //!
     //! Setting the output type constrains TensorRT to choose implementations which generate output data with the
     //! given type. If it is not set, TensorRT will select output type based on layer computational precision. TensorRT
-    //! could still choose non-conforming output type based on fastest implementation. Use BuilderFlag::kSTRICT_TYPES to
-    //! force choose requested output type. In case layer precision is not specified, output type would depend on
-    //! chosen implementation based on performance considerations and the flags specified to the builder.
+    //! could still choose non-conforming output type based on fastest implementation. To force choosing the requested
+    //! output type, set exactly one of the following flags, which differ in what happens if no such implementation exists:
+    //!
+    //! * BuilderFlag::kOBEY_PRECISION_CONSTRAINTS - build fails with an error message.
+    //!
+    //! * BuilderFlag::kPREFER_PRECISION_CONSTRAINTS - TensorRT falls back to an
+    //!   implementation with a non-conforming output type.
+    //!
+    //! In case layer precision is not specified, or falling back, the output type depends on the
+    //! chosen implementation, based on performance considerations and the flags specified to the builder.
     //!
     //! This method cannot be used to set the data type of the second output tensor of the TopK layer. The data type of
     //! the second output tensor of the topK layer is always Int32. Also the output type of all layers that are shape
@@ -7622,7 +7635,7 @@ public:
     //!
     //! \note TensorRT uses its default algorithm selection to choose from the list provided.
     //!       If return value is 0, TensorRT's default algorithm selection is used unless
-    //!       BuilderFlag::kREJECT_EMPTY_ALGORITHMS or BuilderFlag::kSTRICT_TYPES is set.
+    //!       BuilderFlag::kREJECT_EMPTY_ALGORITHMS (or the deprecated BuilderFlag::kSTRICT_TYPES) is set.
     //!       The list of choices is valid only for this specific algorithm context.
     //!
     virtual int32_t selectAlgorithms(const IAlgorithmContext& context, const IAlgorithm* const* choices,
