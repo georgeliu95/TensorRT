@@ -613,11 +613,9 @@
 
      size_t size_retired_ctas = grid_dim.z*grid_dim.y*sizeof(int32_t);
 
-    // Synchronization is required to prevent a hang during kernel launch.
      #define KERNEL_RUN(OUTER_LOOPS, DESIRED_OCCUPANCY)  \
          {                            \
              CHECK_CUDA(cudaMemsetAsync(params.gmem_retired_ctas, 0, size_retired_ctas, stream)); \
-             CHECK_CUDA(cudaStreamSynchronize(stream)); \
              if( smem_size > 0 ) \
                  CHECK_CUDA(cudaFuncSetAttribute( \
                      instanceNormFwd< \
