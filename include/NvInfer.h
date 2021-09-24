@@ -2986,6 +2986,8 @@ public:
     //! The NbElementWiseDims must be less than the Rank of the data input.
     //! \param elementWiseDims number of dims to be handled as elementwise.
     //!
+    //! Default: 0
+    //!
     //! The value of nbElementWiseDims and GatherMode are checked during network validation:
     //!
     //! GatherMode::kDEFAULT: nbElementWiseDims must be 0 if there is an implicit batch dimension. It can be 0 or 1 if
