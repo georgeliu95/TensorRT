@@ -274,6 +274,7 @@ int QKVToContextInterleavedPlugin::enqueue(const PluginTensorDesc* inputDesc, co
 
 QKVToContextInterleavedPluginCreator::QKVToContextInterleavedPluginCreator()
 {
+    mPluginAttributes.clear();
     mPluginAttributes.emplace_back(PluginField("hidden_size", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("num_heads", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("dq_probs", nullptr, PluginFieldType::kFLOAT32, 1));

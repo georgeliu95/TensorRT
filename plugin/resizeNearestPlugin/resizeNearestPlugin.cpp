@@ -37,6 +37,7 @@ std::vector<PluginField> ResizeNearestPluginCreator::mPluginAttributes;
 
 ResizeNearestPluginCreator::ResizeNearestPluginCreator() noexcept
 {
+    mPluginAttributes.clear();
     mPluginAttributes.emplace_back(PluginField("scale", nullptr, PluginFieldType::kFLOAT32, 1));
 
     mFC.nbFields = mPluginAttributes.size();

@@ -309,7 +309,7 @@ void RPROIPlugin::detachFromContext() noexcept {}
 
 RPROIPluginCreator::RPROIPluginCreator()
 {
-
+    mPluginAttributes.clear();
     mPluginAttributes.emplace_back(PluginField("poolingH", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("poolingW", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("featureStride", nullptr, PluginFieldType::kINT32, 1));

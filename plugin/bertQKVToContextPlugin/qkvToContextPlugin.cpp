@@ -951,6 +951,7 @@ int QKVToContextVarSeqlenPlugin::enqueue(const nvinfer1::PluginTensorDesc* input
 
 QKVToContextVarSeqlenPluginCreator::QKVToContextVarSeqlenPluginCreator()
 {
+    mPluginAttributes.clear();
     mPluginAttributes.emplace_back(PluginField("type_id", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("hidden_size", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("num_heads", nullptr, PluginFieldType::kINT32, 1));

@@ -33,7 +33,6 @@ std::vector<PluginField> SpecialSlicePluginCreator::mPluginAttributes;
 
 SpecialSlicePluginCreator::SpecialSlicePluginCreator() noexcept
 {
-
     mFC.nbFields = mPluginAttributes.size();
     mFC.fields = mPluginAttributes.data();
 }
