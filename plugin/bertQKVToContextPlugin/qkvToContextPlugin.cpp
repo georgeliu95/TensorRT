@@ -77,7 +77,7 @@ QKVToContextPluginDynamic::QKVToContextPluginDynamic(const std::string name, con
 QKVToContextPluginDynamic::QKVToContextPluginDynamic(const std::string name, const void* data, size_t length)
     : mLayerName(name)
 {
-    gLogVerbose << "QKV Deser Start" << std::endl;
+    BERT_DEBUG_MSG("QKV Deser Start");
     deserialize_value(&data, &length, &mType);
     deserialize_value(&data, &length, &mNumHeads);
     deserialize_value(&data, &length, &mHeadSize);
@@ -99,7 +99,7 @@ QKVToContextPluginDynamic::QKVToContextPluginDynamic(const std::string name, con
         unfusedDispatcher->deserialize(data, length);
     }
 
-    gLogVerbose << "QKV Deser done" << std::endl;
+    BERT_DEBUG_MSG("QKV Deser done");
 }
 
 void QKVToContextPluginDynamic::createMHARunner()
@@ -125,7 +125,7 @@ void QKVToContextPluginDynamic::createMHARunner()
 // IPluginV2DynamicExt Methods
 nvinfer1::IPluginV2DynamicExt* QKVToContextPluginDynamic::clone() const noexcept
 {
-    gLogVerbose << "QKV Clone" << std::endl;
+    BERT_DEBUG_MSG("QKV Clone");
 
     QKVToContextPluginDynamic* ret = nullptr;
     // the workspacesize is 0 if we have not call setup the dispatcher yet.
@@ -143,7 +143,7 @@ nvinfer1::IPluginV2DynamicExt* QKVToContextPluginDynamic::clone() const noexcept
     }
 
     ret->setPluginNamespace(mNamespace.c_str());
-    gLogVerbose << "QKV Clone done" << std::endl;
+    BERT_DEBUG_MSG("QKV Clone done");
     return ret;
 }
 
@@ -478,7 +478,7 @@ const PluginFieldCollection* QKVToContextPluginDynamicCreator::getFieldNames() n
 
 IPluginV2* QKVToContextPluginDynamicCreator::createPlugin(const char* name, const PluginFieldCollection* fc) noexcept
 {
-    gLogVerbose << "Creating QKV2ContextPlugin...\n";
+    BERT_DEBUG_MSG("Creating QKV2ContextPlugin...");
 
     int hiddenSize = 0;
     int numHeads = 0;
@@ -494,28 +494,28 @@ IPluginV2* QKVToContextPluginDynamicCreator::createPlugin(const char* name, cons
         if (field_name.compare("type_id") == 0)
         {
             typeId = *static_cast<const int*>(fc->fields[i].data);
-            gLogVerbose << "Building typeId: " << typeId << std::endl;
+            BERT_DEBUG_VALUE("Building typeId: ", typeId);
         }
         if (field_name.compare("hidden_size") == 0)
         {
             hiddenSize = *static_cast<const int*>(fc->fields[i].data);
-            gLogVerbose << "Building hiddenSize: " << hiddenSize << std::endl;
+            BERT_DEBUG_VALUE("Building hiddenSize: ", hiddenSize);
         }
         if (field_name.compare("num_heads") == 0)
         {
             numHeads = *static_cast<const int*>(fc->fields[i].data);
-            gLogVerbose << "Building numHeads: " << numHeads << std::endl;
+            BERT_DEBUG_VALUE("Building numHeads: ", numHeads);
         }
         if (field_name.compare("has_mask") == 0)
         {
             hasMask = *static_cast<const bool*>(fc->fields[i].data);
-            gLogVerbose << "Building hasMask: " << hasMask << std::endl;
+            BERT_DEBUG_VALUE("Building hasMask: ", hasMask);
         }
 
         if (field_name.compare("dq_probs") == 0)
         {
             dqProbs = *static_cast<const float*>(fc->fields[i].data);
-            gLogVerbose << "Building dqProbs: " << dqProbs << std::endl;
+            BERT_DEBUG_VALUE("Building dqProbs: ", dqProbs);
         }
     }
     if (typeId < 0 || typeId > 3)
@@ -536,11 +536,11 @@ IPluginV2* QKVToContextPluginDynamicCreator::createPlugin(const char* name, cons
         return nullptr;
     }
 
-    gLogVerbose << "Building the Plugin...\n";
+    BERT_DEBUG_MSG("Building the Plugin...");
     DataType type = static_cast<DataType>(typeId);
     if (type == DataType::kINT8 && dqProbs < 0)
     {
-        gLogInfo << "Using default scale factor\n";
+        BERT_DEBUG_MSG("Using default scale factor");
         dqProbs = 1.F / 127.F;
     }
 
@@ -597,7 +597,7 @@ QKVToContextVarSeqlenPlugin::QKVToContextVarSeqlenPlugin(const std::string name,
 QKVToContextVarSeqlenPlugin::QKVToContextVarSeqlenPlugin(const std::string name, const void* data, size_t length)
     : mLayerName(name)
 {
-    gLogVerbose << "QKV Deser Start" << std::endl;
+    BERT_DEBUG_MSG("QKV Deser Start");
     deserialize_value(&data, &length, &mType);
     deserialize_value(&data, &length, &mNumHeads);
     deserialize_value(&data, &length, &mHeadSize);
@@ -615,7 +615,7 @@ QKVToContextVarSeqlenPlugin::QKVToContextVarSeqlenPlugin(const std::string name,
     createMHARunner();
     dispatcher->deserialize(data, length);
 
-    gLogVerbose << "QKV Deser done" << std::endl;
+    BERT_DEBUG_MSG("QKV Deser done");
 }
 
 void QKVToContextVarSeqlenPlugin::createMHARunner()
@@ -646,7 +646,7 @@ void QKVToContextVarSeqlenPlugin::createMHARunner()
 // IPluginV2DynamicExt Methods
 nvinfer1::IPluginV2DynamicExt* QKVToContextVarSeqlenPlugin::clone() const noexcept
 {
-    gLogVerbose << "QKV Clone" << std::endl;
+    BERT_DEBUG_MSG("QKV Clone");
 
     QKVToContextVarSeqlenPlugin* ret = nullptr;
     if (dispatcher.get())
@@ -664,7 +664,7 @@ nvinfer1::IPluginV2DynamicExt* QKVToContextVarSeqlenPlugin::clone() const noexce
     }
 
     ret->setPluginNamespace(mNamespace.c_str());
-    gLogVerbose << "QKV Clone done" << std::endl;
+    BERT_DEBUG_MSG("QKV Clone done");
     return ret;
 }
 
@@ -687,8 +687,7 @@ bool QKVToContextVarSeqlenPlugin::supportsFormatCombination(
     // we only support int8 IO in fused mha runner, and we only support fused mha runner on Turing and Ampere
     if (mType == DataType::kINT8 && mSM != kSM_86 && mSM != kSM_80 && mSM != kSM_75 && mSM != kSM_72)
     {
-        gLogVerbose << "INT8 IO is only supported on Xavier, Turing and Ampere for plugin " << QKV_TO_CONTEXT_PLUGIN_NAME
-                    << std::endl;
+        BERT_DEBUG_VALUE("INT8 IO is only supported on Xavier, Turing and Ampere for plugin ", QKV_TO_CONTEXT_PLUGIN_NAME);
         return false;
     }
 
@@ -802,7 +801,7 @@ void QKVToContextVarSeqlenPlugin::configurePlugin(
 
         if (S != mS || B != mB)
         {
-            // gLogVerbose << "setting up MHA runner for single sequence length" << std::endl;
+            BERT_DEBUG_MSG("setting up MHA runner for single sequence length");
             createMHARunner();
             this->dispatcher->setup(S, B);
             mS = S;
@@ -811,7 +810,7 @@ void QKVToContextVarSeqlenPlugin::configurePlugin(
     }
     else
     {
-        // gLogVerbose << "setting up MHA runner for variable sequence length" << std::endl;
+        BERT_DEBUG_MSG("setting up MHA runner for variable sequence length");
         createMHARunner();
         // need to initialize S and B with somewhat useful values, they will be reset at enqueue for the actual
         // batchsize
@@ -979,7 +978,7 @@ const PluginFieldCollection* QKVToContextVarSeqlenPluginCreator::getFieldNames()
 
 IPluginV2* QKVToContextVarSeqlenPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc) noexcept
 {
-    gLogVerbose << "Creating QKV2ContextPlugin...\n";
+    BERT_DEBUG_MSG("Creating QKV2ContextPlugin...");
 
     int hiddenSize = 0;
     int numHeads = 0;
@@ -997,33 +996,33 @@ IPluginV2* QKVToContextVarSeqlenPluginCreator::createPlugin(const char* name, co
         if (field_name.compare("type_id") == 0)
         {
             typeId = *static_cast<const int*>(fc->fields[i].data);
-            gLogVerbose << "Building typeId: " << typeId << std::endl;
+            BERT_DEBUG_VALUE("Building typeId: ", typeId);
         }
         if (field_name.compare("hidden_size") == 0)
         {
             hiddenSize = *static_cast<const int*>(fc->fields[i].data);
-            gLogVerbose << "Building hiddenSize: " << hiddenSize << std::endl;
+            BERT_DEBUG_VALUE("Building hiddenSize: ", hiddenSize);
         }
         if (field_name.compare("num_heads") == 0)
         {
             numHeads = *static_cast<const int*>(fc->fields[i].data);
-            gLogVerbose << "Building numHeads: " << numHeads << std::endl;
+            BERT_DEBUG_VALUE("Building numHeads: ", numHeads);
         }
         if (field_name.compare("has_mask") == 0)
         {
             hasMask = *static_cast<const bool*>(fc->fields[i].data);
-            gLogVerbose << "Building hasMask: " << hasMask << std::endl;
+            BERT_DEBUG_VALUE("Building hasMask: ", hasMask);
         }
 
         if (field_name.compare("dq_probs") == 0)
         {
             dqProbs = *static_cast<const float*>(fc->fields[i].data);
-            gLogVerbose << "Building dqProbs: " << dqProbs << std::endl;
+            BERT_DEBUG_VALUE("Building dqProbs: ", dqProbs);
         }
         if (field_name.compare("var_seqlen") == 0)
         {
             varSeqlen = *static_cast<const int*>(fc->fields[i].data);
-            gLogVerbose << "Building var_seqlen: " << varSeqlen << std::endl;
+            BERT_DEBUG_VALUE("Building var_seqlen: ", varSeqlen);
         }
     }
     if (typeId < 0 || typeId > 3)
@@ -1044,7 +1043,7 @@ IPluginV2* QKVToContextVarSeqlenPluginCreator::createPlugin(const char* name, co
         return nullptr;
     }
 
-    gLogVerbose << "Building the Plugin...\n";
+    BERT_DEBUG_MSG("Building the Plugin...");
     DataType type = static_cast<DataType>(typeId);
     if (type == DataType::kINT8 && dqProbs < 0)
     {
