@@ -934,7 +934,7 @@ public:
             warps_m = 1;
             warps_n = 4;
         }
-        else if (S == 384)
+        else if (S == 384 || S == 512)
         {
             warps_m = 1;
             warps_n = 8;
@@ -979,7 +979,8 @@ public:
 
         params.qkv_ptr = const_cast<void*>(qkvPtr);
 
-        params.packed_mask_ptr = const_cast<void*>(maskPtr);
+        // dummy input in V2/V3 because now we use cu_seqlens
+        params.packed_mask_ptr = nullptr;
 
         params.o_ptr = output;
 
@@ -1085,7 +1086,7 @@ public:
             warps_m = 1;
             warps_n = 4;
         }
-        else if (S == 384)
+        else if (S == 384 || S == 512)
         {
             warps_m = 1;
             warps_n = 8;
@@ -1131,7 +1132,8 @@ public:
 
         params.qkv_ptr = const_cast<void*>(qkvPtr);
 
-        params.packed_mask_ptr = const_cast<void*>(maskPtr);
+        // dummy input in V2/V3 because now we use cu_seqlens
+        params.packed_mask_ptr = nullptr;
 
         params.use_int8_scale_max = true;
 
