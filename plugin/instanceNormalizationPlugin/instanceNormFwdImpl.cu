@@ -336,11 +336,14 @@
      // Read the bias and scale.
      float bias[ELEMENTS_PER_LDG];
      float scale[ELEMENTS_PER_LDG];
-     readFromGmem(bias, &params.gmem_bias[cta_c], thread_in_cta_c);
-     readFromGmem(scale, &params.gmem_scale[cta_c], thread_in_cta_c);
+     if (is_valid_c)
+     {
+         readFromGmem(bias, &params.gmem_bias[cta_c], thread_in_cta_c);
+         readFromGmem(scale, &params.gmem_scale[cta_c], thread_in_cta_c);
+     }
 
      // The counters to count how many CTAs have retired at this point. One per chunk of C.
-     int32_t *gmem_retired_ctas = &params.gmem_retired_ctas[nc_blk_index];
+     int32_t* gmem_retired_ctas = &params.gmem_retired_ctas[nc_blk_index];
 
      // Make sure the threads are done and reconverged.
      __syncthreads();
@@ -573,12 +576,11 @@
  {
      dim3 grid_dim;
      grid_dim.x = divUp(params.nhw, Kernel_params::MIN_PIXELS_PER_CTA); // PIXELS_PER_CTA
-     grid_dim.y = divUp(params.c * params.n, Kernel_params::C_ELEMENTS_PER_CTA);
-     grid_dim.z = 1; //params.n;
+     grid_dim.y = divUp(params.c, Kernel_params::C_ELEMENTS_PER_CTA) * params.n;
+     grid_dim.z = 1; // params.n;
 
      return grid_dim;
  }
-
 
  template <typename Kernel_params>
  void instanceNormBufferSizes(const InstanceNormFwdParams& params,
