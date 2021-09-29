@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_VERSION=11.3.1
+ARG CUDA_VERSION=11.4.2
 ARG OS_VERSION=18.04
 
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.0.3.4
+ENV TRT_VERSION "8.2.0.6-d648f589"
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -62,12 +62,17 @@ RUN apt-get install -y --no-install-recommends \
     ln -s /usr/bin/pip3 pip;
 
 # Install TensorRT
-RUN v="${TRT_VERSION%.*}-1+cuda${CUDA_VERSION%.*}" &&\
-    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub &&\
-    apt-get update &&\
-    sudo apt-get install libnvinfer8=${v} libnvonnxparsers8=${v} libnvparsers8=${v} libnvinfer-plugin8=${v} \
-        libnvinfer-dev=${v} libnvonnxparsers-dev=${v} libnvparsers-dev=${v} libnvinfer-plugin-dev=${v} \
-        python3-libnvinfer=${v}
+#RUN v="${TRT_VERSION%.*}-1+cuda${CUDA_VERSION%.*}" &&\
+#    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu1804/x86_64/7fa2af80.pub &&\
+#    apt-get update &&\
+#    sudo apt-get install libnvinfer8=${v} libnvonnxparsers8=${v} libnvparsers8=${v} libnvinfer-plugin8=${v} \
+#        libnvinfer-dev=${v} libnvonnxparsers-dev=${v} libnvparsers-dev=${v} libnvinfer-plugin-dev=${v} \
+#        python3-libnvinfer=${v}
+
+RUN mkdir -p /tmp/tensorrt && cd /tmp/tensorrt && \
+    wget -r -np -nd -k "http://cuda-repo/release-candidates/Libraries/TensorRT/v8.2/${TRT_VERSION}/11.4-r470/Ubuntu18_04-x64-agnostic/deb/" &&\
+    yes | dpkg -i libnvinfer8_*.deb libnvinfer-plugin8_*.deb libnvparsers8_*.deb libnvonnxparsers8_*.deb libnvinfer-dev_*.deb libnvinfer-plugin-dev_*.deb libnvparsers-dev_*.deb libnvonnxparsers-dev_*.deb python3-libnvinfer_*.deb python3-libnvinfer-dev_*.deb && \
+    rm -f *
 
 # Install PyPI packages
 RUN pip3 install --upgrade pip
