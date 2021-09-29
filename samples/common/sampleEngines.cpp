@@ -808,11 +808,15 @@ bool setupNetworkAndConfig(const BuildOptions& build, const SystemOptions& sys, 
             config.setDefaultDeviceType(DeviceType::kDLA);
             config.setDLACore(sys.DLACore);
             config.setFlag(BuilderFlag::kPREFER_PRECISION_CONSTRAINTS);
-            config.setFlag(BuilderFlag::kDIRECT_IO);
 
             if (sys.fallback)
             {
                 config.setFlag(BuilderFlag::kGPU_FALLBACK);
+            }
+            else
+            {
+                // Reformatting runs on GPU, so avoid I/O reformatting.
+                config.setFlag(BuilderFlag::kDIRECT_IO);
             }
             if (!build.int8)
             {
