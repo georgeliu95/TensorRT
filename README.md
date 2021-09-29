@@ -15,12 +15,12 @@ This repository contains the Open Source Software (OSS) components of NVIDIA Ten
 To build the TensorRT-OSS components, you will first need the following software packages.
 
 **TensorRT GA build**
-* [TensorRT](https://developer.nvidia.com/nvidia-tensorrt-download) v8.0.3.4
+* [TensorRT](https://developer.nvidia.com/nvidia-tensorrt-download) v8.2.0.6
 
 **System Packages**
 * [CUDA](https://developer.nvidia.com/cuda-toolkit)
   * Recommended versions:
-  * cuda-11.3.1 + cuDNN-8.2
+  * cuda-11.4.x + cuDNN-8.2
   * cuda-10.2 + cuDNN-8.2
 * [GNU make](https://ftp.gnu.org/gnu/make/) >= v4.1
 * [cmake](https://github.com/Kitware/CMake/releases) >= v3.13
@@ -66,20 +66,20 @@ To build the TensorRT-OSS components, you will first need the following software
 
     Else download and extract the TensorRT GA build from [NVIDIA Developer Zone](https://developer.nvidia.com/nvidia-tensorrt-download).
 
-    **Example: Ubuntu 18.04 on x86-64 with cuda-11.3**
+    **Example: Ubuntu 18.04 on x86-64 with cuda-11.4**
 
     ```bash
     cd ~/Downloads
-    tar -xvzf TensorRT-8.0.3.4.Ubuntu-18.04.x86_64-gnu.cuda-11.3.cudnn8.2.tar.gz
-    export TRT_LIBPATH=`pwd`/TensorRT-8.0.3.4
+    tar -xvzf TensorRT-8.2.0.6.Ubuntu-18.04.x86_64-gnu.cuda-11.4.cudnn8.2.tar.gz
+    export TRT_LIBPATH=`pwd`/TensorRT-8.2.0.6
     ```
 
-    **Example: Windows on x86-64 with cuda-11.3**
+    **Example: Windows on x86-64 with cuda-11.4**
 
     ```powershell
     cd ~\Downloads
-    Expand-Archive .\TensorRT-8.0.3.4.Windows10.x86_64.cuda-11.3.cudnn8.2.zip
-    $Env:TRT_LIBPATH = '$(Get-Location)\TensorRT-8.0.3.4'
+    Expand-Archive .\TensorRT-8.2.0.6.Windows10.x86_64.cuda-11.4.cudnn8.2.zip
+    $Env:TRT_LIBPATH = '$(Get-Location)\TensorRT-8.2.0.6'
     $Env:PATH += 'C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\MSBuild\15.0\Bin\'
     ```
 
@@ -98,13 +98,13 @@ For Linux platforms, we recommend that you generate a docker container for build
 1. #### Generate the TensorRT-OSS build container.
     The TensorRT-OSS build container can be generated using the supplied Dockerfiles and build script. The build container is configured for building TensorRT OSS out-of-the-box.
 
-    **Example: Ubuntu 18.04 on x86-64 with cuda-11.3**
+    **Example: Ubuntu 18.04 on x86-64 with cuda-11.4.2 (default)**
     ```bash
-    ./docker/build.sh --file docker/ubuntu-18.04.Dockerfile --tag tensorrt-ubuntu18.04-cuda11.3 --cuda 11.3.1
+    ./docker/build.sh --file docker/ubuntu-18.04.Dockerfile --tag tensorrt-ubuntu18.04-cuda11.4
     ```
-    **Example: CentOS/RedHat 8 on x86-64 with cuda-10.2**
+    **Example: CentOS/RedHat 7 on x86-64 with cuda-10.2**
     ```bash
-    ./docker/build.sh --file docker/centos-8.Dockerfile --tag tensorrt-centos8-cuda10.2 --cuda 10.2
+    ./docker/build.sh --file docker/centos-7.Dockerfile --tag tensorrt-centos7-cuda10.2 --cuda 10.2
     ```
     **Example: Ubuntu 18.04 cross-compile for Jetson (aarch64) with cuda-10.2 (JetPack SDK)**
     ```bash
@@ -114,7 +114,7 @@ For Linux platforms, we recommend that you generate a docker container for build
 2. #### Launch the TensorRT-OSS build container.
     **Example: Ubuntu 18.04 build container**
 	```bash
-	./docker/launch.sh --tag tensorrt-ubuntu18.04-cuda11.3 --gpus all
+	./docker/launch.sh --tag tensorrt-ubuntu18.04-cuda11.4 --gpus all
 	```
 	> NOTE:
 	1. Use the `--tag` corresponding to build container generated in Step 1.
@@ -125,7 +125,7 @@ For Linux platforms, we recommend that you generate a docker container for build
 ## Building TensorRT-OSS
 * Generate Makefiles or VS project (Windows) and build.
 
-    **Example: Linux (x86-64) build with default cuda-11.3**
+    **Example: Linux (x86-64) build with default cuda-11.4.2**
 	```bash
 	cd $TRT_OSSPATH
 	mkdir -p build && cd build
@@ -156,14 +156,14 @@ For Linux platforms, we recommend that you generate a docker container for build
 	msbuild ALL_BUILD.vcxproj
 	```
 	> NOTE:
-	1. The default CUDA version used by CMake is 11.3.1. To override this, for example to 10.2, append `-DCUDA_VERSION=10.2` to the cmake command.
+	1. The default CUDA version used by CMake is 11.4.2. To override this, for example to 10.2, append `-DCUDA_VERSION=10.2` to the cmake command.
 	2. If samples fail to link on CentOS7, create this symbolic link: `ln -s $TRT_OUT_DIR/libnvinfer_plugin.so $TRT_OUT_DIR/libnvinfer_plugin.so.8`
 * Required CMake build arguments are:
 	- `TRT_LIB_DIR`: Path to the TensorRT installation directory containing libraries.
 	- `TRT_OUT_DIR`: Output directory where generated build artifacts will be copied.
 * Optional CMake build arguments:
 	- `CMAKE_BUILD_TYPE`: Specify if binaries generated are for release or debug (contain debug symbols). Values consists of [`Release`] | `Debug`
-	- `CUDA_VERISON`: The version of CUDA to target, for example [`11.3.1`].
+	- `CUDA_VERISON`: The version of CUDA to target, for example [`11.4.2`].
 	- `CUDNN_VERSION`: The version of cuDNN to target, for example [`8.2`].
 	- `PROTOBUF_VERSION`:  The version of Protobuf to use, for example [`3.0.0`]. Note: Changing this will not configure CMake to use a system version of Protobuf, it will configure CMake to download and try building that version.
 	- `CMAKE_TOOLCHAIN_FILE`: The path to a toolchain file for cross compilation.
