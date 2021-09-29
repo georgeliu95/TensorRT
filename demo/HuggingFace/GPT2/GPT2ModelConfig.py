@@ -19,16 +19,16 @@ class GPT2Metadata(_GPT2Metadata, MetadataArgparseInteropMixin):
     @staticmethod
     def add_args(parser: argparse.ArgumentParser) -> None:
         """Add commandline interface parser."""
-        network_group = parser.add_argument_group("T5 network")
+        network_group = parser.add_argument_group("GPT2 network")
         network_group.add_argument(
             "--variant",
-            help="T5 variant to generate",
+            help="GPT2 variant to generate",
             choices=GPT2ModelTRTConfig.TARGET_MODELS,
             required=True,
         )
         network_group.add_argument(
             "--enable-kv-cache",
-            help="T5 enable KV cache",
+            help="GPT2 enable KV cache",
             action="store_true",
             default=False,
         )
