@@ -1,0 +1,7 @@
+onnx_graphsurgeon==0.3.11
+polygraphy==0.31.*
+tabulate==0.8.*
+tensorrt==8.2.*.*
+toml>=0.10.2
+transformers==4.6.*
+sentencepiece==0.1.*
