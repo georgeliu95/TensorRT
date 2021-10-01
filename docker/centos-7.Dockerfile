@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_VERSION=11.4.2
+ARG CUDA_VERSION=11.3.1
 ARG OS_VERSION=7
 
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION "8.2.0.6-d648f589"
+ENV TRT_VERSION 8.0.3.4
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -47,15 +47,11 @@ RUN yum -y install \
 RUN yum install -y python36 python3-devel
 
 # Install TensorRT
-#RUN v="${TRT_VERSION%.*}-1.cuda${CUDA_VERSION%.*}" &&\
-#    yum-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel7/x86_64/cuda-rhel7.repo &&\
-#    yum -y install libnvinfer8-${v} libnvparsers8-${v} libnvonnxparsers8-${v} libnvinfer-plugin8-${v} \
-#        libnvinfer-devel-${v} libnvparsers-devel-${v} libnvonnxparsers-devel-${v} libnvinfer-plugin-devel-${v} \
-#        python3-libnvinfer-${v}
-RUN mkdir -p /tmp/tensorrt && cd /tmp/tensorrt && \
-    wget -r -np -nd -k "http://cuda-repo/release-candidates/Libraries/TensorRT/v8.2/${TRT_VERSION}/11.4-r470/RHEL7_9-x64-agnostic/rpm/" &&\
-    yes | rpm -Uvh libnvinfer8-*.rpm libnvinfer-plugin8-*.rpm libnvparsers8-*.rpm libnvonnxparsers8-*.rpm libnvinfer-devel-*.rpm libnvinfer-plugin-devel-*.rpm libnvparsers-devel-*.rpm libnvonnxparsers-devel-*.rpm python3-libnvinfer-*.rpm python3-libnvinfer-devel-*.rpm && \
-    rm -f *
+RUN v="${TRT_VERSION%.*}-1.cuda${CUDA_VERSION%.*}" &&\
+    yum-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel7/x86_64/cuda-rhel7.repo &&\
+    yum -y install libnvinfer8-${v} libnvparsers8-${v} libnvonnxparsers8-${v} libnvinfer-plugin8-${v} \
+        libnvinfer-devel-${v} libnvparsers-devel-${v} libnvonnxparsers-devel-${v} libnvinfer-plugin-devel-${v} \
+        python3-libnvinfer-${v}
 
 # Install PyPI packages
 RUN pip3 install --upgrade pip
