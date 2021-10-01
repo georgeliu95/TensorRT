@@ -528,7 +528,6 @@ void printHelpInfo()
               << std::endl;
     std::cout << "--fp16[-f]              Specify to run in fp16 mode." << std::endl;
     std::cout << "--int8[-i]              Specify to run in int8 mode." << std::endl;
-    std::cout << "--batchSize[-B]         Specify the batch size for inference." << std::endl;
     std::cout << "--profile[-p]           Whether to do per-layer profiling." << std::endl;
     std::cout << "--repeat[-r]            Specify the repeat number to execute the TRT context,"
                  " used to smooth the profiling time."
