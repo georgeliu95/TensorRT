@@ -18,9 +18,9 @@ This sample, sampleReformatFreeIO, uses a Caffe model that was trained on the [M
 
 ## How does this sample work?
 
-`ITensor::setAllowedFormats` is invoked to specify which format is expected to be supported so that the unnecessary reformatting will not be inserted to convert from/to FP32 formats for I/O tensors. `BuilderFlag::kSTRICT_TYPES` is also assigned to the builder configuration to let the builder choose a reformat free path rather than the fastest path.
+`ITensor::setAllowedFormats` is invoked to specify which format is expected to be supported so that the unnecessary reformatting will not be inserted to convert from/to FP32 formats for I/O tensors. `BuilderFlag::kDIRECT_IO` is also assigned to the builder configuration to make the builder prefer a reformat-free path over the fastest path, if they are different.
 
-**Note:** If the reformat free path is not implemented, then the fastest path with reformatting will be selected with the following warning message:
+**Note:** If a reformat free path cannot be found, then the fastest path with reformatting will be selected with the following warning message:
 `Warning: no implementation obeys reformatting-free rules, ....`
 
 	```
@@ -31,7 +31,7 @@ This sample, sampleReformatFreeIO, uses a Caffe model that was trained on the [M
 		network->getInput(0)->setAllowedFormats(static_cast<TensorFormats>(1 << static_cast<int>(mTensorFormat)));
 		network->getOutput(0)->setAllowedFormats(static_cast<TensorFormats>(1 << static_cast<int>(mTensorFormat)));
 		...
-		config->setFlag(BuilderFlag::kSTRICT_TYPES);
+		config->setFlag(BuilderFlag::kDIRECT_IO);
 		...
 	}
 	```
@@ -42,7 +42,7 @@ This sample, sampleReformatFreeIO, uses a Caffe model that was trained on the [M
     ```bash
     export TRT_DATADIR=/usr/src/tensorrt/data
     pushd $TRT_DATADIR/mnist
-    pip install Pillow
+    pip3 install Pillow
     python3 download_pgms.py
     popd
     ```
@@ -53,12 +53,12 @@ This sample, sampleReformatFreeIO, uses a Caffe model that was trained on the [M
 
 2.  Run inference on the digit looping from 0 to 9:
     ```bash
-    sample_reformat_free_io --datadir=<path/to/data> --useDLACore=N
+    ./sample_reformat_free_io --datadir=<path/to/data> --useDLACore=N
     ```
 
     For example:
     ```bash
-    sample_reformat_free_io --datadir $TRT_DATADIR/mnist
+    ./sample_reformat_free_io --datadir $TRT_DATADIR/mnist
     ```
 
 3.  Verify that all 10 digits match correctly. If the sample runs successfully, you should see output similar to the following:
