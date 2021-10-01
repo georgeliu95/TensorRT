@@ -375,13 +375,9 @@ std::ostream& printPrecision(std::ostream& os, const BuildOptions& options)
     {
         os << "+INT8";
     }
-    if (options.precisionConstraints == PrecisionConstraints::kOBEY)
+    if (options.strictTypes)
     {
-        os << " (obey precision constraints)";
-    }
-    if (options.precisionConstraints == PrecisionConstraints::kPREFER)
-    {
-        os << " (prefer precision constraints)";
+        os << " (strict types)";
     }
     return os;
 }
@@ -590,23 +586,7 @@ void BuildOptions::parse(Arguments& arguments)
     getAndDelOption(arguments, "--safe", safe);
     getAndDelOption(arguments, "--consistency", consistency);
     getAndDelOption(arguments, "--restricted", restricted);
-
-    getAndDelOption(arguments, "--directIO", directIO);
-
-    std::string precisionConstraintsString;
-    getAndDelOption(arguments, "--precisionConstraints", precisionConstraintsString);
-    if (!precisionConstraintsString.empty())
-    {
-        const std::unordered_map<std::string, PrecisionConstraints> precisionConstraintsMap
-            = {{"obey", PrecisionConstraints::kOBEY}, {"prefer", PrecisionConstraints::kPREFER},
-                {"none", PrecisionConstraints::kNONE}};
-        auto it = precisionConstraintsMap.find(precisionConstraintsString);
-        if (it == precisionConstraintsMap.end())
-        {
-            throw std::invalid_argument(std::string("Unknown precision constraints: ") + precisionConstraintsString);
-        }
-        precisionConstraints = it->second;
-    }
+    getAndDelOption(arguments, "--strictTypes", strictTypes);
 
     std::string sparsityString;
     getAndDelOption(arguments, "--sparsity", sparsityString);
@@ -1169,7 +1149,7 @@ std::ostream& operator<<(std::ostream& os, const BuildOptions& options)
           "Refit: "          << boolToEnabled(options.refittable)                                                       << std::endl <<
           "Sparsity: ";         printSparsity(os, options)                                                              << std::endl <<
           "Safe mode: "      << boolToEnabled(options.safe)                                                             << std::endl <<
-          "DirectIO mode: "  << boolToEnabled(options.directIO)                                                         << std::endl <<
+          "Strict mode: "    << boolToEnabled(options.strictTypes)                                                      << std::endl <<
           "Restricted mode: " << boolToEnabled(options.restricted)                                                      << std::endl <<
           "Save engine: "    << (options.save ? options.engine : "")                                                    << std::endl <<
           "Load engine: "    << (options.load ? options.engine : "")                                                    << std::endl <<
@@ -1411,12 +1391,7 @@ void BuildOptions::help(std::ostream& os)
           "  --fp16                      Enable fp16 precision, in addition to fp32 (default = disabled)"                                    "\n"
           "  --int8                      Enable int8 precision, in addition to fp32 (default = disabled)"                                    "\n"
           "  --best                      Enable all precisions to achieve the best performance (default = disabled)"                         "\n"
-          "  --directIO                  Avoid reformatting at network boundaries. (default = disabled)"                                     "\n"
-          "  --precisionConstraints=spec Control precision constraints. (default = none)"                                                    "\n"
-          "                                  Precision Constaints: spec ::= \"none\" | \"obey\" | \"prefer\""                                "\n"
-          "                                  none = no constraints"                                                                          "\n"
-          "                                  prefer = meet precision constraints if possible"                                                "\n"
-          "                                  obey = meet precision constraints or fail otherwise"                                            "\n"
+          "  --strictTypes               Enables strict type constraints. (default = disabled)"                                              "\n"
           "  --calib=<file>              Read INT8 calibration cache file"                                                                   "\n"
           "  --safe                      Enable build safety certified engine"                                                               "\n"
           "  --consistency               Perform consistency checking on safety certified engine"                                            "\n"

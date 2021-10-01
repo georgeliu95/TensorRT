@@ -18,7 +18,7 @@ This sample, sampleReformatFreeIO, uses a Caffe model that was trained on the [M
 
 ## How does this sample work?
 
-`ITensor::setAllowedFormats` is invoked to specify which format is expected to be supported so that the unnecessary reformatting will not be inserted to convert from/to FP32 formats for I/O tensors. `BuilderFlag::kDIRECT_IO` is also assigned to the builder configuration to make the builder prefer a reformat-free path over the fastest path, if they are different.
+`ITensor::setAllowedFormats` is invoked to specify which format is expected to be supported so that the unnecessary reformatting will not be inserted to convert from/to FP32 formats for I/O tensors. `BuilderFlag::kSTRICT_TYPES` is also assigned to the builder configuration to let the builder choose a reformat free path rather than the fastest path.
 
 **Note:** If a reformat free path cannot be found, then the fastest path with reformatting will be selected with the following warning message:
 `Warning: no implementation obeys reformatting-free rules, ....`
@@ -31,7 +31,7 @@ This sample, sampleReformatFreeIO, uses a Caffe model that was trained on the [M
 		network->getInput(0)->setAllowedFormats(static_cast<TensorFormats>(1 << static_cast<int>(mTensorFormat)));
 		network->getOutput(0)->setAllowedFormats(static_cast<TensorFormats>(1 << static_cast<int>(mTensorFormat)));
 		...
-		config->setFlag(BuilderFlag::kDIRECT_IO);
+		config->setFlag(BuilderFlag::kSTRICT_TYPES);
 		...
 	}
 	```

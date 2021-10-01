@@ -331,7 +331,7 @@ bool SampleReformatFreeIO::build(int dataWidth)
     }
 
     config->setFlag(BuilderFlag::kGPU_FALLBACK);
-    config->setFlag(BuilderFlag::kDIRECT_IO);
+    config->setFlag(BuilderFlag::kSTRICT_TYPES);
 
     // CUDA stream used for profiling by the builder.
     auto profileStream = samplesCommon::makeCudaStream();

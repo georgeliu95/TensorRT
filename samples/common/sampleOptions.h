@@ -53,13 +53,6 @@ constexpr int32_t defaultSleep{0};
 constexpr int32_t defaultAvgRuns{10};
 constexpr float defaultPercentile{99};
 
-enum class PrecisionConstraints
-{
-    kNONE,
-    kOBEY,
-    kPREFER
-};
-
 enum class ModelFormat
 {
     kANY,
@@ -134,8 +127,7 @@ struct BuildOptions : public Options
     bool tf32{true};
     bool fp16{false};
     bool int8{false};
-    bool directIO{false};
-    PrecisionConstraints precisionConstraints;
+    bool strictTypes{false};
     bool safe{false};
     bool consistency{false};
     bool restricted{false};
