@@ -13,7 +13,6 @@ Currently, this repository supports the following models:
     t5-small (60M), t5-base (220M), t5-large (770M)
 
 
-
 ## Installation
 
 ```python
@@ -23,7 +22,7 @@ pip3 install -r requirements.txt
 ## How to run comparison script
 
 ```python
-python run.py compare GPT2 --working-dir temp
+python3 run.py compare GPT2 --variant [gpt2 | gpt2-large] --working-dir temp
 ```
 
 The above script reports :
@@ -37,7 +36,7 @@ The above script reports :
 ## How to run functional and performance benchmark
 
 ```python
-python run.py run GPT2 [frameworks | trt] --variant gpt2 --working-dir temp
+python3 run.py run GPT2 [frameworks | trt] --variant [gpt2 | gpt2-large] --working-dir temp
 ```
 
 Expected output:
