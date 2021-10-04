@@ -34,16 +34,16 @@ To build the TensorRT-OSS components, you will first need the following software
   * [Docker](https://docs.docker.com/install/) >= 19.03
   * [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-docker)
 * Toolchains and SDKs
-  * (Cross compilation for Jetson platform) [NVIDIA JetPack](https://developer.nvidia.com/embedded/jetpack) >= 4.6 (July 2021)
+  * (Cross compilation for Jetson platform) [NVIDIA JetPack](https://developer.nvidia.com/embedded/jetpack) >= 4.6 (current support only for TensorRT 8.0.1)
   * (For Windows builds) [Visual Studio](https://visualstudio.microsoft.com/vs/older-downloads/) 2017 Community or Enterprise edition
   * (Cross compilation for QNX platform) [QNX Toolchain](https://blackberry.qnx.com/en)
 * PyPI packages (for demo applications/tests)
-  * [onnx](https://pypi.org/project/onnx/) 1.8.0
+  * [onnx](https://pypi.org/project/onnx/) 1.9.0
   * [onnxruntime](https://pypi.org/project/onnxruntime/) 1.8.0
-  * [tensorflow-gpu](https://pypi.org/project/tensorflow/) >= 2.4.1
-  * [Pillow](https://pypi.org/project/Pillow/) >= 8.1.2
-  * [pycuda](https://pypi.org/project/pycuda/) < 2020.1
-  * [numpy](https://pypi.org/project/numpy/) 1.21.0
+  * [tensorflow-gpu](https://pypi.org/project/tensorflow/) >= 2.5.1
+  * [Pillow](https://pypi.org/project/Pillow/) >= 8.3.2
+  * [pycuda](https://pypi.org/project/pycuda/) < 2021.1
+  * [numpy](https://pypi.org/project/numpy/)
   * [pytest](https://pypi.org/project/pytest/)
 * Code formatting tools (for contributors)
   * [Clang-format](https://clang.llvm.org/docs/ClangFormat.html)
@@ -70,7 +70,7 @@ To build the TensorRT-OSS components, you will first need the following software
 
     ```bash
     cd ~/Downloads
-    tar -xvzf TensorRT-8.2.0.6.Ubuntu-18.04.x86_64-gnu.cuda-11.4.cudnn8.2.tar.gz
+    tar -xvzf TensorRT-8.2.0.6.Linux.x86_64-gnu.cuda-11.4.cudnn8.2.tar.gz
     export TRT_LIBPATH=`pwd`/TensorRT-8.2.0.6
     ```
 
@@ -86,7 +86,7 @@ To build the TensorRT-OSS components, you will first need the following software
 
 3. #### (Optional - for Jetson builds only) Download the JetPack SDK
     1. Download and launch the JetPack SDK manager. Login with your NVIDIA developer account.
-    2. Select the  platform and target OS  (example: Jetson AGX Xavier, `Linux Jetpack 4.4`), and click Continue.
+    2. Select the  platform and target OS  (example: Jetson AGX Xavier, `Linux Jetpack 4.6`), and click Continue.
     3. Under `Download & Install Options` change the download folder and select `Download now, Install later`. Agree to the license terms and click Continue.
     4. Move the extracted files into the `<TensorRT-OSS>/docker/jetpack_files` folder.
 
@@ -170,7 +170,6 @@ For Linux platforms, we recommend that you generate a docker container for build
 	- `BUILD_PARSERS`: Specify if the parsers should be built, for example [`ON`] | `OFF`.  If turned OFF, CMake will try to find precompiled versions of the parser libraries to use in compiling samples. First in `${TRT_LIB_DIR}`, then on the system. If the build type is Debug, then it will prefer debug builds of the libraries before release versions if available.
 	- `BUILD_PLUGINS`: Specify if the plugins should be built, for example [`ON`] | `OFF`. If turned OFF, CMake will try to find a precompiled version of the plugin library to use in compiling samples. First in `${TRT_LIB_DIR}`, then on the system. If the build type is Debug, then it will prefer debug builds of the libraries before release versions if available.
 	- `BUILD_SAMPLES`: Specify if the samples should be built, for example [`ON`] | `OFF`.
-	- `CUB_VERSION`: The version of CUB to use, for example [`1.8.0`].
 	- `GPU_ARCHS`: GPU (SM) architectures to target. By default we generate CUDA code for all major SMs. Specific SM versions can be specified here as a quoted space-separated list to reduce compilation time and binary size. Table of compute capabilities of NVIDIA GPUs can be found [here](https://developer.nvidia.com/cuda-gpus). Examples:
         - NVidia A100: `-DGPU_ARCHS="80"`
         - Tesla T4, GeForce RTX 2080: `-DGPU_ARCHS="75"`
