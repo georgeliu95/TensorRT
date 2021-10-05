@@ -39,7 +39,7 @@
   - `--explicitPrecision` flag has been deprecated and has no effect. When the input ONNX model contains Quantization/Dequantization nodes, TensorRT automatically uses explicit precision mode.
   - `--nvtxMode=[verbose|default|none]` has been deprecated in favor of `--profilingVerbosity=[detailed|layer_names_only|none]` to show its functionality more explicitly.
 
-## [21.10](https://github.com/NVIDIA/TensorRT/releases/tag/21.10) - TBD
+## [21.10](https://github.com/NVIDIA/TensorRT/releases/tag/21.10) - 2021-10-05
 ### Added
 - Benchmark script for demoBERT-Megatron
 - Dynamic Input Shape support for EfficientNMS plugin

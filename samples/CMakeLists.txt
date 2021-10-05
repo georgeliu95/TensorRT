@@ -24,7 +24,6 @@ set(OPENSOURCE_SAMPLES_LIST
     sampleGoogleNet
     sampleINT8
     sampleINT8API
-    sampleMLP
     sampleMNIST
     sampleMNISTAPI
     sampleNMT
