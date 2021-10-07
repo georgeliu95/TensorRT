@@ -141,13 +141,15 @@ For Linux platforms, we recommend that you generate a docker container for build
     ```
     > NOTE: C compiler must be explicitly specified via `CC=` for native `aarch64` builds of protobuf.
 
-    **Example: Ubuntu 18.04 Cross-Compile for Jetson (arm64) with cuda-10.2 (JetPack)**
+    **Example: Ubuntu 18.04 Cross-Compile for Jetson (aarch64) with cuda-10.2 (JetPack)**
 	```bash
 	cd $TRT_OSSPATH
 	mkdir -p build && cd build
-	cmake .. -DTRT_LIB_DIR=$TRT_LIBPATH -DTRT_OUT_DIR=`pwd`/out -DCMAKE_TOOLCHAIN_FILE=$TRT_OSSPATH/cmake/toolchains/cmake_aarch64.toolchain -DCUDA_VERSION=10.2
+	cmake .. -DTRT_LIB_DIR=$TRT_LIBPATH -DTRT_OUT_DIR=`pwd`/out -DCMAKE_TOOLCHAIN_FILE=$TRT_OSSPATH/cmake/toolchains/cmake_aarch64.toolchain -DCUDA_VERSION=10.2 -DCUDNN_LIB=/pdk_files/cudnn/usr/lib/aarch64-linux-gnu/libcudnn.so -DCUBLAS_LIB=/usr/local/cuda-10.2/targets/aarch64-linux/lib/stubs/libcublas.so -DCUBLASLT_LIB=/usr/local/cuda-10.2/targets/aarch64-linux/lib/stubs/libcublasLt.so
 	make -j$(nproc)
 	```
+    > NOTE: The latest JetPack SDK v4.6 only supports TensorRT 8.0.1.
+
     **Example: Windows (x86-64) build in Powershell**
 	```powershell
 	cd $Env:TRT_OSSPATH
