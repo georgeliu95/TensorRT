@@ -176,6 +176,9 @@ class GPT2HuggingFace(FrameworkCommand):
                 tokenizer.decode(sample_output, skip_special_tokens=True)
             )
 
+        # For now, save only the last output since we only support BS = 1
+        semantic_outputs = semantic_outputs[-1]
+
         return NetworkResult(
             input=inference_input,
             output_tensor=greedy_output,

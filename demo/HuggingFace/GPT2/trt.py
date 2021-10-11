@@ -155,6 +155,9 @@ class GPT2Polygraphy(TRTInferenceCommand):
         for i, sample_output in enumerate(sample_output):
             semantic_outputs.append(tokenizer.decode(sample_output, skip_special_tokens=True))
 
+        # For now, save only the last output since we only support BS = 1
+        semantic_outputs = semantic_outputs[-1]
+
         return NetworkResult(
             input=inference_input,
             output_tensor=sample_output,
