@@ -92,7 +92,7 @@ class ModelFileConverter:
             fp16=network_metadata.precision.fp16,
             max_workspace_size=result.DEFAULT_TRT_WORKSPACE_MB * 1024 * 1024,
             profiles=result.get_dynamic_shape_profiles(),
-            strict_types=result.use_strict_types()
+            obey_precision_constraints=result.use_obey_precision_constraints()
         )
 
         g_logger_verbosity = (
@@ -419,7 +419,7 @@ class TRTEngineFile(NNModelFile):
         pass
 
     @abstractmethod
-    def use_strict_types(self):
+    def use_obey_precision_constraints(self):
         pass
 
     # get_network_definition can be overloaded to alter the network definition.
