@@ -140,6 +140,7 @@ class GPT2HuggingFace(FrameworkCommand):
         network_fpaths: NetworkModels,
         inference_input: str,
         timing_profile: TimingProfile,
+        use_cpu: bool
     ) -> NetworkResult:
 
         # Execute some tests
@@ -157,7 +158,7 @@ class GPT2HuggingFace(FrameworkCommand):
 
         # get single decoder iteration inference timing profile
         _, decoder_e2e_median_time = gpt2_inference(
-            gpt2_torch, input_ids, timing_profile
+            gpt2_torch, input_ids, timing_profile, use_cuda=(not use_cpu)
         )
 
         # get complete decoder inference result and its timing profile
@@ -166,6 +167,7 @@ class GPT2HuggingFace(FrameworkCommand):
             input_ids,
             timing_profile,
             max_length=GPT2ModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant],
+            use_cuda=(not use_cpu)
         )
 
         semantic_outputs = []
@@ -199,6 +201,7 @@ class GPT2HuggingFace(FrameworkCommand):
         keep_onnx_model: bool,
         keep_pytorch_model: bool,
         timing_profile: TimingProfile,
+        use_cpu: bool = False,
     ) -> List[NetworkResult]:
         """
         Main entry point of our function which compiles and generates our model data.
@@ -212,7 +215,7 @@ class GPT2HuggingFace(FrameworkCommand):
             for ninput in network_input:
                 results.append(
                     self.execute_inference(
-                        metadata, network_fpaths, ninput, timing_profile
+                        metadata, network_fpaths, ninput, timing_profile, use_cpu
                     )
                 )
         finally:

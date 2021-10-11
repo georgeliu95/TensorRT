@@ -158,6 +158,7 @@ class T5FHuggingFace(FrameworkCommand):
         network_fpaths: NetworkModels,
         inference_input: str,
         timing_profile: TimingProfile,
+        use_cpu: bool
     ) -> NetworkResult:
 
         # Execute some tests
@@ -178,10 +179,10 @@ class T5FHuggingFace(FrameworkCommand):
         )
 
         encoder_last_hidden_state, encoder_e2e_median_time = encoder_inference(
-            t5_torch_encoder, input_ids, timing_profile
+            t5_torch_encoder, input_ids, timing_profile, use_cuda=(not use_cpu)
         )
         _, decoder_e2e_median_time = decoder_inference(
-            t5_torch_decoder, input_ids, encoder_last_hidden_state, timing_profile
+            t5_torch_decoder, input_ids, encoder_last_hidden_state, timing_profile, use_cuda=(not use_cpu),
         )
         decoder_output_greedy, full_e2e_median_runtime = full_inference_greedy(
             t5_torch_encoder,
@@ -190,6 +191,7 @@ class T5FHuggingFace(FrameworkCommand):
             tokenizer,
             timing_profile,
             max_length=T5ModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant],
+            use_cuda= (not use_cpu)
         )
 
         # Remove the padding and end tokens.
@@ -229,11 +231,11 @@ class T5FHuggingFace(FrameworkCommand):
         keep_onnx_model: bool,
         keep_pytorch_model: bool,
         timing_profile: TimingProfile,
+        use_cpu: bool = False,
     ) -> List[NetworkResult]:
         """
         Main entry point of our function which compiles and generates our model data.
         """
-
         results = []
         workspace = NNFolderWorkspace(
             self.config.network_name, metadata, working_directory
@@ -243,7 +245,7 @@ class T5FHuggingFace(FrameworkCommand):
             for ninput in network_input:
                 results.append(
                     self.execute_inference(
-                        metadata, network_fpaths, ninput, timing_profile
+                        metadata, network_fpaths, ninput, timing_profile, use_cpu
                     )
                 )
         finally:

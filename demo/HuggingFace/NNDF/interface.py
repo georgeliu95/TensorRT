@@ -86,7 +86,6 @@ class NetworkCommand(metaclass=ABCMeta):
             help="Location of where to save the model and other downloaded files.",
             required=True,
         )
-
         timing_group = parser.add_argument_group("inference measurement")
         timing_group.add_argument(
             "--iterations", help="Number of iterations to measure.", default=self.DEFAULT_ITERATIONS
@@ -163,6 +162,7 @@ class FrameworkCommand(NetworkCommand):
                 number=int(self._args.number),
                 warmup=int(self._args.warmup),
             ),
+            use_cpu=self._args.cpu,
         )
 
         return NetworkCheckpointResult(
@@ -172,7 +172,12 @@ class FrameworkCommand(NetworkCommand):
 
     def add_args(self, parser) -> argparse.ArgumentParser:
         super().add_args(parser)
-
+        device_group = parser.add_argument_group("device")
+        device_group.add_argument(
+            "--cpu",
+            help="Run inference using CPU for frameworks.",
+            action="store_true",
+        )
 
 class TRTInferenceCommand(NetworkCommand):
     """Base class that is associated with Polygraphy related scripts."""

@@ -23,14 +23,20 @@ def use_cuda(func: Callable):
         assert (
             "use_cuda" in caller_kwargs
         ), "Function must have 'use_cuda' as a parameter."
-
-        if caller_kwargs["use_cuda"] and torch.cuda.is_available():
+        if caller_kwargs["use_cuda"]:
             new_kwargs = {}
-            for k, v in caller_kwargs.items():
-                if getattr(v, "to", False):
-                    new_kwargs[k] = v.to("cuda")
-                else:
-                    new_kwargs[k] = v
+            if torch.cuda.is_available() and caller_kwargs["use_cuda"]:
+                for k, v in caller_kwargs.items():
+                    if getattr(v, "to", False):
+                        new_kwargs[k] = v.to("cuda")
+                    else:
+                        new_kwargs[k] = v
+            else:
+                for k, v in caller_kwargs.items():
+                    if getattr(v, "to", False):
+                        new_kwargs[k] = v.to("cpu")
+                    else:
+                        new_kwargs[k] = v                
 
             return func(**new_kwargs)
         else:
