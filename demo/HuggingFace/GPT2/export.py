@@ -65,7 +65,7 @@ class GPT2TRTEngine(TRTEngineFile):
     def __init__(self, model, network_metadata):
         super().__init__(model, GPT2Converter, network_metadata)
 
-    def use_strict_types(self):
+    def use_obey_precision_constraints(self):
         return self.network_metadata.precision.fp16
 
     def get_dynamic_shape_profiles(self):

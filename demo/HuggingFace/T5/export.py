@@ -183,7 +183,7 @@ class T5DecoderTRTEngine(TRTEngineFile):
         )
         return [profile]
 
-    def use_strict_types(self):
+    def use_obey_precision_constraints(self):
         return self.network_metadata.precision.fp16
 
 
@@ -209,7 +209,7 @@ class T5EncoderTRTEngine(TRTEngineFile):
             )
         ]
 
-    def use_strict_types(self):
+    def use_obey_precision_constraints(self):
         return self.network_metadata.precision.fp16
 
 # Converters #
