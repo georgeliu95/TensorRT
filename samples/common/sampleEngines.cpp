@@ -773,9 +773,22 @@ bool setupNetworkAndConfig(const BuildOptions& build, const SystemOptions& sys, 
         config.setInt8Calibrator(new RndInt8Calibrator(1, elemCount, build.calibration, network, err));
     }
 
-    if (build.strictTypes)
+    if (build.directIO)
     {
-        config.setFlag(BuilderFlag::kSTRICT_TYPES);
+        config.setFlag(BuilderFlag::kDIRECT_IO);
+    }
+
+    switch (build.precisionConstraints)
+    {
+    case PrecisionConstraints::kNONE:
+        // It's the default for TensorRT.
+        break;
+    case PrecisionConstraints::kOBEY:
+        config.setFlag(BuilderFlag::kOBEY_PRECISION_CONSTRAINTS);
+        break;
+    case PrecisionConstraints::kPREFER:
+        config.setFlag(BuilderFlag::kPREFER_PRECISION_CONSTRAINTS);
+        break;
     }
 
     if (build.safe)
@@ -794,7 +807,8 @@ bool setupNetworkAndConfig(const BuildOptions& build, const SystemOptions& sys, 
         {
             config.setDefaultDeviceType(DeviceType::kDLA);
             config.setDLACore(sys.DLACore);
-            config.setFlag(BuilderFlag::kSTRICT_TYPES);
+            config.setFlag(BuilderFlag::kPREFER_PRECISION_CONSTRAINTS);
+            config.setFlag(BuilderFlag::kDIRECT_IO);
 
             if (sys.fallback)
             {
