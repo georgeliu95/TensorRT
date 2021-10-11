@@ -577,13 +577,19 @@ public:
     //!
     //! \brief Set the computational precision of this layer
     //!
-    //! Setting the precision allows TensorRT to choose implementation which run at this computational precision.
+    //! Setting the precision allows TensorRT to choose an implementation which run at this computational precision.
     //! Layer input type would also get inferred from layer computational precision. TensorRT could still choose a
-    //! non-conforming fastest implementation ignoring set layer precision. Use BuilderFlag::kSTRICT_TYPES to force
-    //! choose implementations with requested precision. In case no implementation is found with requested precision,
-    //! TensorRT would choose available fastest implementation. If precision is not set, TensorRT will select the layer
-    //! computational precision and layer input type based on performance considerations and the flags specified to the
-    //! builder.
+    //! non-conforming fastest implementation that ignores the requested precision. To force choosing an implementation
+    //! with the requested precision, set exactly one of the following flags, which differ in what happens
+    //! if no such implementation exists:
+    //!
+    //! * BuilderFlag::kOBEY_PRECISION_CONSTRAINTS - build fails with an error message.
+    //!
+    //! * BuilderFlag::kPREFER_PRECISION_CONSTRAINTS - TensorRT falls back to an
+    //!   implementation without the requested precision.
+    //!
+    //! If precision is not set, or falling back, TensorRT will select the layer computational precision
+    //! and layer input type based on global performance considerations and the flags specified to the builder.
     //!
     //! \param dataType the computational precision.
     //!
@@ -633,9 +639,16 @@ public:
     //!
     //! Setting the output type constrains TensorRT to choose implementations which generate output data with the
     //! given type. If it is not set, TensorRT will select output type based on layer computational precision. TensorRT
-    //! could still choose non-conforming output type based on fastest implementation. Use BuilderFlag::kSTRICT_TYPES to
-    //! force choose requested output type. In case layer precision is not specified, output type would depend on
-    //! chosen implementation based on performance considerations and the flags specified to the builder.
+    //! could still choose non-conforming output type based on fastest implementation. To force choosing the requested
+    //! output type, set exactly one of the following flags, which differ in what happens if no such implementation exists:
+    //!
+    //! * BuilderFlag::kOBEY_PRECISION_CONSTRAINTS - build fails with an error message.
+    //!
+    //! * BuilderFlag::kPREFER_PRECISION_CONSTRAINTS - TensorRT falls back to an
+    //!   implementation with a non-conforming output type.
+    //!
+    //! In case layer precision is not specified, or falling back, the output type depends on the
+    //! chosen implementation, based on performance considerations and the flags specified to the builder.
     //!
     //! This method cannot be used to set the data type of the second output tensor of the TopK layer. The data type of
     //! the second output tensor of the topK layer is always Int32. Also the output type of all layers that are shape
@@ -2815,7 +2828,7 @@ public:
     //!
     //! \brief Set the binary operation for the layer.
     //!
-    //! DLA supports only kSUM, kPROD, kMAX and kMIN.
+    //! DLA supports only kSUM, kPROD, kMAX, kMIN, and kSUB.
     //!
     //! \see getOperation(), ElementWiseOperation
     //!
@@ -2972,6 +2985,8 @@ public:
     //! The gathering of indexing starts from the dimension of data[NbElementWiseDims:].
     //! The NbElementWiseDims must be less than the Rank of the data input.
     //! \param elementWiseDims number of dims to be handled as elementwise.
+    //!
+    //! Default: 0
     //!
     //! The value of nbElementWiseDims and GatherMode are checked during network validation:
     //!
@@ -4407,9 +4422,9 @@ protected:
 //!
 //! \brief A layer that represents the identity function.
 //!
-//! If the input and/or output tensor precisions are explicitly specified, it can be used
-//! to convert from one precision to another. Other than conversion between the same
-//! precision (kFLOAT -> kFLOAT for example), the only valid conversions are:
+//! If the input and/or output tensor types are explicitly specified, it can be used
+//! to convert from one type to another. Other than conversion between the same
+//! type (kFLOAT -> kFLOAT for example), the only valid conversions are:
 //!
 //!     (kFLOAT | kHALF | kINT32 | kBOOL) -> (kFLOAT | kHALF | kINT32)
 //!
@@ -7621,8 +7636,9 @@ public:
     //! \param selection The user writes indices of selected choices in to selection buffer which is of size nbChoices.
     //!
     //! \note TensorRT uses its default algorithm selection to choose from the list provided.
-    //!       If return value is 0, TensorRT’s default algorithm selection is used unless strict type constraints are
-    //!       set. The list of choices is valid only for this specific algorithm context.
+    //!       If return value is 0, TensorRT's default algorithm selection is used unless
+    //!       BuilderFlag::kREJECT_EMPTY_ALGORITHMS (or the deprecated BuilderFlag::kSTRICT_TYPES) is set.
+    //!       The list of choices is valid only for this specific algorithm context.
     //!
     virtual int32_t selectAlgorithms(const IAlgorithmContext& context, const IAlgorithm* const* choices,
         int32_t nbChoices, int32_t* selection) noexcept
@@ -7695,8 +7711,19 @@ enum class BuilderFlag : int32_t
     kINT8 = 1,         //!< Enable Int8 layer selection, with FP32 fallback with FP16 fallback if kFP16 also specified.
     kDEBUG = 2,        //!< Enable debugging of layers via synchronizing after every layer.
     kGPU_FALLBACK = 3, //!< Enable layers marked to execute on GPU if layer cannot execute on DLA.
-    kSTRICT_TYPES = 4, //!< Enables strict type constraints.
-    kREFIT = 5,        //!< Enable building a refittable engine.
+
+    //! Legacy flag with effect similar to setting all of these three flags:
+    //!
+    //! * kPREFER_PRECISION_CONSTRAINTS
+    //! * kDIRECT_IO
+    //! * kREJECT_EMPTY_ALGORITHMS
+    //!
+    //! except that if the direct I/O requirement cannot be met and kDIRECT_IO was not explicitly set,
+    //! instead of the build failing, the build falls back as if kDIRECT_IO was not set.
+    //!
+    kSTRICT_TYPES TRT_DEPRECATED_ENUM = 4,
+
+    kREFIT = 5,                //!< Enable building a refittable engine.
     kDISABLE_TIMING_CACHE = 6, //!< Disable reuse of timing information across identical layers.
 
     //! Allow (but not require) computations on tensors of type DataType::kFLOAT to use TF32.
@@ -7712,14 +7739,30 @@ enum class BuilderFlag : int32_t
     //! and EngineCapability::kDLA_STANDALONE check against the DeviceType::kDLA case. This flag
     //! is forced to true if EngineCapability::kSAFETY at build time if it is unset.
     //!
-    kSAFETY_SCOPE = 9
+    //! This flag is only supported in NVIDIA Drive(R) products.
+    kSAFETY_SCOPE = 9,
+
+    //! Require that layers execute in specified precisions. Build fails otherwise.
+    kOBEY_PRECISION_CONSTRAINTS = 10,
+
+    //! Prefer that layers execute in specified precisions.
+    //! Fall back (with warning) to another precision if build would otherwise fail.
+    kPREFER_PRECISION_CONSTRAINTS = 11,
+
+    //! Require that no reformats be inserted between a layer and a network I/O tensor
+    //! for which ITensor::setAllowedFormats was called.
+    //! Build fails if a reformat is required for functional correctness.
+    kDIRECT_IO = 12,
+
+    //! Fail if IAlgorithmSelector::selectAlgorithms returns an empty set of algorithms.
+    kREJECT_EMPTY_ALGORITHMS = 13
 };
 
 //! Maximum number of builder flags in BuilderFlag enum. \see BuilderFlag
 template <>
 constexpr inline int32_t EnumMax<BuilderFlag>() noexcept
 {
-    return 10;
+    return 14;
 }
 
 //!
@@ -8679,6 +8722,8 @@ public:
     //! false otherwise.
     //!
     //! \note This function will synchronize the cuda stream returned by \p config.getProfileStream() before returning.
+    //!
+    //! This function is only supported in NVIDIA Drive(R) products.
     //!
     bool isNetworkSupported(INetworkDefinition const& network, IBuilderConfig const& config) const noexcept
     {
