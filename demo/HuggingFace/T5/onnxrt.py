@@ -4,7 +4,6 @@ Executes ONNX Runtime framework code. See README.md for more information.
 
 # std
 import os
-from re import S
 import sys
 from typing import Dict, List, Tuple
 
