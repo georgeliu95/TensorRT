@@ -23,7 +23,7 @@ from transformers.modeling_outputs import Seq2SeqLMOutput
 # TRT-HuggingFace
 from T5.T5ModelConfig import T5ModelTRTConfig
 from NNDF.tensorrt_utils import clamp_weights_onnx_to_fp16_bounds
-from NNDF.networks import NetworkMetadata
+from NNDF.networks import NetworkMetadata, Precision
 from NNDF.logger import G_LOGGER
 from NNDF.models import (
     TRTEngineFile,
@@ -278,6 +278,23 @@ class T5DecoderConverter(ModelFileConverter):
 class T5EncoderConverter(ModelFileConverter):
     def __init__(self):
         super().__init__(T5EncoderTorchFile, T5EncoderONNXFile, T5EncoderTRTEngine)
+
+    def onnx_to_trt(
+        self, output_fpath: str, input_fpath: str, network_metadata: NetworkMetadata
+    ):
+        """
+        Override onnx_to_trt function from base.
+        Workaround: T5-base and T5-large are too large and cause FP16 to overflow. Encoder should not use FP16 tactics even in FP16 mode.
+        The perf decreases by less than 10% end-to-end. Usage with TRT is still substantial compared to frameworks.
+        """
+        # Force encoder to FP32 only if variants are anything larger than small
+        # because of overflow and underflow issues
+        if network_metadata.precision.fp16 and network_metadata.variant != "t5-small":
+            network_metadata_cp_dct = network_metadata._asdict()
+            del network_metadata_cp_dct["precision"]
+            network_metadata = NetworkMetadata(**network_metadata_cp_dct, precision=Precision(fp16=False))
+
+        return super().onnx_to_trt(output_fpath, input_fpath, network_metadata)
 
     def torch_to_onnx(
         self, output_fpath: str, model: Module, network_metadata: NetworkMetadata

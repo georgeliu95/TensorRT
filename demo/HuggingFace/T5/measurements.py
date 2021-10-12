@@ -6,9 +6,6 @@ Utils specific to T5 network.
 import torch
 
 # numpy
-import numpy as np
-
-# numpy
 from transformers.generation_stopping_criteria import (
     MaxLengthCriteria,
     StoppingCriteriaList,
