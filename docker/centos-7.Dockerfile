@@ -53,6 +53,11 @@ RUN v="${TRT_VERSION%.*}-1.cuda${CUDA_VERSION%.*}" &&\
         libnvinfer-devel-${v} libnvparsers-devel-${v} libnvonnxparsers-devel-${v} libnvinfer-plugin-devel-${v} \
         python3-libnvinfer-${v}
 
+# Install dev-toolset-8 for g++ version that supports c++14
+RUN yum -y install centos-release-scl
+RUN yum-config-manager --enable rhel-server-rhscl-7-rpms
+RUN yum -y install devtoolset-8
+
 # Install PyPI packages
 RUN pip3 install --upgrade pip
 RUN pip3 install setuptools>=41.0.0
@@ -77,6 +82,8 @@ RUN rm /usr/bin/python && ln -s /usr/bin/python3 /usr/bin/python
 ENV TRT_LIBPATH /usr/lib/x86_64-linux-gnu
 ENV TRT_OSSPATH /workspace/TensorRT
 ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${TRT_OSSPATH}/build/out:${TRT_LIBPATH}"
+# Use devtoolset-8 as default compiler
+ENV PATH="/opt/rh/devtoolset-8/root/bin:${PATH}"
 WORKDIR /workspace
 
 USER trtuser
