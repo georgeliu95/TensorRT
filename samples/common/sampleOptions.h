@@ -136,7 +136,7 @@ struct BuildOptions : public Options
     bool fp16{false};
     bool int8{false};
     bool directIO{false};
-    PrecisionConstraints precisionConstraints;
+    PrecisionConstraints precisionConstraints{PrecisionConstraints::kNONE};
     bool safe{false};
     bool consistency{false};
     bool restricted{false};
