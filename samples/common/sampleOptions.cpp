@@ -607,6 +607,10 @@ void BuildOptions::parse(Arguments& arguments)
         }
         precisionConstraints = it->second;
     }
+    else
+    {
+        precisionConstraints = PrecisionConstraints::kNONE;
+    }
 
     std::string sparsityString;
     getAndDelOption(arguments, "--sparsity", sparsityString);
