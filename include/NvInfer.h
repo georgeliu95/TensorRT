@@ -155,7 +155,9 @@ struct EnumMaxImpl<ActivationType>
 //! must be less than 1GB in size to fit into a single subgraph. If the build option kGPU_FALLBACK is specified, then
 //! multiple subgraphs can be created, with each subgraph limited to less than 1GB of internal tensors data.
 //!
-//! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
+//! \warning The volume of the tensor must be less than 2^31 elements.
+//! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and
+//! ABI.
 //!
 class ITensor : public INoCopy
 {
@@ -197,7 +199,7 @@ public:
     //! in the network, the dimensions of all dependent tensors will be recomputed.
     //!
     //! This call is only legal for network input tensors, since the dimensions of layer output tensors are inferred
-    //! based on layer inputs and parameters.
+    //! based on layer inputs and parameters. The volume must be less than 2^31 elements.
     //!
     //! \param dimensions The dimensions of the tensor.
     //!
@@ -5997,7 +5999,7 @@ public:
     //! \brief Add an input tensor to the network.
     //!
     //! The name of the input tensor is used to find the index into the buffer array for an engine built from
-    //! the network. The volume of the dimensions must be less than 2^31 elements.
+    //! the network. The volume must be less than 2^31 elements.
     //!
     //! For networks with an implicit batch dimension, this volume includes the batch dimension with its length set
     //! to the maximum batch size. For networks with all explicit dimensions and with wildcard dimensions, the volume
