@@ -132,6 +132,15 @@ For Linux platforms, we recommend that you generate a docker container for build
 	cmake .. -DTRT_LIB_DIR=$TRT_LIBPATH -DTRT_OUT_DIR=`pwd`/out
 	make -j$(nproc)
 	```
+
+    > NOTE: On CentOS7, the default g++ version does not support C++14. For native builds (not using the CentOS7 build container), first install devtoolset-8 to obtain the updated g++ toolchain as follows:
+    ```bash
+    yum -y install centos-release-scl
+    yum-config-manager --enable rhel-server-rhscl-7-rpms
+    yum -y install devtoolset-8
+    export PATH="/opt/rh/devtoolset-8/root/bin:${PATH}
+    ```
+
     **Example: Native build on Jetson (aarch64) with cuda-10.2**
     ```bash
     cd $TRT_OSSPATH
