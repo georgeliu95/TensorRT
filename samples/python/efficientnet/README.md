@@ -232,20 +232,26 @@ To validate the TensorRT inference results accuracy against ground truth labels,
 ```
 python eval_gt.py \
     --engine /path/to/engine.trt \
-    --annotations /path/to/annotations.txt \
+    --annotations /path/to/val.txt \
     --input /path/to/images \
     --preprocessor V2
 ```
 
-The labels file is expected to have one line per image, where the first column is the image filename, and the second column is the ground truth class label. For example:
+The annotations file is expected to have one line per image, where the first column is the image filename, and the second column is the ground truth class label. For example:
 
 ```
-val/ILSVRC2012_val_00000001.JPEG 65
-val/ILSVRC2012_val_00000002.JPEG 970
-val/ILSVRC2012_val_00000003.JPEG 230
-val/ILSVRC2012_val_00000004.JPEG 809
+ILSVRC2012_val_00000001.JPEG 65
+ILSVRC2012_val_00000002.JPEG 970
+ILSVRC2012_val_00000003.JPEG 230
+ILSVRC2012_val_00000004.JPEG 809
 [...]
 ```
+
+> **NOTE:** The ImageNet pre-trained models follow the label mapping introduced by [Caffe](https://github.com/BVLC/caffe/blob/master/data/ilsvrc12/get_ilsvrc_aux.sh), which indexes labels according to their synset number. The validation file for this format can be downloaded from Caffe's ILSVRC2012 auxiliary package at:
+>
+> http://dl.caffe.berkeleyvision.org/caffe_ilsvrc12.tar.gz
+>
+> You can use the `val.txt` file bundled in this package for ImageNet evaluation purposes.
 
 Upon a successful run of `EfficientNet V2-S` on the `ILSVRC2012_img_val` [ImageNet](https://www.image-net.org/download.php) dataset, for example, you should see something like:
 
