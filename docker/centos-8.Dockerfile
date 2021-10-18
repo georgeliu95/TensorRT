@@ -47,11 +47,19 @@ RUN yum -y install \
 RUN yum install -y python3-devel
 
 # Install TensorRT
-RUN v="${TRT_VERSION%.*}-1.cuda${CUDA_VERSION%.*}" &&\
+RUN if [ "${CUDA_VERSION}" = "10.2" ] ; then \
+    v="${TRT_VERSION%.*}-1.cuda${CUDA_VERSION}" &&\
     dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo &&\
     yum -y install libnvinfer8-${v} libnvparsers8-${v} libnvonnxparsers8-${v} libnvinfer-plugin8-${v} \
         libnvinfer-devel-${v} libnvparsers-devel-${v} libnvonnxparsers-devel-${v} libnvinfer-plugin-devel-${v} \
-        python3-libnvinfer-${v}
+        python3-libnvinfer-${v}; \
+else \
+    v="${TRT_VERSION%.*}-1.cuda${CUDA_VERSION%.*}" &&\
+    dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo &&\
+    yum -y install libnvinfer8-${v} libnvparsers8-${v} libnvonnxparsers8-${v} libnvinfer-plugin8-${v} \
+        libnvinfer-devel-${v} libnvparsers-devel-${v} libnvonnxparsers-devel-${v} libnvinfer-plugin-devel-${v} \
+        python3-libnvinfer-${v}; \
+fi
 
 # Install PyPI packages
 RUN pip3 install --upgrade pip
