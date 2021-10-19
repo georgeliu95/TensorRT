@@ -240,6 +240,22 @@ public:
             if (kernelMeta.mSM == smVersion && kernelMeta.mDataType == mDataType
                 && mFunctions.find(kernelKey) == mFunctions.end())
             {
+                const uint32_t DEFAULT_SMEM_SIZE{48 * 1024};
+                if (kernelMeta.mSharedMemBytes >= DEFAULT_SMEM_SIZE)
+                {
+                    int32_t deviceID{0};
+                    cudaGetDevice(&deviceID);
+                    int32_t sharedMemPerMultiprocessor{0};
+                    if (cudaDeviceGetAttribute(
+                            &sharedMemPerMultiprocessor, cudaDevAttrMaxSharedMemoryPerBlockOptin, deviceID)
+                            != cudaSuccess
+                        || sharedMemPerMultiprocessor < static_cast<int32_t>(kernelMeta.mSharedMemBytes))
+                    {
+                        // skip load function because not enough shared memory to launch the kernel
+                        continue;
+                    }
+                }
+
                 CUmodule hmod{0};
                 auto findModuleIter = mModules.find(kernelMeta.mCubin);
                 if (findModuleIter != mModules.end())
@@ -255,7 +271,6 @@ public:
                 FusedMultiHeadAttentionKernelInfo funcInfo;
                 funcInfo.mMetaInfoIndex = i;
                 cuErrCheck(mDriver.cuModuleGetFunction(&funcInfo.mDeviceFunction, hmod, kernelMeta.mFuncName), mDriver);
-                const uint32_t DEFAULT_SMEM_SIZE{48 * 1024};
                 if (kernelMeta.mSharedMemBytes >= DEFAULT_SMEM_SIZE)
                 {
                     if (mDriver.cuFuncSetAttribute(funcInfo.mDeviceFunction,
