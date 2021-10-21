@@ -749,7 +749,7 @@ protected:
 //! \endcode
 //!     - CAFFE_ROUND_DOWN:
 //! \code
-//!         O = floor((I + B * 2 - DK) / S)
+//!         O = floor((I + B * 2 - DK) / S) + 1
 //! \endcode
 //!     - EXPLICIT_ROUND_UP:
 //! \code
@@ -757,7 +757,7 @@ protected:
 //! \endcode
 //!     - CAFFE_ROUND_UP:
 //! \code
-//!         O = ceil((I + B * 2 - DK) / S)
+//!         O = ceil((I + B * 2 - DK) / S) + 1
 //! \endcode
 //!     - SAME_UPPER:
 //! \code
