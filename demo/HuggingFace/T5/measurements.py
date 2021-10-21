@@ -30,15 +30,21 @@ from transformers.generation_stopping_criteria import (
 # TRT-HuggingFace
 from NNDF.general_utils import measure_python_inference_code
 from NNDF.torch_utils import use_cuda
+from NNDF.models import TRTEngineFile
 
 
 @use_cuda
 def decoder_inference(
     t5_decoder, input_ids, encoder_last_hidden_state, timing_profile, use_cuda=True
 ):
-    decoder_stmt = lambda: t5_decoder(
-        input_ids=input_ids, encoder_hidden_states=encoder_last_hidden_state
-    )
+    if isinstance(t5_decoder, TRTEngineFile):
+        t5_decoder.set_encoder_hidden_states_for_inference_cycle(encoder_last_hidden_state)
+
+    def decoder_stmt():
+        t5_decoder(
+            input_ids=input_ids, encoder_hidden_states=encoder_last_hidden_state
+        )
+
     decoder_e2e_median_time = measure_python_inference_code(
         decoder_stmt, number=timing_profile.number, iterations=timing_profile.iterations
     )
@@ -65,11 +71,12 @@ def full_inference_greedy(
     tokenizer,
     timing_profile,
     max_length,
+    batch_size=1,
     use_cuda=True,
 ):
     stopping_criteria = StoppingCriteriaList([MaxLengthCriteria(max_length)])
     decoder_input_ids = torch.full(
-        (1, 1), tokenizer.convert_tokens_to_ids(tokenizer.pad_token), dtype=torch.int32
+        (batch_size, 1), tokenizer.convert_tokens_to_ids(tokenizer.pad_token), dtype=torch.int32
     )
 
     if use_cuda:
@@ -77,17 +84,27 @@ def full_inference_greedy(
 
     def _e2e():
         encoder_last_hidden_state = t5_encoder(input_ids=input_ids)
-
         return t5_decoder.greedy_search(
             input_ids=decoder_input_ids,
             encoder_hidden_states=encoder_last_hidden_state,
             stopping_criteria=stopping_criteria,
         )
 
+    # With e2e we can opt to bind inputs only once for hidden states for optimization
+    def _e2e_trt():
+        encoder_last_hidden_state = t5_encoder(input_ids=input_ids)
+        t5_decoder.set_encoder_hidden_states_for_inference_cycle(encoder_last_hidden_state)
+        return t5_decoder.greedy_search(
+            input_ids=decoder_input_ids,
+            encoder_hidden_states=encoder_last_hidden_state,
+            stopping_criteria=stopping_criteria,
+        )
+
+    measurement_function = _e2e_trt if isinstance(t5_decoder, TRTEngineFile) else _e2e
     full_e2e_median_time = measure_python_inference_code(
-        _e2e,
+        measurement_function,
         number=timing_profile.number,
         iterations=timing_profile.iterations,
     )
 
-    return (_e2e(), full_e2e_median_time)
+    return (measurement_function(), full_e2e_median_time)

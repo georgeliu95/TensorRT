@@ -84,9 +84,11 @@ class TRTHFRunner(TRTNativeRunner, GenerationMixin):
         trt_engine_file: str,
         network_metadata: NetworkMetadata,
         hf_config: PretrainedConfig,
+        batch_size: int = 1
     ):
         super().__init__(trt_engine_file, network_metadata)
         self.config = hf_config
+        self.batch_size = batch_size
 
 class GPT2TRTDecoder(TRTHFRunner):
     def __init__(
@@ -94,18 +96,19 @@ class GPT2TRTDecoder(TRTHFRunner):
         trt_engine_file: str,
         network_metadata: NetworkMetadata,
         hf_config: PretrainedConfig,
+        batch_size: int = 1
     ):
-        super().__init__(trt_engine_file, network_metadata, hf_config)
+        super().__init__(trt_engine_file, network_metadata, hf_config, batch_size)
         self.max_sequence_length = GPT2ModelTRTConfig.MAX_SEQUENCE_LENGTH[network_metadata.variant]
         assert len(trt_engine_file.get_dynamic_shape_profiles()) == 1, "GPT2 should only have one dynamic shapes profile."
 
         # We only have one profile to select so we can just grab the profile at the start of the class
-        self.profile_idx = self.get_optimization_profile(batch_size=1, sequence_length=1)
+        self.profile_idx = self.get_optimization_profile(batch_size=batch_size, sequence_length=1)
         self.inputs = {
-            "input_ids": torch.zeros(1, self.max_sequence_length, dtype=torch.int32).cuda(),
+            "input_ids": torch.zeros(self.batch_size, self.max_sequence_length, dtype=torch.int32).cuda(),
         }
         self.outputs = {
-            "logits": torch.zeros(1, self.max_sequence_length, GPT2ModelTRTConfig.VOCAB_SIZE, dtype=torch.float32).cuda()
+            "logits": torch.zeros(self.batch_size, self.max_sequence_length, GPT2ModelTRTConfig.VOCAB_SIZE, dtype=torch.float32).cuda()
         }
         self.bindings = self._allocate_memory(self.inputs, self.outputs)
 
@@ -153,6 +156,9 @@ class GPT2Polygraphy(TRTInferenceCommand):
     ) -> NetworkResult:
 
         tokenizer = GPT2Tokenizer.from_pretrained(metadata.variant)
+
+        # GPT2 has no proper token set. Use
+        tokenizer.add_special_tokens({"pad_token": "[PAD]"})
         input_ids = tokenizer(inference_input, return_tensors="pt").input_ids
 
         # get single decoder iteration inference timing profile
@@ -209,6 +215,7 @@ class GPT2Polygraphy(TRTInferenceCommand):
         keep_onnx_model: bool,
         keep_torch_model: bool,
         timing_profile: TimingProfile,
+        batch_size: int = 1,
     ) -> List[NetworkResult]:
         workspace = NNFolderWorkspace(
             self.frameworks_cmd.config.network_name, metadata, working_directory

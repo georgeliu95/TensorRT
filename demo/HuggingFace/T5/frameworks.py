@@ -173,12 +173,13 @@ class T5FHuggingFace(FrameworkCommand):
         network_fpaths: NetworkModels,
         inference_input: str,
         timing_profile: TimingProfile,
-        use_cpu: bool
+        use_cpu: bool,
+        batch_size: int = 1
     ) -> NetworkResult:
 
         # Execute some tests
         tokenizer = T5Tokenizer.from_pretrained(metadata.variant)
-        input_ids = tokenizer(inference_input, return_tensors="pt").input_ids
+        input_ids = tokenizer([inference_input] * batch_size, padding=True, return_tensors="pt").input_ids
 
         # By default, huggingface model structure is one giant file.
         t5_torch_fpath = network_fpaths.torch[0].fpath
@@ -206,21 +207,22 @@ class T5FHuggingFace(FrameworkCommand):
             tokenizer,
             timing_profile,
             max_length=T5ModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant],
-            use_cuda= (not use_cpu)
+            use_cuda=(not use_cpu),
+            batch_size=batch_size
         )
 
         # Remove the padding and end tokens.
-        semantic_outputs = tokenizer.convert_ids_to_tokens(
-            decoder_output_greedy.tolist()[0]
-        )[1:-1]
-        remove_underscore = "".join(
-            [s.replace("\u2581", " ") for s in semantic_outputs]
+        semantic_outputs = tokenizer.decode(
+            decoder_output_greedy[-1, :], skip_special_tokens=True
         )
+
+        if isinstance(semantic_outputs, list):
+            semantic_outputs = " ".join(semantic_outputs).strip()
 
         return NetworkResult(
             input=inference_input,
             output_tensor=encoder_last_hidden_state,
-            semantic_output=remove_underscore.strip(),
+            semantic_output=semantic_outputs,
             median_runtime=[
                 NetworkRuntime(
                     name=T5ModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME,
@@ -247,6 +249,7 @@ class T5FHuggingFace(FrameworkCommand):
         keep_pytorch_model: bool,
         timing_profile: TimingProfile,
         use_cpu: bool = False,
+        batch_size: int = 1
     ) -> List[NetworkResult]:
         """
         Main entry point of our function which compiles and generates our model data.
@@ -260,7 +263,7 @@ class T5FHuggingFace(FrameworkCommand):
             for ninput in network_input:
                 results.append(
                     self.execute_inference(
-                        metadata, network_fpaths, ninput, timing_profile, use_cpu
+                        metadata, network_fpaths, ninput, timing_profile, use_cpu, batch_size
                     )
                 )
         finally:

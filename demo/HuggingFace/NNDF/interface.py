@@ -101,6 +101,14 @@ class NetworkCommand(metaclass=ABCMeta):
             help="Location of where to save the model and other downloaded files.",
             required=True,
         )
+        general_group.add_argument(
+            "--batch-size", "-b",
+            help="Chosen batch size for given network",
+            required=False,
+            type=int,
+            default=1
+        )
+
         timing_group = parser.add_argument_group("inference measurement")
         timing_group.add_argument(
             "--iterations", help="Number of iterations to measure.", default=self.DEFAULT_ITERATIONS
@@ -178,6 +186,7 @@ class FrameworkCommand(NetworkCommand):
                 warmup=int(self._args.warmup),
             ),
             use_cpu=self._args.cpu,
+            batch_size=self._args.batch_size,
         )
 
         return NetworkCheckpointResult(
@@ -218,6 +227,7 @@ class TRTInferenceCommand(NetworkCommand):
         keep_onnx_model: bool,
         keep_torch_model: bool,
         timing_profile: TimingProfile,
+        batch_size: bool = 1,
     ) -> List[NetworkResult]:
         pass
 
@@ -248,6 +258,7 @@ class TRTInferenceCommand(NetworkCommand):
                 number=int(self._args.number),
                 warmup=int(self._args.warmup),
             ),
+            batch_size=self._args.batch_size,
         )
 
         return NetworkCheckpointResult(
@@ -319,6 +330,7 @@ class OnnxRTCommand(NetworkCommand):
                 number=int(self._args.number),
                 warmup=int(self._args.warmup),
             ),
+            batch_size=self._args.batch_size,
         )
 
         return NetworkCheckpointResult(
