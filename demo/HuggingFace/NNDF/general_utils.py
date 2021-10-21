@@ -167,7 +167,10 @@ def measure_python_inference_code(
     return median(timeit.repeat(stmt, number=number, repeat=iterations)) / number
 
 class NNFolderWorkspace:
-    """For keeping track of workspace folder and for cleaning them up."""
+    """
+    For keeping track of workspace folder and for cleaning them up.
+    Due to potential corruption of ONNX model conversion, the workspace is split up by model variants.
+    """
 
     def __init__(
         self, network_name: str, metadata: NetworkMetadata, working_directory: str
@@ -175,12 +178,11 @@ class NNFolderWorkspace:
         self.rootdir = working_directory
         self.metadata = metadata
         self.network_name = network_name
-        self.dpath = os.path.join(self.rootdir, self.network_name)
+        self.dpath = os.path.join(self.rootdir, self.network_name, metadata.variant)
         os.makedirs(self.dpath, exist_ok=True)
 
     def get_path(self) -> str:
-        dpath = os.path.join(self.rootdir, self.network_name)
-        return dpath
+        return self.dpath
 
     def cleanup(self, force_remove: bool = False) -> None:
         fpath = self.get_path()
