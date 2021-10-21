@@ -15,7 +15,7 @@ This repository contains the Open Source Software (OSS) components of NVIDIA Ten
 To build the TensorRT-OSS components, you will first need the following software packages.
 
 **TensorRT GA build**
-* [TensorRT](https://developer.nvidia.com/nvidia-tensorrt-download) v8.2.0.6
+* [TensorRT](https://developer.nvidia.com/nvidia-tensorrt-download) v8.2.1.2
 
 **System Packages**
 * [CUDA](https://developer.nvidia.com/cuda-toolkit)
@@ -70,16 +70,16 @@ To build the TensorRT-OSS components, you will first need the following software
 
     ```bash
     cd ~/Downloads
-    tar -xvzf TensorRT-8.2.0.6.Linux.x86_64-gnu.cuda-11.4.cudnn8.2.tar.gz
-    export TRT_LIBPATH=`pwd`/TensorRT-8.2.0.6
+    tar -xvzf TensorRT-8.2.1.2.Linux.x86_64-gnu.cuda-11.4.cudnn8.2.tar.gz
+    export TRT_LIBPATH=`pwd`/TensorRT-8.2.1.2
     ```
 
     **Example: Windows on x86-64 with cuda-11.4**
 
     ```powershell
     cd ~\Downloads
-    Expand-Archive .\TensorRT-8.2.0.6.Windows10.x86_64.cuda-11.4.cudnn8.2.zip
-    $Env:TRT_LIBPATH = '$(Get-Location)\TensorRT-8.2.0.6'
+    Expand-Archive .\TensorRT-8.2.1.2.Windows10.x86_64.cuda-11.4.cudnn8.2.zip
+    $Env:TRT_LIBPATH = '$(Get-Location)\TensorRT-8.2.1.2'
     $Env:PATH += 'C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\MSBuild\15.0\Bin\'
     ```
 
@@ -132,6 +132,15 @@ For Linux platforms, we recommend that you generate a docker container for build
 	cmake .. -DTRT_LIB_DIR=$TRT_LIBPATH -DTRT_OUT_DIR=`pwd`/out
 	make -j$(nproc)
 	```
+
+    > NOTE: On CentOS7, the default g++ version does not support C++14. For native builds (not using the CentOS7 build container), first install devtoolset-8 to obtain the updated g++ toolchain as follows:
+    ```bash
+    yum -y install centos-release-scl
+    yum-config-manager --enable rhel-server-rhscl-7-rpms
+    yum -y install devtoolset-8
+    export PATH="/opt/rh/devtoolset-8/root/bin:${PATH}
+    ```
+
     **Example: Native build on Jetson (aarch64) with cuda-10.2**
     ```bash
     cd $TRT_OSSPATH

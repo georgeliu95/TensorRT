@@ -1667,7 +1667,8 @@ public:
     //!
     //! The length limit for an error description, excluding the '\0' string terminator.
     //!
-    static constexpr size_t kMAX_DESC_LENGTH = 127U;
+    // coverity[autosar_cpp14_m0_1_4_violation] Approved RFD: https://jirasw.nvidia.com/browse/TID-489
+    static constexpr size_t kMAX_DESC_LENGTH{127U};
 
     //!
     //! A typedef of a 32bit integer for reference counting.

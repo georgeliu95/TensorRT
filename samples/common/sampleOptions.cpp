@@ -607,6 +607,10 @@ void BuildOptions::parse(Arguments& arguments)
         }
         precisionConstraints = it->second;
     }
+    else
+    {
+        precisionConstraints = PrecisionConstraints::kNONE;
+    }
 
     std::string sparsityString;
     getAndDelOption(arguments, "--sparsity", sparsityString);
@@ -783,6 +787,7 @@ void InferenceOptions::parse(Arguments& arguments)
     getAndDelOption(arguments, "--duration", duration);
     getAndDelOption(arguments, "--warmUp", warmup);
     getAndDelOption(arguments, "--sleepTime", sleep);
+    getAndDelOption(arguments, "--idleTime", idle);
     bool exposeDMA{false};
     if (getAndDelOption(arguments, "--exposeDMA", exposeDMA))
     {
@@ -1240,6 +1245,7 @@ std::ostream& operator<<(std::ostream& os, const InferenceOptions& options)
           "Duration: "           << options.duration   << "s (+ "
                                  << options.warmup     << "ms warm up)"   << std::endl <<
           "Sleep time: "         << options.sleep      << "ms"            << std::endl <<
+          "Idle time: "          << options.idle       << "ms"            << std::endl <<
           "Streams: "            << options.streams                       << std::endl <<
           "ExposeDMA: "          << boolToEnabled(!options.overlap)       << std::endl <<
           "Data transfers: "     << boolToEnabled(!options.skipTransfers) << std::endl <<
@@ -1474,6 +1480,8 @@ void InferenceOptions::help(std::ostream& os)
                                                                                                           << defaultDuration << ")"  << std::endl <<
           "  --sleepTime=N               Delay inference start with a gap of N milliseconds between launch and compute "
                                                                                                "(default = " << defaultSleep << ")"  << std::endl <<
+          "  --idleTime=N                Sleep N milliseconds between two continuous iterations"
+                                                                                               "(default = " << defaultIdle << ")"   << std::endl <<
           "  --streams=N                 Instantiate N engines to use concurrently (default = "            << defaultStreams << ")"  << std::endl <<
           "  --exposeDMA                 Serialize DMA transfers to and from device (default = disabled)."                           << std::endl <<
           "  --noDataTransfers           Disable DMA transfers to and from device (default = enabled)."                              << std::endl <<
