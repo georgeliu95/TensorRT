@@ -157,7 +157,8 @@ class GPT2Polygraphy(TRTInferenceCommand):
 
         tokenizer = GPT2Tokenizer.from_pretrained(metadata.variant)
 
-        # GPT2 has no proper token set. Use
+        # GPT2 has no proper token set. Use custom token. Only "generate()" will auto
+        # replace with EOS token when using generating mode
         tokenizer.add_special_tokens({"pad_token": "[PAD]"})
         input_ids = tokenizer(inference_input, return_tensors="pt").input_ids
 
