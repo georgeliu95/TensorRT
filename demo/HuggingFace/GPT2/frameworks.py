@@ -155,12 +155,16 @@ class GPT2HuggingFace(FrameworkCommand):
         network_fpaths: NetworkModels,
         inference_input: str,
         timing_profile: TimingProfile,
-        use_cpu: bool
+        use_cpu: bool,
+        batch_size: int = 1
     ) -> NetworkResult:
 
         # Execute some tests
         tokenizer = GPT2Tokenizer.from_pretrained(metadata.variant)
-        input_ids = tokenizer(inference_input, return_tensors="pt").input_ids
+
+        # GPT2 has no proper token set. Use
+        tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+        input_ids = tokenizer([inference_input] * batch_size, padding=True, return_tensors="pt").input_ids
 
         # By default, HuggingFace model structure is one giant file.
         gpt2_torch_fpath = network_fpaths.torch[0].fpath
@@ -182,17 +186,17 @@ class GPT2HuggingFace(FrameworkCommand):
             input_ids,
             timing_profile,
             max_length=GPT2ModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant],
-            use_cuda=(not use_cpu)
+            use_cuda=(not use_cpu),
+            batch_size=batch_size
         )
 
-        semantic_outputs = []
-        for i, sample_output in enumerate(sample_output):
-            semantic_outputs.append(
-                tokenizer.decode(sample_output, skip_special_tokens=True)
-            )
+        # Remove the padding and end tokens.
+        semantic_outputs = tokenizer.decode(
+            sample_output[-1, :], skip_special_tokens=True
+        )
 
-        # For now, save only the last output since we only support BS = 1
-        semantic_outputs = semantic_outputs[-1]
+        if isinstance(semantic_outputs, list):
+            semantic_outputs = " ".join(semantic_outputs).strip()
 
         return NetworkResult(
             input=inference_input,
@@ -220,6 +224,7 @@ class GPT2HuggingFace(FrameworkCommand):
         keep_pytorch_model: bool,
         timing_profile: TimingProfile,
         use_cpu: bool = False,
+        batch_size: int = 1
     ) -> List[NetworkResult]:
         """
         Main entry point of our function which compiles and generates our model data.
