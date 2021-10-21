@@ -16,7 +16,7 @@
 | [sampleNMT](sampleNMT) | C++ | INetwork | Neural Machine Translation Using A seq2seq Model |
 | [sampleOnnxMNIST](sampleOnnxMNIST) | C++ | ONNX | “Hello World” For TensorRT With ONNX |
 | [sampleOnnxMnistCoordConvAC](sampleOnnxMnistCoordConvAC) | C++ | ONNX | Implementing CoordConv with a custom plugin |
-| [sampleReformatFreeIO](sampleReformatFreeIO) | C++ | Caffe | Specifying I/O Formats Via Reformat-Free-I/O API |
+| [sampleIOFormats](sampleIOFormats) | C++ | Caffe | Specifying TensorRT I/O Formats |
 | [sampleSSD](sampleSSD) | C++ | Caffe | Object Detection With SSD |
 | [sampleUffFasterRCNN](sampleUffFasterRCNN) | C++ | UFF | Object Detection With A TensorFlow FasterRCNN Network |
 | [sampleUffMNIST](sampleUffMNIST) | C++ | UFF | Import A TensorFlow Model And Run Inference |
