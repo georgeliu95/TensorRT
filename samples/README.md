@@ -33,6 +33,7 @@
 | [introductory_parser_samples](python/introductory_parser_samples) | Python | Any | Introduction To Importing Models Using TensorRT Parsers |
 | [network_api_pytorch_mnist](python/network_api_pytorch_mnist) | Python | INetwork | “Hello World” For TensorRT |
 | [onnx_packnet](python/onnx_packnet) | Python | ONNX | TensorRT Inference Of ONNX Models With Custom Layers |
+| [tensorflow_object_detection_api](python/tensorflow_object_detection_api) | Python | ONNX | TensorFlow Object Detection API Models in TensorRT |
 | [uff_custom_plugin](python/uff_custom_plugin) | Python | INetwork | Adding A Custom Layer To Your TensorFlow Network In TensorRT |
 | [uff_ssd](python/uff_ssd) | Python | UFF | Object Detection with SSD |
 | [yolov3_onnx](python/yolov3_onnx) | Python | ONNX | Object Detection Using YOLOv3 With TensorRT ONNX Backend |
