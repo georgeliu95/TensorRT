@@ -212,6 +212,7 @@ class TFODGraphSurgeon:
           input_shape = [self.batch_size, 3, self.height, self.width]
         self.graph.inputs[0].shape = input_shape
         self.graph.inputs[0].dtype = np.float32
+        self.graph.inputs[0].name = "input_tensor"
 
         self.sanitize()
         log.info("ONNX graph input shape: {} [NCHW format set]".format(self.graph.inputs[0].shape))
@@ -319,7 +320,7 @@ class TFODGraphSurgeon:
         anchors = batched_anchors[0:num_anchors,0:num_anchors]
         return gs.Constant(name="nms/anchors:0", values=anchors)
         
-    def NMS(self, box_net_tensor, class_net_tensor, anchors_tensor, background_class, score_activation, iou_threshold, nms_score_threshold, user_threshold, nms_num):
+    def NMS(self, box_net_tensor, class_net_tensor, anchors_tensor, background_class, score_activation, iou_threshold, nms_score_threshold, user_threshold, nms_name=None):
         # Helper function to create the NMS Plugin node with the selected inputs. 
         # EfficientNMS_TRT TensorRT Plugin is suitable for our use case.
         # :param box_net_tensor: The box predictions from the Box Net.      
@@ -331,18 +332,23 @@ class TFODGraphSurgeon:
         # :param iou_threshold: NMS intersection over union threshold, given by pipeline.config.
         # :param nms_score_threshold: NMS score threshold, given by pipeline.config.
         # :param user_threshold: User's given threshold to overwrite default NMS score threshold. 
-        # :param nms_num: Positional number of NMS node in a graph, renames NMS elements accordingly in order to eliminate cycles. 
+        # :param nms_name: Name of NMS node in a graph, renames NMS elements accordingly in order to eliminate cycles.
+
+        if nms_name is None:
+            nms_name = ""
+        else:
+            nms_name = "_" + nms_name
 
         # Set score threshold.
         score_threshold = nms_score_threshold if user_threshold is None else user_threshold
 
         # NMS Outputs.
-        nms_output_num_detections = gs.Variable(name="num_detections_"+nms_num, dtype=np.int32, shape=[self.batch_size, 1])
-        nms_output_boxes = gs.Variable(name="detection_boxes_"+nms_num, dtype=np.float32,
+        nms_output_num_detections = gs.Variable(name="num_detections"+nms_name, dtype=np.int32, shape=[self.batch_size, 1])
+        nms_output_boxes = gs.Variable(name="detection_boxes"+nms_name, dtype=np.float32,
                                        shape=[self.batch_size, self.first_stage_max_proposals, 4])
-        nms_output_scores = gs.Variable(name="detection_scores_"+nms_num, dtype=np.float32,
+        nms_output_scores = gs.Variable(name="detection_scores"+nms_name, dtype=np.float32,
                                         shape=[self.batch_size, self.first_stage_max_proposals])
-        nms_output_classes = gs.Variable(name="detection_classes_"+nms_num, dtype=np.int32,
+        nms_output_classes = gs.Variable(name="detection_classes"+nms_name, dtype=np.int32,
                                          shape=[self.batch_size, self.first_stage_max_proposals])
 
         nms_outputs = [nms_output_num_detections, nms_output_boxes, nms_output_scores, nms_output_classes]
@@ -350,7 +356,7 @@ class TFODGraphSurgeon:
         # Plugin.
         self.graph.plugin(
             op="EfficientNMS_TRT",
-            name="nms/non_maximum_suppression_"+nms_num,
+            name="nms/non_maximum_suppression"+nms_name,
             inputs=[box_net_tensor, class_net_tensor, anchors_tensor],
             outputs=nms_outputs,
             attrs={
@@ -363,7 +369,7 @@ class TFODGraphSurgeon:
                 'box_coding': 1,
             } 
         )
-        log.info("Created {} NMS plugin".format(nms_num))
+        log.info("Created 'nms/non_maximum_suppression{}' NMS plugin".format(nms_name))
 
         return nms_outputs
 
@@ -415,11 +421,13 @@ class TFODGraphSurgeon:
         :param first_nms_threshold: Override the 1st NMS score threshold value. If set to None, use the value in the graph.
         :param second_nms_threshold: Override the 2nd NMS score threshold value. If set to None, use the value in the graph.
         """
-        def first_nms(background_class, score_activation, first_nms_threshold):
+        def first_nms(background_class, score_activation, first_nms_threshold, nms_name=None):
             """
             Updates the graph to replace the 1st NMS op by EfficientNMS_TRT TensorRT plugin node.
-            :param background_class: Set EfficientNMS_TRT's background_class atribute. 
-            :param score_activation: Set EfficientNMS_TRT's score_activation atribute. 
+            :param background_class: Set EfficientNMS_TRT's background_class atribute.
+            :param score_activation: Set EfficientNMS_TRT's score_activation atribute.
+            :param first_nms_threshold: Override the NMS score threshold.
+            :param nms_name: Set the NMS node name.
             """
             # Supported models
             ssd_models = ['ssd_mobilenet_v1_fpn_keras', 'ssd_mobilenet_v2_fpn_keras', 'ssd_resnet50_v1_fpn_keras', 'ssd_resnet101_v1_fpn_keras', 'ssd_resnet152_v1_fpn_keras']
@@ -477,7 +485,7 @@ class TFODGraphSurgeon:
             anchors_tensor = self.extract_anchors_tensor(box_net_split)
 
             # Create NMS node.
-            nms_outputs = self.NMS(box_net_tensor, class_net_tensor, anchors_tensor, background_class, score_activation, self.first_stage_nms_iou_threshold, self.first_stage_nms_score_threshold, first_nms_threshold, "first")
+            nms_outputs = self.NMS(box_net_tensor, class_net_tensor, anchors_tensor, background_class, score_activation, self.first_stage_nms_iou_threshold, self.first_stage_nms_score_threshold, first_nms_threshold, nms_name)
 
             # Return NMS's outputs.
             return nms_outputs
@@ -518,10 +526,14 @@ class TFODGraphSurgeon:
             # In case you are converting Mask R-CNN, feature maps are required for 2nd CropAndResize.
             return matmul_out[0], relu_node.outputs[0]
 
-        def second_nms(background_class, score_activation, encoded_boxes, second_nms_threshold):
+        def second_nms(background_class, score_activation, encoded_boxes, second_nms_threshold, nms_name=None):
             """
-            Updates the graph to replace the 2nd NMS op by EfficientNMS_TRT TensorRT plugin node.
-            :param input: MatMul node that linearly transforms 1st NMS nms_output_boxes and passes encoded box coordinates to 2nd NMS.
+            Updates the graph to replace the 2nd (or final) NMS op by EfficientNMS_TRT TensorRT plugin node.
+            :param background_class: Set EfficientNMS_TRT's background_class atribute. 
+            :param score_activation: Set EfficientNMS_TRT's score_activation atribute. 
+            :param encoded_boxes: The boxes to use as input. 
+            :param second_nms_threshold: Override the NMS score threshold.
+            :param nms_name: Set the NMS node name.
             """
 
             # Identify Class Net and Box Net head names.
@@ -559,7 +571,7 @@ class TFODGraphSurgeon:
             second_box_net_tensor = second_scale_out[0]
 
             # Create NMS node.
-            nms_outputs = self.NMS(second_box_net_tensor, second_class_net_tensor, encoded_boxes, background_class, score_activation, self.second_stage_iou_threshold, self.second_stage_nms_score_threshold, second_nms_threshold, "second")
+            nms_outputs = self.NMS(second_box_net_tensor, second_class_net_tensor, encoded_boxes, background_class, score_activation, self.second_stage_iou_threshold, self.second_stage_nms_score_threshold, second_nms_threshold, nms_name)
             
             return nms_outputs
 
@@ -598,6 +610,7 @@ class TFODGraphSurgeon:
             final_reshape_shape = np.asarray([self.batch_size, self.first_stage_max_proposals, self.mask_height, self.mask_width], dtype=np.int64)
             final_reshape_node = self.graph.op_with_const("Reshape", "Reshape_Final_Masks", last_sigmoid_node.outputs[0], final_reshape_shape)
             final_reshape_node[0].dtype = np.float32
+            final_reshape_node[0].name = "detection_masks"
 
             return final_reshape_node[0]
         
@@ -608,14 +621,14 @@ class TFODGraphSurgeon:
             self.sanitize()
         # If your model is Faster R-CNN, you will need 2 NMS nodes with CropAndResize in between.
         elif "faster_rcnn" in self.model and self.mask_height is None and self.mask_width is None:
-            first_nms_outputs = first_nms(0, False, first_nms_threshold)
+            first_nms_outputs = first_nms(0, False, first_nms_threshold, "rpn")
             first_cnr_output, feature_maps = first_cnr(first_nms_outputs[1])
             # Set graph outputs.
             self.graph.outputs = second_nms(-1, False, first_cnr_output, second_nms_threshold)
             self.sanitize()
         # Mask R-CNN
         elif "faster_rcnn" in self.model and not (self.mask_height is None and self.mask_width is None):
-            first_nms_outputs = first_nms(0, False, first_nms_threshold)
+            first_nms_outputs = first_nms(0, False, first_nms_threshold, "rpn")
             first_cnr_output, feature_maps = first_cnr(first_nms_outputs[1])
             second_nms_outputs = second_nms(-1, False, first_cnr_output, second_nms_threshold)
             second_cnr_output = second_cnr(feature_maps, second_nms_outputs)
