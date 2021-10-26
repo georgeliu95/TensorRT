@@ -128,7 +128,7 @@ set_property(TARGET ${SHARED_TARGET} PROPERTY CUDA_STANDARD 11)
 target_link_libraries(${SHARED_TARGET}
     ${CUBLAS_LIB}
     ${CUBLASLT_LIB}
-    ${CUDART_LIB}
+    ${CUDART_STATIC_LIB}
     ${CUDNN_LIB}
     nvinfer
     ${CMAKE_DL_LIBS}

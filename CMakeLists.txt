@@ -129,6 +129,7 @@ find_library_create_target(nvinfer nvinfer SHARED ${TRT_LIB_DIR})
 find_library_create_target(nvuffparser nvparsers SHARED ${TRT_LIB_DIR})
 
 find_library(CUDART_LIB cudart HINTS ${CUDA_TOOLKIT_ROOT_DIR} PATH_SUFFIXES lib lib64)
+find_library(CUDART_STATIC_LIB libcudart_static.a PATHS ${CUDA_TOOLKIT_ROOT_DIR}/lib64)
 find_library(RT_LIB rt)
 
 set(CUDA_LIBRARIES ${CUDART_LIB})
