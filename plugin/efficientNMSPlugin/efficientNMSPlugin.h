@@ -69,7 +69,7 @@ private:
     std::string mNamespace;
 };
 
-// Standard NMS Operation
+// Standard NMS Plugin Operation
 class EfficientNMSPluginCreator : public BaseCreator
 {
 public:
@@ -91,12 +91,34 @@ protected:
     std::string mPluginName;
 };
 
-// ONNX NonMaxSuppression Op Support
+// ONNX NonMaxSuppression Op Compatibility
 class EfficientNMSONNXPluginCreator : public BaseCreator
 {
 public:
     EfficientNMSONNXPluginCreator();
     ~EfficientNMSONNXPluginCreator() override = default;
+
+    const char* getPluginName() const noexcept override;
+    const char* getPluginVersion() const noexcept override;
+    const PluginFieldCollection* getFieldNames() noexcept override;
+
+    IPluginV2DynamicExt* createPlugin(const char* name, const PluginFieldCollection* fc) noexcept override;
+    IPluginV2DynamicExt* deserializePlugin(
+        const char* name, const void* serialData, size_t serialLength) noexcept override;
+
+protected:
+    static PluginFieldCollection mFC;
+    EfficientNMSParameters mParam;
+    static std::vector<PluginField> mPluginAttributes;
+    std::string mPluginName;
+};
+
+// TF-TRT CombinedNMS Op Compatibility
+class EfficientNMSTFTRTPluginCreator : public BaseCreator
+{
+public:
+    EfficientNMSTFTRTPluginCreator();
+    ~EfficientNMSTFTRTPluginCreator() override = default;
 
     const char* getPluginName() const noexcept override;
     const char* getPluginVersion() const noexcept override;
