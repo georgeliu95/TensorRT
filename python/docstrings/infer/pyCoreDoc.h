@@ -845,7 +845,7 @@ constexpr const char* CALIBRATE_BEFORE_FUSION
 namespace NetworkDefinitionCreationFlagDoc
 {
 constexpr const char* descr
-    = R"trtdoc(List of immutable network properties expressed at network creation time. For example, to enable explicit batch mode, pass a value of ``1 << NetworkDefinitionCreationFlag.EXPLICIT_BATCH`` to :func:`create_network` )trtdoc";
+    = R"trtdoc(List of immutable network properties expressed at network creation time. For example, to enable explicit batch mode, pass a value of ``1 << int(NetworkDefinitionCreationFlag.EXPLICIT_BATCH)`` to :func:`create_network` )trtdoc";
 constexpr const char* EXPLICIT_BATCH
     = R"trtdoc(Specify that the network should be created with an explicit batch dimension.)trtdoc";
 constexpr const char* EXPLICIT_PRECISION
