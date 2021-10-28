@@ -102,11 +102,14 @@ add_library(${SHARED_TARGET} SHARED
 
 target_include_directories(${SHARED_TARGET}
     PUBLIC ${PROJECT_SOURCE_DIR}/include
-    PUBLIC ${CUB_ROOT_DIR}
     PRIVATE ${PROJECT_SOURCE_DIR}/common
     PUBLIC ${CUDA_INSTALL_DIR}/include
     PRIVATE ${TARGET_DIR}
 )
+
+if (CUDA_VERSION VERSION_LESS 11.0)
+    target_include_directories(${SHARED_TARGET} PUBLIC ${CUB_ROOT_DIR})
+endif()
 
 set_target_properties(${SHARED_TARGET} PROPERTIES
     CXX_STANDARD "11"
