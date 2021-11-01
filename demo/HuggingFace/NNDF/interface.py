@@ -159,6 +159,7 @@ class FrameworkCommand(NetworkCommand):
         keep_onnx_model: bool,
         keep_pytorch_model: bool,
         timing_profile: TimingProfile,
+        batch_size: int
     ) -> List[NetworkResult]:
         pass
 
