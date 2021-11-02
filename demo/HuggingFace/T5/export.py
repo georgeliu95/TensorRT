@@ -70,7 +70,7 @@ def add_extra_fp32(network_definition):
         # Iterate from few layers before pow to include residual add and cast op.
         # Iterate till 10 layers after pow op to include all operations included in layer norm.
         START_OFFSET = 4
-        END_OFFSET = 10
+        END_OFFSET = 12
         for i in range(index-START_OFFSET, index+END_OFFSET):
             l = network_definition[1].get_layer(i)
             if l.type == trt.LayerType.REDUCE:
