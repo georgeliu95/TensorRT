@@ -30,15 +30,19 @@ from transformers.generation_stopping_criteria import (
 # TRT-HuggingFace
 from NNDF.general_utils import measure_python_inference_code
 from NNDF.torch_utils import use_cuda
-from NNDF.models import TRTEngineFile
+from NNDF.tensorrt_utils import TRTNativeRunner
 
 
 @use_cuda
 def decoder_inference(
     t5_decoder, input_ids, encoder_last_hidden_state, timing_profile, use_cuda=True
 ):
-    if isinstance(t5_decoder, TRTEngineFile):
+    # This implementation is a bit ugly. Moving implementation of the model to check HFRunner would be cleaner.
+    if isinstance(t5_decoder, TRTNativeRunner):
+        # Function is technically in T5TRTDecoder however due to circular import, TRTNativeRunner in this module scope
+        # implies the existence of this function.
         t5_decoder.set_encoder_hidden_states_for_inference_cycle(encoder_last_hidden_state)
+        t5_decoder.set_return_device("cuda" if use_cuda else "cpu")
 
     def decoder_stmt():
         t5_decoder(
@@ -100,7 +104,11 @@ def full_inference_greedy(
             stopping_criteria=stopping_criteria,
         )
 
-    measurement_function = _e2e_trt if isinstance(t5_decoder, TRTEngineFile) else _e2e
+    measurement_function = _e2e
+    if isinstance(t5_decoder, TRTNativeRunner):
+        t5_decoder.set_return_device("cuda" if use_cuda else "cpu")
+        measurement_function = _e2e_trt
+
     full_e2e_median_time = measure_python_inference_code(
         measurement_function,
         number=timing_profile.number,

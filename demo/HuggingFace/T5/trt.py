@@ -220,6 +220,13 @@ class T5TRTDecoder(TRTHFRunner):
         split_array = encoder_hidden_states[:, :encoder_length, :].flatten()
         self.inputs["encoder_hidden_states"][:new_shape] = split_array
 
+    def set_return_device(self, return_device):
+        """
+        Sets the return device of the return via to(). Device name should be the same as torch devices: cuda, cpu, etc.
+        This is used in our measurement code.
+        """
+        self.return_device = return_device
+
     def forward(self, input_ids, encoder_hidden_states, *args, **kwargs):
         # TRT reads memory as contingent C-array relative to torch stride format.
         flattened_array = input_ids.flatten().contiguous()
@@ -250,7 +257,7 @@ class T5TRTDecoder(TRTHFRunner):
                 reformatted_output[b, input_idx, :] = self.outputs["hidden_states"][start_idx : start_idx + vocab_size]
 
         # Transfer predictions back from GPU to do greedy search
-        return Seq2SeqLMOutput(logits=reformatted_output.cpu())
+        return Seq2SeqLMOutput(logits=reformatted_output.to(self.return_device))
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         return {
