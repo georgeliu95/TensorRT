@@ -77,14 +77,14 @@ class TRTHFRunner(TRTNativeRunner, GenerationMixin):
         # Allocate memories
         self.inputs = {
             k: torch.zeros(
-                reduce(lambda v, a: v*a, shape),
+                shape if self.batch_size == 1 else reduce(lambda v, a: v*a, shape), # work around for BS=1 runtimes
                 dtype=input_types[k]).cuda()
             for k, shape in input_shapes.items()
         }
 
         self.outputs = {
             k: torch.zeros(
-                reduce(lambda v, a: v*a, shape),
+                shape if self.batch_size == 1 else reduce(lambda v, a: v*a, shape),  # work around for BS=1 runtimes
                 dtype=output_types[k]).cuda()
             for k, shape in output_shapes.items()
         }
@@ -153,24 +153,33 @@ class T5TRTEncoder(TRTHFRunner):
 
     def forward(self, input_ids, *args, **kwargs):
         TRTHFRunner.ENCODER_LENGTH = input_ids.shape[1]
+        input_length = input_ids.shape[1]
 
-        # TRT reads memory as contingent C-array relative to torch stride format.
-        flattened_array = input_ids.flatten()
-        self.inputs["input_ids"][0:reduce(lambda x, v: x*v, flattened_array.shape)] = flattened_array
+        # Remove copy overhead all together with batch_size 1
+        if self.batch_size == 1:
+            self.inputs["input_ids"][:, 0:input_length] = input_ids
+        else:
+            flattened_array = input_ids.flatten().contiguous()
+            element_size = reduce(lambda x, v: x*v, flattened_array.shape)
+            self.inputs["input_ids"][0:element_size] = flattened_array[0:]
+
         self.trt_context.set_binding_shape(0, input_ids.shape)
 
         self.trt_context.execute_v2(bindings=self.bindings)
 
         # uncompress output
-        input_length = input_ids.shape[1]
-        reformatted_output = torch.zeros(self.batch_size, self.max_sequence_length, self.max_sequence_length)
-        # Fold output
-        for b in range(self.batch_size):
-            for input_idx in range(input_length):
-                start_idx = b * self.max_sequence_length * input_length + input_idx * self.max_sequence_length
-                reformatted_output[b, input_idx, :] = self.outputs["hidden_states"][start_idx : start_idx + self.max_sequence_length]
+        folded = None
+        if self.batch_size == 1:
+            folded = self.outputs["hidden_states"][:, :input_length, :]
+        else:
+            folded = torch.zeros(self.batch_size, self.max_sequence_length, self.max_sequence_length)
+            # Fold output
+            for b in range(self.batch_size):
+                for input_idx in range(input_length):
+                    start_idx = b * self.max_sequence_length * input_length + input_idx * self.max_sequence_length
+                    folded[b, input_idx, :] = self.outputs["hidden_states"][start_idx : start_idx + self.max_sequence_length]
 
-        return reformatted_output
+        return folded
 
 class T5TRTDecoder(TRTHFRunner):
 
@@ -209,16 +218,19 @@ class T5TRTDecoder(TRTHFRunner):
 
         # Optimization bit
         self.existing_index = 0
-        self.persist_encoder_hidden_states = None
+        self.persist_encoder_hidden_states = False
 
     def set_encoder_hidden_states_for_inference_cycle(self, encoder_hidden_states):
         """Used to cache encoder hidden state runs across same encoder sessions"""
-        self.persist_encoder_hidden_states = encoder_hidden_states.data_ptr()
+        self.persist_encoder_hidden_states = True
 
         encoder_length = TRTHFRunner.ENCODER_LENGTH
-        new_shape = encoder_hidden_states.shape[0] * encoder_hidden_states.shape[2] * encoder_length
-        split_array = encoder_hidden_states[:, :encoder_length, :].flatten()
-        self.inputs["encoder_hidden_states"][:new_shape] = split_array
+        if self.batch_size == 1:
+            self.inputs["encoder_hidden_states"][:, :encoder_hidden_states.shape[1], :] = encoder_hidden_states
+        else:
+            new_shape = encoder_hidden_states.shape[0] * encoder_hidden_states.shape[2] * encoder_length
+            split_array = encoder_hidden_states[:, :encoder_length, :].flatten()
+            self.inputs["encoder_hidden_states"][:new_shape] = split_array
 
     def set_return_device(self, return_device):
         """
@@ -229,17 +241,28 @@ class T5TRTDecoder(TRTHFRunner):
 
     def forward(self, input_ids, encoder_hidden_states, *args, **kwargs):
         # TRT reads memory as contingent C-array relative to torch stride format.
-        flattened_array = input_ids.flatten().contiguous()
-        element_size = reduce(lambda x, v: x*v, flattened_array.shape)
-        self.inputs["input_ids"][self.existing_index:element_size] = flattened_array[self.existing_index:]
+        input_length = input_ids.shape[1]
+
+        # Remove copy overhead all together with batch_size 1
+        if self.batch_size == 1:
+            self.inputs["input_ids"][:, 0:input_length]= input_ids
+        else:
+            flattened_array = input_ids.flatten().contiguous()
+            element_size = reduce(lambda x, v: x*v, flattened_array.shape)
+            self.inputs["input_ids"][self.existing_index:element_size] = flattened_array[self.existing_index:]
+
         self.trt_context.set_binding_shape(0, input_ids.shape)
 
         encoder_length = TRTHFRunner.ENCODER_LENGTH
         # useful for large input sequence optimization
-        if self.persist_encoder_hidden_states is None:
-            new_shape = encoder_hidden_states.shape[0] * encoder_hidden_states.shape[2] * encoder_length
-            split_array = encoder_hidden_states[:, :encoder_length, :].flatten()
-            self.inputs["encoder_hidden_states"][:new_shape] = split_array
+        if self.persist_encoder_hidden_states:
+            if self.batch_size == 1:
+                self.inputs["encoder_hidden_states"][:, :encoder_hidden_states.shape[1] , :] = encoder_hidden_states
+            else:
+                new_shape = encoder_hidden_states.shape[0] * encoder_hidden_states.shape[2] * encoder_length
+                split_array = encoder_hidden_states[:, :encoder_length, :].flatten()
+                self.inputs["encoder_hidden_states"][:new_shape] = split_array
+
 
         self.trt_context.set_binding_shape(1, (self.batch_size, encoder_length, self.max_sequence_length))
 
@@ -248,16 +271,20 @@ class T5TRTDecoder(TRTHFRunner):
 
         # uncompress output
         vocab_size = T5ModelTRTConfig.VOCAB_SIZE
-        input_length = input_ids.shape[1]
-        reformatted_output = torch.zeros(self.batch_size, input_length, vocab_size)
-        # Fold output
-        for b in range(self.batch_size):
-            for input_idx in range(input_length):
-                start_idx = b * vocab_size * input_length + input_idx * vocab_size
-                reformatted_output[b, input_idx, :] = self.outputs["hidden_states"][start_idx : start_idx + vocab_size]
+        folded = None
+        if self.batch_size == 1:
+            # optimization to reduce Python for loops
+            folded = self.outputs["hidden_states"][:, 0:input_length, :]
+        else:
+            # Fold output
+            folded = torch.zeros(self.batch_size, input_length, vocab_size)
+            for b in range(self.batch_size):
+                for input_idx in range(input_length):
+                    start_idx = b * vocab_size * input_length + input_idx * vocab_size
+                    folded[b, input_idx, :] = self.outputs["hidden_states"][start_idx : start_idx + vocab_size]
 
         # Transfer predictions back from GPU to do greedy search
-        return Seq2SeqLMOutput(logits=reformatted_output.to(self.return_device))
+        return Seq2SeqLMOutput(logits=folded.to(self.return_device))
 
     def prepare_inputs_for_generation(self, input_ids, **kwargs):
         return {
