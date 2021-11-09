@@ -4056,6 +4056,9 @@ constexpr inline int32_t EnumMax<SliceMode>() noexcept
 //! stride = {1, 2}
 //! output = {{1, 5}}
 //!
+//! When the sliceMode is kCLAMP or kREFLECT, for each input dimension, if its size is 0 then the corresponding output
+//! dimension must be 0 too.
+//!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
 class ISliceLayer : public ILayer
@@ -5514,8 +5517,8 @@ public:
     //! \param alpha has different meanings for each operator:
     //!
     //! Operation          | Usage
-    //! kLINSPACE          | the start value;
-    //! kRANDOMUNIFORM     | the minimum value;
+    //! kLINSPACE          | the start value, defaults to 0.0;
+    //! kRANDOMUNIFORM     | the minimum value, defaults to 0.0;
     //!
     //! If a second input had been used to create this layer, that input is reset to null by this method.
     //!
@@ -5532,7 +5535,7 @@ public:
     //! \return A double value of alpha.
     //!
     //! If the second input is present and non-null,
-    //! this function returns a Dims with nbDims = -1.
+    //! this function returns -1.0.
     //!
     //! \see setAlpha
     //!
@@ -5547,8 +5550,8 @@ public:
     //! \param beta has different meanings for each operator:
     //!
     //! Operation          | Usage
-    //! kLINSPACE          | the delta value;
-    //! kRANDOMUNIFORM     | the maximal value;
+    //! kLINSPACE          | the delta value, defaults to 1.0;
+    //! kRANDOMUNIFORM     | the maximal value, defaults to 1.0;
     //!
     //! If a third input had been used to create this layer, that input is reset to null by this method.
     //!
@@ -5565,7 +5568,7 @@ public:
     //! \return A double value of beta.
     //!
     //! If the third input is present and non-null,
-    //! this function returns a Dims with nbDims = -1.
+    //! this function returns -1.0.
     //!
     //! \see setBeta
     //!

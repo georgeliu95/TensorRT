@@ -30,7 +30,7 @@ NVIDIA TensorRT is a platform for high-performance deep learning inference. It i
 3. Install prerequisite software for TTS sample:
     ```bash
     cd $TRT_OSSPATH/demo/Tacotron2
-    sh ./scripts/install_prerequisites.sh
+    bash ./scripts/install_prerequisites.sh
     ```
 4. Download pretrained checkpoints from [NGC](https://ngc.nvidia.com/catalog/models) into the `./checkpoints` directory:
 
@@ -38,7 +38,7 @@ NVIDIA TensorRT is a platform for high-performance deep learning inference. It i
 - [WaveGlow checkpoint](https://ngc.nvidia.com/models/nvidia:waveglow256pyt_fp16)
 
     ```bash
-    sh ./scripts/download_checkpoints.sh
+    bash ./scripts/download_checkpoints.sh
     ```
 
 5. Export the models to ONNX intermediate representation (ONNX IR).
