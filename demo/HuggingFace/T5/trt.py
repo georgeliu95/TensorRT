@@ -74,18 +74,14 @@ class TRTHFRunner(TRTNativeRunner, GenerationMixin):
                          output_shapes: Dict[str, tuple],
                          output_types: Dict[str, torch.dtype]):
         """Helper function for binding several inputs at once and pre-allocating the results."""
-        # Allocate memories
+        # Allocate memories as 1D linear buffers for simpler handling of dynamic shapes.
         self.inputs = {
-            k: torch.zeros(
-                shape if self.batch_size == 1 else reduce(lambda v, a: v*a, shape), # work around for BS=1 runtimes
-                dtype=input_types[k]).cuda()
+            k: torch.zeros(reduce(lambda v, a: v*a, shape), dtype=input_types[k]).cuda()
             for k, shape in input_shapes.items()
         }
 
         self.outputs = {
-            k: torch.zeros(
-                shape if self.batch_size == 1 else reduce(lambda v, a: v*a, shape),  # work around for BS=1 runtimes
-                dtype=output_types[k]).cuda()
+            k: torch.zeros(reduce(lambda v, a: v*a, shape), dtype=output_types[k]).cuda()
             for k, shape in output_shapes.items()
         }
 
@@ -152,32 +148,38 @@ class T5TRTEncoder(TRTHFRunner):
         self.bindings = self._allocate_memory(self.input_shapes, self.input_types, self.output_shapes, self.output_types)
 
     def forward(self, input_ids, *args, **kwargs):
+        bs = self.batch_size
+        max_length = self.max_sequence_length
         TRTHFRunner.ENCODER_LENGTH = input_ids.shape[1]
         input_length = input_ids.shape[1]
 
-        # Remove copy overhead all together with batch_size 1
-        if self.batch_size == 1:
-            self.inputs["input_ids"][:, 0:input_length] = input_ids
-        else:
-            flattened_array = input_ids.flatten().contiguous()
-            element_size = reduce(lambda x, v: x*v, flattened_array.shape)
-            self.inputs["input_ids"][0:element_size] = flattened_array[0:]
+        # Check if the input data is on CPU (which usually means the PyTorch does not support current GPU).
+        is_cpu_mode = (input_ids.device == torch.device("cpu"))
 
+        # We allocate the buffers using max_length, but we only need to first portion of it, so copy the data into the
+        # first portion of the input buffer.
+        # TODO: Could we just reuse input_ids' data_ptr() as the first binding when input_ids is already contiguous to
+        # avoid an additional D2D?
+        if is_cpu_mode:
+            self.inputs["input_ids"] = input_ids.int().flatten().contiguous().cuda()
+            self.bindings[0] = self.inputs["input_ids"].data_ptr()
+        else:
+            self.inputs["input_ids"][:bs * input_length] = input_ids.flatten()
+
+        # Set the binding shape of input_ids, which should be (bs, input_length).
         self.trt_context.set_binding_shape(0, input_ids.shape)
 
+        # Launch TRT inference.
+        # TODO: Could we use execute_v2_async() instead of execute_v2()?
         self.trt_context.execute_v2(bindings=self.bindings)
 
-        # uncompress output
-        folded = None
-        if self.batch_size == 1:
-            folded = self.outputs["hidden_states"][:, :input_length, :]
+        # We allocate the buffers using max_length, but we only need to first portion of it, so get only the first
+        # portion of the output buffer and return that.
+        # TODO: Could we construct a Torch tensor using given data_ptr() to avoid this D2D copy?
+        if is_cpu_mode:
+            folded = self.outputs["hidden_states"].cpu()[:bs * input_length * max_length].view(bs, input_length, max_length)
         else:
-            folded = torch.zeros(self.batch_size, self.max_sequence_length, self.max_sequence_length)
-            # Fold output
-            for b in range(self.batch_size):
-                for input_idx in range(input_length):
-                    start_idx = b * self.max_sequence_length * input_length + input_idx * self.max_sequence_length
-                    folded[b, input_idx, :] = self.outputs["hidden_states"][start_idx : start_idx + self.max_sequence_length]
+            folded = self.outputs["hidden_states"][:bs * input_length * max_length].view(bs, input_length, max_length)
 
         return folded
 
@@ -217,20 +219,20 @@ class T5TRTDecoder(TRTHFRunner):
         self.bindings = self._allocate_memory(self.input_shapes, self.input_types, self.output_shapes, self.output_types)
 
         # Optimization bit
-        self.existing_index = 0
         self.persist_encoder_hidden_states = False
 
     def set_encoder_hidden_states_for_inference_cycle(self, encoder_hidden_states):
         """Used to cache encoder hidden state runs across same encoder sessions"""
         self.persist_encoder_hidden_states = True
 
+        bs = self.batch_size
+        max_length = self.max_sequence_length
         encoder_length = TRTHFRunner.ENCODER_LENGTH
-        if self.batch_size == 1:
-            self.inputs["encoder_hidden_states"][:, :encoder_hidden_states.shape[1], :] = encoder_hidden_states
+        if encoder_hidden_states.device == torch.device("cpu"):
+            self.inputs["encoder_hidden_states"] = encoder_hidden_states.flatten().contiguous().cuda()
+            self.bindings[1] = self.inputs["encoder_hidden_states"].data_ptr()
         else:
-            new_shape = encoder_hidden_states.shape[0] * encoder_hidden_states.shape[2] * encoder_length
-            split_array = encoder_hidden_states[:, :encoder_length, :].flatten()
-            self.inputs["encoder_hidden_states"][:new_shape] = split_array
+            self.inputs["encoder_hidden_states"][:bs * encoder_length * max_length] = encoder_hidden_states.flatten()
 
     def set_return_device(self, return_device):
         """
@@ -240,48 +242,60 @@ class T5TRTDecoder(TRTHFRunner):
         self.return_device = return_device
 
     def forward(self, input_ids, encoder_hidden_states, *args, **kwargs):
-        # TRT reads memory as contingent C-array relative to torch stride format.
+        # Get the batch size.
+        bs = self.batch_size
+
+        # Get the maximum sequence length.
+        max_length = self.max_sequence_length
+
+        # Get the vocab size.
+        vocab_size = T5ModelTRTConfig.VOCAB_SIZE
+
+        # Actual sequence length of the input_ids and the output hidden_states.
         input_length = input_ids.shape[1]
 
-        # Remove copy overhead all together with batch_size 1
-        if self.batch_size == 1:
-            self.inputs["input_ids"][:, 0:input_length]= input_ids
-        else:
-            flattened_array = input_ids.flatten().contiguous()
-            element_size = reduce(lambda x, v: x*v, flattened_array.shape)
-            self.inputs["input_ids"][self.existing_index:element_size] = flattened_array[self.existing_index:]
+        # The sequence length of the encoder_hidden_states.
+        encoder_length = TRTHFRunner.ENCODER_LENGTH
 
+        # Check if the input data is on CPU (which usually means the PyTorch does not support current GPU).
+        is_cpu_mode = (input_ids.device == torch.device("cpu")) or (self.return_device == "cpu")
+
+        # We allocate the buffers using max_length, but we only need to first portion of it, so copy the data into the
+        # first portion of the input buffer.
+        # TODO: Could we just reuse input_ids' data_ptr() as the first binding when input_ids is already contiguous to
+        # avoid an additional D2D?
+        if is_cpu_mode:
+            self.inputs["input_ids"] = input_ids.int().flatten().contiguous().cuda()
+            self.bindings[0] = self.inputs["input_ids"].data_ptr()
+        else:
+            self.inputs["input_ids"][:bs * input_length] = input_ids.flatten()
+
+        # Set the binding shape of input_ids, which should be (bs, input_length).
         self.trt_context.set_binding_shape(0, input_ids.shape)
 
-        encoder_length = TRTHFRunner.ENCODER_LENGTH
-        # useful for large input sequence optimization
-        if self.persist_encoder_hidden_states:
-            if self.batch_size == 1:
-                self.inputs["encoder_hidden_states"][:, :encoder_hidden_states.shape[1] , :] = encoder_hidden_states
+        # If encoder hidden states have not been copied yet, copy the hidden states to the input buffer.
+        if not self.persist_encoder_hidden_states:
+            if is_cpu_mode:
+                self.inputs["encoder_hidden_states"] = encoder_hidden_states.flatten().contiguous().cuda()
+                self.bindings[1] = self.inputs["encoder_hidden_states"].data_ptr()
             else:
-                new_shape = encoder_hidden_states.shape[0] * encoder_hidden_states.shape[2] * encoder_length
-                split_array = encoder_hidden_states[:, :encoder_length, :].flatten()
-                self.inputs["encoder_hidden_states"][:new_shape] = split_array
+                self.inputs["encoder_hidden_states"][:bs * encoder_length * max_length] = encoder_hidden_states.flatten()
 
+        # Set the binding shape of encoder_hidden_states, which should be (bs, encoder_length, max_length).
+        self.trt_context.set_binding_shape(1, (bs, encoder_length, max_length))
 
-        self.trt_context.set_binding_shape(1, (self.batch_size, encoder_length, self.max_sequence_length))
-
-        # Copy to device
+        # Launch TRT inference.
+        # TODO: Could we use execute_v2_async() instead of execute_v2()? Current profiling shows that there is a
+        # synchronization inside TRT's inference body, so this change may not be needed.
         self.trt_context.execute_v2(bindings=self.bindings)
 
-        # uncompress output
-        vocab_size = T5ModelTRTConfig.VOCAB_SIZE
-        folded = None
-        if self.batch_size == 1:
-            # optimization to reduce Python for loops
-            folded = self.outputs["hidden_states"][:, 0:input_length, :]
+        # We allocate the buffers using max_length, but we only need to first portion of it, so get only the first
+        # portion of the output buffer and return that.
+        # TODO: Could we construct a Torch tensor using given data_ptr() to avoid this D2D copy?
+        if is_cpu_mode:
+            folded = self.outputs["hidden_states"].cpu()[:bs * input_length * vocab_size].view(bs, input_length, vocab_size)
         else:
-            # Fold output
-            folded = torch.zeros(self.batch_size, input_length, vocab_size)
-            for b in range(self.batch_size):
-                for input_idx in range(input_length):
-                    start_idx = b * vocab_size * input_length + input_idx * vocab_size
-                    folded[b, input_idx, :] = self.outputs["hidden_states"][start_idx : start_idx + vocab_size]
+            folded = self.outputs["hidden_states"][:bs * input_length * vocab_size].view(bs, input_length, vocab_size)
 
         # Transfer predictions back from GPU to do greedy search
         return Seq2SeqLMOutput(logits=folded.to(self.return_device))
@@ -342,7 +356,6 @@ class T5TRT(TRTInferenceCommand):
             input_ids,
             encoder_last_hidden_state,
             timing_profile,
-            use_cuda=False,
         )
         decoder_output_greedy, full_e2e_median_runtime = full_inference_greedy(
             self.t5_trt_encoder,
@@ -352,7 +365,6 @@ class T5TRT(TRTInferenceCommand):
             timing_profile,
             max_length=T5ModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant],
             batch_size=batch_size,
-            use_cuda=False,
         )
 
         # Remove the padding and end tokens.

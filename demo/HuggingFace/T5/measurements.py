@@ -85,6 +85,8 @@ def full_inference_greedy(
 
     if use_cuda:
         decoder_input_ids = decoder_input_ids.to("cuda")
+    else:
+        decoder_input_ids = decoder_input_ids.to("cpu")
 
     def _e2e():
         encoder_last_hidden_state = t5_encoder(input_ids=input_ids)
