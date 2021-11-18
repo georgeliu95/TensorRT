@@ -26,7 +26,7 @@
 #define NV_TENSORRT_MAJOR 8 //!< TensorRT major version.
 #define NV_TENSORRT_MINOR 2 //!< TensorRT minor version.
 #define NV_TENSORRT_PATCH 1 //!< TensorRT patch version.
-#define NV_TENSORRT_BUILD 6 //!< TensorRT build number.
+#define NV_TENSORRT_BUILD 8 //!< TensorRT build number.
 
 #define NV_TENSORRT_SONAME_MAJOR 8 //!< Shared object library major version number.
 #define NV_TENSORRT_SONAME_MINOR 2 //!< Shared object library minor version number.
