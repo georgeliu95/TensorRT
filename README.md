@@ -110,6 +110,10 @@ For Linux platforms, we recommend that you generate a docker container for build
     ```bash
     ./docker/build.sh --file docker/ubuntu-cross-aarch64.Dockerfile --tag tensorrt-jetpack-cuda10.2 --cuda 10.2
     ```
+    **Example: Ubuntu 20.04 on aarch64 with cuda-11.4.2**
+    ```bash
+    ./docker/build.sh --file docker/ubuntu-20.04-aarch64.Dockerfile --tag tensorrt-aarch64-ubuntu20.04-cuda11.4
+    ```
 
 2. #### Launch the TensorRT-OSS build container.
     **Example: Ubuntu 18.04 build container**
@@ -140,6 +144,14 @@ For Linux platforms, we recommend that you generate a docker container for build
     yum -y install devtoolset-8
     export PATH="/opt/rh/devtoolset-8/root/bin:${PATH}
     ```
+
+    **Example: Linux (aarch64) build with default cuda-11.4.2**
+	  ```bash
+	  cd $TRT_OSSPATH
+	  mkdir -p build && cd build
+	  cmake .. -DTRT_LIB_DIR=$TRT_LIBPATH -DTRT_OUT_DIR=`pwd`/out -DCMAKE_TOOLCHAIN_FILE=$TRT_OSSPATH/cmake/toolchains/cmake_aarch64-native.toolchain
+	  make -j$(nproc)
+	  ```
 
     **Example: Native build on Jetson (aarch64) with cuda-10.2**
     ```bash
