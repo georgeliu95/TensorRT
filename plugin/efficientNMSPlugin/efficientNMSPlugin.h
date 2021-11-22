@@ -85,9 +85,9 @@ public:
         const char* name, const void* serialData, size_t serialLength) noexcept override;
 
 protected:
-    static PluginFieldCollection mFC;
+    PluginFieldCollection mFC;
     EfficientNMSParameters mParam;
-    static std::vector<PluginField> mPluginAttributes;
+    std::vector<PluginField> mPluginAttributes;
     std::string mPluginName;
 };
 
@@ -107,9 +107,9 @@ public:
         const char* name, const void* serialData, size_t serialLength) noexcept override;
 
 protected:
-    static PluginFieldCollection mFC;
+    PluginFieldCollection mFC;
     EfficientNMSParameters mParam;
-    static std::vector<PluginField> mPluginAttributes;
+    std::vector<PluginField> mPluginAttributes;
     std::string mPluginName;
 };
 
@@ -129,9 +129,9 @@ public:
         const char* name, const void* serialData, size_t serialLength) noexcept override;
 
 protected:
-    static PluginFieldCollection mFC;
+    PluginFieldCollection mFC;
     EfficientNMSParameters mParam;
-    static std::vector<PluginField> mPluginAttributes;
+    std::vector<PluginField> mPluginAttributes;
     std::string mPluginName;
 };
 
