@@ -34,13 +34,6 @@ const char* EFFICIENT_NMS_TFTRT_PLUGIN_VERSION{"1"};
 const char* EFFICIENT_NMS_TFTRT_PLUGIN_NAME{"EfficientNMS_TFTRT_TRT"};
 } // namespace
 
-PluginFieldCollection EfficientNMSPluginCreator::mFC{};
-PluginFieldCollection EfficientNMSONNXPluginCreator::mFC{};
-PluginFieldCollection EfficientNMSTFTRTPluginCreator::mFC{};
-std::vector<PluginField> EfficientNMSPluginCreator::mPluginAttributes;
-std::vector<PluginField> EfficientNMSONNXPluginCreator::mPluginAttributes;
-std::vector<PluginField> EfficientNMSTFTRTPluginCreator::mPluginAttributes;
-
 EfficientNMSPlugin::EfficientNMSPlugin(EfficientNMSParameters param)
     : mParam(param)
 {

@@ -365,7 +365,7 @@ cudaError_t EfficientNMSLauncher(EfficientNMSParameters& param, int* topNumData,
 
     if (param.outputONNXIndices)
     {
-        PadONNXResult<<<{1}, {1}, 0, stream>>>(param, outputIndexData, nmsIndicesOutput);
+        PadONNXResult<<<1, 1, 0, stream>>>(param, outputIndexData, nmsIndicesOutput);
     }
 
     return cudaGetLastError();
@@ -432,7 +432,7 @@ __global__ void EfficientNMSFilter(EfficientNMSParameters param, const T* __rest
 
         if (param.scoreBits > 0)
         {
-            add_mp(score, (T) 1);
+            score = add_mp(score, (T) 1);
             if (gt_mp(score, (T) (2.f - 1.f / 1024.f)))
             {
                 // Ensure the incremented score fits in the mantissa without changing the exponent
@@ -490,11 +490,11 @@ __global__ void EfficientNMSDenseIndex(EfficientNMSParameters param, int* __rest
         T score = topScoresData[dataIdx];
         if (lt_mp(score, (T) param.scoreThreshold))
         {
-            topScoresData[dataIdx] = -1 << 15;
+            topScoresData[dataIdx] = -(1 << 15);
         }
         else if (classIdx == param.backgroundClass)
         {
-            topScoresData[dataIdx] = -1 << 15;
+            topScoresData[dataIdx] = -(1 << 15);
         }
     }
 
@@ -529,7 +529,7 @@ cudaError_t EfficientNMSFilterLauncher(EfficientNMSParameters& param, const T* s
         // Inverse Sigmoid
         if (param.scoreThreshold <= 0.f)
         {
-            param.scoreThreshold = -1 << 15;
+            param.scoreThreshold = -(1 << 15);
         }
         else
         {
