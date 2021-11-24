@@ -146,12 +146,12 @@ For Linux platforms, we recommend that you generate a docker container for build
     ```
 
     **Example: Linux (aarch64) build with default cuda-11.4.2**
-	  ```bash
-	  cd $TRT_OSSPATH
-	  mkdir -p build && cd build
-	  cmake .. -DTRT_LIB_DIR=$TRT_LIBPATH -DTRT_OUT_DIR=`pwd`/out -DCMAKE_TOOLCHAIN_FILE=$TRT_OSSPATH/cmake/toolchains/cmake_aarch64-native.toolchain
-	  make -j$(nproc)
-	  ```
+	```bash
+	cd $TRT_OSSPATH
+	mkdir -p build && cd build
+	cmake .. -DTRT_LIB_DIR=$TRT_LIBPATH -DTRT_OUT_DIR=`pwd`/out -DCMAKE_TOOLCHAIN_FILE=$TRT_OSSPATH/cmake/toolchains/cmake_aarch64-native.toolchain
+	make -j$(nproc)
+	```
 
     **Example: Native build on Jetson (aarch64) with cuda-10.2**
     ```bash
