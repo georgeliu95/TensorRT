@@ -1,0 +1,6 @@
+gdown
+onnx
+onnx-simplifier
+scikit-image
+nvidia-pyindex
+onnx-graphsurgeon
