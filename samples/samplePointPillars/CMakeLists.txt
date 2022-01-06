@@ -13,32 +13,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+SET(SAMPLE_SOURCES
+    samplePointPillars.cpp
+)
 
-add_custom_target(samples)
+set(SAMPLE_PARSERS "onnx")
+set(PLUGINS_NEEDED ON)
 
-set(OPENSOURCE_SAMPLES_LIST
-    sampleAlgorithmSelector
-    sampleCharRNN
-    sampleDynamicReshape
-    sampleFasterRCNN
-    sampleGoogleNet
-    sampleINT8
-    sampleINT8API
-    sampleMNIST
-    sampleMNISTAPI
-    sampleNMT
-    sampleOnnxMNIST
-    samplePointPillars
-    sampleIOFormats
-    sampleSSD
-    sampleUffFasterRCNN
-    sampleUffMaskRCNN
-    sampleUffMNIST
-    sampleUffPluginV2Ext
-    sampleUffSSD
-    sampleOnnxMnistCoordConvAC
-    trtexec)
-
-foreach(SAMPLE_ITER ${OPENSOURCE_SAMPLES_LIST})
-    add_subdirectory(${SAMPLE_ITER})
-endforeach(SAMPLE_ITER)
+include(../CMakeSamplesTemplate.txt)
