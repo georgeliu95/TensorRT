@@ -30,6 +30,10 @@
     }                                                             \
 }
 
+#ifndef M_PI
+    #define M_PI 3.14159265358979323846
+#endif
+
 __device__ float sigmoid(const float x) { return 1.0f / (1.0f + expf(-x)); }
 
 __global__ void postprocess_kernal(const float *cls_input,

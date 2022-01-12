@@ -186,6 +186,7 @@ bool VoxelGeneratorPlugin::supportsFormatCombination(
     {
         return (in.type == nvinfer1::DataType::kINT32) && (in.format == TensorFormat::kLINEAR);
     }
+    return false;
 }
 
 void VoxelGeneratorPlugin::configurePlugin(const nvinfer1::DynamicPluginTensorDesc* in, int nbInputs,

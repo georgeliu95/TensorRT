@@ -11,7 +11,7 @@
 
 ## Description
 
-The `voxelGeneratorPlugin` performs the generation of voxels(pillars) from raw points in a point cloud frame. This operation essentially quantize the 3D points in spacial dimensions(x, y, z) with a certain granularity. The output of this plugin will be a group of pillars. This plugin is included in TensorRT and used in [samplePointPillars] to perform inference.
+The `voxelGeneratorPlugin` performs the generation of voxels(pillars) from raw points in a point cloud frame. This operation essentially quantize the 3D points in spacial dimensions(x, y, z) with a certain granularity. The output of this plugin will be a group of pillars.
 
 `voxelGeneratorPlugin` implements a quantization of 3D points in point cloud data and produces a groups of voxels. Each voxel is either empty or contains several points that are close to each other.
 

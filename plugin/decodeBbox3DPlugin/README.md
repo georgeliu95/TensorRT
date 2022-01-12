@@ -11,7 +11,7 @@
 
 ## Description
 
-The `decodeBbox3DPlugin` performs 3D bounding boxes decoding for PointPillars model. This plugin is included in TensorRT and used in [samplePointPillars] to perform inference.
+The `decodeBbox3DPlugin` performs 3D bounding boxes decoding for PointPillars model.
 
 `decodeBbox3DPlugin` implements the 3D bounding boxes decoding. It applies deltas to anchor boxes and produces the 3D bounding boxes in the format: `(x, y, z, dx, dy, dz, rotation)`. The deltas are the input tensors of this plugin, and the anchors are computed on-the-fly based on the parameters passed in from the corresponding node in ONNX graph.
 
