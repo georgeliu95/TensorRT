@@ -181,7 +181,7 @@ bool DecodeBbox3DPlugin::supportsFormatCombination(
     int pos, const nvinfer1::PluginTensorDesc* inOut, int nbInputs, int nbOutputs) noexcept
 {
     assert(nbInputs == 3);
-    assert(nbOutputs == 1);
+    assert(nbOutputs == 2);
     const PluginTensorDesc& in = inOut[pos];
     if (pos == 0)       // cls_preds
     {
@@ -203,6 +203,7 @@ bool DecodeBbox3DPlugin::supportsFormatCombination(
     {
         return (in.type == nvinfer1::DataType::kINT32) && (in.format == TensorFormat::kLINEAR);
     }
+    return false;
 }
 
 void DecodeBbox3DPlugin::configurePlugin(const nvinfer1::DynamicPluginTensorDesc* in, int nbInputs,

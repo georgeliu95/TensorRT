@@ -11,7 +11,7 @@
 
 ## Description
 
-The `pillarScatterPlugin` performs scatter of voxels for PointPillars model. This operation is roughly a sparse to dense conversion and similar to ordinary scatter operation. The difference is `pillarScatterPlugin` will only scatter voxels that are marked as valid and do nothing for invalid voxels. This plugin is included in TensorRT and used in [samplePointPillars] to perform inference.
+The `pillarScatterPlugin` performs scatter of voxels for PointPillars model. This operation is roughly a sparse to dense conversion and similar to ordinary scatter operation. The difference is `pillarScatterPlugin` will only scatter voxels that are marked as valid and do nothing for invalid voxels.
 
 `pillarScatterPlugin` implements a sparse to dense conversion of voxels. The plugin takes sparse voxel values and their corresponding indices and produces a dense representation of the voxels(pillars).
 

@@ -28,7 +28,6 @@ set(OPENSOURCE_SAMPLES_LIST
     sampleMNISTAPI
     sampleNMT
     sampleOnnxMNIST
-    samplePointPillars
     sampleIOFormats
     sampleSSD
     sampleUffFasterRCNN

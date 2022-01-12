@@ -109,6 +109,7 @@ bool PillarScatterPlugin::supportsFormatCombination(
     {
         return (in.type == nvinfer1::DataType::kFLOAT) && (in.format == TensorFormat::kLINEAR);
     }
+    return false;
 }
 
 void PillarScatterPlugin::configurePlugin(const nvinfer1::DynamicPluginTensorDesc* in, int nbInputs,
