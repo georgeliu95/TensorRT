@@ -505,6 +505,7 @@ class Graph(object):
         PARTITIONING_MODES = [None, "basic", "recursive"]
         if partitioning not in PARTITIONING_MODES:
             G_LOGGER.critical("Argument for parameter 'partitioning' must be one of: {:}".format(PARTITIONING_MODES))
+        ORT_PROVIDERS = ["CPUExecutionProvider"]
 
         # First perform shape tensor cast elision on the graph prior to other constant folding
         # Search for Cast(s) (from int -> float) -> intermediate operator (with float constants) -> Cast(s) (back to int)
@@ -795,7 +796,9 @@ class Graph(object):
 
                 try:
                     # Determining types is not trivial, and ONNX-RT does its own type inference.
-                    sess = rt.InferenceSession(export_onnx(part, do_type_check=False).SerializeToString())
+                    sess = rt.InferenceSession(
+                        export_onnx(part, do_type_check=False).SerializeToString(), providers=ORT_PROVIDERS
+                    )
                     values = sess.run(names, {})
                 except Exception as err:
                     G_LOGGER.warning("Inference failed for subgraph: {:}. Note: Error was:\n{:}".format(part.name, err))
@@ -842,7 +845,9 @@ class Graph(object):
             else:
                 names = [t.name for t in graph_clone.outputs]
                 try:
-                    sess = rt.InferenceSession(export_onnx(graph_clone, do_type_check=False).SerializeToString())
+                    sess = rt.InferenceSession(
+                        export_onnx(graph_clone, do_type_check=False).SerializeToString(), providers=ORT_PROVIDERS
+                    )
                     values = sess.run(names, {})
                     constant_values.update({name: val for name, val in zip(names, values)})
                 except Exception as err:
