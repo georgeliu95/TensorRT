@@ -139,7 +139,7 @@ def main():
         sample = next(iter(train_loader))[0].to(device)
         input_names = [ "conv1" ]
         output_names = [ "fc2" ]
-        torch.onnx.export(model, sample, "mnist_cc.onnx", verbose=False, input_names=input_names, output_names=output_names, opset_version=11)
+        torch.onnx.export(model, sample, "mnist_cc.onnx", verbose=False, input_names=input_names, output_names=output_names, opset_version=13)
 
 if __name__ == '__main__':
     main()
