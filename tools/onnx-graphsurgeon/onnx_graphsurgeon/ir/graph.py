@@ -99,6 +99,8 @@ class Graph(object):
         doc_string=None,
         opset=None,
         import_domains=None,
+        producer_name: str = None,
+        producer_version: str = None,
     ):
         """
         Args:
@@ -108,6 +110,8 @@ class Graph(object):
             name (str): The name of the graph. Defaults to "onnx_graphsurgeon_graph".
             doc_string (str): A doc_string for the graph. Defaults to "".
             opset (int): The ONNX opset to use when exporting this graph.
+            producer_name (str): The name of the tool used to generate the model. Defaults to "".
+            producer_version (str): The version of the generating tool. Defaults to "".
         """
         self.nodes = misc.default_value(nodes, [])
         self.inputs = list(misc.default_value(inputs, []))
@@ -118,6 +122,8 @@ class Graph(object):
 
         self.doc_string = misc.default_value(doc_string, "")
         self.opset = misc.default_value(opset, Graph.DEFAULT_OPSET)
+        self.producer_name = misc.default_value(producer_name, "")
+        self.producer_version = misc.default_value(producer_version, "")
         self.import_domains = import_domains
         # Printing graphs can be very expensive
         G_LOGGER.ultra_verbose(lambda: "Created Graph: {:}".format(self))
