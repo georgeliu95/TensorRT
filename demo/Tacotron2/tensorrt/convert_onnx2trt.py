@@ -58,7 +58,9 @@ def parse_args(parser):
                         help='Includes the outer decoder loop in the ONNX model. Enabled by default and only supported on TensorRT 8.0 or later.')
     parser.add_argument('--no-loop', dest='loop', action='store_false',
                         help='Excludes outer decoder loop from decoder ONNX model. Default behavior and necessary for TensorRT 7.2 or earlier.')
-    parser.add_argument("-tcf", "--timing-cache-file", default=None, type=str, help="Path to tensorrt build timeing cache file, only available for tensorrt 8.0 and later", required=False)
+    parser.add_argument("-tcf", "--timing-cache-file", default=None, type=str,
+                        help="Path to tensorrt build timeing cache file, only available for tensorrt 8.0 and later. The cache file is assumed to be used exclusively. It's the users' responsibility to create file lock to prevent accessing conflict.",
+                        required=False)
     parser.set_defaults(loop=int(trt.__version__[0]) >= 8)
 
     return parser
