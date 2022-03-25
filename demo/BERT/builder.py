@@ -489,7 +489,7 @@ def generate_calibration_cache(sequence_lengths, workspace_size, config, weights
     config.use_fp16 = False
     config.is_calib_mode = True
 
-    with build_engine([1], workspace_size, sequence_lengths, config, weights_dict, squad_json, vocab_file, calibrationCacheFile, calib_num) as engine:
+    with build_engine([1], workspace_size, sequence_lengths, config, weights_dict, squad_json, vocab_file, calibrationCacheFile, calib_num, False) as engine:
         TRT_LOGGER.log(TRT_LOGGER.INFO, "calibration cache generated in {:}".format(calibrationCacheFile))
 
     config.use_fp16 = saved_use_fp16
