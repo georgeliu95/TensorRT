@@ -102,8 +102,8 @@ def attention_layer_opt(prefix, config, init_dict, network, input_tensor, imask)
     """
     assert(len(input_tensor.shape) == 5)
 
-    # Unpacking an trt.tensorrt.Dims object causes Python to hang when
-    # Tensorflow is imported after TensorRT.
+    # On Windows, unpacking an trt.tensorrt.Dims object causes Python to hang when
+    # Tensorflow is imported after TensorRT, for Tensorflow 2.5 and above.
     # The following is a temporary workaround to: B, S, hidden_size, _, _ = input_tensor.shape
     B = input_tensor.shape[0]
     S = input_tensor.shape[1]
@@ -338,8 +338,8 @@ def squad_output(prefix, config, init_dict, network, input_tensor):
     idims = input_tensor.shape
     assert len(idims) == 5
 
-    # Unpacking an trt.tensorrt.Dims object causes Python to hang when
-    # Tensorflow is imported after TensorRT.
+    # On Windows, unpacking an trt.tensorrt.Dims object causes Python to hang when
+    # Tensorflow is imported after TensorRT, for Tensorflow 2.5 and above.
     # The following is a temporary workaround to: B, S, hidden_size, _, _ = idims
     B = idims[0]
     S = idims[1]
