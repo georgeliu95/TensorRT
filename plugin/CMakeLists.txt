@@ -46,6 +46,7 @@ set(PLUGIN_LISTS
     leakyReluPlugin
     multilevelCropAndResizePlugin
     multilevelProposeROI
+    multiscaleDeformableAttnPlugin
     nmsPlugin
     normalizePlugin
     nvFasterRCNN
