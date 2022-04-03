@@ -16,8 +16,8 @@
  */
 
 #include "multilevelProposeROIPlugin.h"
-#include "plugin.h"
-#include "tlt_mrcnn_config.h"
+#include "common/plugin.h"
+#include "multilevelProposeROI/tlt_mrcnn_config.h"
 #include <algorithm>
 #include <cuda_runtime_api.h>
 #include <iostream>

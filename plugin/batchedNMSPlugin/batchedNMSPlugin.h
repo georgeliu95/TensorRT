@@ -19,7 +19,7 @@
 #include "common/kernel.h"
 #include "common/nmsUtils.h"
 #include "common/plugin.h"
-#include "gatherNMSOutputs.h"
+#include "batchedNMSPlugin/gatherNMSOutputs.h"
 #include <string>
 #include <vector>
 

@@ -18,7 +18,7 @@
 #define TRT_INSTANCE_NORMALIZATION_PLUGIN_H
 #include "common/plugin.h"
 #include "common/serialize.hpp"
-#include "instanceNormFwd.h"
+#include "instanceNormalizationPlugin/instanceNormFwd.h"
 #include <cuda_fp16.h>
 #include <cudnn.h>
 #include <iostream>
