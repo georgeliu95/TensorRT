@@ -13,3 +13,7 @@
 [submodule "tools/Polygraphy"]
 	path = tools/Polygraphy
 	url = https://gitlab-master.nvidia.com/TensorRT/Infrastructure/Polygraphy.git
+[submodule "tools/experimental/trt-engine-explorer"]
+	path = tools/experimental/trt-engine-explorer
+	url = https://gitlab-master.nvidia.com/nzmora/trt-engine-explorer.git
+	branch = main
