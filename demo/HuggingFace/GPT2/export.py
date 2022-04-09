@@ -164,6 +164,9 @@ class GPT2Converter(ModelFileConverter):
         ]
 
         # Exports to ONNX
+        opt_args={}
+        if torch.__version__ < '1.11':
+            opt_args['use_external_data_format'] = True
         torch.onnx._export(
             gpt2_model,
             input_ids,
@@ -176,6 +179,6 @@ class GPT2Converter(ModelFileConverter):
                 **outputs.get_torch_dynamic_axis_encoding(),
             },
             training=False,
-            use_external_data_format=True
+            **opt_args
         )
         return GPT2ONNXFile(output_fpath, network_metadata)
