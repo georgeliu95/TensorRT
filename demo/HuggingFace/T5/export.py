@@ -271,6 +271,9 @@ class T5DecoderConverter(ModelFileConverter):
         inputs = T5ModelTRTConfig.get_input_dims(network_metadata)["decoder"]
         outputs = T5ModelTRTConfig.get_output_dims(network_metadata)["decoder"]
 
+        opt_args={}
+        if torch.__version__ < '1.11':
+            opt_args['use_external_data_format'] = True
         torch.onnx.export(
             decoder_with_lm_head,
             (input_ids, simplified_encoder(input_ids)),
@@ -284,8 +287,9 @@ class T5DecoderConverter(ModelFileConverter):
                 **outputs.get_torch_dynamic_axis_encoding(),
             },
             training=False,
-            use_external_data_format=True
+            **opt_args
         )
+        
 
         if network_metadata.precision.fp16:
             G_LOGGER.debug("Clamping FP16 weights for T5")
@@ -336,6 +340,9 @@ class T5EncoderConverter(ModelFileConverter):
         outputs = T5ModelTRTConfig.get_output_dims(network_metadata)["encoder"]
 
         # Exports to ONNX
+        opt_args={}
+        if torch.__version__ < '1.11':
+            opt_args['use_external_data_format'] = True
         torch.onnx._export(
             simplified_encoder,
             input_ids,
@@ -349,9 +356,9 @@ class T5EncoderConverter(ModelFileConverter):
                 **outputs.get_torch_dynamic_axis_encoding(),
             },
             training=False,
-            use_external_data_format=True
+            **opt_args
         )
-
+        
         if network_metadata.precision.fp16:
             G_LOGGER.debug("Clamping FP16 weights for T5")
             move_t5_cast_op(output_fpath, output_fpath)
