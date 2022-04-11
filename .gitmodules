@@ -16,3 +16,6 @@
 [submodule "tools/experimental/trt-engine-explorer"]
 	path = tools/experimental/trt-engine-explorer
 	url = https://gitlab-master.nvidia.com/TensorRT/Tools/trt-engine-explorer.git
+[submodule "tools/pytorch-quantization"]
+	path = tools/pytorch-quantization
+	url = https://gitlab-master.nvidia.com/TensorRT/Tools/pytorch-quantization.git
