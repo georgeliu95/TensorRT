@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -263,15 +264,16 @@ void  decodeBbox3DLaunch(
     const int num_dir_bins,
     cudaStream_t stream = 0);
 
-void pillarScatterKernelLaunch(
+template <typename Element>
+int pillarScatterKernelLaunch(
   int batch_size,
   int max_pillar_num,
   int num_features,
-  const float *pillar_features_data,
+  const Element *pillar_features_data,
   const unsigned int *coords_data,
   const unsigned int *params_data,
   unsigned int featureX, unsigned int featureY,
-  float *spatial_feature_data,
+  Element *spatial_feature_data,
   cudaStream_t stream);
 
 void generateVoxels_launch(

@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -100,7 +101,9 @@ static const auto dims_getter = [](const Dims& self, int pyIndex) -> const int& 
     // Without these bounds checks, horrible infinite looping will occur.
     size_t index = (pyIndex < 0) ? static_cast<int>(self.nbDims) + pyIndex : pyIndex;
     if (index >= self.nbDims)
-        throw py::index_error();
+    {
+        utils::throwPyIndexError(); // See definition of throwPyIndexError() for details
+    }
     return self.d[index];
 };
 
@@ -110,7 +113,9 @@ static const auto dims_getter_slice = [](const Dims& self, py::slice slice) {
         throw py::error_already_set();
     // Disallow out-of-bounds things.
     if (stop > self.nbDims)
-        throw py::index_error();
+    {
+        utils::throwPyIndexError(); // See definition of throwPyIndexError() for details
+    }
 
     py::tuple ret{slicelength};
     for (int i = start, index = 0; i < stop; i += step, ++index)
@@ -121,7 +126,9 @@ static const auto dims_getter_slice = [](const Dims& self, py::slice slice) {
 static const auto dims_setter = [](Dims& self, int pyIndex, int item) {
     size_t index = (pyIndex < 0) ? static_cast<int>(self.nbDims) + pyIndex : pyIndex;
     if (index >= self.nbDims)
-        throw py::index_error();
+    {
+        utils::throwPyIndexError(); // See definition of throwPyIndexError() for details
+    }
     self.d[index] = item;
 };
 
@@ -131,7 +138,9 @@ static const auto dims_setter_slice = [](Dims& self, py::slice slice, const Dims
         throw py::error_already_set();
     // Disallow out-of-bounds things.
     if (stop >= self.nbDims)
-        throw py::index_error();
+    {
+        utils::throwPyIndexError(); // See definition of throwPyIndexError() for details
+    }
 
     for (int i = start, index = 0; i < stop; i += step, ++index)
         self.d[i] = other.d[index];

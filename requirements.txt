@@ -4,7 +4,7 @@ tensorflow-gpu==2.5.1; (platform_machine=="x86_64" and sys.platform=="linux")
 onnxruntime==1.8.1
 -f https://download.pytorch.org/whl/cu113/torch_stable.html
 torch==1.10.2+cu113
-Pillow==8.3.2
+Pillow==9.0.1
 numpy
 pycuda<2021.1
 pytest

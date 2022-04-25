@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -34,7 +35,6 @@ public:
     PillarScatterPlugin() = delete;
     PillarScatterPlugin(const void* data, size_t length);
     PillarScatterPlugin(size_t h, size_t w);
-    PillarScatterPlugin(size_t h, size_t w, size_t channels);
     // IPluginV2DynamicExt Methods
     nvinfer1::IPluginV2DynamicExt* clone() const noexcept override;
     nvinfer1::DimsExprs getOutputDimensions(int outputIndex, 
@@ -68,8 +68,6 @@ public:
 
 private:
     std::string mNamespace;
-    // the num -- output channels size of the 2D backbone network
-    size_t featureNum_;
     // the y -- output size of the 2D backbone network
     size_t feature_y_size_;
     // the x -- output size of the 2D backbone network

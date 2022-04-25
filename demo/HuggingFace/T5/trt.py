@@ -1,11 +1,12 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -455,10 +456,10 @@ class T5TRT(TRTInferenceCommand):
 
             self.t5_trt_encoder_engine = T5EncoderONNXFile(
                 encoder_onnx_fpath, metadata
-            ).as_trt_engine(encoder_onnx_fpath + ".engine", batch_size=batch_size)
+            ).as_trt_engine(encoder_onnx_fpath + "-bs{}.engine".format(batch_size), batch_size=batch_size)
             self.t5_trt_decoder_engine = T5DecoderONNXFile(
                 decoder_onnx_fpath, metadata
-            ).as_trt_engine(decoder_onnx_fpath + ".engine", batch_size=batch_size)
+            ).as_trt_engine(decoder_onnx_fpath + "-bs{}.engine".format(batch_size), batch_size=batch_size)
             tfm_config = T5Config(
                 use_cache=metadata.other.kv_cache,
                 num_layers=T5ModelTRTConfig.NUMBER_OF_LAYERS[metadata.variant],

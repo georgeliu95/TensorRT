@@ -1,11 +1,12 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -164,6 +165,12 @@ class GPT2Converter(ModelFileConverter):
         ]
 
         # Exports to ONNX
+        opt_args={}
+
+        version_major = int((torch.__version__).split('.')[0])
+        version_minor = int((torch.__version__).split('.')[1])
+        if version_major < 1 or (version_major == 1 and version_minor < 11):
+            opt_args['use_external_data_format'] = True
         torch.onnx._export(
             gpt2_model,
             input_ids,
@@ -176,6 +183,6 @@ class GPT2Converter(ModelFileConverter):
                 **outputs.get_torch_dynamic_axis_encoding(),
             },
             training=False,
-            use_external_data_format=True
+            **opt_args
         )
         return GPT2ONNXFile(output_fpath, network_metadata)

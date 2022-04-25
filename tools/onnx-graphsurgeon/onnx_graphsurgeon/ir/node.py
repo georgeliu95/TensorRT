@@ -1,11 +1,12 @@
 #
-# Copyright (c) 2021, NVIDIA CORPORATION. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -90,8 +91,14 @@ class Node(object):
     def __setattr__(self, name, value):
         if name in ["inputs", "outputs"]:
             try:
-                getattr(self, name).clear()
-                getattr(self, name).extend(value)
+                attr = getattr(self, name)
+                if value is attr:
+                    # This can happen when using things like +=
+                    # The __iadd__ is executed followed by an assignment
+                    return
+
+                attr.clear()
+                attr.extend(value)
             except AttributeError:
                 super().__setattr__(name, value)
         else:
