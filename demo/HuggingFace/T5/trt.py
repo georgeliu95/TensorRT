@@ -32,6 +32,9 @@ if __name__ == "__main__":
 # numpy
 import numpy as np
 
+# TensorRT
+import tensorrt as trt
+
 # torch
 import torch
 
@@ -40,9 +43,6 @@ from transformers import T5Tokenizer, T5Config
 from transformers.modeling_outputs import Seq2SeqLMOutput
 from transformers.configuration_utils import PretrainedConfig
 from transformers.generation_utils import GenerationMixin
-
-# TensorRT
-import tensorrt as trt
 
 # TRT-HuggingFace
 from NNDF.interface import TRTInferenceCommand
