@@ -113,7 +113,7 @@ void MultiscaleDeformableAttnPlugin::configurePlugin(const nvinfer1::DynamicPlug
     PLUGIN_ASSERT(inputs[3].desc.dims.d[4] == inputs[4].desc.dims.d[4]);
 
     // Check Lq dimensions consistency
-    ASSERT(inputs[3].desc.dims.d[1] == inputs[4].desc.dims.d[1]);
+    PLUGIN_ASSERT(inputs[3].desc.dims.d[1] == inputs[4].desc.dims.d[1]);
 }
 
 size_t MultiscaleDeformableAttnPlugin::getWorkspaceSize(const nvinfer1::PluginTensorDesc* inputs, int nbInputs,
