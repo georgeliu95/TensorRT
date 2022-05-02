@@ -2122,7 +2122,7 @@ cudaError_t MultilevelPropose(cudaStream_t stream, int N, int inputCnt, int samp
     }
     else
     {
-        assert(false && "unsupported sortPerClass");
+        PLUGIN_FAIL("Unsupported sortPerClass");
         return cudaErrorLaunchFailure;
     }
     PLUGIN_CUASSERT(cudaGetLastError());
