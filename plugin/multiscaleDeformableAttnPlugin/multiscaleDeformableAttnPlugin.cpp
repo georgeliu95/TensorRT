@@ -65,8 +65,8 @@ nvinfer1::DimsExprs MultiscaleDeformableAttnPlugin::getOutputDimensions(int outp
 bool MultiscaleDeformableAttnPlugin::supportsFormatCombination(
     int pos, const nvinfer1::PluginTensorDesc* inOut, int nbInputs, int nbOutputs) PLUGIN_NOEXCEPT
 {
-    ASSERT((nbInputs == 5));
-    ASSERT((nbOutputs == 1));
+    PLUGIN_ASSERT((nbInputs == 5));
+    PLUGIN_ASSERT((nbOutputs == 1));
 
     if (inOut[pos].format == nvinfer1::TensorFormat::kLINEAR)
     {
@@ -94,26 +94,26 @@ void MultiscaleDeformableAttnPlugin::configurePlugin(const nvinfer1::DynamicPlug
     const nvinfer1::DynamicPluginTensorDesc* outputs, int nbOutputs) PLUGIN_NOEXCEPT
 {
     // Check for valid input dimensions
-    ASSERT(inputs[0].desc.dims.nbDims==4);
-    ASSERT(inputs[1].desc.dims.nbDims==2);
-    ASSERT(inputs[2].desc.dims.nbDims==1);
-    ASSERT(inputs[3].desc.dims.nbDims==6);
-    ASSERT(inputs[4].desc.dims.nbDims==5);
+    PLUGIN_ASSERT(inputs[0].desc.dims.nbDims==4);
+    PLUGIN_ASSERT(inputs[1].desc.dims.nbDims==2);
+    PLUGIN_ASSERT(inputs[2].desc.dims.nbDims==1);
+    PLUGIN_ASSERT(inputs[3].desc.dims.nbDims==6);
+    PLUGIN_ASSERT(inputs[4].desc.dims.nbDims==5);
     
     // Check M dimensions consistency
-    ASSERT(inputs[0].desc.dims.d[2] == inputs[3].desc.dims.d[2]);
-    ASSERT(inputs[0].desc.dims.d[2] == inputs[4].desc.dims.d[2]);
+    PLUGIN_ASSERT(inputs[0].desc.dims.d[2] == inputs[3].desc.dims.d[2]);
+    PLUGIN_ASSERT(inputs[0].desc.dims.d[2] == inputs[4].desc.dims.d[2]);
 
     // Check L dimensions consistency
-    ASSERT(inputs[1].desc.dims.d[0] == inputs[2].desc.dims.d[0]);
-    ASSERT(inputs[1].desc.dims.d[0] == inputs[3].desc.dims.d[3]);
-    ASSERT(inputs[1].desc.dims.d[0] == inputs[4].desc.dims.d[3]);
+    PLUGIN_ASSERT(inputs[1].desc.dims.d[0] == inputs[2].desc.dims.d[0]);
+    PLUGIN_ASSERT(inputs[1].desc.dims.d[0] == inputs[3].desc.dims.d[3]);
+    PLUGIN_ASSERT(inputs[1].desc.dims.d[0] == inputs[4].desc.dims.d[3]);
 
     // Check P dimensions consistency
-    ASSERT(inputs[3].desc.dims.d[4] == inputs[4].desc.dims.d[4]);
+    PLUGIN_ASSERT(inputs[3].desc.dims.d[4] == inputs[4].desc.dims.d[4]);
 
     // Check Lq dimensions consistency
-    ASSERT(inputs[3].desc.dims.d[1] == inputs[4].desc.dims.d[1]);
+    PLUGIN_ASSERT(inputs[3].desc.dims.d[1] == inputs[4].desc.dims.d[1]);
 }
 
 size_t MultiscaleDeformableAttnPlugin::getWorkspaceSize(const nvinfer1::PluginTensorDesc* inputs, int nbInputs,
