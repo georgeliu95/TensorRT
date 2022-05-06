@@ -136,7 +136,7 @@ class EngineBuilder:
         Parse the ONNX graph and create the corresponding TensorRT network definition.
         :param onnx_path: The path to the ONNX graph to load.
         """
-        network_flags = (1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
+        network_flags = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
 
         self.network = self.builder.create_network(network_flags)
         self.parser = trt.OnnxParser(self.network, self.trt_logger)
@@ -161,8 +161,16 @@ class EngineBuilder:
         assert self.batch_size > 0
         self.builder.max_batch_size = self.batch_size
 
-    def create_engine(self, engine_path, precision, calib_input=None, calib_cache=None, calib_num_images=25000,
-                      calib_batch_size=8, calib_preprocessor=None):
+    def create_engine(
+        self,
+        engine_path,
+        precision,
+        calib_input=None,
+        calib_cache=None,
+        calib_num_images=25000,
+        calib_batch_size=8,
+        calib_preprocessor=None,
+    ):
         """
         Build the TensorRT engine and serialize it to disk.
         :param engine_path: The path where to serialize the engine to.
@@ -195,8 +203,15 @@ class EngineBuilder:
                     calib_shape = [calib_batch_size] + list(inputs[0].shape[1:])
                     calib_dtype = trt.nptype(inputs[0].dtype)
                     self.config.int8_calibrator.set_image_batcher(
-                        ImageBatcher(calib_input, calib_shape, calib_dtype, max_num_images=calib_num_images,
-                                     exact_batches=True, preprocessor=calib_preprocessor))
+                        ImageBatcher(
+                            calib_input,
+                            calib_shape,
+                            calib_dtype,
+                            max_num_images=calib_num_images,
+                            exact_batches=True,
+                            preprocessor=calib_preprocessor,
+                        )
+                    )
 
         with self.builder.build_engine(self.network, self.config) as engine, open(engine_path, "wb") as f:
             log.info("Serializing engine to file: {:}".format(engine_path))
@@ -206,26 +221,50 @@ class EngineBuilder:
 def main(args):
     builder = EngineBuilder(args.verbose)
     builder.create_network(args.onnx)
-    builder.create_engine(args.engine, args.precision, args.calib_input, args.calib_cache, args.calib_num_images,
-                          args.calib_batch_size, args.calib_preprocessor)
+    builder.create_engine(
+        args.engine,
+        args.precision,
+        args.calib_input,
+        args.calib_cache,
+        args.calib_num_images,
+        args.calib_batch_size,
+        args.calib_preprocessor,
+    )
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("-o", "--onnx", help="The input ONNX model file to load")
     parser.add_argument("-e", "--engine", help="The output path for the TRT engine")
-    parser.add_argument("-p", "--precision", default="fp16", choices=["fp32", "fp16", "int8"],
-                        help="The precision mode to build in, either 'fp32', 'fp16' or 'int8', default: 'fp16'")
+    parser.add_argument(
+        "-p",
+        "--precision",
+        default="fp16",
+        choices=["fp32", "fp16", "int8"],
+        help="The precision mode to build in, either 'fp32', 'fp16' or 'int8', default: 'fp16'",
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable more verbose log output")
     parser.add_argument("--calib_input", help="The directory holding images to use for calibration")
-    parser.add_argument("--calib_cache", default="./calibration.cache",
-                        help="The file path for INT8 calibration cache to use, default: ./calibration.cache")
-    parser.add_argument("--calib_num_images", default=25000, type=int,
-                        help="The maximum number of images to use for calibration, default: 25000")
-    parser.add_argument("--calib_batch_size", default=8, type=int,
-                        help="The batch size for the calibration process, default: 1")
-    parser.add_argument("--calib_preprocessor", default="V2", choices=["V1", "V1MS", "V2"],
-                        help="Set the calibration image preprocessor to use, either 'V2', 'V1' or 'V1MS', default: V2")
+    parser.add_argument(
+        "--calib_cache",
+        default="./calibration.cache",
+        help="The file path for INT8 calibration cache to use, default: ./calibration.cache",
+    )
+    parser.add_argument(
+        "--calib_num_images",
+        default=25000,
+        type=int,
+        help="The maximum number of images to use for calibration, default: 25000",
+    )
+    parser.add_argument(
+        "--calib_batch_size", default=8, type=int, help="The batch size for the calibration process, default: 1"
+    )
+    parser.add_argument(
+        "--calib_preprocessor",
+        default="V2",
+        choices=["V1", "V1MS", "V2"],
+        help="Set the calibration image preprocessor to use, either 'V2', 'V1' or 'V1MS', default: V2",
+    )
     args = parser.parse_args()
     if not all([args.onnx, args.engine]):
         parser.print_help()
