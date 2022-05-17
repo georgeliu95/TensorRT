@@ -1,5 +1,25 @@
 # TensorRT OSS Release Changelog
 
+## [22.05](https://github.com/NVIDIA/TensorRT/releases/tag/22.05) - 2022-05-13
+### Added
+- Disentangled attention plugin for DeBERTa
+- DMHA (multiscaleDeformableAttnPlugin) plugin for DDETR
+- Performance benchmarking mode to HuggingFace demo
+
+### Changed
+- Updated base TensorRT version to 8.2.5.1
+- Updated onnx-graphsurgeon v0.3.19 [CHANGELOG](tools/onnx-graphsurgeon/CHANGELOG.md)
+- fp16 support for pillarScatterPlugin
+- [#1939](https://github.com/NVIDIA/TensorRT/issues/i1939) - Fixed path in quantization `classification_flow`
+- Fixed GPT2 onnx export failure due to 2G limitation
+- Use axis0 as default for deconv in pytorch-quantization toolkit
+- Updated onnx export script for CoordConvAC sample
+- Install devtoolset-8 for updated g++ version in CentOS7 container
+
+### Removed
+- Usage of deprecated TensorRT APIs in samples removed
+- `quant_bert.py` module removed from pytorch-quantization
+
 ## [22.04](https://github.com/NVIDIA/TensorRT/releases/tag/22.04) - 2022-04-13
 ### Added
 - TensorRT Engine Explorer v0.1.0 [README](tools/experimental/trt-engine-explorer/README.md)
@@ -14,7 +34,7 @@
 - Fixed `MultilevelCropAndResize` crashes on Windows
 - [#1583](https://github.com/NVIDIA/TensorRT/issues/1583) - sublicense ieee/half.h under Apache2
 - Updated demo/BERT performance tables for rel-8.2
-- Fix python hangs at IndexErrors when when TF is imported after TensorRT
+- [#1774](https://github.com/NVIDIA/TensorRT/issues/1774) Fix python hangs at IndexErrors when TF is imported after TensorRT
 - Various bugfixes in demos - BERT, Tacotron2 and HuggingFace GPT/T5 notebooks
 - Cleaned up sample READMEs
 
