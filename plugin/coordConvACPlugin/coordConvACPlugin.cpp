@@ -145,7 +145,7 @@ void CoordConvACPlugin::destroy() noexcept
 IPluginV2Ext* CoordConvACPlugin::clone() const noexcept
 {
     auto* plugin = new CoordConvACPlugin(iType, iC, iH, iW, oC, oH, oW);
-    plugin->setPluginNamespace(mNamespace.c_str());
+    plugin->setPluginNamespace(mPluginNamespace);
     return plugin;
 }
 
