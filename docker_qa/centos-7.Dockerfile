@@ -12,13 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_VERSION=11.4.2
-ARG OS_VERSION=8
+ARG CUDA_VERSION=11.6.2
+ARG OS_VERSION=7
 
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.4.1.2
+ENV TRT_VERSION 8.4.1.3
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -44,22 +44,16 @@ RUN yum -y install \
     sudo
 
 # Install python3
-RUN yum install -y python3-devel
+RUN yum install -y python36 python3-devel
 
 # Install TensorRT
-RUN if [ "${CUDA_VERSION}" = "10.2" ] ; then \
-    v="${TRT_VERSION%.*}-1.cuda${CUDA_VERSION}" &&\
-    dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo &&\
-    yum -y install libnvinfer8-${v} libnvparsers8-${v} libnvonnxparsers8-${v} libnvinfer-plugin8-${v} \
-        libnvinfer-devel-${v} libnvparsers-devel-${v} libnvonnxparsers-devel-${v} libnvinfer-plugin-devel-${v} \
-        python3-libnvinfer-${v}; \
-else \
-    v="${TRT_VERSION%.*}-1.cuda${CUDA_VERSION%.*}" &&\
-    dnf config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel8/x86_64/cuda-rhel8.repo &&\
-    yum -y install libnvinfer8-${v} libnvparsers8-${v} libnvonnxparsers8-${v} libnvinfer-plugin8-${v} \
-        libnvinfer-devel-${v} libnvparsers-devel-${v} libnvonnxparsers-devel-${v} libnvinfer-plugin-devel-${v} \
-        python3-libnvinfer-${v}; \
-fi
+COPY docker_qa/downloadInternal.py /tmp/downloadInternal.py
+RUN python3 /tmp/downloadInternal.py --cuda $CUDA_VERSION --os 7
+
+# Install dev-toolset-8 for g++ version that supports c++14
+RUN yum -y install centos-release-scl
+RUN yum-config-manager --enable rhel-server-rhscl-7-rpms
+RUN yum -y install devtoolset-8
 
 # Install PyPI packages
 RUN pip3 install --upgrade pip
@@ -79,12 +73,14 @@ RUN cd /tmp && \
 # Download NGC client
 RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.zip && unzip ngccli_cat_linux.zip && chmod u+x ngc && rm ngccli_cat_linux.zip ngc.md5 && echo "no-apikey\nascii\n" | ngc config set
 
-RUN ln -s /usr/bin/python3 /usr/bin/python
+RUN rm /usr/bin/python && ln -s /usr/bin/python3 /usr/bin/python
 
 # Set environment and working directory
 ENV TRT_LIBPATH /usr/lib/x86_64-linux-gnu
 ENV TRT_OSSPATH /workspace/TensorRT
 ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${TRT_OSSPATH}/build/out:${TRT_LIBPATH}"
+# Use devtoolset-8 as default compiler
+ENV PATH="/opt/rh/devtoolset-8/root/bin:${PATH}"
 WORKDIR /workspace
 
 USER trtuser

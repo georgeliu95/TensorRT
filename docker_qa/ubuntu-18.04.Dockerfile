@@ -13,9 +13,9 @@
 # limitations under the License.
 
 ARG CUDA_VERSION=11.6.2
-ARG OS_VERSION=7
+ARG OS_VERSION=18.04
 
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${OS_VERSION}
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
 
 ENV TRT_VERSION 8.4.1.3
@@ -25,54 +25,54 @@ SHELL ["/bin/bash", "-c"]
 ARG uid=1000
 ARG gid=1000
 RUN groupadd -r -f -g ${gid} trtuser && useradd -o -r -l -u ${uid} -g ${gid} -ms /bin/bash trtuser
-RUN usermod -aG wheel trtuser
+RUN usermod -aG sudo trtuser
 RUN echo 'trtuser:nvidia' | chpasswd
 RUN mkdir -p /workspace && chown trtuser /workspace
 
-# Install requried packages
-RUN yum -y groupinstall "Development Tools"
-RUN yum -y install \
-    openssl-devel \
-    bzip2-devel \
-    libffi-devel \
-    zlib-devel \
+# Install requried libraries
+RUN apt-get update && apt-get install -y software-properties-common
+RUN add-apt-repository ppa:ubuntu-toolchain-r/test
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libcurl4-openssl-dev \
     wget \
-    perl-core \
+    zlib1g-dev \
     git \
     pkg-config \
+    sudo \
+    ssh \
+    libssl-dev \
+    pbzip2 \
+    pv \
+    bzip2 \
     unzip \
-    sudo
+    devscripts \
+    lintian \
+    fakeroot \
+    dh-make \
+    build-essential
 
 # Install python3
-RUN yum install -y python36 python3-devel
+RUN apt-get install -y --no-install-recommends \
+      python3 \
+      python3-pip \
+      python3-dev \
+      python3-wheel &&\
+    cd /usr/local/bin &&\
+    ln -s /usr/bin/python3 python &&\
+    ln -s /usr/bin/pip3 pip;
 
 # Install TensorRT
-RUN if [ "${CUDA_VERSION}" = "10.2" ] ; then \
-    v="${TRT_VERSION%.*}-1.cuda${CUDA_VERSION}" &&\
-    yum-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel7/x86_64/cuda-rhel7.repo &&\
-    yum -y install libnvinfer8-${v} libnvparsers8-${v} libnvonnxparsers8-${v} libnvinfer-plugin8-${v} \
-        libnvinfer-devel-${v} libnvparsers-devel-${v} libnvonnxparsers-devel-${v} libnvinfer-plugin-devel-${v} \
-        python3-libnvinfer-${v}; \
-else \
-    v="${TRT_VERSION%.*}-1.cuda${CUDA_VERSION%.*}" &&\
-    yum-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel7/x86_64/cuda-rhel7.repo &&\
-    yum -y install libnvinfer8-${v} libnvparsers8-${v} libnvonnxparsers8-${v} libnvinfer-plugin8-${v} \
-        libnvinfer-devel-${v} libnvparsers-devel-${v} libnvonnxparsers-devel-${v} libnvinfer-plugin-devel-${v} \
-        python3-libnvinfer-${v}; \
-fi 
-
-# Install dev-toolset-8 for g++ version that supports c++14
-RUN yum -y install centos-release-scl
-RUN yum-config-manager --enable rhel-server-rhscl-7-rpms
-RUN yum -y install devtoolset-8
+COPY docker_qa/downloadInternal.py /tmp/downloadInternal.py
+RUN python3 /tmp/downloadInternal.py --cuda $CUDA_VERSION --os 18.04
 
 # Install PyPI packages
 RUN pip3 install --upgrade pip
 RUN pip3 install setuptools>=41.0.0
-RUN pip3 install numpy
 COPY requirements.txt /tmp/requirements.txt
 RUN pip3 install -r /tmp/requirements.txt
 RUN pip3 install jupyter jupyterlab
+# Workaround to remove numpy installed with tensorflow
+RUN pip3 install --upgrade numpy
 
 # Install Cmake
 RUN cd /tmp && \
@@ -84,14 +84,10 @@ RUN cd /tmp && \
 # Download NGC client
 RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.zip && unzip ngccli_cat_linux.zip && chmod u+x ngc && rm ngccli_cat_linux.zip ngc.md5 && echo "no-apikey\nascii\n" | ngc config set
 
-RUN rm /usr/bin/python && ln -s /usr/bin/python3 /usr/bin/python
-
 # Set environment and working directory
 ENV TRT_LIBPATH /usr/lib/x86_64-linux-gnu
 ENV TRT_OSSPATH /workspace/TensorRT
 ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${TRT_OSSPATH}/build/out:${TRT_LIBPATH}"
-# Use devtoolset-8 as default compiler
-ENV PATH="/opt/rh/devtoolset-8/root/bin:${PATH}"
 WORKDIR /workspace
 
 USER trtuser
