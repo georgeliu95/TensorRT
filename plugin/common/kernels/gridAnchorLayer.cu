@@ -18,6 +18,8 @@
 #include "reducedMathPlugin.h"
 #include <iostream>
 
+using namespace nvinfer1;
+using namespace nvinfer1::plugin;
 using nvinfer1::plugin::ReducedDivisor;
 template <unsigned nthdsPerCTA>
 __launch_bounds__(nthdsPerCTA) __global__ void gridAnchorKernel(const GridAnchorParameters param,

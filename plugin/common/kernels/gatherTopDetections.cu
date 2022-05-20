@@ -19,6 +19,8 @@
 #include "cuda_fp16.h"
 #include <array>
 
+using namespace nvinfer1;
+
 inline __device__ __half minus_fb(const __half& a, const __half& b)
 {
 #if __CUDA_ARCH__ >= 530

@@ -25,6 +25,7 @@
 #define NMS_TILES 5
 
 using namespace nvinfer1;
+using namespace nvinfer1::plugin;
 
 template <typename T>
 __device__ float IOU(EfficientNMSParameters param, BoxCorner<T> box1, BoxCorner<T> box2)

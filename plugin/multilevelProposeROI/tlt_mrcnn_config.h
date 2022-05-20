@@ -21,7 +21,6 @@
 #include <string>
 #include <utility>
 #include <vector>
-using namespace nvinfer1;
 
 namespace TLTMaskRCNNConfig
 {
@@ -170,9 +169,9 @@ static const std::vector<std::string> CLASS_NAMES = {
 
 static const std::string MODEL_NAME = "mrcnn_nchw.uff";
 static const std::string MODEL_INPUT = "Input";
-static const Dims3 MODEL_INPUT_SHAPE = IMAGE_SHAPE;
+static const nvinfer1::Dims3 MODEL_INPUT_SHAPE = IMAGE_SHAPE;
 static const std::vector<std::string> MODEL_OUTPUTS = {"generate_detections", "mask_head/mask_fcn_logits/BiasAdd"};
-static const Dims2 MODEL_DETECTION_SHAPE{DETECTION_MAX_INSTANCES, 6};
-static const Dims4 MODEL_MASK_SHAPE{DETECTION_MAX_INSTANCES, NUM_CLASSES, 28, 28};
+static const nvinfer1::Dims2 MODEL_DETECTION_SHAPE{DETECTION_MAX_INSTANCES, 6};
+static const nvinfer1::Dims4 MODEL_MASK_SHAPE{DETECTION_MAX_INSTANCES, NUM_CLASSES, 28, 28};
 } // namespace TLTMaskRCNNConfig
 #endif

@@ -18,6 +18,10 @@
 #include "coordConvACPlugin.h"
 #include <cuda_fp16.h>
 
+namespace nvinfer1
+{
+namespace plugin
+{
 template <typename T_DATA>
 __global__ void kernelCopy(int N, T_DATA* inputs, T_DATA* outputs)
 {
@@ -95,3 +99,5 @@ int CoordConvACPlugin::enqueue(
     }
     return 1;
 }
+} // namespace plugin
+} // namespace nvinfer1

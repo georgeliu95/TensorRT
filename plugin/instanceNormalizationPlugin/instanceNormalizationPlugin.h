@@ -31,7 +31,6 @@ namespace nvinfer1
 {
 namespace plugin
 {
-using namespace instance_norm_impl;
 class InstanceNormalizationPlugin : public nvinfer1::IPluginV2DynamicExt
 {
 
@@ -119,7 +118,7 @@ private:
     bool mInitialized{false};
 
     // NDHWC implementation
-    InstanceNormFwdContext mContext;
+    instance_norm_impl::InstanceNormFwdContext mContext;
 };
 
 class InstanceNormalizationPluginCreator : public nvinfer1::pluginInternal::BaseCreator

@@ -17,7 +17,8 @@
 #include "common/kernel.h"
 #include "cuda_fp16.h"
 #include <array>
-
+using namespace nvinfer1;
+using namespace nvinfer1::plugin;
 // overloading exp for half type
 inline __device__ __half exp(__half a)
 {

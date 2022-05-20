@@ -20,6 +20,7 @@
 #include <math.h>
 #include <stdio.h>
 
+using namespace nvinfer1;
 using std::max;
 using std::min;
 

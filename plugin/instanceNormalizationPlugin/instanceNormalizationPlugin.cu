@@ -21,6 +21,8 @@
 #include <stdexcept>
 
 using namespace nvinfer1;
+using namespace nvinfer1::plugin;
+using namespace instance_norm_impl;
 using nvinfer1::plugin::InstanceNormalizationPlugin;
 using nvinfer1::plugin::InstanceNormalizationPluginV2;
 using nvinfer1::plugin::InstanceNormalizationPluginCreator;
