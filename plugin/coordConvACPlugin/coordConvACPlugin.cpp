@@ -48,6 +48,7 @@ CoordConvACPlugin::CoordConvACPlugin(nvinfer1::DataType iType, int iC, int iH, i
 CoordConvACPlugin::CoordConvACPlugin(const void* data, size_t length)
 {
     const char *d = reinterpret_cast<const char*>(data), *a = d;
+    iType = read<nvinfer1::DataType>(d);
     iC = read<int>(d);
     iH = read<int>(d);
     iW = read<int>(d);
@@ -88,13 +89,14 @@ size_t CoordConvACPlugin::getWorkspaceSize(int maxBatchSize) const noexcept
 
 size_t CoordConvACPlugin::getSerializationSize() const noexcept
 {
-    // iC, iH, iW, oC, oH, oW
-    return sizeof(int) * 6;
+    // iType, iC, iH, iW, oC, oH, oW
+    return sizeof(nvinfer1::DataType) + sizeof(int) * 6;
 }
 
 void CoordConvACPlugin::serialize(void* buffer) const noexcept
 {
     char *d = reinterpret_cast<char*>(buffer), *a = d;
+    write(d, iType);
     write(d, iC);
     write(d, iH);
     write(d, iW);
