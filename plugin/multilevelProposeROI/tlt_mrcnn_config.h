@@ -73,7 +73,7 @@ static const std::vector<std::pair<float, float>> ANCHOR_RATIOS
 // If 2, then anchors are created for every other cell, and so on.
 static const int RPN_ANCHOR_STRIDE = 1;
 
-//  TRT fails if this number larger than MAX_TOPK_K defined in engine/checkMacros.h
+//  TRT fails if this number larger than kMAX_TOPK_K defined in engine/checkMacros.h
 static const int MAX_PRE_NMS_RESULTS = 1000; // 3840;
 
 // Non-max suppression threshold to filter RPN proposals.
