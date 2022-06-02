@@ -16,7 +16,7 @@
 #
 
 """
-Utils specific to T5 network.
+Utils specific to BART network.
 """
 
 # torch
@@ -24,13 +24,18 @@ import torch
 
 # from HuggingFace transformers
 from transformers.generation_logits_process import (
+    NoRepeatNGramLogitsProcessor,
     MinLengthLogitsProcessor,
+    ForcedBOSTokenLogitsProcessor,
+    ForcedEOSTokenLogitsProcessor,
     LogitsProcessorList,
 )
 from transformers.generation_stopping_criteria import (
     MaxLengthCriteria,
     StoppingCriteriaList,
 )
+
+from BART.BartModelConfig import BartModelTRTConfig
 
 # TRT-HuggingFace
 from NNDF.general_utils import measure_python_inference_code
@@ -40,18 +45,18 @@ from NNDF.tensorrt_utils import TRTNativeRunner
 
 @use_cuda
 def decoder_inference(
-    t5_decoder, input_ids, encoder_last_hidden_state, timing_profile, use_cuda=True
+    Bart_decoder, input_ids, encoder_last_hidden_state, timing_profile, use_cuda=True, use_cache=True
 ):
     # This implementation is a bit ugly. Moving implementation of the model to check HFRunner would be cleaner.
-    if isinstance(t5_decoder, TRTNativeRunner):
-        # Function is technically in T5TRTDecoder however due to circular import, TRTNativeRunner in this module scope
+    if isinstance(Bart_decoder, TRTNativeRunner):
+        # Function is technically in BartTRTDecoder however due to circular import, TRTNativeRunner in this module scope
         # implies the existence of this function.
-        t5_decoder.set_encoder_hidden_states_for_inference_cycle(encoder_last_hidden_state)
-        t5_decoder.set_return_device("cuda" if use_cuda else "cpu")
+        Bart_decoder.set_encoder_hidden_states_for_inference_cycle(encoder_last_hidden_state)
+        Bart_decoder.set_return_device("cuda" if use_cuda else "cpu")
 
     def decoder_stmt():
-        t5_decoder(
-            input_ids=input_ids, encoder_hidden_states=encoder_last_hidden_state
+        Bart_decoder(
+            input_ids=input_ids, encoder_hidden_states=encoder_last_hidden_state, use_cache=use_cache
         )
 
     decoder_e2e_median_time = measure_python_inference_code(decoder_stmt, timing_profile)
@@ -60,18 +65,18 @@ def decoder_inference(
 
 
 @use_cuda
-def encoder_inference(t5_encoder, input_ids, timing_profile, use_cuda=True):
-    encoder_stmt = lambda: t5_encoder(input_ids=input_ids)
+def encoder_inference(Bart_encoder, input_ids, timing_profile, use_cuda=True):
+    encoder_stmt = lambda: Bart_encoder(input_ids=input_ids)
     encoder_e2e_median_time = measure_python_inference_code(encoder_stmt, timing_profile)
 
     return (encoder_stmt(), encoder_e2e_median_time)
 
 
-# Code specifically for Pythonic inference measurement used across all T5 related scripts
+# Code specifically for Pythonic inference measurement used across all BART related scripts
 @use_cuda
 def full_inference_greedy(
-    t5_encoder,
-    t5_decoder,
+    Bart_encoder,
+    Bart_decoder,
     input_ids,
     tokenizer,
     timing_profile,
@@ -79,17 +84,20 @@ def full_inference_greedy(
     batch_size=1,
     use_cuda=True,
     early_stopping=True,
+    use_cache=True
 ):
     stopping_criteria = StoppingCriteriaList([MaxLengthCriteria(max_length)])
-    if early_stopping:
-        logits_processor = LogitsProcessorList([])
-    else:
-        logits_processor = LogitsProcessorList([
-            MinLengthLogitsProcessor(max_length, tokenizer.convert_tokens_to_ids(tokenizer.eos_token))
-        ])
+    no_repeat_ngram_size = BartModelTRTConfig.NO_REPEAT_NGRAM_SIZE
+    min_length = BartModelTRTConfig.MIN_OUTPUT_LENGTH[tokenizer.name_or_path] # instead of using metadata.variant (which require passing metadata), I just hacked here to get the variant name from tokenizer
+    logits_processor = LogitsProcessorList([
+        NoRepeatNGramLogitsProcessor(no_repeat_ngram_size), 
+        MinLengthLogitsProcessor(min_length, tokenizer.convert_tokens_to_ids(tokenizer.eos_token)),
+        ForcedBOSTokenLogitsProcessor(tokenizer.convert_tokens_to_ids(tokenizer.bos_token)),
+        ForcedEOSTokenLogitsProcessor(max_length, tokenizer.convert_tokens_to_ids(tokenizer.eos_token))
+    ]) # by checking HuggingFace's generate() implementation carefully, the default logits processor for BART has no_repeat_ngram_size = 3 and forced_eos_token_id = 2. In this way we can get identical results with raw HuggingFace
 
     decoder_input_ids = torch.full(
-        (batch_size, 1), tokenizer.convert_tokens_to_ids(tokenizer.pad_token), dtype=torch.int32
+        (batch_size, 1), tokenizer.convert_tokens_to_ids(tokenizer.eos_token), dtype=torch.int32
     )
 
     if use_cuda:
@@ -99,31 +107,33 @@ def full_inference_greedy(
 
     def _e2e():
         with torch.no_grad():
-            encoder_last_hidden_state = t5_encoder(input_ids=input_ids)
-            decoder_output_greedy = t5_decoder.greedy_search(
+            encoder_last_hidden_state = Bart_encoder(input_ids=input_ids)
+            decoder_output_greedy = Bart_decoder.greedy_search(
                 input_ids=decoder_input_ids,
                 encoder_hidden_states=encoder_last_hidden_state,
                 stopping_criteria=stopping_criteria,
                 logits_processor=logits_processor,
+                use_cache=use_cache
             )
         return decoder_output_greedy
 
     # With e2e we can opt to bind inputs only once for hidden states for optimization
     def _e2e_trt():
         with torch.no_grad():
-            encoder_last_hidden_state = t5_encoder(input_ids=input_ids)
-            t5_decoder.set_encoder_hidden_states_for_inference_cycle(encoder_last_hidden_state)
-            decoder_output_greedy = t5_decoder.greedy_search(
+            encoder_last_hidden_state = Bart_encoder(input_ids=input_ids)
+            Bart_decoder.set_encoder_hidden_states_for_inference_cycle(encoder_last_hidden_state)
+            decoder_output_greedy = Bart_decoder.greedy_search(
                 input_ids=decoder_input_ids,
                 encoder_hidden_states=encoder_last_hidden_state,
                 stopping_criteria=stopping_criteria,
                 logits_processor=logits_processor,
+                use_cache=use_cache
             )
         return decoder_output_greedy
-        
+
     measurement_function = _e2e
-    if isinstance(t5_decoder, TRTNativeRunner):
-        t5_decoder.set_return_device("cuda" if use_cuda else "cpu")
+    if isinstance(Bart_decoder, TRTNativeRunner):
+        Bart_decoder.set_return_device("cuda" if use_cuda else "cpu")
         measurement_function = _e2e_trt
 
     full_e2e_median_time = measure_python_inference_code(measurement_function, timing_profile)
