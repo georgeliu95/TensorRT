@@ -51,12 +51,9 @@ def full_inference_greedy(
         gpt2.set_return_device("cuda" if use_cuda else "cpu")
 
     def _e2e():
-        with torch.no_grad():
-            if not early_stopping:
-                output = gpt2.generate(input_ids, max_length=max_length, batch_size=batch_size)  # greedy search
-            else:
-                output = gpt2.generate(input_ids, min_length=max_length, max_length=max_length, batch_size=batch_size)  # greedy search with fixed length
-        return output
+        if not early_stopping:
+            return gpt2.generate(input_ids, max_length=max_length, batch_size=batch_size)  # greedy search
+        return gpt2.generate(input_ids, min_length=max_length, max_length=max_length, batch_size=batch_size)  # greedy search with fixed length
 
     full_e2e_median_time = measure_python_inference_code(_e2e, timing_profile)
     return (_e2e(), full_e2e_median_time)

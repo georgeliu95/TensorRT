@@ -48,8 +48,8 @@ NetworkCheckpointResult = namedtuple(
 )
 
 # Tracks TRT Precision Config
-"""Precision(fp16: Bool, noTF32: Bool)"""
-Precision = namedtuple("Precision", ["fp16", "noTF32"], defaults=[False, False])
+"""Precision(fp16: Bool)"""
+Precision = namedtuple("Precision", ["fp16"])
 
 """NetworkMetadata(variant: str, precision: Precision, other: Union[namedtuple, None])"""
 NetworkMetadata = namedtuple("NetworkMetadata", ["variant", "precision", "other"])

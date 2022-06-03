@@ -98,29 +98,25 @@ def full_inference_greedy(
         decoder_input_ids = decoder_input_ids.to("cpu")
 
     def _e2e():
-        with torch.no_grad():
-            encoder_last_hidden_state = t5_encoder(input_ids=input_ids)
-            decoder_output_greedy = t5_decoder.greedy_search(
-                input_ids=decoder_input_ids,
-                encoder_hidden_states=encoder_last_hidden_state,
-                stopping_criteria=stopping_criteria,
-                logits_processor=logits_processor,
-            )
-        return decoder_output_greedy
+        encoder_last_hidden_state = t5_encoder(input_ids=input_ids)
+        return t5_decoder.greedy_search(
+            input_ids=decoder_input_ids,
+            encoder_hidden_states=encoder_last_hidden_state,
+            stopping_criteria=stopping_criteria,
+            logits_processor=logits_processor,
+        )
 
     # With e2e we can opt to bind inputs only once for hidden states for optimization
     def _e2e_trt():
-        with torch.no_grad():
-            encoder_last_hidden_state = t5_encoder(input_ids=input_ids)
-            t5_decoder.set_encoder_hidden_states_for_inference_cycle(encoder_last_hidden_state)
-            decoder_output_greedy = t5_decoder.greedy_search(
-                input_ids=decoder_input_ids,
-                encoder_hidden_states=encoder_last_hidden_state,
-                stopping_criteria=stopping_criteria,
-                logits_processor=logits_processor,
-            )
-        return decoder_output_greedy
-        
+        encoder_last_hidden_state = t5_encoder(input_ids=input_ids)
+        t5_decoder.set_encoder_hidden_states_for_inference_cycle(encoder_last_hidden_state)
+        return t5_decoder.greedy_search(
+            input_ids=decoder_input_ids,
+            encoder_hidden_states=encoder_last_hidden_state,
+            stopping_criteria=stopping_criteria,
+            logits_processor=logits_processor,
+        )
+
     measurement_function = _e2e
     if isinstance(t5_decoder, TRTNativeRunner):
         t5_decoder.set_return_device("cuda" if use_cuda else "cpu")
