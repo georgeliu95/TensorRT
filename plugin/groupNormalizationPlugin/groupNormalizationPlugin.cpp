@@ -16,6 +16,8 @@
  */
 
 #include "groupNormalizationPlugin.h"
+#include "common/dimsHelpers.h"
+
 #include <numeric>
 #include <stdexcept>
 
@@ -118,8 +120,7 @@ int GroupNormalizationPlugin::enqueue(const nvinfer1::PluginTensorDesc* inputDes
     // Calculate size of each group
     int groupSize = nbChannels / mNbGroups;
 
-    mChannelVolume
-        = std::accumulate(input_dims.d + 2, input_dims.d + inputDesc[0].dims.nbDims, 1, std::multiplies<int>());
+    mChannelVolume = pluginInternal::volume(input_dims, /*start*/ 2, /*stop*/ inputDesc[0].dims.nbDims);
 
     PLUGIN_CHECK_CUDNN(cudnnSetTensor4dDescriptor(desc, // descriptor
         CUDNN_TENSOR_NCHW,                              // tensor format
@@ -156,7 +157,8 @@ int GroupNormalizationPlugin::enqueue(const nvinfer1::PluginTensorDesc* inputDes
         ));
 
     float* output = static_cast<float*>(outputs[0]);
-    return scaleShiftChannelsInplace(output, batchSize, nbChannels, mChannelVolume, static_cast<const float*>(inputs[2]), static_cast<const float*>(inputs[1]), stream); //mBetaDev, mGammaDev,    
+    return scaleShiftChannelsInplace(output, batchSize, nbChannels, mChannelVolume,
+        static_cast<float const*>(inputs[2]), static_cast<float const*>(inputs[1]), stream); // mBetaDev, mGammaDev,
 }
 
 size_t GroupNormalizationPlugin::getSerializationSize() const noexcept

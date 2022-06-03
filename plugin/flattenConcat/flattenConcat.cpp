@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 #include "flattenConcat.h"
+#include "common/dimsHelpers.h"
+
 #include <algorithm>
 #include <cstring>
 #include <cudnn.h>
@@ -145,7 +147,7 @@ int FlattenConcat::enqueue(
     {
         PLUGIN_ASSERT(mConcatAxisID != 0);
         // mCHW is the first input tensor
-        int numConcats = std::accumulate(mCHW.d, mCHW.d + mConcatAxisID - 1, 1, std::multiplies<int>());
+        auto numConcats = static_cast<int32_t>(pluginInternal::volume(mCHW, /*start*/ 0, /*stop*/ mConcatAxisID - 1));
 
         // Num concats will be proportional to number of samples in a batch
         if (!mIgnoreBatch)
