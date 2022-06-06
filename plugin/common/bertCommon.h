@@ -140,7 +140,7 @@ inline int64_t getWeightsSize(const nvinfer1::Weights& w, nvinfer1::DataType typ
 
 inline int64_t volume(const nvinfer1::Dims& d)
 {
-    return std::accumulate(d.d, d.d + d.nbDims, 1, std::multiplies<int64_t>());
+    return std::accumulate(d.d, d.d + d.nbDims, int64_t{1}, std::multiplies<int64_t>{});
 }
 
 template <typename IntType>
