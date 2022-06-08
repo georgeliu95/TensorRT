@@ -19,3 +19,6 @@
 [submodule "tools/pytorch-quantization"]
 	path = tools/pytorch-quantization
 	url = https://gitlab-master.nvidia.com/TensorRT/Tools/pytorch-quantization.git
+[submodule "tools/tensorflow-quantization"]
+	path = tools/tensorflow-quantization
+	url = https://gitlab-master.nvidia.com/TensorRT/Tools/tensorflow-quantization.git
