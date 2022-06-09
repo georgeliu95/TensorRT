@@ -35,7 +35,7 @@ DEB_PACKAGES_UBUNTU=[
     "python3-libnvinfer_8.4.1-1{ext}",
 ]
 
-ROOT_URL = "http://cuda-repo/release-candidates/Libraries/TensorRT/v8.4/8.4.1.4-1056a48d/"
+ROOT_URL = "http://cuda-repo/release-candidates/Libraries/TensorRT/v8.4/8.4.1.5-01a2da81/"
 
 def get_cuda_props(cuda_ver):
     assert len(cuda_ver) >= 4
