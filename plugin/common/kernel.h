@@ -19,10 +19,10 @@
 #define TRT_KERNEL_H
 
 #include "common/plugin.h"
-#include "cublas_v2.h"
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
+#include <cublas_v2.h>
 
 using namespace nvinfer1;
 using namespace nvinfer1::plugin;
