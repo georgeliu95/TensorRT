@@ -181,6 +181,7 @@ struct nmsOutLaunchConfig
     nmsOutLaunchConfig(DataType t_bbox, DataType t_score)
         : t_bbox(t_bbox)
         , t_score(t_score)
+        , function(nullptr)
     {
     }
     nmsOutLaunchConfig(DataType t_bbox, DataType t_score, nmsOutFunc function)

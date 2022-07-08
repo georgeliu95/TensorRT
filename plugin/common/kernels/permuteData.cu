@@ -67,6 +67,7 @@ struct pdLaunchConfig
 
     pdLaunchConfig(DataType t_data)
         : t_data(t_data)
+        , function(nullptr)
     {
     }
     pdLaunchConfig(DataType t_data, pdFunc function)

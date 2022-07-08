@@ -335,6 +335,7 @@ struct dbbLaunchConfig
 
     dbbLaunchConfig(DataType t_bbox)
         : t_bbox(t_bbox)
+        , function(nullptr)
     {
     }
     dbbLaunchConfig(DataType t_bbox, dbbFunc function)

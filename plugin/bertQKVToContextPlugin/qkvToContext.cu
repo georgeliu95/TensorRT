@@ -622,6 +622,9 @@ public:
         : interface(interface)
         , sm(interface->mSm)
         , xmmaKernel(getXMMAKernels(DATA_TYPE_FP16, sm))
+        , xmmas_m(0U)
+        , xmmas_n(0U)
+        , threads_per_cta(1U)
     {
     }
 
@@ -764,6 +767,9 @@ public:
         , sm(interface->mSm)
         , xmmaKernel(getXMMAKernels(DATA_TYPE_INT8, sm))
         , mDqProbs(interface->mDqProbs)
+        , xmmas_m(0U)
+        , xmmas_n(0U)
+        , threads_per_cta(1U)
     {
     }
 
@@ -1064,6 +1070,9 @@ public:
         , sm(interface->mSm)
         , xmmaKernel(getXMMAKernelsV2(DATA_TYPE_INT8, sm))
         , mDqProbs(interface->mDqProbs)
+        , xmmas_m(0U)
+        , xmmas_n(0U)
+        , threads_per_cta(1U)
     {
         assert((sm == kSM_72 || sm == kSM_75 || sm == kSM_80 || sm == kSM_86 || sm == kSM_87)
             && "Unsupported architecture");

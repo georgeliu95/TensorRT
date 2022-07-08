@@ -350,6 +350,7 @@ struct nmsLaunchConfigSSD
     nmsLaunchConfigSSD(DataType t_score, DataType t_bbox)
         : t_score(t_score)
         , t_bbox(t_bbox)
+        , function(nullptr)
     {
     }
     nmsLaunchConfigSSD(DataType t_score, DataType t_bbox, nmsFunc function)

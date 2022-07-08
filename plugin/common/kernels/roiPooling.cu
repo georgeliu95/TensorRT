@@ -253,18 +253,15 @@ struct roiFwdLaunchConfig
     bool inferOnly;
     roiFwd function;
 
-    roiFwdLaunchConfig(DataType t_rois,
-                       DataType t_featureMap,
-                       DLayout_t l_featureMap,
-                       DataType t_top,
-                       DLayout_t l_top,
-                       bool inferOnly)
+    roiFwdLaunchConfig(
+        DataType t_rois, DataType t_featureMap, DLayout_t l_featureMap, DataType t_top, DLayout_t l_top, bool inferOnly)
         : t_rois(t_rois)
         , t_featureMap(t_featureMap)
         , l_featureMap(l_featureMap)
         , t_top(t_top)
         , l_top(l_top)
         , inferOnly(inferOnly)
+        , function(nullptr)
     {
     }
 

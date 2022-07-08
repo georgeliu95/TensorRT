@@ -159,6 +159,7 @@ struct gtdLaunchConfig
     gtdLaunchConfig(DataType t_bbox, DataType t_score)
         : t_bbox(t_bbox)
         , t_score(t_score)
+        , function(nullptr)
     {
     }
     gtdLaunchConfig(DataType t_bbox, DataType t_score, gtdFunc function)
