@@ -640,9 +640,9 @@ public:
     {
         // TODO these implementation details might be better centralized into the XMMA code, since they are needed in
         // several places (also outside of this plugin)
-        size_t warps_m{};
-        size_t warps_n{};
-        size_t warps_k = 1;
+        size_t warps_m{1U};
+        size_t warps_n{1U};
+        size_t warps_k{1U};
         if (S == 64 || S == 96 || S == 128)
         {
             warps_m = 2;
@@ -779,9 +779,9 @@ public:
 
     void setup(const int S, const int B)
     {
-        size_t warps_m{};
-        size_t warps_n{};
-        size_t warps_k = 1;
+        size_t warps_m{1U};
+        size_t warps_n{1U};
+        size_t warps_k{1U};
         if (S == 128)
         {
             warps_m = 2;
@@ -927,9 +927,9 @@ public:
     {
         // TODO these implementation details might be better centralized into the XMMA code, since they are needed in
         // several places (also outside of this plugin)
-        size_t warps_m{};
-        size_t warps_n{};
-        size_t warps_k = 1;
+        size_t warps_m{1U};
+        size_t warps_n{1U};
+        size_t warps_k{1U};
         if (S == 64 || S == 96 || S == 128)
         {
             warps_m = 2;
@@ -1082,9 +1082,9 @@ public:
 
     void setup(const int S, const int B)
     {
-        size_t warps_m{};
-        size_t warps_n{};
-        size_t warps_k = 1;
+        size_t warps_m{1U};
+        size_t warps_n{1U};
+        size_t warps_k{1U};
         if (S == 128)
         {
             warps_m = 2;
