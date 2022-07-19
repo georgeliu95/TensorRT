@@ -22,3 +22,6 @@
 [submodule "tools/tensorflow-quantization"]
 	path = tools/tensorflow-quantization
 	url = https://gitlab-master.nvidia.com/TensorRT/Tools/tensorflow-quantization.git
+[submodule "tools/polygraphy-extension-trtexec"]
+	path = tools/polygraphy-extension-trtexec
+	url = https://gitlab-master.nvidia.com/TensorRT/Tools/polygraphy-extension-trtexec.git
