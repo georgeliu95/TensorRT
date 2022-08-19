@@ -248,14 +248,25 @@ inline void caughtError(const std::exception& e)
         }                                                                                                              \
     }
 
+#define GET_MACRO(_1, _2, NAME, ...) NAME
+#define PLUGIN_VALIDATE(...) GET_MACRO(__VA_ARGS__, PLUGIN_VALIDATE_MSG, PLUGIN_VALIDATE_DEFAULT, )(__VA_ARGS__)
+
 // Logs failed condition and throws a PluginError.
 // PLUGIN_ASSERT will eventually perform this function, at which point PLUGIN_VALIDATE
 // will be removed.
-#define PLUGIN_VALIDATE(condition)                                                                                        \
+#define PLUGIN_VALIDATE_DEFAULT(condition)                                                                             \
     {                                                                                                                  \
         if (!(condition))                                                                                              \
         {                                                                                                              \
-            nvinfer1::plugin::throwPluginError(__FILE__, FN_NAME, __LINE__, 0, #condition);                               \
+            nvinfer1::plugin::throwPluginError(__FILE__, FN_NAME, __LINE__, 0, #condition);                            \
+        }                                                                                                              \
+    }
+
+#define PLUGIN_VALIDATE_MSG(condition, msg)                                                                            \
+    {                                                                                                                  \
+        if (!(condition))                                                                                              \
+        {                                                                                                              \
+            nvinfer1::plugin::throwPluginError(__FILE__, FN_NAME, __LINE__, 0, msg);                                   \
         }                                                                                                              \
     }
 
