@@ -24,6 +24,7 @@ from onnx_graphsurgeon.ir.graph import Graph
 from onnx_graphsurgeon.ir.node import Node
 from onnx_graphsurgeon.ir.tensor import Constant, LazyValues, Variable
 from onnx_graphsurgeon.logger.logger import G_LOGGER
+from onnx_graphsurgeon.util import misc
 from onnx_graphsurgeon.util.exception import OnnxGraphSurgeonException
 from onnx_graphsurgeon.util.misc import SynchronizedList
 from onnx_models import const_foldable, shape_cast_elision
@@ -106,6 +107,13 @@ def if_op(self, cond, then_graph, else_graph):
     return self.layer(
         op="If", inputs=[cond], outputs=["if_out"], attrs={"then_branch": then_graph, "else_branch": else_graph}
     )[0]
+
+
+@gs.Graph.register()
+def tile(self, inp, repeats):
+    out = self.layer(op="Tile", inputs=[inp, repeats], outputs=["tile_out"])[0]
+    out.dtype = inp.dtype
+    return out
 
 
 # Generates a graph where an outer node has no outputs except
@@ -1193,6 +1201,101 @@ class TestFoldConstants(object):
 
         graph.fold_constants()
         assert graph.nodes[0].op == "Identity"
+
+    @pytest.mark.parametrize(
+        # If layer1_num_bytes is larger than layer0_num_bytes, then it must be a multiple.
+        "size_threshold, layer0_num_bytes, layer0_should_fold, layer1_num_bytes, layer1_should_fold",
+        [
+            # No size threshold - everything should fold.
+            (
+                None,
+                2,
+                True,
+                4,
+                True,
+            ),
+            # Monotonically increasing but under size threshold - everything should fold.
+            (
+                8,
+                2,
+                True,
+                4,
+                True,
+            ),
+            # Increasing then decreasing, but under size threshold - everything should fold.
+            (
+                8,
+                2,
+                True,
+                1,
+                True,
+            ),
+            # All tensors over size threshold - nothing should fold.
+            (
+                1,
+                2,
+                False,
+                4,
+                False,
+            ),
+            # Second tensor over size threshold - only first tensor should fold.
+            (
+                3,
+                2,
+                True,
+                4,
+                False,
+            ),
+            # First tensor over size threshold - second tensor should still fold.
+            (
+                3,
+                4,
+                False,
+                2,
+                True,
+            ),
+        ],
+    )
+    @pytest.mark.parametrize("push_into_subgraph", [True, False], ids=["subgraph", ""])
+    def test_folding_size_threshold(
+        self,
+        size_threshold,
+        layer0_num_bytes,
+        layer0_should_fold,
+        layer1_num_bytes,
+        layer1_should_fold,
+        push_into_subgraph,
+    ):
+        graph = Graph()
+
+        shape = (1,)
+
+        layer0_repeats = layer0_num_bytes // misc.volume(shape)
+        layer0 = graph.tile(np.ones(shape, dtype=np.int8), repeats=[layer0_repeats])
+        layer0.inputs[0].name = "Layer0"
+
+        if layer1_num_bytes > layer0_num_bytes:
+            layer1_repeats = layer1_num_bytes // layer0_num_bytes
+            layer1 = graph.tile(layer0, repeats=[layer1_repeats])
+        else:
+            layer1 = graph.slice(layer0, starts=[0], ends=[layer1_num_bytes])
+        layer1.inputs[0].name = "Layer1"
+
+        graph.outputs = [layer1]
+
+        # Make sure size_threshold option is propagated into subgraphs.
+        if push_into_subgraph:
+            cond = gs.Variable("cond", dtype=np.bool, shape=tuple())
+            outer_graph = Graph(inputs=[cond])
+            outer_graph.if_op(cond, then_graph=graph, else_graph=graph)
+
+            outer_graph.fold_constants(size_threshold=size_threshold)
+        else:
+            graph.fold_constants(size_threshold=size_threshold)
+
+        # When a tensor is folded, it is disconnected from its producer nodes
+        assert len(graph.nodes[0].outputs) == (0 if layer0_should_fold else 1)
+        assert len(graph.nodes[1].outputs) == (0 if layer1_should_fold else 1)
 
 
 class TestIO(object):

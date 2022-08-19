@@ -2,6 +2,12 @@
 
 Dates are in YYYY-MM-DD format.
 
+## v0.3.21 (2022-08-19)
+### Added
+- Added a `size_threshold` option in `fold_constants` which allows for disabling constant folding
+    for nodes which would generate tensors larger than the given size.
+
+
 ## v0.3.20 (2022-07-12)
 ### Fixed
 - Fixed a bug where shape tensor cast elision would sometimes fail when the Cast input had a type of int64.
