@@ -22,7 +22,7 @@ from typing import Sequence
 import numpy as np
 from onnx_graphsurgeon.ir.node import Node
 from onnx_graphsurgeon.ir.tensor import Constant, Tensor, Variable
-from onnx_graphsurgeon.logger import G_LOGGER
+from onnx_graphsurgeon.logger import G_LOGGER, LogMode
 from onnx_graphsurgeon.util import misc
 
 
@@ -469,7 +469,13 @@ class Graph(object):
         return tensor_map
 
     def fold_constants(
-        self, fold_shapes=True, recurse_subgraphs=True, partitioning=None, error_ok=True, flatten_subgraphs=True
+        self,
+        fold_shapes=True,
+        recurse_subgraphs=True,
+        partitioning=None,
+        error_ok=True,
+        flatten_subgraphs=True,
+        size_threshold=None,
     ):
         """
         Folds constants in-place in the graph. The graph must be topologically sorted prior to
@@ -503,17 +509,26 @@ class Graph(object):
                     Defaults to None.
             error_ok (bool):
                     Whether inference errors should be suppressed.
-                    When this is enabled, any errors encountered during inference will be re-raised.
+                    When this is False, any errors encountered during inference will be re-raised.
                     Defaults to True.
             flatten_subgraphs (bool):
                     Whether to flatten subgraphs where possible. For example, `If` nodes with a constant condition
                     can be flattened into the parent graph.
+            size_threshold (int):
+                    The maximum size threshold, in bytes, for which to fold constants.
+                    Any tensors larger than this value will not be folded.
+                    Set to ``None`` to disable the size threshold and always fold constants.
+                    For example, some models may apply ops like `Tile` or `Expand` to constants, which can
+                    result in very large tensors. Rather than pre-computing those constants and bloating
+                    the model size, it may be desirable to skip folding them and allow them to be computed
+                    at runtime.
+                    Defaults to None.
 
         Returns:
             self
         """
         import onnxruntime as rt
-        from onnx_graphsurgeon.exporters.onnx_exporter import export_onnx, dtype_to_onnx
+        from onnx_graphsurgeon.exporters.onnx_exporter import dtype_to_onnx, export_onnx
 
         PARTITIONING_MODES = [None, "basic", "recursive"]
         if partitioning not in PARTITIONING_MODES:
@@ -886,16 +901,40 @@ class Graph(object):
             graph_tensors = self.tensors()
             for name, values in constant_values.items():
                 tensor = graph_tensors[name]
-                if not isinstance(tensor, Constant):
-                    tensor.to_constant(values)
-                    tensor.inputs.clear()  # Constants do not need inputs
+                if isinstance(tensor, Constant):
+                    # No need to fold tensors that are already constant.
+                    continue
+
+                if size_threshold is not None and values.nbytes > size_threshold:
+                    G_LOGGER.verbose(
+                        "Will not fold: '{:}' since its size in bytes ({:}) exceeds the size threshold ({:})".format(
+                            name, values.nbytes, size_threshold
+                        )
+                    )
+                    continue
+                elif size_threshold is None and values.nbytes > (16 << 20):
+                    G_LOGGER.warning(
+                        "It looks like this model contains foldable nodes that produce large outputs (>16MiB).\n"
+                        "In order to avoid bloating the model, you may want to set a constant-folding size threshold.",
+                        mode=LogMode.ONCE,
+                    )
+
+                tensor.to_constant(values)
+                tensor.inputs.clear()  # Constants do not need inputs
 
         # Folding subgraphs after the outer graph can lead to better folding.
         def fold_subgraphs():
             for node in self.nodes:
                 for attr in node.attrs.values():
                     if isinstance(attr, Graph):
-                        attr.fold_constants(fold_shapes=fold_shapes, partitioning=partitioning)
+                        attr.fold_constants(
+                            fold_shapes=fold_shapes,
+                            recurse_subgraphs=recurse_subgraphs,
+                            partitioning=partitioning,
+                            error_ok=error_ok,
+                            flatten_subgraphs=flatten_subgraphs,
+                            size_threshold=size_threshold,
+                        )
 
         if recurse_subgraphs:
             fold_subgraphs()
