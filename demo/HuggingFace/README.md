@@ -24,6 +24,8 @@ Follow the setup steps in the TensorRT OSS repository, and then install the addi
 pip3 install -r requirements.txt
 ```
 
+**Please note that due to end-of-life, Python <= 3.6 is no longer supported.**
+
 ## File Structure
 
 ```bash
@@ -100,6 +102,12 @@ For BART, use `--enable-kv-cache` option to get the same effect of HuggingFace's
 ```python
 python3 run.py run BART [frameworks | trt] --variant facebook/bart-base --working-dir temp --enable-kv-cache
 ```
+
+## How to run with TensorRT `FASTER_DYNAMIC_SHAPES` preview feature
+
+Use the `--preview-dynamic-shapes` option to enable this preview feature for BART, GPT2, or T5.
+
+Note: preview feature functionality is only supported in TensorRT 8.5+.
 
 ## Testing
 

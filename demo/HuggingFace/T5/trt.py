@@ -38,6 +38,9 @@ from transformers.modeling_outputs import Seq2SeqLMOutput
 from transformers.configuration_utils import PretrainedConfig
 from transformers.generation_utils import GenerationMixin
 
+# tensorrt
+from tensorrt import PreviewFeature
+
 # TRT-HuggingFace
 from NNDF.interface import TRTInferenceCommand
 from NNDF.networks import (
@@ -439,6 +442,7 @@ class T5TRT(TRTInferenceCommand):
         metadata: NetworkMetadata,
         hash_onnx_fpath: Dict[str, NetworkModel],
         batch_size: int,
+        preview_dynamic_shapes: bool,
         benchmarking_args: T5BenchmarkingArgs = None,
     ) -> None:
 
@@ -498,17 +502,24 @@ class T5TRT(TRTInferenceCommand):
         else:
             engine_tag = "bs{}-inseq{}-outseq{}".format(batch_size, benchmarking_args.input_seq_len, benchmarking_args.output_seq_len)
 
+        preview_features = []
+        if preview_dynamic_shapes:
+            preview_features = [PreviewFeature.FASTER_DYNAMIC_SHAPES]
+            engine_tag += "-previewFasterDynamicShapes"
+
         self.t5_trt_encoder_engine = T5EncoderONNXFile(
             encoder_onnx_fpath, metadata
         ).as_trt_engine(
             encoder_onnx_fpath + "-{}.engine".format(engine_tag),
             profiles=encoder_profiles,
+            preview_features=preview_features
         )
         self.t5_trt_decoder_engine = T5DecoderONNXFile(
             decoder_onnx_fpath, metadata
         ).as_trt_engine(
             decoder_onnx_fpath + "-{}.engine".format(engine_tag),
             profiles=decoder_profiles,
+            preview_features=preview_features
         )
 
         # Create T5TRTEncoder and T5TRTDecoder instances.
@@ -537,6 +548,7 @@ class T5TRT(TRTInferenceCommand):
         batch_size: int = 1,
         args: object = None,
         benchmarking_mode: bool = False,
+        preview_dynamic_shapes: bool = False,
     ) -> Union[List[NetworkResult], BenchmarkingResult] :
 
         workspace = self._setup_workspace(metadata, working_directory)
@@ -553,7 +565,7 @@ class T5TRT(TRTInferenceCommand):
         results = []
         try:
             if not benchmarking_mode:
-                self._setup_engines(metadata, hash_onnx_fpath, batch_size)
+                self._setup_engines(metadata, hash_onnx_fpath, batch_size, preview_dynamic_shapes)
                 for ninput in network_input:
                     results.append(
                         self.execute_inference(
@@ -562,7 +574,7 @@ class T5TRT(TRTInferenceCommand):
                     )
             else:
                 benchmarking_args = T5BenchmarkingArgs(args.input_seq_len, args.output_seq_len)
-                self._setup_engines(metadata, hash_onnx_fpath, batch_size, benchmarking_args)
+                self._setup_engines(metadata, hash_onnx_fpath, batch_size, preview_dynamic_shapes, benchmarking_args)
                 results = self.execute_inference(
                     metadata, hash_onnx_fpath, None, timing_profile, batch_size, True, benchmarking_args
                 )

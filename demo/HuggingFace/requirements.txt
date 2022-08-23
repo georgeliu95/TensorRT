@@ -15,11 +15,11 @@
 #
 
 transformers==4.8.0
-tabulate
-toml
-torch
+torch <= 1.12
 sentencepiece==0.1.95
 --extra-index-url https://pypi.ngc.nvidia.com
 onnx==1.9.0
+polygraphy>=0.38.0
+tabulate
+toml
 onnx_graphsurgeon
-polygraphy

@@ -40,6 +40,9 @@ from transformers.modeling_outputs import CausalLMOutputWithCrossAttentions
 from transformers.configuration_utils import PretrainedConfig
 from transformers.generation_utils import GenerationMixin
 
+# tensorrt
+from tensorrt import PreviewFeature
+
 # TRT-HuggingFace
 from NNDF.interface import TRTInferenceCommand
 from NNDF.networks import (
@@ -260,6 +263,7 @@ class GPT2Polygraphy(TRTInferenceCommand):
         batch_size: int = 1,
         args: object = None,
         benchmarking_mode: bool = False,
+        preview_dynamic_shapes: bool = False,
     ) -> Union[List[NetworkResult], BenchmarkingResult]:
 
         workspace = NNFolderWorkspace(
@@ -306,9 +310,15 @@ class GPT2Polygraphy(TRTInferenceCommand):
             else:
                 engine_tag = "bs{}-inseq{}-outseq{}".format(batch_size, args.input_seq_len, args.output_seq_len)
 
+            preview_features = []
+            if preview_dynamic_shapes:
+                preview_features = [PreviewFeature.FASTER_DYNAMIC_SHAPES]
+                engine_tag += "-previewFasterDynamicShapes"
+
             self.gpt2_engine = GPT2ONNXFile(gpt2_onnx_fpath, metadata).as_trt_engine(
                 gpt2_onnx_fpath + engine_tag + ".engine",
                 profiles=profiles,
+                preview_features=preview_features
             )
             tfm_config = GPT2Config(
                 use_cache=metadata.other.kv_cache,
@@ -334,6 +344,8 @@ class GPT2Polygraphy(TRTInferenceCommand):
         return results
 
     def add_args(self, parser) -> None:
+        super().add_args(parser)
+
         # use the same args as frameworks.py
         self.frameworks_cmd.add_args(parser)
         polygraphy_group = parser.add_argument_group("polygraphy")
