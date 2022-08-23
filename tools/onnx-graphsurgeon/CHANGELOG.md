@@ -2,6 +2,12 @@
 
 Dates are in YYYY-MM-DD format.
 
+## v0.3.22 (2022-08-22)
+### Changed
+- Updated `fold_constants` to issue clearer warnings and avoid evaluating tensors which exceed
+    the size threshold.
+
+
 ## v0.3.21 (2022-08-19)
 ### Added
 - Added a `size_threshold` option in `fold_constants` which allows for disabling constant folding
