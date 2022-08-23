@@ -42,6 +42,9 @@ from transformers.modeling_outputs import Seq2SeqLMOutput
 from transformers.configuration_utils import PretrainedConfig
 from transformers.generation_utils import GenerationMixin
 
+# tensorrt
+from tensorrt import PreviewFeature
+
 # TRT-HuggingFace
 from NNDF.interface import TRTInferenceCommand
 from NNDF.networks import (
@@ -688,6 +691,7 @@ class BARTTRT(TRTInferenceCommand):
         metadata: NetworkMetadata,
         hash_onnx_fpath: Dict[str, NetworkModel],
         batch_size: int,
+        preview_dynamic_shapes: bool,
         benchmarking_args: BARTBenchmarkingArgs = None,
     ) -> None:
 
@@ -788,18 +792,25 @@ class BARTTRT(TRTInferenceCommand):
             engine_tag = "bs{}".format(batch_size)
         else:
             engine_tag = "bs{}-inseq{}-outseq{}".format(batch_size, benchmarking_args.input_seq_len, benchmarking_args.output_seq_len)
+        
+        preview_features = []
+        if preview_dynamic_shapes:
+            preview_features = [PreviewFeature.FASTER_DYNAMIC_SHAPES]
+            engine_tag += "-previewFasterDynamicShapes"
 
         self.BART_trt_encoder_engine = BARTEncoderONNXFile(
             encoder_onnx_fpath, metadata
         ).as_trt_engine(
             encoder_onnx_fpath + "-{}.engine".format(engine_tag),
             profiles=encoder_profiles,
+            preview_features=preview_features
         )
         self.BART_trt_decoder_engine = BARTDecoderONNXFile(
             decoder_onnx_fpath, metadata
         ).as_trt_engine(
             decoder_onnx_fpath + "-{}.engine".format(engine_tag),
             profiles=decoder_profiles,
+            preview_features=preview_features
         )
 
         # Create BARTTRTEncoder and BARTTRTDecoder instances.
@@ -823,6 +834,7 @@ class BARTTRT(TRTInferenceCommand):
             ).as_trt_engine(
                 decoder_onnx_fpath_non_kv + "-{}.engine".format(engine_tag),
                 profiles=decoder_profiles_non_kv,
+                preview_features=preview_features
             )
 
             # switch between BARTTRTDecoder is impossible (becase HF decoding step is bound to one decoder). Therefore, we need to add the non-kv engines inside the same decoder --> decoder contains two TRT engines
@@ -841,6 +853,7 @@ class BARTTRT(TRTInferenceCommand):
         batch_size: int = 1,
         args: object = None,
         benchmarking_mode: bool = False,
+        preview_dynamic_shapes: bool = False
     ) -> Union[List[NetworkResult], BenchmarkingResult] :
 
         self.working_directory = working_directory
@@ -858,7 +871,7 @@ class BARTTRT(TRTInferenceCommand):
         results = []
         try:
             if not benchmarking_mode:
-                self._setup_engines(metadata, hash_onnx_fpath, batch_size)
+                self._setup_engines(metadata, hash_onnx_fpath, batch_size, preview_dynamic_shapes)
                 for ninput in network_input:
                     results.append(
                         self.execute_inference(
@@ -867,7 +880,7 @@ class BARTTRT(TRTInferenceCommand):
                     )
             else:
                 benchmarking_args = BARTBenchmarkingArgs(args.input_seq_len, args.output_seq_len)
-                self._setup_engines(metadata, hash_onnx_fpath, batch_size, benchmarking_args)
+                self._setup_engines(metadata, hash_onnx_fpath, batch_size, preview_dynamic_shapes, benchmarking_args)
                 results = self.execute_inference(
                     metadata, hash_onnx_fpath, None, timing_profile, batch_size, True, benchmarking_args
                 )

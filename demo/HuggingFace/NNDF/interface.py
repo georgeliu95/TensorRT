@@ -332,6 +332,7 @@ class TRTInferenceCommand(NetworkCommand):
             batch_size=self._args.batch_size,
             args=self._args,
             benchmarking_mode=False,
+            preview_dynamic_shapes=self._args.preview_dynamic_shapes
         )
 
         return NetworkCheckpointResult(
@@ -357,9 +358,19 @@ class TRTInferenceCommand(NetworkCommand):
             batch_size=self._args.batch_size,
             args=self._args,
             benchmarking_mode=True,
+            preview_dynamic_shapes=self._args.preview_dynamic_shapes
         )
 
         return network_results
+
+    def add_args(self, parser) -> argparse.ArgumentParser:
+        super().add_args(parser)
+        device_group = parser.add_argument_group("trt")
+        device_group.add_argument(
+            "--preview-dynamic-shapes",
+            help="Use the FASTER_DYNAMIC_SHAPES preview feature when building the TensorRT engine",
+            action="store_true",
+        )
 
     def args_to_network_metadata(self, args) -> NetworkMetadata:
         return self.config.MetadataClass.from_inference_args(args)
