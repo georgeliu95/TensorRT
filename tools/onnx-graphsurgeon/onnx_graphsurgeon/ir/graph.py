@@ -856,11 +856,19 @@ class Graph(object):
 
         # Only evaluate foldable values that have non-foldable outputs or are graph outputs.
         # Otherwise, if all the outputs are foldable, then we can just evaluate the outputs directly.
+        # Additionally, if we can determine tensor size, do not evaluate tensors whose sizes exceed the size threshold.
         def should_eval_foldable(tensor):
             non_const = not isinstance(tensor, Constant)
             is_graph_output = not tensor.outputs
             has_non_foldable_outputs = any(out.name not in graph_constants for out in tensor.outputs)
-            return non_const and (is_graph_output or has_non_foldable_outputs)
+            exceeds_size_threshold = (
+                tensor.shape is not None
+                and not misc.is_dynamic_shape(tensor.shape)
+                and tensor.dtype is not None
+                and size_threshold is not None
+            ) and (misc.volume(tensor.shape) * np.dtype(tensor.dtype).itemsize > size_threshold)
+
+            return non_const and (is_graph_output or has_non_foldable_outputs) and not exceeds_size_threshold
 
         graph_clone.outputs = [t for t in graph_constants.values() if should_eval_foldable(t)]
         G_LOGGER.debug("Folding tensors: {:}".format(graph_clone.outputs))
@@ -897,6 +905,7 @@ class Graph(object):
             )
 
         # Finally, replace the Variables in the original graph with constants.
+        large_tensors = {}
         if constant_values:
             graph_tensors = self.tensors()
             for name, values in constant_values.items():
@@ -906,21 +915,28 @@ class Graph(object):
                     continue
 
                 if size_threshold is not None and values.nbytes > size_threshold:
-                    G_LOGGER.verbose(
+                    G_LOGGER.debug(
                         "Will not fold: '{:}' since its size in bytes ({:}) exceeds the size threshold ({:})".format(
                             name, values.nbytes, size_threshold
                         )
                     )
                     continue
-                elif size_threshold is None and values.nbytes > (16 << 20):
-                    G_LOGGER.warning(
-                        "It looks like this model contains foldable nodes that produce large outputs (>16MiB).\n"
-                        "In order to avoid bloating the model, you may want to set a constant-folding size threshold.",
-                        mode=LogMode.ONCE,
-                    )
+                elif size_threshold is None and values.nbytes > (1 << 20):
+                    large_tensors[name] = values.nbytes
 
                 tensor.to_constant(values)
                 tensor.inputs.clear()  # Constants do not need inputs
+
+            if large_tensors:
+                large_tensors_mib = {
+                    tensor_name: "{:} MiB".format(value // (1 << 20)) for tensor_name, value in large_tensors.items()
+                }
+                G_LOGGER.warning(
+                    "It looks like this model contains foldable nodes that produce large outputs.\n"
+                    "In order to avoid bloating the model, you may want to set a constant-folding size threshold.\n"
+                    "Note: Large tensors and their corresponding sizes were: {:}".format(large_tensors_mib),
+                    mode=LogMode.ONCE,
+                )
 
         # Folding subgraphs after the outer graph can lead to better folding.
         def fold_subgraphs():
