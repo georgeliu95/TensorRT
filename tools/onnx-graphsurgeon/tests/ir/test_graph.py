@@ -18,6 +18,7 @@
 import copy
 
 import numpy as np
+import onnx
 import onnx_graphsurgeon as gs
 import pytest
 from onnx_graphsurgeon.ir.graph import Graph
@@ -1189,18 +1190,87 @@ class TestFoldConstants(object):
 
     def test_cast_elision(self):
         graph = gs.import_onnx(shape_cast_elision().load())
-        graph.fold_constants()
+        graph.fold_constants().cleanup()
         assert not any(node.op == "Cast" for node in graph.nodes)
 
     def test_cast_elision_int64(self):
+        X = gs.Variable("X", dtype=np.int64, shape=(1,))
+        graph = Graph(inputs=[X])
+        casted_x = graph.cast(X, to=onnx.TensorProto.DataType.FLOAT)
+        add_out = graph.add(casted_x, casted_x)
+        graph.outputs = [graph.cast(add_out, to=onnx.TensorProto.DataType.INT64)]
+
+        graph.fold_constants().cleanup()
+        assert graph.nodes[0].op == "Add"
+
+    # Make sure we're lowering constant nodes before running cast elision
+    def test_cast_elision_with_constant_node(self):
+        inp = gs.Variable("inp", dtype=np.int64, shape=(1,))
+        graph = Graph(inputs=[inp])
+
+        casted_inp = graph.cast(inp, to=onnx.TensorProto.DataType.FLOAT)
+        add_out = graph.add(casted_inp, graph.constant(np.array([2], dtype=np.float32)))
+
+        casted_out = graph.cast(add_out, to=onnx.TensorProto.DataType.INT64)
+        casted_out.dtype = np.int64
+
+        graph.outputs = [casted_out]
+
+        graph.fold_constants().cleanup()
+        assert [node.op for node in graph.nodes] == ["Add"]
+
+        add_const_inp = graph.nodes[0].inputs[1]
+        assert isinstance(add_const_inp, Constant)
+        assert add_const_inp.dtype == np.int64  # Should have been casted to match dtype of other inputs.
+
+    # For a graph like:
+    #
+    #     inp
+    #      |
+    #    Cast
+    #      |
+    #    Add
+    #     |
+    #    Cast
+    #     |
+    #    out
+    #
+    # 1. We cannot remove the initial `Cast` if it is used outside the `Add` node
+    # 2. We cannot perform cast elision at all if the original output of the `Add` node is
+    #    used outside the subsequent `Cast` node.
+    #
+    @pytest.mark.parametrize("use_as_graph_output", [True, False], ids=["graph", ""])
+    @pytest.mark.parametrize("use_in_other_node", [True, False], ids=["node", ""])
+    # Whether to apply the effects of the first two parameters to the input `Cast` node or to the `Add` node.
+    @pytest.mark.parametrize("apply_to_input_cast", [True, False], ids=["input", "output"])
+    def test_cast_elision_multi_use_cast(self, use_as_graph_output, use_in_other_node, apply_to_input_cast):
         X = gs.Variable("X", dtype=np.int32, shape=(1,))
         graph = Graph(inputs=[X])
-        casted_x = graph.cast(X, to=1)
+        casted_x = graph.cast(X, to=onnx.TensorProto.DataType.FLOAT)
         add_out = graph.add(casted_x, casted_x)
-        graph.outputs = [graph.cast(add_out, to=6)]
+        uncasted_x = graph.cast(add_out, to=onnx.TensorProto.DataType.INT32)
 
-        graph.fold_constants()
-        assert graph.nodes[0].op == "Identity"
+        graph.outputs = [uncasted_x]
+
+        mutli_use_tensor = casted_x if apply_to_input_cast else add_out
+        if use_in_other_node:
+            graph.outputs.append(graph.identity(mutli_use_tensor))
+
+        if use_as_graph_output:
+            graph.outputs.append(mutli_use_tensor)
+
+        print(graph)
+        graph.fold_constants().cleanup()
+        ops = [node.op for node in graph.nodes]
+        if use_as_graph_output or use_in_other_node:
+            if apply_to_input_cast:
+                assert graph.nodes[1].inputs[0] == X
+                assert graph.nodes[1].outputs[0] == uncasted_x
+                assert ops == ["Cast", "Add"] + (["Identity"] if use_in_other_node else [])
+            else:
+                assert ops == ["Cast", "Add", "Cast"] + (["Identity"] if use_in_other_node else [])
+        else:
+            assert ops == ["Add"]
 
     @pytest.mark.parametrize(
         # If layer1_num_bytes is larger than layer0_num_bytes, then it must be a multiple.
