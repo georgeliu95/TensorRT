@@ -179,6 +179,7 @@ class Graph(object):
         """
         return NodeIDAdder(self)
 
+    # Gets the node ID for a node. All internal code should use this instead of accessing `node.id` directly.
     def _get_node_id(self, node):
         try:
             return node.id
@@ -535,24 +536,53 @@ class Graph(object):
             G_LOGGER.critical("Argument for parameter 'partitioning' must be one of: {:}".format(PARTITIONING_MODES))
         ORT_PROVIDERS = ["CPUExecutionProvider"]
 
-        # First perform shape tensor cast elision on the graph prior to other constant folding
-        # Search for Cast(s) (from int -> float) -> intermediate operator (with float constants) -> Cast(s) (back to int)
-        # This pattern is problematic for TensorRT since these operations may be performed on Shape Tensors, which
-        # are not allowed to be floating point type. Attempt to fold the pattern here
-        VALID_CAST_ELISION_OPS = ["Add", "Sub", "Mul", "Div", "Max", "Min", "Equal", "Greater", "Less", "Concat"]
+        G_LOGGER.debug("Folding constants in {:}".format(self.name))
 
+        # We apply constant folding in 5 passes:
+        # Pass 1 lowers 'Constant' nodes into Constant tensors.
+        # Pass 2 elides casts applied to shape tensors. This is done separately from other shape folding
+        #   since it operates on the original graph rather than a clone.
+        # Pass 3 finds all Constant tensors in the graph, then finds all descendants which are dependent
+        #   only on constants.
+        # Pass 4 searches for Shape nodes that have variable inputs (i.e. not marked const in pass 1)
+        #    and turns them into Constants iff the input has a statically known shape.
+        # Pass 5 computes the descendants determined in Pass 3 using ONNX-Runtime and replaces them in the graph.
+
+        # Pass 1: Lower constant nodes
+        for tensor in self.tensors().values():
+            if len(tensor.inputs) == 1:
+                node = tensor.inputs[0]
+                if node.op == "Constant":
+                    tensor.to_constant(node.attrs["value"]._values)  # Using ._values avoids copying
+                    tensor.inputs.clear()
+
+        # Pass 2: Run shape-tensor cast elision
         def run_cast_elision(node):
             import onnx
 
+            # Search for Cast(s) (from int -> float) -> intermediate operator (with float constants) -> Cast(s) (back to int)
+            # This pattern is problematic for TensorRT since these operations may be performed on Shape Tensors, which
+            # are not allowed to be floating point type. Attempt to fold the pattern here
+            VALID_CAST_ELISION_OPS = ["Add", "Sub", "Mul", "Div", "Max", "Min", "Equal", "Greater", "Less", "Concat"]
+
             if node.op not in VALID_CAST_ELISION_OPS:
                 return
+
+            # If the uncasted outputs of this node have any consumers other than "Cast" nodes,
+            # then we cannot elide the cast.
+            for out_tensor in node.outputs:
+                if out_tensor in self.outputs:
+                    return
+
+                if any(out_node.op != "Cast" for out_node in out_tensor.outputs):
+                    return
 
             # Get list of input nodes that cast to float32
             inp_casts = [
                 inp_node
                 for inp_tensor in node.inputs
                 for inp_node in inp_tensor.inputs
-                if inp_node.op == "Cast" and inp_node.attrs["to"] == 1
+                if inp_node.op == "Cast" and inp_node.attrs["to"] == onnx.TensorProto.DataType.FLOAT
             ]
 
             # No cast nodes found, return early
@@ -571,10 +601,11 @@ class Graph(object):
                 out_node
                 for out_tensor in node.outputs
                 for out_node in out_tensor.outputs
-                if out_node.op == "Cast" and out_node.attrs["to"] in [6, 7]
+                if out_node.op == "Cast"
+                and out_node.attrs["to"] in [onnx.TensorProto.DataType.INT32, onnx.TensorProto.DataType.INT64]
             ]
 
-            # No cast node found on ouptuts, return early
+            # No cast node found on outputs, return early
             if not out_casts:
                 return
 
@@ -584,44 +615,43 @@ class Graph(object):
             if len(set(out_dtypes)) != 1 or out_dtypes[0] != final_type:
                 return
 
-            # If all checks passed - update constant values.
-            for inp in node.inputs:
+            # If all checks passed, reconnect inputs/outputs to the consumers/producers
+            # of the Cast nodes.
+            # Note that we need to be careful in how we rebind tensors since they may
+            # be used by multiple nodes. Thus, it is not necessarily safe to assume that
+            # `cast_node.inputs[0].outputs[0] == cast_node`.
+            for index, inp in enumerate(node.inputs):
                 if isinstance(inp, Constant):
                     inp.values = inp.values.astype(onnx.mapping.TENSOR_TYPE_TO_NP_TYPE[final_type])
 
-            # "Remove" casts nodes by changing I/O node operators to Identity. Update corresponding tensor dtypes as well
-            def replace_with_identity(cast_node, change_dtype):
-                cast_node.op = "Identity"
-                cast_node.attrs = {}
-                getattr(cast_node, change_dtype)[0].dtype = onnx.mapping.TENSOR_TYPE_TO_NP_TYPE[final_type]
-                G_LOGGER.debug("Cast node {:} elided".format(cast_node.name))
+                for cast in inp_casts:
+                    if cast.outputs[0] == inp:
+                        node.inputs[index] = cast.inputs[0]
 
-            for inp in inp_casts:
-                replace_with_identity(inp, change_dtype="outputs")
+            for index, out in enumerate(node.outputs):
+                for cast in out_casts:
+                    if cast.inputs[0] == out:
+                        out_tensor = cast.outputs[0]
+                        out_tensor.inputs.clear()  # Disconnect from Cast
+                        node.outputs[index] = out_tensor
 
-            for out in out_casts:
-                replace_with_identity(out, change_dtype="inputs")
-
-        # Perform shape tensor cast elision:
         if fold_shapes:
+            # Perform shape tensor cast elision prior to most other folding
             G_LOGGER.debug("Performing shape tensor cast elision in {:}".format(self.name))
             try:
-                for node in self.nodes:
-                    run_cast_elision(node)
+                with self.node_ids():
+                    for node in self.nodes:
+                        run_cast_elision(node)
             except Exception as err:
                 if not error_ok:
                     raise err
                 G_LOGGER.warning("'{:}' routine failed with: {:}".format("Shape tensor cast elision", err))
 
-        G_LOGGER.debug("Folding constants in {:}".format(self.name))
+        # Note that most of the remaining passes operate on a clone of the original graph.
+        # Pass 3: Find all descendants of constant tensors
 
         graph_clone = self.copy()
         clone_tensors = graph_clone.tensors()
-
-        # We find graph constants in two passes:
-        # Pass 1 finds all Constant tensors in the graph, then walks over their outputs.
-        # Pass 2 searches for Shape nodes that have variable inputs (i.e. not marked const in pass 1)
-        #    and turns them into Constants iff the input has a statically known shape.
 
         def update_foldable_outputs(graph_constants):
             def is_foldable(node):
@@ -645,23 +675,10 @@ class Graph(object):
                     graph_constants.update({out.name: out for out in node.outputs})
             return graph_constants
 
-        # Pass 1: Non-shape Constant Folding
-
         graph_constants = {name: tensor for name, tensor in clone_tensors.items() if isinstance(tensor, Constant)}
-
-        # Replaces outputs of Constant nodes with constant tensors
-        for tensor in clone_tensors.values():
-            if len(tensor.inputs) == 1:
-                node = tensor.inputs[0]
-                if node.op == "Constant":
-                    graph_constants[tensor.name] = tensor.to_constant(
-                        node.attrs["value"]._values
-                    )  # Using ._values avoids copying
-                    graph_constants[tensor.name].inputs.clear()
-
         graph_constants = update_foldable_outputs(graph_constants)
 
-        # Pass 2: Shape Folding
+        # Pass 4: Shape Folding
 
         def get_producer(tensor, op):
             """
@@ -802,6 +819,8 @@ class Graph(object):
                 else:
                     graph_constants = update_foldable_outputs(graph_constants)
 
+        # Pass 5: Evaluate all tensors descended from constants with ONNX-Runtime and replace them with constant values.
+
         def partition_and_infer(subgraph):
             def get_out_node_ids():
                 # Gets the final output nodes - producer nodes of graph output tensors without other outputs.
@@ -810,7 +829,7 @@ class Graph(object):
                     for out in subgraph.outputs:
                         if not out.outputs and not isinstance(out, Constant):
                             for n_inp in out.inputs:
-                                out_node_ids.add(n_inp.id)
+                                out_node_ids.add(subgraph._get_node_id(n_inp))
                 return out_node_ids
 
             # Compute each output node in a separate subgraph.
@@ -851,8 +870,6 @@ class Graph(object):
                     constant_values.update({name: val for name, val in zip(names, values)})
 
             return constant_values
-
-        # Next, evaluate the foldable variables with ONNX-Runtime
 
         # Only evaluate foldable values that have non-foldable outputs or are graph outputs.
         # Otherwise, if all the outputs are foldable, then we can just evaluate the outputs directly.
