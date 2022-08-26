@@ -212,7 +212,7 @@ class QKVToContextVarSeqlenPlugin : public nvinfer1::IPluginV2DynamicExt
 {
 public:
     QKVToContextVarSeqlenPlugin(std::string const name, nvinfer1::DataType const type, int32_t const hiddenSize,
-        int32_t const numHeads, float const dqProbs, bool hasImask = false, bool varSeqlen = false, bool const useInt8ScaleMax = false);
+        int32_t const numHeads, float const dqProbs, bool hasImask = false, bool varSeqlen = false, bool const useInt8ScaleMax = true);
 
     QKVToContextVarSeqlenPlugin(const std::string name, const void* data, size_t length);
 
@@ -272,7 +272,7 @@ private:
 
     int32_t mHdim;
     bool mUseVarSeqlen;
-    bool mUseInt8ScaleMax{false};
+    bool mUseInt8ScaleMax{true};
 };
 
 class QKVToContextVarSeqlenPluginCreator : public nvinfer1::IPluginCreator
@@ -434,7 +434,7 @@ private:
     int32_t mSm;
     class mhaImpl;
     std::unique_ptr<mhaImpl> pimpl;
-    bool mUseInt8ScaleMax{false};
+    bool mUseInt8ScaleMax{true};
 };
 
 } // namespace bert

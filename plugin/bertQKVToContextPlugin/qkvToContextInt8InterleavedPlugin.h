@@ -92,7 +92,7 @@ private:
     const FusedMultiHeadAttentionXMMAKernelV2* mXmmaKernel;
 
     float mDqProbs;
-    bool mUseInt8ScaleMax{false};
+    bool mUseInt8ScaleMax{true};
 };
 
 class QKVToContextInterleavedPluginCreator : public nvinfer1::IPluginCreator

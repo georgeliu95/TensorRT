@@ -366,8 +366,8 @@ IPluginV2* QKVToContextInterleavedPluginCreator::createPlugin(const char* name, 
 
         if (useInt8ScaleMax < 0)
         {
-            gLogInfo << "Using default for use_int8_scale_max: false" << std::endl;
-            useInt8ScaleMax = 0;
+            gLogInfo << "Using default for use_int8_scale_max: true" << std::endl;
+            useInt8ScaleMax = 1;
         }
 
         auto const useInt8ScaleMaxFlag = static_cast<bool>(useInt8ScaleMax);

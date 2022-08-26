@@ -1096,8 +1096,8 @@ IPluginV2* QKVToContextVarSeqlenPluginCreator::createPlugin(const char* name, co
 
     if (useInt8ScaleMax < 0)
     {
-        gLogInfo << "Using default for use_int8_scale_max: false" << std::endl;
-        useInt8ScaleMax = 0;
+        gLogInfo << "Using default for use_int8_scale_max: true" << std::endl;
+        useInt8ScaleMax = 1;
     }
 
     BERT_DEBUG_MSG("Building the Plugin...");
