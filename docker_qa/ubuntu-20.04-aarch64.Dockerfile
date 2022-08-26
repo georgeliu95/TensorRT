@@ -1,8 +1,7 @@
 # Multi-arch container support available in non-cudnn containers.
-# Native aarch64 builds only support CUDA 11.4
-FROM nvidia/cuda:11.4.2-devel-ubuntu20.04
+FROM gitlab-master.nvidia.com:5005/dl/dgx/cuda:11.8-devel-ubuntu20.04--5691963
 
-ENV TRT_VERSION 8.4.1.5
+ENV TRT_VERSION 8.5.0.9
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -50,13 +49,9 @@ RUN apt-get install -y --no-install-recommends \
     ln -s /usr/bin/python3 python &&\
     ln -s /usr/bin/pip3 pip;
 
-# Install TensorRT. This will also pull in CUDNN
-RUN v="${TRT_VERSION%.*}-1+cuda${CUDA_VERSION%.*}" &&\
-    apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/sbsa/3bf863cc.pub &&\
-    apt-get update &&\
-    sudo apt-get -y install libnvinfer8=${v} libnvonnxparsers8=${v} libnvparsers8=${v} libnvinfer-plugin8=${v} \
-        libnvinfer-dev=${v} libnvonnxparsers-dev=${v} libnvparsers-dev=${v} libnvinfer-plugin-dev=${v} \
-        python3-libnvinfer=${v};
+# Install TensorRT
+COPY docker_qa/downloadInternal.py /tmp/downloadInternal.py
+RUN python3 /tmp/downloadInternal.py --cuda $CUDA_VERSION --os 20.04
 
 # Install Cmake
 RUN cd /tmp && \
@@ -75,7 +70,7 @@ RUN pip3 install jupyter jupyterlab
 RUN pip3 install --upgrade numpy
 
 # Download NGC client
-RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_arm64.zip && unzip ngccli_arm64.zip && chmod u+x ngc && rm ngccli_arm64.zip ngc.md5 && echo "no-apikey\nascii\n" | ngc config set
+RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_arm64.zip && unzip ngccli_arm64.zip && chmod u+x ngc-cli/ngc && rm ngccli_arm64.zip ngc-cli.md5 && echo "no-apikey\nascii\n" | ngc-cli/ngc config set
 
 # Set environment and working directory
 ENV TRT_LIBPATH /usr/lib/aarch64-linux-gnu/

@@ -15,9 +15,9 @@
 # limitations under the License.
 #
 
-arg_dockerfile=docker/ubuntu-20.04.Dockerfile
+arg_dockerfile=docker_qa/ubuntu-20.04.Dockerfile
 arg_imagename=tensorrt-ubuntu
-arg_cudaversion=11.6.2
+arg_cudaversion=11.8.0
 arg_help=0
 
 while [[ "$#" -gt 0 ]]; do case $1 in

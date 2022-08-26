@@ -12,36 +12,36 @@ def parse_arguments():
 # This order needs to be preserved for dependency tracking.
 
 DEB_PACKAGES_CENTOS=[
-"libnvinfer8-8.4.1-1.cuda{ver}.x86_64.rpm",
-"libnvonnxparsers8-8.4.1-1.cuda{ver}.x86_64.rpm",
-"libnvparsers8-8.4.1-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-plugin8-8.4.1-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-devel-8.4.1-1.cuda{ver}.x86_64.rpm",
-"libnvparsers-devel-8.4.1-1.cuda{ver}.x86_64.rpm",
-"libnvonnxparsers-devel-8.4.1-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-plugin-devel-8.4.1-1.cuda{ver}.x86_64.rpm",
-"python3-libnvinfer-8.4.1-1.cuda{ver}.x86_64.rpm",
+"libnvinfer8-8.5.0-1.cuda{ver}.x86_64.rpm",
+"libnvonnxparsers8-8.5.0-1.cuda{ver}.x86_64.rpm",
+"libnvparsers8-8.5.0-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-plugin8-8.5.0-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-devel-8.5.0-1.cuda{ver}.x86_64.rpm",
+"libnvparsers-devel-8.5.0-1.cuda{ver}.x86_64.rpm",
+"libnvonnxparsers-devel-8.5.0-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-plugin-devel-8.5.0-1.cuda{ver}.x86_64.rpm",
+"python3-libnvinfer-8.5.0-1.cuda{ver}.x86_64.rpm",
 ]
 
 DEB_PACKAGES_UBUNTU=[
-    "libnvinfer8_8.4.1-1{ext}",
-    "libnvonnxparsers8_8.4.1-1{ext}",
-    "libnvparsers8_8.4.1-1{ext}",
-    "libnvinfer-plugin8_8.4.1-1{ext}",
-    "libnvinfer-dev_8.4.1-1{ext}",
-    "libnvonnxparsers-dev_8.4.1-1{ext}",
-    "libnvparsers-dev_8.4.1-1{ext}",
-    "libnvinfer-plugin-dev_8.4.1-1{ext}",
-    "python3-libnvinfer_8.4.1-1{ext}",
+    "libnvinfer8_8.5.0-1{ext}",
+    "libnvonnxparsers8_8.5.0-1{ext}",
+    "libnvparsers8_8.5.0-1{ext}",
+    "libnvinfer-plugin8_8.5.0-1{ext}",
+    "libnvinfer-dev_8.5.0-1{ext}",
+    "libnvonnxparsers-dev_8.5.0-1{ext}",
+    "libnvparsers-dev_8.5.0-1{ext}",
+    "libnvinfer-plugin-dev_8.5.0-1{ext}",
+    "python3-libnvinfer_8.5.0-1{ext}",
 ]
 
-ROOT_URL = "http://cuda-repo/release-candidates/Libraries/TensorRT/v8.4/8.4.1.5-01a2da81/"
+ROOT_URL = "http://cuda-repo/release-candidates/Libraries/TensorRT/v8.5/8.5.0.9-c2cfd715/"
 
 def get_cuda_props(cuda_ver):
     assert len(cuda_ver) >= 4
     cuda = cuda_ver[:4]
-    if (cuda == "11.6"):
-        return cuda, cuda+"-r510"
+    if (cuda == "11.8"):
+        return cuda, cuda+"-r520"
     elif (cuda == "10.2"):
         return cuda, cuda+"-r440"
     else:

@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_VERSION=11.6.2
+ARG CUDA_VERSION=11.8.0
 ARG OS_VERSION=7
 
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${OS_VERSION}
+# TODO: Update - unused in 22.09
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${OS_VERSION} 
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.4.1.5
+ENV TRT_VERSION 8.5.0.9
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account

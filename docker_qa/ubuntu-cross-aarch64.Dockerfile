@@ -12,13 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Cross compilation on Jetpack only supports 11.4
 ARG CUDA_VERSION=11.4.2
 ARG OS_VERSION=20.04
 
 FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.4.1.5
+ENV TRT_VERSION 8.5.0.9
 ENV DEBIAN_FRONTEND=noninteractive
 
 ARG uid=1000
