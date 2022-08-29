@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cstring>
 #include <iostream>
+#include <set>
 #include <sstream>
 #include <vector>
 
@@ -80,6 +81,7 @@ BatchedNMSPlugin::BatchedNMSPlugin(NMSParameters params)
     : param(params)
 {
     mPluginStatus = checkParams(param);
+    PLUGIN_VALIDATE(mPluginStatus == STATUS_SUCCESS);
 }
 
 BatchedNMSPlugin::BatchedNMSPlugin(const void* data, size_t length)
@@ -96,12 +98,14 @@ BatchedNMSPlugin::BatchedNMSPlugin(const void* data, size_t length)
     PLUGIN_VALIDATE(d == a + length);
 
     mPluginStatus = checkParams(param);
+    PLUGIN_VALIDATE(mPluginStatus == STATUS_SUCCESS);
 }
 
 BatchedNMSDynamicPlugin::BatchedNMSDynamicPlugin(NMSParameters params)
     : param(params)
 {
     mPluginStatus = checkParams(param);
+    PLUGIN_VALIDATE(mPluginStatus == STATUS_SUCCESS);
 }
 
 BatchedNMSDynamicPlugin::BatchedNMSDynamicPlugin(const void* data, size_t length)
@@ -118,6 +122,7 @@ BatchedNMSDynamicPlugin::BatchedNMSDynamicPlugin(const void* data, size_t length
     PLUGIN_VALIDATE(d == a + length);
 
     mPluginStatus = checkParams(param);
+    PLUGIN_VALIDATE(mPluginStatus == STATUS_SUCCESS);
 }
 
 int BatchedNMSPlugin::getNbOutputs() const noexcept
@@ -694,6 +699,16 @@ IPluginV2Ext* BatchedNMSPluginCreator::createPlugin(const char* name, const Plug
         int32_t scoreBits = 16;
         bool caffeSemantics = true;
 
+        std::set<std::string> requiredFields{
+            "shareLocation",
+            "backgroundLabelId",
+            "numClasses",
+            "topK",
+            "keepTopK",
+            "scoreThreshold",
+            "iouThreshold",
+        };
+
         for (int i = 0; i < fc->nbFields; ++i)
         {
             const char* attrName = fields[i].name;
@@ -748,7 +763,10 @@ IPluginV2Ext* BatchedNMSPluginCreator::createPlugin(const char* name, const Plug
                 PLUGIN_VALIDATE(fields[i].type == PluginFieldType::kINT32);
                 caffeSemantics = *(static_cast<const bool*>(fields[i].data));
             }
+            requiredFields.erase(attrName);
         }
+
+        PLUGIN_VALIDATE(requiredFields.empty() && "At least 1 required field is missing.");
 
         auto* plugin = new BatchedNMSPlugin(params);
         plugin->setClipParam(clipBoxes);
@@ -775,6 +793,16 @@ IPluginV2DynamicExt* BatchedNMSDynamicPluginCreator::createPlugin(
         int32_t scoreBits = 16;
         bool caffeSemantics = true;
 
+        std::set<std::string> requiredFields{
+            "shareLocation",
+            "backgroundLabelId",
+            "numClasses",
+            "topK",
+            "keepTopK",
+            "scoreThreshold",
+            "iouThreshold",
+        };
+
         for (int i = 0; i < fc->nbFields; ++i)
         {
             const char* attrName = fields[i].name;
@@ -829,7 +857,10 @@ IPluginV2DynamicExt* BatchedNMSDynamicPluginCreator::createPlugin(
                 PLUGIN_VALIDATE(fields[i].type == PluginFieldType::kINT32);
                 caffeSemantics = *(static_cast<const bool*>(fields[i].data));
             }
+            requiredFields.erase(attrName);
         }
+
+        PLUGIN_VALIDATE(requiredFields.empty() && "At least 1 required field is missing.");
 
         auto* plugin = new BatchedNMSDynamicPlugin(params);
         plugin->setClipParam(clipBoxes);

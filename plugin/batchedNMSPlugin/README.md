@@ -58,7 +58,7 @@ The `batchedNMSPlugin` is created using `BatchedNMSPluginCreator` with `NMSParam
 |`bool`    |`shareLocation`           |If set to `true`, the boxes input are shared across all classes. If set to `false`, the boxes input should account for per-class box data.
 |`int`     |`backgroundLabelId`       |The label ID for the background class. If there is no background class, set it to `-1`.
 |`int`     |`numClasses`              |The number of classes in the network.
-|`int`     |`topK`                    |The number of bounding boxes to be fed into the NMS step.
+|`int`     |`topK`                    |The number of bounding boxes to be fed into the NMS step. Maximum allowed value is 4096.
 |`int`     |`keepTopK`                |The number of total bounding boxes to be kept per-image after the NMS step. Should be less than or equal to the `topK` value.
 |`float`   |`scoreThreshold`          |The scalar threshold for score (low scoring boxes are removed).
 |`float`   |`iouThreshold`            |The scalar threshold for IOU (new boxes that have high IOU overlap with previously selected boxes are removed).
