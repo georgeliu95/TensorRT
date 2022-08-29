@@ -568,8 +568,8 @@ const char* QKVToContextPluginDynamicCreator::getPluginNamespace() const noexcep
     return mNamespace.c_str();
 }
 
-QKVToContextVarSeqlenPlugin::QKVToContextVarSeqlenPlugin(const std::string name, const DataType type,
-    const int32_t hiddenSize, const int32_t numHeads, const float dqProbs, bool hasImask, bool varSeqlen)
+QKVToContextVarSeqlenPlugin::QKVToContextVarSeqlenPlugin(std::string const name, DataType const type,
+    int32_t const hiddenSize, int32_t const numHeads, float const dqProbs, bool hasImask, bool varSeqlen, bool useInt8ScaleMax)
     : mLayerName(name)
     , mS(0)
     , mB(0)
@@ -581,7 +581,7 @@ QKVToContextVarSeqlenPlugin::QKVToContextVarSeqlenPlugin(const std::string name,
     , mDqProbs(dqProbs)
     , mHdim(HDIM)
     , mUseVarSeqlen(varSeqlen)
-
+    , mUseInt8ScaleMax(useInt8ScaleMax)
 {
     mSM = getSMVersion();
 
@@ -614,6 +614,7 @@ QKVToContextVarSeqlenPlugin::QKVToContextVarSeqlenPlugin(const std::string name,
 
     deserialize_value(&data, &length, &mUseVarSeqlen);
     deserialize_value(&data, &length, &mHdim);
+    deserialize_value(&data, &length, &mUseInt8ScaleMax);
 
     createMHARunner();
     dispatcher->deserialize(data, length);
@@ -643,7 +644,7 @@ void QKVToContextVarSeqlenPlugin::createMHARunner()
         }
         else if (mType == DataType::kINT8)
         {
-            dispatcher.reset(new FusedMHARunnerInt8v2(mNumHeads, headSize, mSM, mDqProbs));
+            dispatcher.reset(new FusedMHARunnerInt8v2(mNumHeads, headSize, mSM, mDqProbs, mUseInt8ScaleMax));
         }
     }
     else
@@ -670,7 +671,7 @@ nvinfer1::IPluginV2DynamicExt* QKVToContextVarSeqlenPlugin::clone() const noexce
     else
     {
         ret = new QKVToContextVarSeqlenPlugin(
-            mLayerName, mType, mHiddenSize, mNumHeads, mDqProbs, mHasImask, mUseVarSeqlen);
+            mLayerName, mType, mHiddenSize, mNumHeads, mDqProbs, mHasImask, mUseVarSeqlen, mUseInt8ScaleMax);
     }
 
     ret->setPluginNamespace(mNamespace.c_str());
@@ -870,7 +871,7 @@ size_t QKVToContextVarSeqlenPlugin::getSerializationSize() const noexcept
 {
     return sizeof(mNumHeads) + sizeof(mHeadSize) + sizeof(DataType) + sizeof(mHasImask) + sizeof(mHiddenSize)
         + sizeof(mSM) + sizeof(mS) + sizeof(mB) + sizeof(mDqProbs) + dispatcher->getSerializationSize()
-        + sizeof(mUseVarSeqlen) + sizeof(mHdim);
+        + sizeof(mUseVarSeqlen) + sizeof(mHdim) + sizeof(mUseInt8ScaleMax);
 }
 
 void QKVToContextVarSeqlenPlugin::serialize(void* buffer) const noexcept
@@ -887,6 +888,7 @@ void QKVToContextVarSeqlenPlugin::serialize(void* buffer) const noexcept
     serialize_value(&buffer, mDqProbs);
     serialize_value(&buffer, mUseVarSeqlen);
     serialize_value(&buffer, mHdim);
+    serialize_value(&buffer, mUseInt8ScaleMax);
     dispatcher->serialize(buffer);
 }
 
@@ -998,6 +1000,7 @@ QKVToContextVarSeqlenPluginCreator::QKVToContextVarSeqlenPluginCreator()
     mPluginAttributes.emplace_back(PluginField("has_mask", nullptr, PluginFieldType::kINT32, 1));
     mPluginAttributes.emplace_back(PluginField("dq_probs", nullptr, PluginFieldType::kFLOAT32, 1));
     mPluginAttributes.emplace_back(PluginField("var_seqlen", nullptr, PluginFieldType::kINT32, 1));
+    mPluginAttributes.emplace_back(PluginField("use_int8_scale_max", nullptr, PluginFieldType::kINT32, 1));
 
     mFC.nbFields = mPluginAttributes.size();
     mFC.fields = mPluginAttributes.data();
@@ -1030,6 +1033,7 @@ IPluginV2* QKVToContextVarSeqlenPluginCreator::createPlugin(const char* name, co
     int32_t varSeqlen = 0;
 
     float dqProbs = -1;
+    int32_t useInt8ScaleMax{-1};
 
     for (int32_t i = 0; i < fc->nbFields; i++)
     {
@@ -1066,6 +1070,11 @@ IPluginV2* QKVToContextVarSeqlenPluginCreator::createPlugin(const char* name, co
             varSeqlen = *static_cast<const int*>(fc->fields[i].data);
             BERT_DEBUG_VALUE("Building var_seqlen: ", varSeqlen);
         }
+        if (field_name.compare("use_int8_scale_max") == 0)
+        {
+            useInt8ScaleMax = *static_cast<int32_t const*>(fc->fields[i].data);
+            BERT_DEBUG_VALUE("Building useInt8ScaleMax: ", useInt8ScaleMax);
+        }
     }
     if (typeId < 0 || typeId > 3)
     {
@@ -1085,6 +1094,12 @@ IPluginV2* QKVToContextVarSeqlenPluginCreator::createPlugin(const char* name, co
         return nullptr;
     }
 
+    if (useInt8ScaleMax < 0)
+    {
+        gLogInfo << "Using default for use_int8_scale_max: true" << std::endl;
+        useInt8ScaleMax = 1;
+    }
+
     BERT_DEBUG_MSG("Building the Plugin...");
     DataType type = static_cast<DataType>(typeId);
     if (type == DataType::kINT8 && dqProbs < 0)
@@ -1093,8 +1108,10 @@ IPluginV2* QKVToContextVarSeqlenPluginCreator::createPlugin(const char* name, co
         dqProbs = 1.F / 127.F;
     }
 
+    auto const useInt8ScaleMaxFlag = static_cast<bool>(useInt8ScaleMax);
+
     QKVToContextVarSeqlenPlugin* p
-        = new QKVToContextVarSeqlenPlugin(name, type, hiddenSize, numHeads, dqProbs, hasMask, varSeqlen);
+        = new QKVToContextVarSeqlenPlugin(name, type, hiddenSize, numHeads, dqProbs, hasMask, varSeqlen, useInt8ScaleMaxFlag);
     return p;
 }
 

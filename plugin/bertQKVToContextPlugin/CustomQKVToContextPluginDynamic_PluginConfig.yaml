@@ -67,6 +67,7 @@ versions:
       - has_mask
       - dq_probs
       - var_seqlen
+      - use_int8_scale_max
     attribute_types:
       type_id: int32
       hidden_size: int32
@@ -74,6 +75,7 @@ versions:
       has_mask: int32
       dq_probs: float32
       var_seqlen: int32
+      use_int8_scale_max: int32
     attribute_length:
       type_id: 1
       hidden_size: 1
@@ -81,6 +83,7 @@ versions:
       has_mask: 1
       dq_probs: 1
       var_seqlen: 1
+      use_int8_scale_max: 1
     attribute_options:
       type_id:
         - 0
@@ -98,6 +101,9 @@ versions:
       dq_probs:
         min: "0"
         max: "=pinf"
+      use_int8_scale_max:
+        - 0
+        - 1
       var_seqlen:
         - 0
         # - 1 Disabled since SM specific tests are not supported yet

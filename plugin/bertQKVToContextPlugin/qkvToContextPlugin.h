@@ -211,8 +211,8 @@ private:
 class QKVToContextVarSeqlenPlugin : public nvinfer1::IPluginV2DynamicExt
 {
 public:
-    QKVToContextVarSeqlenPlugin(const std::string name, const nvinfer1::DataType type, const int32_t hiddenSize,
-        const int32_t numHeads, const float dqProbs, bool hasImask = false, bool varSeqlen = false);
+    QKVToContextVarSeqlenPlugin(std::string const name, nvinfer1::DataType const type, int32_t const hiddenSize,
+        int32_t const numHeads, float const dqProbs, bool hasImask = false, bool varSeqlen = false, bool const useInt8ScaleMax = true);
 
     QKVToContextVarSeqlenPlugin(const std::string name, const void* data, size_t length);
 
@@ -272,6 +272,7 @@ private:
 
     int32_t mHdim;
     bool mUseVarSeqlen;
+    bool mUseInt8ScaleMax{true};
 };
 
 class QKVToContextVarSeqlenPluginCreator : public nvinfer1::IPluginCreator
@@ -411,7 +412,7 @@ private:
 class FusedMHARunnerInt8v2 : public MHARunner
 {
 public:
-    FusedMHARunnerInt8v2(const int32_t numHeads, const int32_t headSize, const int32_t sm, const float dqProbs);
+    FusedMHARunnerInt8v2(int32_t const numHeads, int32_t const headSize, int32_t const sm, float const dqProbs, bool const useInt8ScaleMax);
     ~FusedMHARunnerInt8v2() = default; // for pimpl
 
     virtual void setup(const int32_t S, const int32_t B) override;
@@ -433,6 +434,7 @@ private:
     int32_t mSm;
     class mhaImpl;
     std::unique_ptr<mhaImpl> pimpl;
+    bool mUseInt8ScaleMax{true};
 };
 
 } // namespace bert

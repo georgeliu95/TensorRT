@@ -37,7 +37,7 @@ class QKVToContextInterleavedPlugin : public nvinfer1::IPluginV2DynamicExt
 {
 public:
     QKVToContextInterleavedPlugin(
-        const std::string name, const int hiddenSize, const int numHeads, const float dqProbs);
+        std::string const name, int const hiddenSize, int const numHeads, float const dqProbs, bool const useInt8ScaleMax);
 
     QKVToContextInterleavedPlugin(const std::string name, const void* data, size_t length);
 
@@ -92,6 +92,7 @@ private:
     const FusedMultiHeadAttentionXMMAKernelV2* mXmmaKernel;
 
     float mDqProbs;
+    bool mUseInt8ScaleMax{true};
 };
 
 class QKVToContextInterleavedPluginCreator : public nvinfer1::IPluginCreator
