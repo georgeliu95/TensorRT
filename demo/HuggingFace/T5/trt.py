@@ -504,7 +504,7 @@ class T5TRT(TRTInferenceCommand):
 
         preview_features = []
         if preview_dynamic_shapes:
-            preview_features = [PreviewFeature.FASTER_DYNAMIC_SHAPES]
+            preview_features = [PreviewFeature.FASTER_DYNAMIC_SHAPES_0805]
             engine_tag += "-previewFasterDynamicShapes"
 
         self.t5_trt_encoder_engine = T5EncoderONNXFile(
