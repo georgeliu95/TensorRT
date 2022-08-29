@@ -70,6 +70,24 @@ int EfficientNMSPlugin::getNbOutputs() const noexcept
 
 int EfficientNMSPlugin::initialize() noexcept
 {
+    if (!initialized)
+    {
+        int32_t device;
+        CSC(cudaGetDevice(&device), STATUS_FAILURE);
+        struct cudaDeviceProp properties;
+        CSC(cudaGetDeviceProperties(&properties, device), STATUS_FAILURE);
+        if (properties.regsPerBlock >= 65536)
+        {
+            // Most Devices
+            mParam.numSelectedBoxes = 5000;
+        }
+        else
+        {
+            // Jetson TX1/TX2
+            mParam.numSelectedBoxes = 2000;
+        }
+        initialized = true;
+    }
     return STATUS_SUCCESS;
 }
 

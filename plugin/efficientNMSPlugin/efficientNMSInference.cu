@@ -674,22 +674,6 @@ pluginStatus_t EfficientNMSDispatch(EfficientNMSParameters param, const void* bo
     cub::DoubleBuffer<T> scoresDB(topScoresData, sortedScoresData);
     cub::DoubleBuffer<int> indexDB(topIndexData, sortedIndexData);
 
-    // Device Specific Properties
-    int device;
-    CSC(cudaGetDevice(&device), STATUS_FAILURE);
-    struct cudaDeviceProp properties;
-    CSC(cudaGetDeviceProperties(&properties, device), STATUS_FAILURE);
-    if (properties.regsPerBlock >= 65536)
-    {
-        // Most Devices
-        param.numSelectedBoxes = 5000;
-    }
-    else
-    {
-        // Jetson TX1/TX2
-        param.numSelectedBoxes = 2000;
-    }
-
     // Kernels
     status = EfficientNMSFilterLauncher<T>(param, (T*) scoresInput, topNumData, topIndexData, topAnchorsData,
         topOffsetsStartData, topOffsetsEndData, topScoresData, topClassData, stream);

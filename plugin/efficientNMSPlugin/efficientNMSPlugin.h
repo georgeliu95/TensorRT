@@ -66,6 +66,7 @@ public:
 
 protected:
     EfficientNMSParameters mParam{};
+    bool initialized{false};
     std::string mNamespace;
 };
 
