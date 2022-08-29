@@ -480,74 +480,76 @@ const PluginFieldCollection* QKVToContextPluginDynamicCreator::getFieldNames() n
 
 IPluginV2* QKVToContextPluginDynamicCreator::createPlugin(const char* name, const PluginFieldCollection* fc) noexcept
 {
-    BERT_DEBUG_MSG("Creating QKV2ContextPlugin...");
-
-    int32_t hiddenSize = 0;
-    int32_t numHeads = 0;
-    bool hasMask = false;
-    int32_t typeId = -1;
-
-    float dqProbs = -1;
-
-    for (int32_t i = 0; i < fc->nbFields; i++)
+    try
     {
-        std::string field_name(fc->fields[i].name);
+        BERT_DEBUG_MSG("Creating QKV2ContextPlugin...");
+        PLUGIN_VALIDATE(fc != nullptr);
+        int32_t hiddenSize = 0;
+        int32_t numHeads = 0;
+        bool hasMask = false;
+        int32_t typeId = -1;
 
-        if (field_name.compare("type_id") == 0)
+        float dqProbs = -1;
+
+        PLUGIN_VALIDATE(fc->fields != nullptr);
+
+        for (int32_t i = 0; i < fc->nbFields; i++)
         {
-            typeId = *static_cast<const int*>(fc->fields[i].data);
-            BERT_DEBUG_VALUE("Building typeId: ", typeId);
-        }
-        if (field_name.compare("hidden_size") == 0)
-        {
-            hiddenSize = *static_cast<const int*>(fc->fields[i].data);
-            BERT_DEBUG_VALUE("Building hiddenSize: ", hiddenSize);
-        }
-        if (field_name.compare("num_heads") == 0)
-        {
-            numHeads = *static_cast<const int*>(fc->fields[i].data);
-            BERT_DEBUG_VALUE("Building numHeads: ", numHeads);
-        }
-        if (field_name.compare("has_mask") == 0)
-        {
-            hasMask = *static_cast<const bool*>(fc->fields[i].data);
-            BERT_DEBUG_VALUE("Building hasMask: ", hasMask);
+            PLUGIN_VALIDATE(fc->fields[i].name != nullptr);
+            PLUGIN_VALIDATE(fc->fields[i].data != nullptr);
+            std::string field_name(fc->fields[i].name);
+
+            if (field_name.compare("type_id") == 0)
+            {
+                typeId = *static_cast<int32_t const*>(fc->fields[i].data);
+                PLUGIN_VALIDATE(typeId >= 0 && typeId <= 2, ("QKV: Invalid TypeId " + std::to_string(typeId)).c_str());
+                BERT_DEBUG_VALUE("Building typeId: ", typeId);
+            }
+            if (field_name.compare("hidden_size") == 0)
+            {
+                hiddenSize = *static_cast<int32_t const*>(fc->fields[i].data);
+                PLUGIN_VALIDATE(hiddenSize > 0, ("QKV: Invalid hiddenSize " + std::to_string(hiddenSize)).c_str());
+                BERT_DEBUG_VALUE("Building hiddenSize: ", hiddenSize);
+            }
+            if (field_name.compare("num_heads") == 0)
+            {
+                numHeads = *static_cast<int32_t const*>(fc->fields[i].data);
+                PLUGIN_VALIDATE(numHeads > 0, ("QKV: Invalid numHeads " + std::to_string(numHeads)).c_str());
+                BERT_DEBUG_VALUE("Building numHeads: ", numHeads);
+            }
+            if (field_name.compare("has_mask") == 0)
+            {
+                auto hasMaskValue = *static_cast<int32_t const*>(fc->fields[i].data);
+                PLUGIN_VALIDATE(hasMaskValue == 0 || hasMaskValue == 1,
+                    ("QKV: Invalid hasMask " + std::to_string(hasMaskValue)).c_str());
+                hasMask = static_cast<bool>(hasMaskValue);
+                BERT_DEBUG_VALUE("Building hasMask: ", hasMask);
+            }
+
+            if (field_name.compare("dq_probs") == 0)
+            {
+                dqProbs = *static_cast<float const*>(fc->fields[i].data);
+                PLUGIN_VALIDATE(dqProbs > 0.0F, ("QKV: Invalid dqProbs " + std::to_string(dqProbs)).c_str());
+                BERT_DEBUG_VALUE("Building dqProbs: ", dqProbs);
+            }
         }
 
-        if (field_name.compare("dq_probs") == 0)
+        BERT_DEBUG_MSG("Building the Plugin...");
+        auto type = static_cast<DataType>(typeId);
+        if (type == DataType::kINT8 && dqProbs < 0)
         {
-            dqProbs = *static_cast<const float*>(fc->fields[i].data);
-            BERT_DEBUG_VALUE("Building dqProbs: ", dqProbs);
+            BERT_DEBUG_MSG("Using default scale factor");
+            dqProbs = 1.F / 127.F;
         }
+
+        auto* p = new QKVToContextPluginDynamic(name, type, hiddenSize, numHeads, dqProbs, hasMask);
+        return p;
     }
-    if (typeId < 0 || typeId > 3)
+    catch (std::exception const& e)
     {
-        gLogError << "QKV: Invalid TypeId " << typeId << std::endl;
-        return nullptr;
+        caughtError(e);
     }
-
-    if (hiddenSize <= 0)
-    {
-        gLogError << "QKV: Invalid hiddenSize " << hiddenSize << std::endl;
-        return nullptr;
-    }
-
-    if (numHeads <= 0)
-    {
-        gLogError << "QKV: Invalid numHeads " << numHeads << std::endl;
-        return nullptr;
-    }
-
-    BERT_DEBUG_MSG("Building the Plugin...");
-    DataType type = static_cast<DataType>(typeId);
-    if (type == DataType::kINT8 && dqProbs < 0)
-    {
-        BERT_DEBUG_MSG("Using default scale factor");
-        dqProbs = 1.F / 127.F;
-    }
-
-    QKVToContextPluginDynamic* p = new QKVToContextPluginDynamic(name, type, hiddenSize, numHeads, dqProbs, hasMask);
-    return p;
+    return nullptr;
 }
 
 IPluginV2* QKVToContextPluginDynamicCreator::deserializePlugin(
