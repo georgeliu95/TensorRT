@@ -368,7 +368,7 @@ class TRTInferenceCommand(NetworkCommand):
         device_group = parser.add_argument_group("trt")
         device_group.add_argument(
             "--preview-dynamic-shapes",
-            help="Use the FASTER_DYNAMIC_SHAPES preview feature when building the TensorRT engine",
+            help="Use the FASTER_DYNAMIC_SHAPES_0805 preview feature when building the TensorRT engine",
             action="store_true",
         )
 

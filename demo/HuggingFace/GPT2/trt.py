@@ -312,7 +312,7 @@ class GPT2Polygraphy(TRTInferenceCommand):
 
             preview_features = []
             if preview_dynamic_shapes:
-                preview_features = [PreviewFeature.FASTER_DYNAMIC_SHAPES]
+                preview_features = [PreviewFeature.FASTER_DYNAMIC_SHAPES_0805]
                 engine_tag += "-previewFasterDynamicShapes"
 
             self.gpt2_engine = GPT2ONNXFile(gpt2_onnx_fpath, metadata).as_trt_engine(

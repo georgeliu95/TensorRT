@@ -103,7 +103,7 @@ For BART, use `--enable-kv-cache` option to get the same effect of HuggingFace's
 python3 run.py run BART [frameworks | trt] --variant facebook/bart-base --working-dir temp --enable-kv-cache
 ```
 
-## How to run with TensorRT `FASTER_DYNAMIC_SHAPES` preview feature
+## How to run with TensorRT `FASTER_DYNAMIC_SHAPES_0805` preview feature
 
 Use the `--preview-dynamic-shapes` option to enable this preview feature for BART, GPT2, or T5.
 
