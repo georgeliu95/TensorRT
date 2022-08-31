@@ -40,9 +40,10 @@ class TensorRTInfer:
         self.logger = trt.Logger(trt.Logger.ERROR)
         trt.init_libnvinfer_plugins(self.logger, namespace="")
         with open(engine_path, "rb") as f, trt.Runtime(self.logger) as runtime:
+            assert runtime
             self.engine = runtime.deserialize_cuda_engine(f.read())
-        self.context = self.engine.create_execution_context()
         assert self.engine
+        self.context = self.engine.create_execution_context()
         assert self.context
 
         # Setup I/O bindings

@@ -40,9 +40,10 @@ class TensorRTInfer:
         # Load TRT engine
         self.logger = trt.Logger(trt.Logger.ERROR)
         with open(engine_path, "rb") as f, trt.Runtime(self.logger) as runtime:
+            assert runtime
             self.engine = runtime.deserialize_cuda_engine(f.read())
-        self.context = self.engine.create_execution_context()
         assert self.engine
+        self.context = self.engine.create_execution_context()
         assert self.context
 
         # Setup I/O bindings
