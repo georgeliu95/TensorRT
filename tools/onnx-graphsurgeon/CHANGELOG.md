@@ -2,6 +2,12 @@
 
 Dates are in YYYY-MM-DD format.
 
+## v0.3.24 (2022-08-31)
+### Fixed
+- Fixed a bug where `fold_constants` would not work at all when `onnxruntime` was not installed.
+    Now, `fold_constants` can still partially fold the graph even when `onnxruntime` is not available.
+
+
 ## v0.3.23 (2022-08-24)
 ### Fixed
 - Fixed a bug in `fold_constants` where shape tensor cast elision would not work correctly
