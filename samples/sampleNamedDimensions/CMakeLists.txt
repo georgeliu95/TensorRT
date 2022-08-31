@@ -1,4 +1,3 @@
-#!/bin/bash
 #
 # SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
@@ -15,12 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+SET(SAMPLE_SOURCES
+    sampleNamedDimensions.cpp
+)
 
-mkdir -p /usr/src/tensorrt/data/mnist && cd /usr/src/tensorrt/data/mnist
-wget -nc http://yann.lecun.com/exdb/mnist/train-images-idx3-ubyte.gz
-wget -nc http://yann.lecun.com/exdb/mnist/t10k-images-idx3-ubyte.gz
-wget -nc http://yann.lecun.com/exdb/mnist/t10k-labels-idx1-ubyte.gz
-gunzip -kf train-images-idx3-ubyte.gz
-gunzip -kf t10k-images-idx3-ubyte.gz
-gunzip -kf t10k-labels-idx1-ubyte.gz
-cd -
+set(SAMPLE_PARSERS "onnx")
+
+include(../CMakeSamplesTemplate.txt)

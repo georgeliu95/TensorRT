@@ -46,7 +46,7 @@
 #include "cuda_runtime_api.h"
 #include "logger.h"
 #include "sampleEngines.h"
-
+using namespace nvinfer1;
 using samplesCommon::SampleUniquePtr;
 
 const std::string gSampleName = "TensorRT.sample_char_rnn";

@@ -16,12 +16,11 @@
  */
 
 //!
-//! sampleOnnxMNIST.cpp
-//! This file contains the implementation of the ONNX MNIST sample. It creates the network using
-//! the MNIST onnx model.
+//! sampleNamedDimensions.cpp
+//! This file contains the implementation of the named dimensions sample. It creates the network using
+//! a synthetic ONNX model with named input dimensions.
 //! It can be run with the following command line:
-//! Command: ./sample_onnx_mnist [-h or --help] [-d=/path/to/data/dir or --datadir=/path/to/data/dir]
-//! [--useDLACore=<int>]
+//! Command: ./sample_named_dimensions [-h or --help] [-d=/path/to/data/dir or --datadir=/path/to/data/dir]
 //!
 
 #include "argsParser.h"
@@ -33,27 +32,32 @@
 #include "NvInfer.h"
 #include <cuda_runtime_api.h>
 
+#include <algorithm>
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
+#include <random>
 #include <sstream>
 using namespace nvinfer1;
 using samplesCommon::SampleUniquePtr;
 
-const std::string gSampleName = "TensorRT.sample_onnx_mnist";
+std::string const gSampleName = "TensorRT.sample_named_dimensions";
 
-//! \brief  The SampleOnnxMNIST class implements the ONNX MNIST sample
+//! \brief  The SampleNamedDimensions class implements a sample with named input dimensions
 //!
 //! \details It creates the network using an ONNX model
 //!
-class SampleOnnxMNIST
+class SampleNamedDimensions
 {
 public:
-    SampleOnnxMNIST(const samplesCommon::OnnxSampleParams& params)
+    SampleNamedDimensions(samplesCommon::OnnxSampleParams const& params)
         : mParams(params)
         , mEngine(nullptr)
     {
     }
+
+    //! \brief Adds an optimization profile for dynamic shapes
+    void setNamedDimension(int32_t dim);
 
     //!
     //! \brief Function builds the network engine
@@ -68,39 +72,58 @@ public:
 private:
     samplesCommon::OnnxSampleParams mParams; //!< The parameters for the sample.
 
-    nvinfer1::Dims mInputDims;  //!< The dimensions of the input to the network.
-    nvinfer1::Dims mOutputDims; //!< The dimensions of the output to the network.
-    int mNumber{0};             //!< The number to classify
+    std::vector<nvinfer1::Dims> mInputDims;  //!< The dimensions of the inputs to the network.
+    std::vector<nvinfer1::Dims> mOutputDims; //!< The dimensions of the outputs to the network.
+
+    int32_t mNamedDimension; //!< The value of the named dimension.
+
+    //! Input Tensors.
+    std::vector<float> mInput0;
+    std::vector<float> mInput1;
 
     std::shared_ptr<nvinfer1::ICudaEngine> mEngine; //!< The TensorRT engine used to run the network
 
     //!
-    //! \brief Parses an ONNX model for MNIST and creates a TensorRT network
+    //! \brief Parses a synthetic ONNX model and creates a TensorRT network
     //!
     bool constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
         SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config,
         SampleUniquePtr<nvonnxparser::IParser>& parser);
 
     //!
+    //! \brief Adds an optimization profile for dynamic shapes
+    //!
+    void addOptimizationProfile(SampleUniquePtr<nvinfer1::IBuilderConfig>& config,
+        SampleUniquePtr<nvinfer1::IBuilder>& builder);
+
+    //!
     //! \brief Reads the input  and stores the result in a managed buffer
     //!
-    bool processInput(const samplesCommon::BufferManager& buffers);
+    bool processInput(samplesCommon::BufferManager const& buffers);
 
     //!
     //! \brief Classifies digits and verify result
     //!
-    bool verifyOutput(const samplesCommon::BufferManager& buffers);
+    bool verifyOutput(samplesCommon::BufferManager const& buffers);
 };
+
+//!
+//! \brief Sets the value of the named input dimension
+//!
+void SampleNamedDimensions::setNamedDimension(int32_t dim)
+{
+    mNamedDimension = dim;
+}
 
 //!
 //! \brief Creates the network, configures the builder and creates the network engine
 //!
-//! \details This function creates the Onnx MNIST network by parsing the Onnx model and builds
-//!          the engine that will be used to run MNIST (mEngine)
+//! \details This function creates the network definition by parsing the Onnx model and builds
+//!          the engine that will be used to run the model (mEngine)
 //!
 //! \return true if the engine was created successfully and false otherwise
 //!
-bool SampleOnnxMNIST::build()
+bool SampleNamedDimensions::build()
 {
     auto builder = SampleUniquePtr<nvinfer1::IBuilder>(nvinfer1::createInferBuilder(sample::gLogger.getTRTLogger()));
     if (!builder)
@@ -108,7 +131,7 @@ bool SampleOnnxMNIST::build()
         return false;
     }
 
-    const auto explicitBatch = 1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
+    auto const explicitBatch = 1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
     auto network = SampleUniquePtr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicitBatch));
     if (!network)
     {
@@ -134,6 +157,16 @@ bool SampleOnnxMNIST::build()
         return false;
     }
 
+    ASSERT(network->getNbInputs() == 2);
+    mInputDims.push_back(network->getInput(0)->getDimensions());
+    mInputDims.push_back(network->getInput(1)->getDimensions());
+    ASSERT(mInputDims[0].nbDims == 2);
+    ASSERT(mInputDims[1].nbDims == 2);
+
+    ASSERT(network->getNbOutputs() == 1);
+    mOutputDims.push_back(network->getOutput(0)->getDimensions());
+    ASSERT(mOutputDims[0].nbDims == 2);
+
     // CUDA stream used for profiling by the builder.
     auto profileStream = samplesCommon::makeCudaStream();
     if (!profileStream)
@@ -141,6 +174,8 @@ bool SampleOnnxMNIST::build()
         return false;
     }
     config->setProfileStream(*profileStream);
+
+    addOptimizationProfile(config, builder);
 
     SampleUniquePtr<IHostMemory> plan{builder->buildSerializedNetwork(*network, *config)};
     if (!plan)
@@ -161,49 +196,44 @@ bool SampleOnnxMNIST::build()
         return false;
     }
 
-    ASSERT(network->getNbInputs() == 1);
-    mInputDims = network->getInput(0)->getDimensions();
-    ASSERT(mInputDims.nbDims == 4);
-
-    ASSERT(network->getNbOutputs() == 1);
-    mOutputDims = network->getOutput(0)->getDimensions();
-    ASSERT(mOutputDims.nbDims == 2);
-
     return true;
 }
 
 //!
-//! \brief Uses a ONNX parser to create the Onnx MNIST Network and marks the
-//!        output layers
+//! \brief Uses ONNX parser to create the ONNX Network and marks the output layers
 //!
-//! \param network Pointer to the network that will be populated with the Onnx MNIST network
-//!
-//! \param builder Pointer to the engine builder
-//!
-bool SampleOnnxMNIST::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
+bool SampleNamedDimensions::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& builder,
     SampleUniquePtr<nvinfer1::INetworkDefinition>& network, SampleUniquePtr<nvinfer1::IBuilderConfig>& config,
     SampleUniquePtr<nvonnxparser::IParser>& parser)
 {
     auto parsed = parser->parseFromFile(locateFile(mParams.onnxFileName, mParams.dataDirs).c_str(),
-        static_cast<int>(sample::gLogger.getReportableSeverity()));
+        static_cast<int32_t>(sample::gLogger.getReportableSeverity()));
     if (!parsed)
     {
         return false;
     }
 
-    if (mParams.fp16)
-    {
-        config->setFlag(BuilderFlag::kFP16);
-    }
-    if (mParams.int8)
-    {
-        config->setFlag(BuilderFlag::kINT8);
-        samplesCommon::setAllDynamicRanges(network.get(), 127.0f, 127.0f);
-    }
-
-    samplesCommon::enableDLA(builder.get(), config.get(), mParams.dlaCore);
-
     return true;
+}
+
+//!
+//! \brief Adds an optimization profile for dynamic shapes
+//!
+void SampleNamedDimensions::addOptimizationProfile(SampleUniquePtr<nvinfer1::IBuilderConfig>& config,
+    SampleUniquePtr<nvinfer1::IBuilder>& builder)
+{
+    auto const input0ProfileDims = Dims2(mNamedDimension, mInputDims[0].d[1]);
+    auto profile = builder->createOptimizationProfile();
+    profile->setDimensions("input0", OptProfileSelector::kMIN, input0ProfileDims);
+    profile->setDimensions("input0", OptProfileSelector::kMAX, input0ProfileDims);
+    profile->setDimensions("input0", OptProfileSelector::kOPT, input0ProfileDims);
+
+    auto input1ProfileDims = Dims2(mNamedDimension, mInputDims[1].d[1]);
+    profile->setDimensions("input1", OptProfileSelector::kMIN, input1ProfileDims);
+    profile->setDimensions("input1", OptProfileSelector::kMAX, input1ProfileDims);
+    profile->setDimensions("input1", OptProfileSelector::kOPT, input1ProfileDims);
+
+    config->addOptimizationProfile(profile);
 }
 
 //!
@@ -212,7 +242,7 @@ bool SampleOnnxMNIST::constructNetwork(SampleUniquePtr<nvinfer1::IBuilder>& buil
 //! \details This function is the main execution function of the sample. It allocates the buffer,
 //!          sets inputs and executes the engine.
 //!
-bool SampleOnnxMNIST::infer()
+bool SampleNamedDimensions::infer()
 {
     // Create RAII buffer manager object
     samplesCommon::BufferManager buffers(mEngine);
@@ -224,7 +254,7 @@ bool SampleOnnxMNIST::infer()
     }
 
     // Read the input data into the managed buffers
-    ASSERT(mParams.inputTensorNames.size() == 1);
+    ASSERT(mParams.inputTensorNames.size() == 2);
     if (!processInput(buffers))
     {
         return false;
@@ -254,95 +284,95 @@ bool SampleOnnxMNIST::infer()
 //!
 //! \brief Reads the input and stores the result in a managed buffer
 //!
-bool SampleOnnxMNIST::processInput(const samplesCommon::BufferManager& buffers)
+bool SampleNamedDimensions::processInput(samplesCommon::BufferManager const& buffers)
 {
-    const int inputH = mInputDims.d[2];
-    const int inputW = mInputDims.d[3];
+    int32_t const input0H = mNamedDimension;
+    int32_t const input0W = mInputDims[0].d[1];
+    int32_t const input1H = mNamedDimension;
+    int32_t const input1W = mInputDims[1].d[1];
 
-    // Read a random digit file
-    srand(unsigned(time(nullptr)));
-    std::vector<uint8_t> fileData(inputH * inputW);
-    mNumber = rand() % 10;
-    readPGMFile(locateFile(std::to_string(mNumber) + ".pgm", mParams.dataDirs), fileData.data(), inputH, inputW);
+    // Generate random input
+    mInput0.resize(input0H * input0W);
+    mInput1.resize(input1H * input1W);
+    std::default_random_engine generator(static_cast<uint32_t>(time(nullptr)));
+    std::uniform_real_distribution<float> unif_real_distr(-10., 10.);
 
-    // Print an ascii representation
-    sample::gLogInfo << "Input:" << std::endl;
-    for (int i = 0; i < inputH * inputW; i++)
+    sample::gLogInfo << "Input0:\n";
+    for (int32_t i = 0; i < input0H * input0W; i++)
     {
-        sample::gLogInfo << (" .:-=+*#%@"[fileData[i] / 26]) << (((i + 1) % inputW) ? "" : "\n");
+        mInput0[i] = unif_real_distr(generator);
+        sample::gLogInfo << mInput0[i] << (((i + 1) % input0W) ? " " : "\n");
     }
     sample::gLogInfo << std::endl;
 
-    float* hostDataBuffer = static_cast<float*>(buffers.getHostBuffer(mParams.inputTensorNames[0]));
-    for (int i = 0; i < inputH * inputW; i++)
+    sample::gLogInfo << "Input1:\n";
+    for (int32_t i = 0; i < input1H * input1W; i++)
     {
-        hostDataBuffer[i] = 1.0 - float(fileData[i] / 255.0);
+        mInput1[i] = unif_real_distr(generator);
+        sample::gLogInfo << mInput1[i] << (((i + 1) % input1W) ? " " : "\n");
     }
+    sample::gLogInfo << std::endl;
+
+    auto* hostInput0Buffer = static_cast<float*>(buffers.getHostBuffer(mParams.inputTensorNames[0]));
+    std::copy(mInput0.begin(), mInput0.begin() + input0H * input0W, hostInput0Buffer);
+
+    auto* hostInput1Buffer = static_cast<float*>(buffers.getHostBuffer(mParams.inputTensorNames[1]));
+    std::copy(mInput1.begin(), mInput1.begin() + input1H * input1W, hostInput1Buffer);
 
     return true;
 }
 
 //!
-//! \brief Classifies digits and verify result
+//! \brief Verify the result of concatenation
 //!
-//! \return whether the classification output matches expectations
+//! \return whether the concatenated tesnor matches reference
 //!
-bool SampleOnnxMNIST::verifyOutput(const samplesCommon::BufferManager& buffers)
+bool SampleNamedDimensions::verifyOutput(samplesCommon::BufferManager const& buffers)
 {
-    const int outputSize = mOutputDims.d[1];
-    float* output = static_cast<float*>(buffers.getHostBuffer(mParams.outputTensorNames[0]));
-    float val{0.0f};
-    int idx{0};
+    int32_t const outputH = 2 * mNamedDimension;
+    int32_t const outputW = mOutputDims[0].d[1];
+    int32_t const outputSize = outputH * outputW;
 
-    // Calculate Softmax
-    float sum{0.0f};
-    for (int i = 0; i < outputSize; i++)
+    auto* output = static_cast<float*>(buffers.getHostBuffer(mParams.outputTensorNames[0]));
+
+    sample::gLogInfo << "Output:\n";
+    for (int32_t i = 0; i < outputSize; i++)
     {
-        output[i] = exp(output[i]);
-        sum += output[i];
-    }
-
-    sample::gLogInfo << "Output:" << std::endl;
-    for (int i = 0; i < outputSize; i++)
-    {
-        output[i] /= sum;
-        val = std::max(val, output[i]);
-        if (val == output[i])
-        {
-            idx = i;
-        }
-
-        sample::gLogInfo << " Prob " << i << "  " << std::fixed << std::setw(5) << std::setprecision(4) << output[i]
-                         << " "
-                         << "Class " << i << ": " << std::string(int(std::floor(output[i] * 10 + 0.5f)), '*')
-                         << std::endl;
+        sample::gLogInfo << output[i] << (((i + 1) % outputW) ? " " : "\n");
     }
     sample::gLogInfo << std::endl;
 
-    return idx == mNumber && val > 0.9f;
+    mInput0.insert(mInput0.end(), mInput1.begin(), mInput1.end());
+
+    for (int32_t i = 0; i < outputH * outputW; i++)
+    {
+        auto const reference_value = i > outputSize / 2 ? mInput1[i - outputSize / 2] : mInput0[i];
+        if (fabs(output[i] - reference_value) > std::numeric_limits<float>::epsilon())
+        {
+            return false;
+        }
+    }
+    return true;
 }
 
 //!
 //! \brief Initializes members of the params struct using the command line args
 //!
-samplesCommon::OnnxSampleParams initializeSampleParams(const samplesCommon::Args& args)
+samplesCommon::OnnxSampleParams initializeSampleParams(samplesCommon::Args const& args)
 {
     samplesCommon::OnnxSampleParams params;
     if (args.dataDirs.empty()) // Use default directories if user hasn't provided directory paths
     {
-        params.dataDirs.push_back("data/mnist/");
-        params.dataDirs.push_back("data/samples/mnist/");
+        params.dataDirs.push_back("trt/samples/sampleNamedDimensions/");
     }
     else // Use the data directory provided by the user
     {
         params.dataDirs = args.dataDirs;
     }
-    params.onnxFileName = "mnist.onnx";
-    params.inputTensorNames.push_back("Input3");
-    params.outputTensorNames.push_back("Plus214_Output_0");
-    params.dlaCore = args.useDLACore;
-    params.int8 = args.runInInt8;
-    params.fp16 = args.runInFp16;
+    params.onnxFileName = "concat_layer.onnx";
+    params.inputTensorNames.push_back("input0");
+    params.inputTensorNames.push_back("input1");
+    params.outputTensorNames.push_back("output");
 
     return params;
 }
@@ -353,21 +383,16 @@ samplesCommon::OnnxSampleParams initializeSampleParams(const samplesCommon::Args
 void printHelpInfo()
 {
     std::cout
-        << "Usage: ./sample_onnx_mnist [-h or --help] [-d or --datadir=<path to data directory>] [--useDLACore=<int>]"
+        << "Usage: ./sample_named_dimensions [-h or --help] [-d or --datadir=<path to data directory>]"
         << std::endl;
     std::cout << "--help          Display help information" << std::endl;
     std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used "
                  "multiple times to add multiple directories. If no data directories are given, the default is to use "
-                 "(data/samples/mnist/, data/mnist/)"
+                 "(trt/samples/sampleNamedDimensions)"
               << std::endl;
-    std::cout << "--useDLACore=N  Specify a DLA engine for layers that support DLA. Value can range from 0 to n-1, "
-                 "where n is the number of DLA engines on the platform."
-              << std::endl;
-    std::cout << "--int8          Run in Int8 mode." << std::endl;
-    std::cout << "--fp16          Run in FP16 mode." << std::endl;
 }
 
-int main(int argc, char** argv)
+int32_t main(int32_t argc, char** argv)
 {
     samplesCommon::Args args;
     bool argsOK = samplesCommon::parseArgs(args, argc, argv);
@@ -387,9 +412,11 @@ int main(int argc, char** argv)
 
     sample::gLogger.reportTestStart(sampleTest);
 
-    SampleOnnxMNIST sample(initializeSampleParams(args));
+    SampleNamedDimensions sample(initializeSampleParams(args));
 
-    sample::gLogInfo << "Building and running a GPU inference engine for Onnx MNIST" << std::endl;
+    sample::gLogInfo << "Building and running a GPU inference engine for synthetic ONNX model" << std::endl;
+
+    sample.setNamedDimension(2);
 
     if (!sample.build())
     {
