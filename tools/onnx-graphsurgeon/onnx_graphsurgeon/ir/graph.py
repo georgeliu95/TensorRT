@@ -528,7 +528,6 @@ class Graph(object):
         Returns:
             self
         """
-        import onnxruntime as rt
         from onnx_graphsurgeon.exporters.onnx_exporter import dtype_to_onnx, export_onnx
 
         PARTITIONING_MODES = [None, "basic", "recursive"]
@@ -846,7 +845,9 @@ class Graph(object):
 
                 try:
                     # Determining types is not trivial, and ONNX-RT does its own type inference.
-                    sess = rt.InferenceSession(
+                    import onnxruntime as onnxrt
+
+                    sess = onnxrt.InferenceSession(
                         export_onnx(part, do_type_check=False).SerializeToString(), providers=ORT_PROVIDERS
                     )
                     values = sess.run(names, {})
@@ -901,7 +902,9 @@ class Graph(object):
             else:
                 names = [t.name for t in graph_clone.outputs]
                 try:
-                    sess = rt.InferenceSession(
+                    import onnxruntime as onnxrt
+
+                    sess = onnxrt.InferenceSession(
                         export_onnx(graph_clone, do_type_check=False).SerializeToString(), providers=ORT_PROVIDERS
                     )
                     values = sess.run(names, {})
