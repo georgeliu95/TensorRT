@@ -1301,7 +1301,7 @@ protected:
 //! \brief List of tactic sources for TensorRT.
 //!
 //! \see TacticSources, IBuilderConfig::setTacticSources(), IBuilderConfig::getTacticSources(),
-//! PreviewFeature::k0805_DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE
+//! PreviewFeature::kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805
 //!
 enum class TacticSource : int32_t
 {
@@ -2701,6 +2701,9 @@ public:
     //!
     //! Trivially true if network has no dynamically shaped input tensors.
     //!
+    //! Does not work with name-base interfaces eg. IExecutionContext::setInputShape(). Use
+    //! IExecutionContext::inferShapes() instead.
+    //!
     //! \see setBindingDimensions(bindingIndex,dimensions)
     //!
     bool allInputDimensionsSpecified() const noexcept
@@ -2714,6 +2717,9 @@ public:
     //! \return True if all input shape bindings have been specified by setInputShapeBinding().
     //!
     //! Trivially true if network has no input shape bindings.
+    //!
+    //! Does not work with name-base interfaces eg. IExecutionContext::setInputShape(). Use
+    //! IExecutionContext::inferShapes() instead.
     //!
     //! \see isShapeBinding(bindingIndex)
     //!
@@ -3043,19 +3049,23 @@ public:
     //!
     //! \param event The cuda event that is triggered after all input tensors have been consumed.
     //!
+    //! \warning The set event must be valid during the inferece.
+    //!
     //! \return True on success, false if error occurred.
     //!
     //! Passing event==nullptr removes whatever event was set, if any.
     //!
-    bool setInputConsumedEvent(cudaEvent_t* event) noexcept
+    bool setInputConsumedEvent(cudaEvent_t event) noexcept
     {
         return mImpl->setInputConsumedEvent(event);
     }
 
     //!
     //! \brief The event associated with consuming the input.
-    //
-    cudaEvent_t* getInputConsumedEvent() const noexcept
+    //!
+    //! \return The cuda event. Nullptr will be returned if the event is not set yet.
+    //!
+    cudaEvent_t getInputConsumedEvent() const noexcept
     {
         return mImpl->getInputConsumedEvent();
     }

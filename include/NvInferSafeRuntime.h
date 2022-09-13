@@ -145,13 +145,17 @@ public:
     //!
     //! \brief Get the number of binding indices.
     //!
+    //! \return The number of binding indices.
+    //!
+    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getNbIOTensors.
+    //!
     //! \see getBindingIndex()
     //!
     //! \usage
     //! - Allowed context for the API call
     //!   - Thread-safe: Yes
     //!
-    virtual std::int32_t getNbBindings() const noexcept = 0;
+    TRT_DEPRECATED virtual std::int32_t getNbBindings() const noexcept = 0;
 
     //!
     //! \brief Retrieve the binding index for a named tensor.
@@ -543,6 +547,38 @@ public:
     //!   - Thread-safe: Yes
     //!
     virtual std::int32_t getTensorVectorizedDim(AsciiChar const* tensorName) const noexcept = 0;
+
+    //!
+    //! \brief Return the number of input and output tensors for the network from which the engine was built.
+    //!
+    //! \return The number of IO tensors.
+    //!
+    //! \see getIOTensorName()
+    //!
+    //! \usage
+    //! - Allowed context for the API call
+    //!   - Thread-safe: Yes
+    //!
+    virtual std::int32_t getNbIOTensors() const noexcept = 0;
+
+    //!
+    //! \brief Return the name of an IO tensor.
+    //!
+    //! If the index does not fall between 0 and getNbIOTensors()-1, the function will fail with an error code of ErrorCode::kINVALID_ARGUMENT(3) that is
+    //! emitted to the registered IErrorRecorder.
+    //!
+    //! \param index The value that falls between 0 and getNbIOTensors()-1.
+    //!
+    //! \return The name of an IO tensor. nullptr will be returned if the index does not fall between 0 and
+    //! getNbIOTensors()-1.
+    //!
+    //! \see getNbIOTensors()
+    //!
+    //! \usage
+    //! - Allowed context for the API call
+    //!   - Thread-safe: Yes
+    //!
+    virtual AsciiChar const* getIOTensorName(std::int32_t const index) const noexcept = 0;
 };
 
 //!
@@ -831,7 +867,7 @@ public:
     //! - Allowed context for the API call
     //!   - Thread-safe: No
     //!
-    virtual bool setInputConsumedEvent(cudaEvent_t* event) noexcept = 0;
+    virtual bool setInputConsumedEvent(cudaEvent_t event) noexcept = 0;
 
     //!
     //! \brief Return the event associated with consuming the input.
@@ -842,7 +878,7 @@ public:
     //! - Allowed context for the API call
     //!   - Thread-safe: Yes
     //!
-    virtual cudaEvent_t* getInputConsumedEvent() const noexcept = 0;
+    virtual cudaEvent_t getInputConsumedEvent() const noexcept = 0;
 
     //!
     //! \brief Get memory address for given input tensor.

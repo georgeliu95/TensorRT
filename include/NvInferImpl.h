@@ -326,8 +326,8 @@ public:
     virtual void const* getTensorAddress(char const* tensorName) const noexcept = 0;
     virtual bool setInputTensorAddress(char const* tensorName, void const* data) noexcept = 0;
     virtual int32_t inferShapes(int32_t nbMaxNames, char const** tensorNames) noexcept = 0;
-    virtual bool setInputConsumedEvent(cudaEvent_t* event) noexcept = 0;
-    virtual cudaEvent_t* getInputConsumedEvent() const noexcept = 0;
+    virtual bool setInputConsumedEvent(cudaEvent_t event) noexcept = 0;
+    virtual cudaEvent_t getInputConsumedEvent() const noexcept = 0;
     virtual void* getOutputTensorAddress(char const* tensorName) const noexcept = 0;
     virtual bool setOutputAllocator(char const* tensorName, IOutputAllocator* outputAllocator) noexcept = 0;
     virtual IOutputAllocator* getOutputAllocator(char const* name) noexcept = 0;
