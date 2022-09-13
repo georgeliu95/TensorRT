@@ -59,4 +59,24 @@ versions:
         min: "0"
         max: "=pinf"
     attributes_required: []
+    abs_tol: 1e-4
+    rel_tol: 1e-4
+    golden_io_path: "plugin/roiAlignPlugin/ROIAlign_PluginGoldenIO.json"
+    configs:
+      aligned_false:
+        input_types:
+          X: float32
+          rois: float32
+          batch_indices: int32
+        attribute_options: []
+        output_types:
+          Y: float32
+      aligned_true:
+        input_types:
+          X: float32
+          rois: float32
+          batch_indices: int32
+        attribute_options: []
+        output_types:
+          Y: float32
 ...
