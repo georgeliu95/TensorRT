@@ -598,8 +598,8 @@ std::string previewFeatureToString(PreviewFeature feature)
     // clang-format off
     switch (feature)
     {
-    case PreviewFeature::k0805_FASTER_DYNAMIC_SHAPES: return "k0805_FASTER_DYNAMIC_SHAPES";
-    case PreviewFeature::k0805_DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE: return "k0805_DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE";
+    case PreviewFeature::kFASTER_DYNAMIC_SHAPES_0805: return "kFASTER_DYNAMIC_SHAPES_0805";
+    case PreviewFeature::kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805: return "kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805";
     }
     return "Invalid Preview Feature";
     // clang-format on
@@ -613,8 +613,7 @@ std::ostream& printPreviewFlags(std::ostream& os, BuildOptions const& options)
         return os;
     }
 
-    auto const addFlag = [&](PreviewFeature feat)
-    {
+    auto const addFlag = [&](PreviewFeature feat) {
         int32_t featVal = static_cast<int32_t>(feat);
         if (options.previewFeatures.find(featVal) != options.previewFeatures.end())
         {
@@ -622,8 +621,8 @@ std::ostream& printPreviewFlags(std::ostream& os, BuildOptions const& options)
         }
     };
 
-    addFlag(PreviewFeature::k0805_FASTER_DYNAMIC_SHAPES);
-    addFlag(PreviewFeature::k0805_DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE);
+    addFlag(PreviewFeature::kFASTER_DYNAMIC_SHAPES_0805);
+    addFlag(PreviewFeature::kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805);
 
     return os;
 }
@@ -1052,11 +1051,11 @@ void BuildOptions::parse(Arguments& arguments)
         PreviewFeature feat{};
         if (featureName == "fasterDynamicShapes0805")
         {
-            feat = PreviewFeature::k0805_FASTER_DYNAMIC_SHAPES;
+            feat = PreviewFeature::kFASTER_DYNAMIC_SHAPES_0805;
         }
         else if (featureName == "disableExternalTacticSourcesForCore0805")
         {
-            feat = PreviewFeature::k0805_DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE;
+            feat = PreviewFeature::kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805;
         }
         else
         {
