@@ -259,10 +259,10 @@ class T5DecoderConverter(ModelFileConverter):
                 **inputs.get_torch_dynamic_axis_encoding(),
                 **outputs.get_torch_dynamic_axis_encoding(),
             },
-            training=False,
+            training=torch.onnx.TrainingMode.EVAL,
             **opt_args
         )
-        
+
 
         if network_metadata.precision.fp16:
             G_LOGGER.debug("Clamping FP16 weights for T5")
@@ -331,10 +331,10 @@ class T5EncoderConverter(ModelFileConverter):
                 **inputs.get_torch_dynamic_axis_encoding(),
                 **outputs.get_torch_dynamic_axis_encoding(),
             },
-            training=False,
+            training=torch.onnx.TrainingMode.EVAL,
             **opt_args
         )
-        
+
         if network_metadata.precision.fp16:
             G_LOGGER.debug("Clamping FP16 weights for T5")
             move_t5_cast_op(output_fpath, output_fpath)
