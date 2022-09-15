@@ -581,16 +581,15 @@ void setMemoryPoolLimits(IBuilderConfig& config, BuildOptions const& build)
 
 void setPreviewFeatures(IBuilderConfig& config, BuildOptions const& build)
 {
-    auto const setFlag = [&](PreviewFeature feat)
-    {
+    auto const setFlag = [&](PreviewFeature feat) {
         int32_t featVal = static_cast<int32_t>(feat);
         if (build.previewFeatures.find(featVal) != build.previewFeatures.end())
         {
             config.setPreviewFeature(feat, build.previewFeatures.at(featVal));
         }
     };
-    setFlag(PreviewFeature::k0805_FASTER_DYNAMIC_SHAPES);
-    setFlag(PreviewFeature::k0805_DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE);
+    setFlag(PreviewFeature::kFASTER_DYNAMIC_SHAPES_0805);
+    setFlag(PreviewFeature::kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805);
 }
 
 } // namespace

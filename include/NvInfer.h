@@ -8577,10 +8577,10 @@ enum class PreviewFeature : int32_t
     //!
     //! Optimize runtime dimensions with TensorRT's DL Compiler.
     //! Potentially reduces run time and decreases device memory usage and engine size.
-    //! Models most likely to benefit from enabling k0805_FASTER_DYNAMIC_SHAPES are transformer-based models,
+    //! Models most likely to benefit from enabling kFASTER_DYNAMIC_SHAPES_0805 are transformer-based models,
     //! and models containing dynamic control flows.
     //!
-    k0805_FASTER_DYNAMIC_SHAPES = 0,
+    kFASTER_DYNAMIC_SHAPES_0805 = 0,
 
     //!
     //! Disable usage of cuDNN/cuBLAS/cuBLASLt tactics in the TensorRT core library.
@@ -8596,7 +8596,7 @@ enum class PreviewFeature : int32_t
     //!
     //! \see TacticSource
     //!
-    k0805_DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE = 1,
+    kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805 = 1,
 };
 namespace impl
 {
