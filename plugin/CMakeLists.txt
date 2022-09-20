@@ -60,6 +60,7 @@ set(PLUGIN_LISTS
     regionPlugin
     reorgPlugin
     resizeNearestPlugin
+    roiAlignPlugin
     scatterPlugin
     specialSlicePlugin
     splitPlugin
