@@ -361,8 +361,9 @@ IPluginV2Ext* FlattenConcatPluginCreator::createPlugin(const char* name, const P
 {
     try
     {
+        plugin::validateRequiredAttributesExist({"axis", "ignoreBatch"}, fc);
         const PluginField* fields = fc->fields;
-        for (int i = 0; i < fc->nbFields; ++i)
+        for (int32_t i = 0; i < fc->nbFields; ++i)
         {
             const char* attrName = fields[i].name;
             if (!strcmp(attrName, "axis"))

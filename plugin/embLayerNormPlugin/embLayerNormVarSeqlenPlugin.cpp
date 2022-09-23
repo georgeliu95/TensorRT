@@ -17,6 +17,7 @@
 
 #include <cstring>
 #include <cuda.h>
+#include <set>
 #include <vector>
 
 #include "NvInfer.h"
@@ -668,6 +669,15 @@ bool initializeFields(char const* name, PluginFieldCollection const* fc, Weights
     Weights& word_emb, Weights& pos_emb, Weights& tok_emb)
 {
     bool output_fp16 = false;
+    std::set<std::string> const requiredAttributes{
+        "bert_embeddings_layernorm_beta",
+        "bert_embeddings_layernorm_gamma",
+        "bert_embeddings_word_embeddings",
+        "bert_embeddings_token_type_embeddings",
+        "bert_embeddings_position_embeddings",
+    };
+    plugin::validateRequiredAttributesExist(requiredAttributes, fc);
+
     for (int32_t i = 0; i < fc->nbFields; i++)
     {
         std::string field_name(fc->fields[i].name);

@@ -286,6 +286,11 @@ inline void caughtError(const std::exception& e)
         nvinfer1::plugin::reportAssertion(msg, __FILE__, __LINE__);                                                    \
     }
 
+#define PLUGIN_ERROR(msg)                                                                                              \
+    {                                                                                                                  \
+        nvinfer1::plugin::throwPluginError(__FILE__, FN_NAME, __LINE__, 0, msg);                                       \
+    }
+
 #define PLUGIN_CUERROR(status_)                                                                                        \
     {                                                                                                                  \
         auto s_ = status_;                                                                                             \

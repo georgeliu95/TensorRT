@@ -25,7 +25,6 @@ versions:
       num_heads: int32
       has_mask: int32
       dq_probs: float32
-      var_seqlen: int32
     attribute_length:
       type_id: 1
       hidden_size: 1
@@ -49,6 +48,13 @@ versions:
       dq_probs:
         min: "0"
         max: "=pinf"
+    attribute_constraints:
+      - "num_heads * k == hidden_size"
+    attributes_required:
+      - type_id
+      - hidden_size
+      - num_heads
+      - has_mask
   "2":
     inputs:
       - input
@@ -107,5 +113,11 @@ versions:
       var_seqlen:
         - 0
         # - 1 Disabled since SM specific tests are not supported yet
+    attributes_required:
+      - type_id
+      - hidden_size
+      - num_heads
+      - has_mask
+
   # "3": #version3 - Not supported yet
 ...
