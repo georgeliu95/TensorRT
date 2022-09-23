@@ -24,6 +24,9 @@
 #include <utility>
 #include <vector>
 
+// Remove once if common/utils is created (see TRT-17687)
+#include <set>
+
 using namespace nvinfer1;
 using nvinfer1::plugin::ClipPluginCreator;
 using nvinfer1::plugin::ClipPlugin;
@@ -216,9 +219,10 @@ IPluginV2* ClipPluginCreator::createPlugin(const char* name, const PluginFieldCo
         float clipMin = 0.0, clipMax = 0.0;
         const PluginField* fields = fc->fields;
 
+        plugin::validateRequiredAttributesExist({"clipMin", "clipMax"}, fc);
         PLUGIN_VALIDATE(fc->nbFields == 2);
 
-        for (int i = 0; i < fc->nbFields; i++)
+        for (int32_t i = 0; i < fc->nbFields; i++)
         {
             if (strcmp(fields[i].name, "clipMin") == 0)
             {

@@ -492,6 +492,7 @@ IPluginV2* QKVToContextPluginDynamicCreator::createPlugin(const char* name, cons
         float dqProbs = -1;
 
         PLUGIN_VALIDATE(fc->fields != nullptr);
+        plugin::validateRequiredAttributesExist({"type_id", "hidden_size", "num_heads", "has_mask"}, fc);
 
         for (int32_t i = 0; i < fc->nbFields; i++)
         {
@@ -1037,63 +1038,54 @@ IPluginV2* QKVToContextVarSeqlenPluginCreator::createPlugin(const char* name, co
     float dqProbs = -1;
     int32_t useInt8ScaleMax{-1};
 
+    plugin::validateRequiredAttributesExist({"type_id", "hidden_size", "num_heads", "has_mask"}, fc);
     for (int32_t i = 0; i < fc->nbFields; i++)
     {
         std::string field_name(fc->fields[i].name);
 
         if (field_name.compare("type_id") == 0)
         {
-            typeId = *static_cast<const int*>(fc->fields[i].data);
+            typeId = *static_cast<int32_t const*>(fc->fields[i].data);
+            PLUGIN_VALIDATE(typeId >= 0 && typeId <= 2, ("QKV: Invalid TypeId " + std::to_string(typeId)).c_str());
             BERT_DEBUG_VALUE("Building typeId: ", typeId);
         }
         if (field_name.compare("hidden_size") == 0)
         {
-            hiddenSize = *static_cast<const int*>(fc->fields[i].data);
+            hiddenSize = *static_cast<int32_t const*>(fc->fields[i].data);
+            PLUGIN_VALIDATE(hiddenSize > 0, ("QKV: Invalid hiddenSize " + std::to_string(hiddenSize)).c_str());
             BERT_DEBUG_VALUE("Building hiddenSize: ", hiddenSize);
         }
         if (field_name.compare("num_heads") == 0)
         {
-            numHeads = *static_cast<const int*>(fc->fields[i].data);
+            numHeads = *static_cast<int32_t const*>(fc->fields[i].data);
+            PLUGIN_VALIDATE(numHeads > 0, ("QKV: Invalid numHeads " + std::to_string(numHeads)).c_str());
             BERT_DEBUG_VALUE("Building numHeads: ", numHeads);
         }
         if (field_name.compare("has_mask") == 0)
         {
-            hasMask = *static_cast<const bool*>(fc->fields[i].data);
+            hasMask = *static_cast<bool const*>(fc->fields[i].data);
+            PLUGIN_VALIDATE(hasMask == 0 || hasMask == 1, ("QKV: Invalid hasMask " + std::to_string(hasMask)).c_str());
             BERT_DEBUG_VALUE("Building hasMask: ", hasMask);
         }
 
         if (field_name.compare("dq_probs") == 0)
         {
-            dqProbs = *static_cast<const float*>(fc->fields[i].data);
+            dqProbs = *static_cast<float const*>(fc->fields[i].data);
+            PLUGIN_VALIDATE(dqProbs > 0.0F, ("QKV: Invalid dqProbs " + std::to_string(dqProbs)).c_str());
             BERT_DEBUG_VALUE("Building dqProbs: ", dqProbs);
         }
         if (field_name.compare("var_seqlen") == 0)
         {
-            varSeqlen = *static_cast<const int*>(fc->fields[i].data);
+            varSeqlen = *static_cast<int32_t const*>(fc->fields[i].data);
             BERT_DEBUG_VALUE("Building var_seqlen: ", varSeqlen);
         }
         if (field_name.compare("use_int8_scale_max") == 0)
         {
             useInt8ScaleMax = *static_cast<int32_t const*>(fc->fields[i].data);
+            PLUGIN_VALIDATE(useInt8ScaleMax == 0 || useInt8ScaleMax == 1,
+                ("QKV: Invalid useInt8ScaleMax " + std::to_string(useInt8ScaleMax)).c_str());
             BERT_DEBUG_VALUE("Building useInt8ScaleMax: ", useInt8ScaleMax);
         }
-    }
-    if (typeId < 0 || typeId > 3)
-    {
-        gLogError << "QKV: Invalid TypeId " << typeId << std::endl;
-        return nullptr;
-    }
-
-    if (hiddenSize <= 0)
-    {
-        gLogError << "QKV: Invalid hiddenSize " << hiddenSize << std::endl;
-        return nullptr;
-    }
-
-    if (numHeads <= 0)
-    {
-        gLogError << "QKV: Invalid numHeads " << numHeads << std::endl;
-        return nullptr;
     }
 
     if (useInt8ScaleMax < 0)

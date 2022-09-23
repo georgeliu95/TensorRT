@@ -19,6 +19,7 @@
 #if CUDA_VERSION >= 10010
 
 #include <cstring>
+#include <set>
 #include <vector>
 
 #include "NvInfer.h"
@@ -544,6 +545,15 @@ IPluginV2* EmbLayerNormPluginDynamicCreator::createPlugin(char const* name, cons
         Weights pos_emb;
         Weights tok_emb;
         int32_t mhaTypeId = 0;
+        std::set<std::string> const requiredAttributes{
+            "bert_embeddings_layernorm_beta",
+            "bert_embeddings_layernorm_gamma",
+            "bert_embeddings_word_embeddings",
+            "bert_embeddings_token_type_embeddings",
+            "bert_embeddings_position_embeddings",
+        };
+        plugin::validateRequiredAttributesExist(requiredAttributes, fc);
+
         for (int32_t i = 0; i < fc->nbFields; i++)
         {
             std::string field_name(fc->fields[i].name);
