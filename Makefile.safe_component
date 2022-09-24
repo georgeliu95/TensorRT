@@ -1,8 +1,0 @@
-# If there is no safety build, then some components just install headers as
-# standard runtime and optimizer can access header-only safety
-# functions in directories outside of safety/tstd, safety/api, and safety/utility.
-ifeq ($(ENABLE_SAFETY_BUILD), 0)
-    include $(MKINC_PATH)/install-internal-headers.def
-else
-    include $(ROOT_PATH)/Makefile.component
-endif
