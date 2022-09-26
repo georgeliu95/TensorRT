@@ -118,14 +118,18 @@ class ModelFileConverter:
 
         G_LOGGER.info("Using optimization profiles: {:}".format(profiles))
 
-        self.trt_inference_config = CreateConfig(
-            tf32=True,
-            fp16=network_metadata.precision.fp16,
-            max_workspace_size=result.DEFAULT_TRT_WORKSPACE_MB * 1024 * 1024,
-            profiles=profiles,
-            precision_constraints=("obey" if result.use_obey_precision_constraints() else None),
-            preview_features=preview_features
-        )
+        try:
+            self.trt_inference_config = CreateConfig(
+                tf32=True,
+                fp16=network_metadata.precision.fp16,
+                max_workspace_size=result.DEFAULT_TRT_WORKSPACE_MB * 1024 * 1024,
+                profiles=profiles,
+                precision_constraints=("obey" if result.use_obey_precision_constraints() else None),
+                preview_features=preview_features
+            )
+        except TypeError as e:
+            G_LOGGER.error(f"This demo may have an outdated polygraphy. Please see requirements.txt for more details.")
+            raise e
 
         if G_LOGGER.level == G_LOGGER.DEBUG:
             g_logger_verbosity = PG_LOGGER.EXTRA_VERBOSE
