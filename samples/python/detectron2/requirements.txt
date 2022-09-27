@@ -1,7 +1,6 @@
 numpy
 pycuda
-Pillow; python_version<"3.6"
-Pillow==9.0.1; python_version>="3.6"
+Pillow
 onnx==1.8.1
 onnxruntime==1.8.0
 git+https://github.com/facebookresearch/detectron2.git
