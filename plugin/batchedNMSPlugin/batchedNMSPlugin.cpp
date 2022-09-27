@@ -67,10 +67,11 @@ std::vector<PluginField> BatchedNMSBasePluginCreator::mPluginAttributes;
 static inline pluginStatus_t checkParams(const NMSParameters& param)
 {
     // NMS plugin supports maximum thread blocksize of 512 and upto 8 blocks at once.
-    constexpr int32_t maxTopK{512*8};
+    constexpr int32_t maxTopK{512 * 8};
     if (param.topK > maxTopK)
     {
-        gLogError << "Invalid parameter: NMS topK (" << param.topK << ") exceeds limit (" << maxTopK << ")" << std::endl;
+        plugin::gLogError << "Invalid parameter: NMS topK (" << param.topK << ") exceeds limit (" << maxTopK << ")"
+                          << std::endl;
         return STATUS_BAD_PARAM;
     }
 

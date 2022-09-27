@@ -59,7 +59,7 @@ versions:
     configs:
       config1:
         input_types:
-          input: float32
+          input_layer: float32
         attribute_options:
           numLayers:
             value: 6

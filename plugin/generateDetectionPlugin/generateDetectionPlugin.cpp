@@ -16,7 +16,7 @@
  */
 
 #include "generateDetectionPlugin.h"
-#include "plugin.h"
+#include "common/plugin.h"
 #include <algorithm>
 #include <cuda_runtime_api.h>
 

@@ -24,6 +24,7 @@
 #include <vector>
 
 using namespace nvinfer1;
+using namespace nvinfer1::plugin;
 using nvinfer1::plugin::PriorBox;
 using nvinfer1::plugin::PriorBoxPluginCreator;
 
