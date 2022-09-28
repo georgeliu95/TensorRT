@@ -16,7 +16,9 @@
 
 transformers==4.8.0; python_version<"3.10"
 transformers==4.16.0; python_version>="3.10"
-torch <= 1.11
+-f https://download.pytorch.org/whl/cu113/torch_stable.html
+torch==1.11.0+cu113; platform_machine=="x86_64" and sys.platform=="linux"
+torch==1.11.0; platform_machine=="aarch64" and sys.platform=="linux"
 sentencepiece==0.1.95; python_version<"3.10"
 sentencepiece==0.1.97; python_version>="3.10"
 --extra-index-url https://pypi.ngc.nvidia.com
