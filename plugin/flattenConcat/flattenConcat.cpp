@@ -44,13 +44,14 @@ FlattenConcat::FlattenConcat(int concatAxis, bool ignoreBatch)
 }
 
 FlattenConcat::FlattenConcat(int concatAxis, bool ignoreBatch, int numInputs, int outputConcatAxis,
-    const int* inputConcatAxis, const size_t* copySize)
+    const int* inputConcatAxis, const size_t* copySize, nvinfer1::Dims const& chwDims)
     : mCopySize(numInputs)
     , mInputConcatAxis(numInputs)
     , mIgnoreBatch(ignoreBatch)
     , mConcatAxisID(concatAxis)
     , mOutputConcatAxis(outputConcatAxis)
     , mNumInputs(numInputs)
+    , mCHW(chwDims)
 {
     PLUGIN_VALIDATE(mConcatAxisID >= 1 && mConcatAxisID <= 3);
 
@@ -322,8 +323,8 @@ IPluginV2Ext* FlattenConcat::clone() const noexcept
 {
     try
     {
-        auto* plugin = new FlattenConcat(
-            mConcatAxisID, mIgnoreBatch, mNumInputs, mOutputConcatAxis, mInputConcatAxis.data(), mCopySize.data());
+        auto* plugin = new FlattenConcat(mConcatAxisID, mIgnoreBatch, mNumInputs, mOutputConcatAxis,
+            mInputConcatAxis.data(), mCopySize.data(), mCHW);
         plugin->setPluginNamespace(mPluginNamespace.c_str());
         return plugin;
     }

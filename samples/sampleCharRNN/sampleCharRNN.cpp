@@ -282,6 +282,8 @@ private:
 //!
 bool SampleCharRNNBase::build()
 {
+    mWeightMap = SampleCharRNNBase::loadWeights(mParams.weightFileName);
+
     if (mParams.loadEngine.empty())
     {
         auto builder
@@ -307,8 +309,6 @@ bool SampleCharRNNBase::build()
         {
             return false;
         }
-
-        mWeightMap = SampleCharRNNBase::loadWeights(mParams.weightFileName);
 
         config->setFlag(BuilderFlag::kGPU_FALLBACK);
 
