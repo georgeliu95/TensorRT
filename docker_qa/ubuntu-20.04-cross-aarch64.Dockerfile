@@ -20,7 +20,7 @@ ARG OS_VERSION=20.04
 FROM gitlab-master.nvidia.com:5005/dl/dgx/cuda:11.8-devel-ubuntu20.04--5691963
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.5.1.0
+ENV TRT_VERSION 8.5.1.1
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
