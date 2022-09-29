@@ -109,6 +109,14 @@ Use the `--preview-dynamic-shapes` option to enable this preview feature for BAR
 
 Note: preview feature functionality is only supported in TensorRT 8.5+.
 
+## How to run in performance benchmarking mode
+
+The `benchmark` action will benchmark the specific script under the model directory using random input data with specified input/output sequence lengths. Note that since the input data is random, the accuracy is not guaranteed, but the benchmarking mode is useful for performance measurement since it allows arbitrary and controllable input/output sequence lengths with early stopping being disabled and allows apples-to-apples performance comparisons across different frameworks.
+
+```python
+python3 run.py benchmark GPT2 [frameworks | trt] --variant [gpt2 | gpt2-large] --working-dir temp --input-seq-len 128 --output-seq-len 256
+```
+
 ## Testing
 
 ```python
