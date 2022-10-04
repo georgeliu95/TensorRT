@@ -116,6 +116,7 @@ private:
     std::string mPluginNamespace;
     std::string mNamespace;
     bool mInitialized{false};
+    int32_t mCudaDriverVersion{-1};
 
     // NDHWC implementation
     instance_norm_impl::InstanceNormFwdContext mContext;
