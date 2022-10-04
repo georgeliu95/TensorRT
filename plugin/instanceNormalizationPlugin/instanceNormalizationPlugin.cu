@@ -162,6 +162,8 @@ int32_t InstanceNormalizationPlugin::initialize() noexcept
         PLUGIN_CHECK_CUDA(cudaMalloc(&mDeviceBias, mNchan * sizeof(float)));
         PLUGIN_CHECK_CUDA(cudaMemcpy(mDeviceScale, &mHostScale[0], mNchan * sizeof(float), cudaMemcpyHostToDevice));
         PLUGIN_CHECK_CUDA(cudaMemcpy(mDeviceBias, &mHostBias[0], mNchan * sizeof(float), cudaMemcpyHostToDevice));
+
+        PLUGIN_CHECK_CUDA(cudaDriverGetVersion(&mCudaDriverVersion));
     }
     mInitialized = true;
 
@@ -309,10 +311,7 @@ int32_t InstanceNormalizationPlugin::enqueue(nvinfer1::PluginTensorDesc const* i
         cudaStreamCaptureStatus streamStatus;
         PLUGIN_CHECK_CUDA(cudaStreamIsCapturing(stream, &streamStatus));
 
-        int32_t cudaDriverVersion{-1};
-        PLUGIN_CHECK_CUDA(cudaDriverGetVersion(&cudaDriverVersion));
-
-        if (streamStatus != cudaStreamCaptureStatusNone && cudaDriverVersion < 11000)
+        if (streamStatus != cudaStreamCaptureStatusNone && mCudaDriverVersion < 11000)
         {
             gLogVerbose << "Using CUDNN_BATCHNORM_SPATIAL as a CUDA graph capture is in progress but the CUDA version "
                            "may have issues with using CUDNN_BATCHNORM_SPATIAL_PERSISTENT"
@@ -379,10 +378,7 @@ int32_t InstanceNormalizationPlugin::enqueue(nvinfer1::PluginTensorDesc const* i
             cudaStreamCaptureStatus streamStatus;
             PLUGIN_CHECK_CUDA(cudaStreamIsCapturing(stream, &streamStatus));
 
-            int32_t cudaDriverVersion{-1};
-            PLUGIN_CHECK_CUDA(cudaDriverGetVersion(&cudaDriverVersion));
-
-            if (streamStatus != cudaStreamCaptureStatusNone && cudaDriverVersion < 11000)
+            if (streamStatus != cudaStreamCaptureStatusNone && mCudaDriverVersion < 11000)
             {
                 gLogVerbose
                     << "Using CUDNN_BATCHNORM_SPATIAL as a CUDA graph capture is in progress but the CUDA version "
