@@ -194,12 +194,12 @@ class GPT2Polygraphy(TRTInferenceCommand):
             input_ids = torch.randint(0, GPT2ModelTRTConfig.VOCAB_SIZE, (batch_size, input_seq_len))
 
         # get single decoder iteration inference timing profile
-        _, decoder_e2e_median_time = gpt2_inference(
+        _, decoder_e2e_time = gpt2_inference(
             self.gpt2_trt, input_ids, timing_profile,
         )
 
         # get complete decoder inference result and its timing profile
-        sample_output, full_e2e_median_runtime = full_inference_greedy(
+        sample_output, full_e2e_runtime = full_inference_greedy(
             self.gpt2_trt,
             input_ids,
             timing_profile,
@@ -209,14 +209,14 @@ class GPT2Polygraphy(TRTInferenceCommand):
         )
 
         # Prepare runtime results.
-        median_runtime = [
+        runtime = [
             NetworkRuntime(
                 name=GPT2ModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME,
-                runtime=decoder_e2e_median_time,
+                runtime=decoder_e2e_time,
             ),
             NetworkRuntime(
                 name=GPT2ModelTRTConfig.NETWORK_FULL_NAME,
-                runtime=full_e2e_median_runtime,
+                runtime=full_e2e_runtime,
             ),
         ]
         models = NetworkModels(
@@ -232,7 +232,7 @@ class GPT2Polygraphy(TRTInferenceCommand):
 
         # Skip result checking in benchmarking mode since the input data is random.
         if benchmarking_mode:
-            return BenchmarkingResult(median_runtime=median_runtime, models=models)
+            return BenchmarkingResult(median_runtime=runtime, models=models)
 
         # Remove the padding and end tokens.
         semantic_outputs = tokenizer.decode(
@@ -246,7 +246,7 @@ class GPT2Polygraphy(TRTInferenceCommand):
             input=inference_input,
             output_tensor=sample_output,
             semantic_output=semantic_outputs,
-            median_runtime=median_runtime,
+            median_runtime=runtime,
             models=models,
         )
 

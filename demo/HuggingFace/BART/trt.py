@@ -211,12 +211,12 @@ class BARTTRTDecoder(TRTHFRunner):
             "encoder_hidden_states": torch.float32
         }
         self.input_shapes = {
-            "input_ids": (self.batch_size, self.max_sequence_length),
+            "input_ids": (self.batch_size, self.max_output_length),
             "encoder_hidden_states": (self.batch_size, self.max_sequence_length, self.encoder_hidden_size)
         }
 
         self.output_shapes = {
-            "hidden_states": (self.batch_size, self.max_sequence_length, BARTModelTRTConfig.VOCAB_SIZE[network_metadata.variant])
+            "hidden_states": (self.batch_size, self.max_output_length, BARTModelTRTConfig.VOCAB_SIZE[network_metadata.variant])
         }
         self.output_types = {
             "hidden_states": torch.float32
@@ -592,16 +592,21 @@ class BARTTRT(TRTInferenceCommand):
             output_seq_len = BARTModelTRTConfig.MAX_OUTPUT_LENGTH[metadata.variant] # note: T5 uses XXModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant] which is the max input length. Here should rather be the max output length for generation
             input_ids = tokenizer([inference_input] * batch_size, padding=True, return_tensors="pt").input_ids
         else:
-            max_seq_len = BARTModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant]
-            input_seq_len = benchmarking_args.input_seq_len if benchmarking_args.input_seq_len > 0 else max_seq_len
-            output_seq_len = benchmarking_args.output_seq_len if benchmarking_args.output_seq_len > 0 else max_seq_len
+            max_input_len = BARTModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant]
+            max_output_len = BARTModelTRTConfig.MAX_OUTPUT_LENGTH[metadata.variant] 
+
+            input_seq_len = benchmarking_args.input_seq_len if benchmarking_args.input_seq_len > 0 else max_input_len
+            output_seq_len = benchmarking_args.output_seq_len if benchmarking_args.output_seq_len > 0 else max_output_len
+            input_profile_max_len = benchmarking_args.input_profile_max_len if benchmarking_args.input_profile_max_len is not None else max_input_len
+            output_profile_max_len = benchmarking_args.output_profile_max_len if benchmarking_args.output_profile_max_len is not None else max_output_len
+            
             input_ids = torch.randint(0, BARTModelTRTConfig.VOCAB_SIZE[metadata.variant], (batch_size, input_seq_len))
 
-        encoder_last_hidden_state, encoder_e2e_median_time = encoder_inference(
+        encoder_last_hidden_state, encoder_e2e_time = encoder_inference(
             self.BART_trt_encoder, input_ids, timing_profile
         )
 
-        _, decoder_e2e_median_time = decoder_inference(
+        _, decoder_e2e_time = decoder_inference(
             self.BART_trt_decoder,
             input_ids,
             encoder_last_hidden_state,
@@ -609,31 +614,32 @@ class BARTTRT(TRTInferenceCommand):
             use_cache=metadata.other.kv_cache,
         )
 
-        decoder_output_greedy, full_e2e_median_runtime = full_inference_greedy(
+        decoder_output_greedy, full_e2e_runtime = full_inference_greedy(
             self.BART_trt_encoder,
             self.BART_trt_decoder,
             input_ids,
             tokenizer,
             timing_profile,
             max_length=output_seq_len,
+            min_length=BARTModelTRTConfig.MIN_OUTPUT_LENGTH[metadata.variant],
             batch_size=batch_size,
             use_cache=metadata.other.kv_cache,
             early_stopping=(not benchmarking_mode),
         )
 
         # Prepare runtime results.
-        median_runtime=[
+        runtime=[
             NetworkRuntime(
                 name=BARTModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME,
-                runtime=decoder_e2e_median_time,
+                runtime=decoder_e2e_time,
             ),
             NetworkRuntime(
                 name=BARTModelTRTConfig.NETWORK_ENCODER_SEGMENT_NAME,
-                runtime=encoder_e2e_median_time,
+                runtime=encoder_e2e_time,
             ),
             NetworkRuntime(
                 name=BARTModelTRTConfig.NETWORK_FULL_NAME,
-                runtime=full_e2e_median_runtime,
+                runtime=full_e2e_runtime,
             ),
         ]
         models=NetworkModels(
@@ -653,7 +659,7 @@ class BARTTRT(TRTInferenceCommand):
 
         # Skip result checking in benchmarking mode since the input data is random.
         if benchmarking_mode:
-            return BenchmarkingResult(median_runtime=median_runtime, models=models)
+            return BenchmarkingResult(median_runtime=runtime, models=models)
 
         # Remove the padding and end tokens.
         semantic_outputs = tokenizer.decode(
@@ -667,7 +673,7 @@ class BARTTRT(TRTInferenceCommand):
             input=inference_input,
             output_tensor=encoder_last_hidden_state,
             semantic_output=semantic_outputs,
-            median_runtime=median_runtime,
+            median_runtime=runtime,
             models=models,
         )
 
@@ -710,21 +716,34 @@ class BARTTRT(TRTInferenceCommand):
         ].fpath
 
         # Generate optimization profiles.
+        # non-benchmarking mode: opt profile length is by default half of the max profile
+        # benchmarking mode: user can specify opt and max profile by flags. If no additional benchmarking flags are provided, it will just use the non-benchmarking mode defaults
         max_sequence_length = BARTModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant]
+        max_output_length = BARTModelTRTConfig.MAX_OUTPUT_LENGTH[metadata.variant]
+        opt_input_seq_len = max_sequence_length // 2
+        opt_output_seq_len = max_output_length // 2
+        
+        # benchmarking flags
+        if benchmarking_args is not None:
+            if benchmarking_args.input_profile_max_len is not None:
+                max_sequence_length = benchmarking_args.input_profile_max_len
+            if benchmarking_args.output_profile_max_len is not None:
+                max_output_length = benchmarking_args.output_profile_max_len
+            if benchmarking_args.input_seq_len is not None:
+                opt_input_seq_len = benchmarking_args.input_seq_len
+            else:
+                opt_input_seq_len = max_sequence_length // 2
+            if benchmarking_args.output_seq_len is not None:
+                opt_output_seq_len = benchmarking_args.output_seq_len
+            else:
+                opt_output_seq_len = max_output_length // 2
+            
+            assert opt_input_seq_len <= max_sequence_length, "Input profile error: Optional dimension must not exceed Maximum dimension!"
+            assert max_sequence_length <= BARTModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant], "Input profile error: Maximum dimension must not exceed max in model config!"
+            assert opt_output_seq_len <= max_output_length, "Output profile error: Optional dimension must not exceed Maximum dimension!"
+            assert max_output_length <= BARTModelTRTConfig.MAX_OUTPUT_LENGTH[metadata.variant], "Output profile error: Maximum dimension must not exceed max in model config!"
 
         encoder_hidden_size = BARTModelTRTConfig.ENCODER_HIDDEN_SIZE[metadata.variant]
-
-        max_output_length = BARTModelTRTConfig.MAX_OUTPUT_LENGTH[metadata.variant]
-
-        if benchmarking_args is None or benchmarking_args.input_seq_len is None:
-            opt_input_seq_len = max_sequence_length // 2
-        else:
-            opt_input_seq_len = benchmarking_args.input_seq_len
-
-        if benchmarking_args is None or benchmarking_args.output_seq_len is None:
-            opt_output_seq_len = max_output_length // 2
-        else:
-            opt_output_seq_len = benchmarking_args.output_seq_len
 
         encoder_profiles = [
             Profile().add(
@@ -740,7 +759,7 @@ class BARTTRT(TRTInferenceCommand):
             "input_ids",
             min=(batch_size, 1),
             opt=(batch_size, opt_output_seq_len),
-            max=(batch_size, max_sequence_length),
+            max=(batch_size, max_output_length),
         )
         dec_profiles = dec_profiles.add(
             "encoder_hidden_states",
@@ -790,8 +809,10 @@ class BARTTRT(TRTInferenceCommand):
         # Convert ONNX models to TRT engines.
         if benchmarking_args is None:
             engine_tag = "bs{}".format(batch_size)
-        else:
+        elif benchmarking_args.input_profile_max_len is None or benchmarking_args.output_profile_max_len is None:
             engine_tag = "bs{}-inseq{}-outseq{}".format(batch_size, benchmarking_args.input_seq_len, benchmarking_args.output_seq_len)
+        else:
+            engine_tag = "bs{}-inmax{}-outmax{}".format(batch_size, benchmarking_args.input_profile_max_len, benchmarking_args.output_profile_max_len)
 
         preview_features = []
         if preview_dynamic_shapes:
@@ -879,7 +900,10 @@ class BARTTRT(TRTInferenceCommand):
                         )
                     )
             else:
-                benchmarking_args = BARTBenchmarkingArgs(args.input_seq_len, args.output_seq_len)
+                if args.input_profile_max_len is not None and args.output_profile_max_len is not None:
+                    benchmarking_args = BARTBenchmarkingArgs(args.input_seq_len, args.output_seq_len, args.input_profile_max_len, args.output_profile_max_len)
+                else:
+                    benchmarking_args = BARTBenchmarkingArgs(args.input_seq_len, args.output_seq_len, None, None)
                 self._setup_engines(metadata, hash_onnx_fpath, batch_size, preview_dynamic_shapes, benchmarking_args)
                 results = self.execute_inference(
                     metadata, hash_onnx_fpath, None, timing_profile, batch_size, True, benchmarking_args

@@ -80,6 +80,7 @@ class NetworkCommand(metaclass=ABCMeta):
     DEFAULT_NUMBER = 1
     DEFAULT_WARMUP = 3
     DEFAULT_DURATION = 0.0
+    DEFAULT_PERCENTILE = 50
 
     def __init__(self, network_config: NNConfig, description: str):
         self.config = network_config()
@@ -164,6 +165,12 @@ class NetworkCommand(metaclass=ABCMeta):
             help="Minimal duration of inference iterations to measure.",
             default=self.DEFAULT_DURATION,
         )
+        timing_group.add_argument(
+            "--percentile",
+            type=int,
+            help="Key percentile number for time measurement.",
+            default=self.DEFAULT_PERCENTILE,
+        )
 
     def check_network_metadata_is_supported(self, metadata: NetworkMetadata) -> None:
         """
@@ -211,6 +218,7 @@ class NetworkCommand(metaclass=ABCMeta):
                 number=int(self._args.number),
                 warmup=int(self._args.warmup),
                 duration=int(self._args.duration),
+                percentile=int(self._args.percentile),
             )
 
 

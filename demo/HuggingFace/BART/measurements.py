@@ -60,17 +60,17 @@ def decoder_inference(
             past_key_values=past_key_values
         )
 
-    decoder_e2e_median_time = measure_python_inference_code(decoder_stmt, timing_profile)
+    decoder_e2e_time = measure_python_inference_code(decoder_stmt, timing_profile)
 
-    return (decoder_stmt(), decoder_e2e_median_time)
+    return (decoder_stmt(), decoder_e2e_time)
 
 
 @use_cuda
 def encoder_inference(BART_encoder, input_ids, timing_profile, use_cuda=True):
     encoder_stmt = lambda: BART_encoder(input_ids=input_ids)
-    encoder_e2e_median_time = measure_python_inference_code(encoder_stmt, timing_profile)
+    encoder_e2e_time = measure_python_inference_code(encoder_stmt, timing_profile)
 
-    return (encoder_stmt(), encoder_e2e_median_time)
+    return (encoder_stmt(), encoder_e2e_time)
 
 
 # Code specifically for Pythonic inference measurement used across all BART related scripts
@@ -82,6 +82,7 @@ def full_inference_greedy(
     tokenizer,
     timing_profile,
     max_length,
+    min_length=0,
     batch_size=1,
     use_cuda=True,
     early_stopping=True,
@@ -89,7 +90,6 @@ def full_inference_greedy(
 ):
     stopping_criteria = StoppingCriteriaList([MaxLengthCriteria(max_length)])
     no_repeat_ngram_size = BARTModelTRTConfig.NO_REPEAT_NGRAM_SIZE
-    min_length = BARTModelTRTConfig.MIN_OUTPUT_LENGTH[tokenizer.name_or_path] # instead of using metadata.variant (which require passing metadata), I just hacked here to get the variant name from tokenizer
     logits_processor = LogitsProcessorList([
         NoRepeatNGramLogitsProcessor(no_repeat_ngram_size), 
         MinLengthLogitsProcessor(min_length, tokenizer.convert_tokens_to_ids(tokenizer.eos_token)),
@@ -137,6 +137,6 @@ def full_inference_greedy(
         BART_decoder.set_return_device("cuda" if use_cuda else "cpu")
         measurement_function = _e2e_trt
 
-    full_e2e_median_time = measure_python_inference_code(measurement_function, timing_profile)
+    full_e2e_time = measure_python_inference_code(measurement_function, timing_profile)
 
-    return (measurement_function(), full_e2e_median_time)
+    return (measurement_function(), full_e2e_time)

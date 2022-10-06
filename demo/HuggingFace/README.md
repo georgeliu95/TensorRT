@@ -14,7 +14,7 @@ Currently, this repository supports the following models:
 
 3. [BART (summarization task)](https://huggingface.co/docs/transformers/model_doc/bart.html). The sample supports the following variants of BART:
 
-    facebook/bart-base (139M), facebook/bart-large (406M), facebook/bart-large-cnn (406M)
+    facebook/bart-base (139M), facebook/bart-large (406M), facebook/bart-large-cnn (406M), facebook/mbart-large-50 (680M)
 
 ## Setup
 
@@ -65,7 +65,7 @@ The above script compares the performance of PyTorch framework inference and Ten
 | frameworks | 1        | 0.0292865     | 0.0174382     | 0.122532   |
 | trt        | 1        | 0.00494083    | 0.0068982     | 0.0239782  |
 
-Notes: `--variant` designates the pre-trained model for testing. `--working-dir` saves the downloaded pre-trained models, onnx model files, and TRT engine files. accuracy of 1.0 indicates correct results in consistency with the expected outputs in `checkpoint.toml`.
+Notes: `--variant` designates the pre-trained model for testing. `--working-dir` saves the downloaded pre-trained models, onnx model files, and TRT engine files. accuracy of 1.0 indicates correct results in consistency with the expected outputs in `checkpoint.toml`. By default, all running times reported are median numbers of 10 iterations.
 
 ## How to run functional and performance benchmark
 
@@ -94,6 +94,16 @@ Frameworks (PyTorch) by default run TF32 on Ampere devices and degrade to FP32 o
 ```python
 python3 run.py run BART trt --variant facebook/bart-base --working-dir temp [--fp16]
 ```
+
+## How to customize parameters for time measurement
+Use `--iterations`, `--number`, `--warmup`, `--duration`, `--percentile` to control the time measurement process. Most common parameters are explained below:
+* `--iterations <int>`: number of iterations to measure (default 10)
+* `--warmup <int>`: number of warmup iterations before actual measurement occurs (default 3)
+* `--percentile <int>`: key percentile number for measurement (default 50, i.e. median).
+
+Notes:
+* Percentile numbers are representative only if the number of iterations are sufficiently large. Please consider increasing `--iterations` when combined with `--percentile`.
+* To avoid conflict with the overall result printing structure, only one percentile number is allowed from command line. If the users need to measure multiple timing statistics from one run (such as p50, p90, p99), please (1) run the command multiple times by changing `--percentile <N>` -- engines will not be re-built from run to run so this is still efficient OR (2) use the [Jupyter notebook demo](./notebooks) for more flexible measurement that can measurement all percentiles in one run.
 
 ## How to run with K-V cache
 

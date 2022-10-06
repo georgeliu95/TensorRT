@@ -137,17 +137,17 @@ class T5ONNXRT(OnnxRTCommand):
             output_seq_len = benchmarking_args.output_seq_len if benchmarking_args.output_seq_len > 0 else max_seq_len
             input_ids = torch.randint(0, T5ModelTRTConfig.VOCAB_SIZE, (batch_size, input_seq_len))
 
-        encoder_last_hidden_state, encoder_e2e_median_time = encoder_inference(
+        encoder_last_hidden_state, encoder_e2e_time = encoder_inference(
             self.t5_trt_encoder, input_ids, timing_profile
         )
-        _, decoder_e2e_median_time = decoder_inference(
+        _, decoder_e2e_time = decoder_inference(
             self.t5_trt_decoder,
             input_ids,
             encoder_last_hidden_state,
             timing_profile,
             use_cuda=False,
         )
-        decoder_output_greedy, full_e2e_median_runtime = full_inference_greedy(
+        decoder_output_greedy, full_e2e_runtime = full_inference_greedy(
             self.t5_trt_encoder,
             self.t5_trt_decoder,
             input_ids,
@@ -160,18 +160,18 @@ class T5ONNXRT(OnnxRTCommand):
         )
 
         # Prepare runtime results.
-        median_runtime = [
+        runtime = [
             NetworkRuntime(
                 name=T5ModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME,
-                runtime=decoder_e2e_median_time,
+                runtime=decoder_e2e_time,
             ),
             NetworkRuntime(
                 name=T5ModelTRTConfig.NETWORK_ENCODER_SEGMENT_NAME,
-                runtime=encoder_e2e_median_time,
+                runtime=encoder_e2e_time,
             ),
             NetworkRuntime(
                 name=T5ModelTRTConfig.NETWORK_FULL_NAME,
-                runtime=full_e2e_median_runtime,
+                runtime=full_e2e_runtime,
             ),
         ]
         models=NetworkModels(
@@ -182,7 +182,7 @@ class T5ONNXRT(OnnxRTCommand):
 
         # Skip result checking in benchmarking mode since the input data is random.
         if benchmarking_mode:
-            return BenchmarkingResult(median_runtime=median_runtime, models=models)
+            return BenchmarkingResult(median_runtime=runtime, models=models)
 
         # Remove the padding and end tokens.
         semantic_outputs = tokenizer.decode(
@@ -196,7 +196,7 @@ class T5ONNXRT(OnnxRTCommand):
             input=inference_input,
             output_tensor=encoder_last_hidden_state,
             semantic_output=semantic_outputs,
-            median_runtime=median_runtime,
+            median_runtime=runtime,
             models=models,
         )
 

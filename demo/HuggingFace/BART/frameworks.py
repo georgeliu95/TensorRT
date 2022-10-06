@@ -212,13 +212,13 @@ class BARTHuggingFace(FrameworkCommand):
             BART_model.get_decoder(), BART_model.lm_head, BART_model.final_logits_bias, BART_model.config
         )
 
-        encoder_last_hidden_state, encoder_e2e_median_time = encoder_inference(
+        encoder_last_hidden_state, encoder_e2e_time = encoder_inference(
             BART_torch_encoder, input_ids, timing_profile, use_cuda=(not use_cpu)
         )
-        _, decoder_e2e_median_time = decoder_inference(
+        _, decoder_e2e_time = decoder_inference(
             BART_torch_decoder, input_ids, encoder_last_hidden_state, timing_profile, use_cuda=(not use_cpu), use_cache=metadata.other.kv_cache
         )
-        decoder_output_greedy, full_e2e_median_runtime = full_inference_greedy(
+        decoder_output_greedy, full_e2e_runtime = full_inference_greedy(
             BART_torch_encoder,
             BART_torch_decoder,
             input_ids,
@@ -231,25 +231,26 @@ class BARTHuggingFace(FrameworkCommand):
             early_stopping=(not benchmarking_mode),
         )
 
+
         # Prepare runtime results.
-        median_runtime=[
+        runtime=[
             NetworkRuntime(
                 name=BARTModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME,
-                runtime=decoder_e2e_median_time,
+                runtime=decoder_e2e_time,
             ),
             NetworkRuntime(
                 name=BARTModelTRTConfig.NETWORK_ENCODER_SEGMENT_NAME,
-                runtime=encoder_e2e_median_time,
+                runtime=encoder_e2e_time,
             ),
             NetworkRuntime(
                 name=BARTModelTRTConfig.NETWORK_FULL_NAME,
-                runtime=full_e2e_median_runtime,
+                runtime=full_e2e_runtime,
             ),
         ]
 
         # Skip result checking in benchmarking mode since the input data is random.
         if benchmarking_mode:
-            return BenchmarkingResult(median_runtime=median_runtime, models=network_fpaths)
+            return BenchmarkingResult(median_runtime=runtime, models=network_fpaths)
 
         # Remove the padding and end tokens.
         semantic_outputs = tokenizer.decode(
@@ -263,7 +264,7 @@ class BARTHuggingFace(FrameworkCommand):
             input=inference_input,
             output_tensor=encoder_last_hidden_state,
             semantic_output=semantic_outputs,
-            median_runtime=median_runtime,
+            median_runtime=runtime,
             models=network_fpaths,
         )
 
