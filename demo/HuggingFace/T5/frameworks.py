@@ -210,13 +210,13 @@ class T5FHuggingFace(FrameworkCommand):
             t5_model.decoder, t5_model.lm_head, t5_model.config
         )
 
-        encoder_last_hidden_state, encoder_e2e_median_time = encoder_inference(
+        encoder_last_hidden_state, encoder_e2e_time = encoder_inference(
             t5_torch_encoder, input_ids, timing_profile, use_cuda=(not use_cpu)
         )
-        _, decoder_e2e_median_time = decoder_inference(
+        _, decoder_e2e_time = decoder_inference(
             t5_torch_decoder, input_ids, encoder_last_hidden_state, timing_profile, use_cuda=(not use_cpu),
         )
-        decoder_output_greedy, full_e2e_median_runtime = full_inference_greedy(
+        decoder_output_greedy, full_e2e_runtime = full_inference_greedy(
             t5_torch_encoder,
             t5_torch_decoder,
             input_ids,
@@ -229,24 +229,24 @@ class T5FHuggingFace(FrameworkCommand):
         )
 
         # Prepare runtime results.
-        median_runtime=[
+        runtime=[
             NetworkRuntime(
                 name=T5ModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME,
-                runtime=decoder_e2e_median_time,
+                runtime=decoder_e2e_time,
             ),
             NetworkRuntime(
                 name=T5ModelTRTConfig.NETWORK_ENCODER_SEGMENT_NAME,
-                runtime=encoder_e2e_median_time,
+                runtime=encoder_e2e_time,
             ),
             NetworkRuntime(
                 name=T5ModelTRTConfig.NETWORK_FULL_NAME,
-                runtime=full_e2e_median_runtime,
+                runtime=full_e2e_runtime,
             ),
         ]
 
         # Skip result checking in benchmarking mode since the input data is random.
         if benchmarking_mode:
-            return BenchmarkingResult(median_runtime=median_runtime, models=network_fpaths)
+            return BenchmarkingResult(median_runtime=runtime, models=network_fpaths)
 
         # Remove the padding and end tokens.
         semantic_outputs = tokenizer.decode(
@@ -260,7 +260,7 @@ class T5FHuggingFace(FrameworkCommand):
             input=inference_input,
             output_tensor=encoder_last_hidden_state,
             semantic_output=semantic_outputs,
-            median_runtime=median_runtime,
+            median_runtime=runtime,
             models=network_fpaths,
         )
 

@@ -54,17 +54,17 @@ def decoder_inference(
             input_ids=input_ids, encoder_hidden_states=encoder_last_hidden_state
         )
 
-    decoder_e2e_median_time = measure_python_inference_code(decoder_stmt, timing_profile)
+    decoder_e2e_time = measure_python_inference_code(decoder_stmt, timing_profile)
 
-    return (decoder_stmt(), decoder_e2e_median_time)
+    return (decoder_stmt(), decoder_e2e_time)
 
 
 @use_cuda
 def encoder_inference(t5_encoder, input_ids, timing_profile, use_cuda=True):
     encoder_stmt = lambda: t5_encoder(input_ids=input_ids)
-    encoder_e2e_median_time = measure_python_inference_code(encoder_stmt, timing_profile)
+    encoder_e2e_time = measure_python_inference_code(encoder_stmt, timing_profile)
 
-    return (encoder_stmt(), encoder_e2e_median_time)
+    return (encoder_stmt(), encoder_e2e_time)
 
 
 # Code specifically for Pythonic inference measurement used across all T5 related scripts
@@ -126,6 +126,6 @@ def full_inference_greedy(
         t5_decoder.set_return_device("cuda" if use_cuda else "cpu")
         measurement_function = _e2e_trt
 
-    full_e2e_median_time = measure_python_inference_code(measurement_function, timing_profile)
+    full_e2e_time = measure_python_inference_code(measurement_function, timing_profile)
 
-    return (measurement_function(), full_e2e_median_time)
+    return (measurement_function(), full_e2e_time)
