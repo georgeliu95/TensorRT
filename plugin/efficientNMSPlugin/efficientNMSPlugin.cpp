@@ -455,6 +455,9 @@ IPluginV2DynamicExt* EfficientNMSPluginCreator::createPlugin(const char* name, c
         PLUGIN_VALIDATE(fc != nullptr);
         PluginField const* fields = fc->fields;
         PLUGIN_VALIDATE(fields != nullptr);
+        plugin::validateRequiredAttributesExist({"score_threshold", "iou_threshold", "max_output_boxes",
+                                                    "background_class", "score_activation", "box_coding"},
+            fc);
         for (int32_t i{0}; i < fc->nbFields; ++i)
         {
             char const* attrName = fields[i].name;

@@ -2,6 +2,11 @@
 
 Support for Detectron 2 Mask R-CNN R50-FPN 3x model in TensorRT. This script helps with converting, running and validating this model with TensorRT.
 
+## Changelog
+
+- October 2022:
+  - Updated converter to support `tracing` export instead of deprecated `caffe2_tracing`
+
 ## Setup
 
 In order for scripts to work we suggest an environment with TensorRT >= 8.4.1.
@@ -17,7 +22,7 @@ Note: this sample cannot be run on Jetson platforms as `torch.distributed` is no
 
 ## Model Conversion
 
-The workflow to convert Detectron 2 Mask R-CNN R50-FPN 3x model is basically Detectron 2 → Caffe 2 → ONNX → TensorRT, and so parts of this process require Detectron 2 to be installed. Official export to ONNX is documented [here](https://detectron2.readthedocs.io/en/latest/tutorials/deployment.html).
+The workflow to convert Detectron 2 Mask R-CNN R50-FPN 3x model is basically Detectron 2 → ONNX → TensorRT, and so parts of this process require Detectron 2 to be installed. Official export to ONNX is documented [here](https://detectron2.readthedocs.io/en/latest/tutorials/deployment.html).
 
 ### Detectron 2 Deployment
 Deployment is done through export model script located in `detectron2/tools/deploy/export_model.py` of Detectron 2 [github](https://github.com/facebookresearch/detectron2). Detectron 2 Mask R-CNN R50-FPN 3x model is dynamic with minimum testing dimension size of 800 and maximum of 1333. TensorRT plug-ins used for conversion of this model do not support dynamic shapes, as a result we have to set both height and width of the input tensor to 1344. 1344 instead of 1333 because model requires both height and width of the input tensor to be divisible by 32. In order to export this model with correct 1344x1344 resolution, we have to make a change to `export_model.py`. Currently lines 160-162:
@@ -41,7 +46,7 @@ Export script takes `--sample-image` as one of the arguments. Such image is used
 python detectron2/tools/deploy/export_model.py \
     --sample-image 1344x1344.jpg \
     --config-file detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml \
-    --export-method caffe2_tracing \
+    --export-method tracing \
     --format onnx \
     --output ./
     MODEL.WEIGHTS path/to/model_final_f10217.pkl \

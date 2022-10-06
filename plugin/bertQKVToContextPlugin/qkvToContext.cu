@@ -622,6 +622,9 @@ public:
         : interface(interface)
         , sm(interface->mSm)
         , xmmaKernel(getXMMAKernels(DATA_TYPE_FP16, sm))
+        , xmmas_m(0U)
+        , xmmas_n(0U)
+        , threads_per_cta(1U)
     {
     }
 
@@ -640,9 +643,9 @@ public:
     {
         // TODO these implementation details might be better centralized into the XMMA code, since they are needed in
         // several places (also outside of this plugin)
-        size_t warps_m{};
-        size_t warps_n{};
-        size_t warps_k = 1;
+        size_t warps_m{1U};
+        size_t warps_n{1U};
+        size_t warps_k{1U};
         if (S == 64 || S == 96 || S == 128)
         {
             warps_m = 2;
@@ -764,6 +767,9 @@ public:
         , sm(interface->mSm)
         , xmmaKernel(getXMMAKernels(DATA_TYPE_INT8, sm))
         , mDqProbs(interface->mDqProbs)
+        , xmmas_m(0U)
+        , xmmas_n(0U)
+        , threads_per_cta(1U)
     {
     }
 
@@ -779,9 +785,9 @@ public:
 
     void setup(const int S, const int B)
     {
-        size_t warps_m{};
-        size_t warps_n{};
-        size_t warps_k = 1;
+        size_t warps_m{1U};
+        size_t warps_n{1U};
+        size_t warps_k{1U};
         if (S == 128)
         {
             warps_m = 2;
@@ -927,9 +933,9 @@ public:
     {
         // TODO these implementation details might be better centralized into the XMMA code, since they are needed in
         // several places (also outside of this plugin)
-        size_t warps_m{};
-        size_t warps_n{};
-        size_t warps_k = 1;
+        size_t warps_m{1U};
+        size_t warps_n{1U};
+        size_t warps_k{1U};
         if (S == 64 || S == 96 || S == 128)
         {
             warps_m = 2;
@@ -1064,6 +1070,9 @@ public:
         , sm(interface->mSm)
         , xmmaKernel(getXMMAKernelsV2(DATA_TYPE_INT8, sm))
         , mDqProbs(interface->mDqProbs)
+        , xmmas_m(0U)
+        , xmmas_n(0U)
+        , threads_per_cta(1U)
     {
         assert((sm == kSM_72 || sm == kSM_75 || sm == kSM_80 || sm == kSM_86 || sm == kSM_87)
             && "Unsupported architecture");
@@ -1082,9 +1091,9 @@ public:
 
     void setup(const int S, const int B)
     {
-        size_t warps_m{};
-        size_t warps_n{};
-        size_t warps_k = 1;
+        size_t warps_m{1U};
+        size_t warps_n{1U};
+        size_t warps_k{1U};
         if (S == 128)
         {
             warps_m = 2;

@@ -21,6 +21,7 @@
 #include <vector>
 
 using namespace nvinfer1;
+using namespace nvinfer1::plugin;
 const int NUM_COORDCONV_CHANNELS = 2;
 
 namespace

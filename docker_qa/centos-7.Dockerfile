@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_VERSION=11.8.0
+ARG CUDA_DOCKER_VERSION=11.7.1
 ARG OS_VERSION=7
 
 # TODO: Update - unused in 22.09
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${OS_VERSION} 
+FROM nvidia/cuda:${CUDA_DOCKER_VERSION}-cudnn8-devel-centos${OS_VERSION} 
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.5.0.9
+ENV TRT_VERSION 8.5.1.1
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -47,8 +47,9 @@ RUN yum -y install \
 RUN yum install -y python36 python3-devel
 
 # Install TensorRT
+ENV CUDA_TRT_VERSION=11.8.0
 COPY docker_qa/downloadInternal.py /tmp/downloadInternal.py
-RUN python3 /tmp/downloadInternal.py --cuda $CUDA_VERSION --os 7
+RUN python3 /tmp/downloadInternal.py --cuda $CUDA_TRT_VERSION --os 7
 
 # Install dev-toolset-8 for g++ version that supports c++14
 RUN yum -y install centos-release-scl
@@ -71,7 +72,7 @@ RUN cd /tmp && \
     rm ./cmake-3.14.4-Linux-x86_64.sh
 
 # Download NGC client
-RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.zip && unzip ngccli_cat_linux.zip && chmod u+x ngc && rm ngccli_cat_linux.zip ngc.md5 && echo "no-apikey\nascii\n" | ngc config set
+RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.zip && unzip ngccli_cat_linux.zip && chmod u+x ngc-cli/ngc && rm ngccli_cat_linux.zip ngc-cli.md5 && echo "no-apikey\nascii\n" | ngc-cli/ngc config set
 
 RUN rm /usr/bin/python && ln -s /usr/bin/python3 /usr/bin/python
 
