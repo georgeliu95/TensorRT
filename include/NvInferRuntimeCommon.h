@@ -387,7 +387,10 @@ enum class PluginVersion : uint8_t
 //! \see IPluginCreator
 //! \see IPluginRegistry
 //!
-class IPluginV2
+//! \deprecated Deprecated in TensorRT 8.5. Implement IPluginV2DynamicExt or IPluginV2IOExt depending on your
+//! requirement.
+//!
+class TRT_DEPRECATED IPluginV2
 {
 public:
     //!
@@ -694,7 +697,10 @@ protected:
 //!
 //! \see IPluginV2
 //!
-class IPluginV2Ext : public IPluginV2
+//! \deprecated Deprecated in TensorRT 8.5. Implement IPluginV2DynamicExt or IPluginV2IOExt depending on your
+//! requirement.
+//!
+class TRT_DEPRECATED IPluginV2Ext : public IPluginV2
 {
 public:
     //!

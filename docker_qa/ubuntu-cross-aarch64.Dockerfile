@@ -19,7 +19,7 @@ ARG OS_VERSION=20.04
 FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.5.0.9
+ENV TRT_VERSION 8.5.1.1
 ENV DEBIAN_FRONTEND=noninteractive
 
 ARG uid=1000
@@ -67,7 +67,7 @@ COPY requirements.txt /tmp/requirements.txt
 RUN pip3 install -r /tmp/requirements.txt
 
 # Download NGC client
-RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.zip && unzip ngccli_cat_linux.zip && chmod u+x ngc && rm ngccli_cat_linux.zip ngc.md5 && echo "no-apikey\nascii\n" | ngc config set
+RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.zip && unzip ngccli_cat_linux.zip && chmod u+x ngc-cli/ngc && rm ngccli_cat_linux.zip ngc-cli.md5 && echo "no-apikey\nascii\n" | ngc-cli/ngc config set
 
 COPY docker/jetpack_files /pdk_files
 COPY scripts/stubify.sh /pdk_files
@@ -78,14 +78,16 @@ RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/
 
 # Install CUDA cross compile toolchain
 RUN dpkg -i /pdk_files/cuda-repo-cross-aarch64*.deb /pdk_files/cuda-repo-ubuntu*_amd64.deb \
+    && sudo cp /var/cuda-repo-cross-aarch64*/cuda-*keyring.gpg /usr/share/keyrings/ \
+    && sudo cp /var/cuda-repo-ubuntu2004*/cuda-*keyring.gpg /usr/share/keyrings/ \
     && apt-get update \
     && apt-get install -y cuda-cross-aarch64 \
     && rm -rf /var/lib/apt/lists/*
 
 # Unpack cudnn
-RUN  dpkg -x /pdk_files/cudnn-local-repo*.deb /pdk_files/cudnn_extract \
-    && dpkg -x /pdk_files/cudnn_extract/var/cudnn-local-repo*/libcudnn[7-8]_*-1+cuda11.[0-9]_arm64.deb /pdk_files/cudnn \
-    && dpkg -x /pdk_files/cudnn_extract/var/cudnn-local-repo*/libcudnn[7-8]-dev_*-1+cuda11.[0-9]_arm64.deb /pdk_files/cudnn \
+RUN  dpkg -x /pdk_files/cudnn-local*.deb /pdk_files/cudnn_extract \
+    && dpkg -x /pdk_files/cudnn_extract/var/cudnn-local*/libcudnn8_*.deb /pdk_files/cudnn \
+    && dpkg -x /pdk_files/cudnn_extract/var/cudnn-local*/libcudnn8-dev*.deb /pdk_files/cudnn \
     && cd /pdk_files/cudnn/usr/lib/aarch64-linux-gnu \
     && cd /pdk_files/cudnn \
     && ln -s usr/include/aarch64-linux-gnu include \

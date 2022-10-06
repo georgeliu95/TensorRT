@@ -314,48 +314,43 @@ IPluginV2* QKVToContextInterleavedPluginCreator::createPlugin(const char* name, 
 {
     try
     {
-        int hiddenSize = 0;
-        int numHeads = 0;
+        int32_t hiddenSize = 0;
+        int32_t numHeads = 0;
 
         float dqProbs = -1;
         int32_t useInt8ScaleMax{-1};
 
-        for (int i = 0; i < fc->nbFields; i++)
+        plugin::validateRequiredAttributesExist({"hidden_size", "num_heads"}, fc);
+
+        for (int32_t i = 0; i < fc->nbFields; i++)
         {
             std::string field_name(fc->fields[i].name);
 
             if (field_name.compare("hidden_size") == 0)
             {
-                hiddenSize = *static_cast<const int*>(fc->fields[i].data);
+                hiddenSize = *static_cast<int32_t const*>(fc->fields[i].data);
+                PLUGIN_VALIDATE(hiddenSize > 0, ("QKV: Invalid hiddenSize " + std::to_string(hiddenSize)).c_str());
                 BERT_DEBUG_VALUE("Building hiddenSize: ", hiddenSize);
             }
             if (field_name.compare("num_heads") == 0)
             {
-                numHeads = *static_cast<const int*>(fc->fields[i].data);
+                numHeads = *static_cast<int32_t const*>(fc->fields[i].data);
+                PLUGIN_VALIDATE(numHeads > 0, ("QKV: Invalid numHeads " + std::to_string(numHeads)).c_str());
                 BERT_DEBUG_VALUE("Building numHeads: ", numHeads);
             }
             if (field_name.compare("dq_probs") == 0)
             {
-                dqProbs = *static_cast<const float*>(fc->fields[i].data);
+                dqProbs = *static_cast<float const*>(fc->fields[i].data);
+                PLUGIN_VALIDATE(dqProbs > 0.0F, ("QKV: Invalid dqProbs " + std::to_string(dqProbs)).c_str());
                 BERT_DEBUG_VALUE("Building dqProbs: ", dqProbs);
             }
             if (field_name.compare("use_int8_scale_max") == 0)
             {
                 useInt8ScaleMax = *static_cast<int32_t const*>(fc->fields[i].data);
+                PLUGIN_VALIDATE(useInt8ScaleMax == 0 || useInt8ScaleMax == 1,
+                    ("QKV: Invalid useInt8ScaleMax " + std::to_string(useInt8ScaleMax)).c_str());
                 BERT_DEBUG_VALUE("Building useInt8ScaleMax: ", useInt8ScaleMax);
             }
-        }
-
-        if (hiddenSize <= 0)
-        {
-            gLogError << "QKV: Invalid hiddenSize " << hiddenSize << std::endl;
-            return nullptr;
-        }
-
-        if (numHeads <= 0)
-        {
-            gLogError << "QKV: Invalid numHeads " << numHeads << std::endl;
-            return nullptr;
         }
 
         if (dqProbs < 0)

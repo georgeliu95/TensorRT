@@ -21,17 +21,11 @@
 #include <mutex>
 #include <sstream>
 
-#ifndef TRT_CHECK_MACROS_H
-#ifndef TRT_TUT_HELPERS_H
-
 #ifdef _MSC_VER
 #define FN_NAME __FUNCTION__
 #else
 #define FN_NAME __func__
 #endif
-
-#endif // TRT_TUT_HELPERS_H
-#endif // TRT_CHECK_MACROS_H
 
 namespace nvinfer1
 {
@@ -174,9 +168,6 @@ inline void caughtError(const std::exception& e)
 
 } // namespace nvinfer1
 
-#ifndef TRT_CHECK_MACROS_H
-#ifndef TRT_TUT_HELPERS_H
-
 #define PLUGIN_API_CHECK(condition)                                                                                    \
     {                                                                                                                  \
         if ((condition) == false)                                                                                      \
@@ -286,14 +277,16 @@ inline void caughtError(const std::exception& e)
         nvinfer1::plugin::reportAssertion(msg, __FILE__, __LINE__);                                                    \
     }
 
+#define PLUGIN_ERROR(msg)                                                                                              \
+    {                                                                                                                  \
+        nvinfer1::plugin::throwPluginError(__FILE__, FN_NAME, __LINE__, 0, msg);                                       \
+    }
+
 #define PLUGIN_CUERROR(status_)                                                                                        \
     {                                                                                                                  \
         auto s_ = status_;                                                                                             \
         if (s_ != 0)                                                                                                   \
             nvinfer1::plugin::logError(#status_ " failure.", __FILE__, FN_NAME, __LINE__);                             \
     }
-
-#endif // TRT_TUT_HELPERS_H
-#endif // TRT_CHECK_MACROS_H
 
 #endif /*CHECK_MACROS_PLUGIN_H*/
