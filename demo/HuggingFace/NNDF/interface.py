@@ -436,6 +436,8 @@ class OnnxRTCommand(NetworkCommand):
             keep_torch_model=self._args.cleanup,
             timing_profile=self.get_timing_profile(),
             batch_size=self._args.batch_size,
+            args=self._args,
+            benchmarking_mode=False,
         )
 
         return NetworkCheckpointResult(

@@ -101,6 +101,10 @@ Use `--iterations`, `--number`, `--warmup`, `--duration`, `--percentile` to cont
 * `--warmup <int>`: number of warmup iterations before actual measurement occurs (default 3)
 * `--percentile <int>`: key percentile number for measurement (default 50, i.e. median).
 
+```python
+python3 run.py run BART trt --variant facebook/bart-base --working-dir temp --iterations 100 --percentile 99
+```
+
 Notes:
 * Percentile numbers are representative only if the number of iterations are sufficiently large. Please consider increasing `--iterations` when combined with `--percentile`.
 * To avoid conflict with the overall result printing structure, only one percentile number is allowed from command line. If the users need to measure multiple timing statistics from one run (such as p50, p90, p99), please (1) run the command multiple times by changing `--percentile <N>` -- engines will not be re-built from run to run so this is still efficient OR (2) use the [Jupyter notebook demo](./notebooks) for more flexible measurement that can measurement all percentiles in one run.
@@ -113,11 +117,31 @@ For BART, use `--enable-kv-cache` option to get the same effect of HuggingFace's
 python3 run.py run BART [frameworks | trt] --variant facebook/bart-base --working-dir temp --enable-kv-cache
 ```
 
+Note: current implementation of K-V cache does not exhibit performance gain over the non K-V cache TensorRT version. Please consider to skip the K-V cache experiment for now.
+
+## How to run with beam search
+
+In addition to greedy search, beam search is another widely used decoding method. For BART, use `--num-beams <N>` to enable beam search during decoding.
+
+```python
+python3 run.py run BART [frameworks | trt] --variant facebook/bart-base --working-dir temp --num-beams 3
+```
+
+Notes:
+* Please use `--num-beam <N>` without K-V cache. Since K-V cache is under development for better performance, the beam search support for K-V cache mode will be added once the K-V cache implementation is finalized.
+* Beam search argument is only supported for BART model for now. Other models such as T5 will be enabled later.
+
 ## How to run with TensorRT `FASTER_DYNAMIC_SHAPES_0805` preview feature
 
 Use the `--preview-dynamic-shapes` option to enable this preview feature for BART, GPT2, or T5.
 
-Note: preview feature functionality is only supported in TensorRT 8.5+.
+```python
+python3 run.py run BART trt --variant facebook/bart-base --working-dir temp --preview-dynamic-shapes
+```
+
+Notes: 
+* preview feature functionality is only supported in TensorRT 8.5+.
+* preview argument is only for TensorRT runs. Hence, please avoid using `compare` action with `--preview-dynamic-shapes` since the syntax doesn't exist for `frameworks` and `onnxrt` runs. Instead, it is recommended to test TensorRT `run` command seperately to get the performance with preview feature functionality.
 
 ## How to run in performance benchmarking mode
 

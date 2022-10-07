@@ -54,8 +54,7 @@ from NNDF.general_utils import NNFolderWorkspace
 from NNDF.tensorrt_utils import PolygraphyOnnxRunner
 from BART.frameworks import BARTHuggingFace
 from BART.BARTModelConfig import BARTModelTRTConfig, BARTBenchmarkingArgs
-from BART.measurements import decoder_inference, encoder_inference, full_inference_greedy
-
+from BART.measurements import decoder_inference, encoder_inference, full_inference_greedy, full_inference_beam
 
 class OnnxHFRunner(PolygraphyOnnxRunner, GenerationMixin):
     """Runner that adds interop support for HF and HF provided greedy_search functions."""
@@ -98,8 +97,8 @@ class BARTONNXRT(OnnxRTCommand):
             "Runs polygraphy results for BART model.",
             BARTHuggingFace,
         )
-        self.BART_trt_decoder = None
-        self.BART_trt_encoder = None
+        self.BART_ort_decoder = None
+        self.BART_ort_encoder = None
 
     def cleanup(
         self,
@@ -108,10 +107,10 @@ class BARTONNXRT(OnnxRTCommand):
         keep_torch_model: bool = False,
     ) -> None:
         # Deactivates context
-        if self.BART_trt_encoder:
-            self.BART_trt_encoder.release()
-        if self.BART_trt_decoder:
-            self.BART_trt_decoder.release()
+        if self.BART_ort_encoder:
+            self.BART_ort_encoder.release()
+        if self.BART_ort_decoder:
+            self.BART_ort_decoder.release()
 
         self.frameworks_cmd.cleanup(workspace, keep_onnx_model, keep_torch_model)
 
@@ -121,7 +120,8 @@ class BARTONNXRT(OnnxRTCommand):
         onnx_fpaths: Dict[str, NetworkModel],
         inference_input: str,
         timing_profile: TimingProfile,
-        batch_size: int=1,
+        batch_size: int = 1,
+        num_beams: int = 1,
         benchmarking_mode: bool = False,
         benchmarking_args: BARTBenchmarkingArgs = None,
     ) -> NetworkResult:
@@ -138,26 +138,43 @@ class BARTONNXRT(OnnxRTCommand):
             input_ids = torch.randint(0, BARTModelTRTConfig.VOCAB_SIZE[metadata.variant], (batch_size, input_seq_len))
 
         encoder_last_hidden_state, encoder_e2e_time = encoder_inference(
-            self.BART_trt_encoder, input_ids, timing_profile
+            self.BART_ort_encoder, input_ids, timing_profile
         )
         _, decoder_e2e_time = decoder_inference(
-            self.BART_trt_decoder,
+            self.BART_ort_decoder,
             input_ids,
             encoder_last_hidden_state,
             timing_profile,
             use_cuda=False,
         )
-        decoder_output_greedy, full_e2e_runtime = full_inference_greedy(
-            self.BART_trt_encoder,
-            self.BART_trt_decoder,
-            input_ids,
-            tokenizer,
-            timing_profile,
-            max_length=output_seq_len,
-            use_cuda=False,
-            batch_size=batch_size,
-            early_stopping=(not benchmarking_mode),
-        )
+
+        if num_beams == 1:
+            decoder_output, full_e2e_runtime = full_inference_greedy(
+                self.BART_ort_encoder,
+                self.BART_ort_decoder,
+                input_ids,
+                tokenizer,
+                timing_profile,
+                max_length=output_seq_len,
+                min_length=BARTModelTRTConfig.MIN_OUTPUT_LENGTH[metadata.variant],
+                use_cuda=False,
+                batch_size=batch_size,
+                early_stopping=(not benchmarking_mode),
+            )
+        else:
+            decoder_output, full_e2e_runtime = full_inference_beam(
+                self.BART_ort_encoder,
+                self.BART_ort_decoder,
+                input_ids,
+                tokenizer,
+                timing_profile,
+                num_beams=num_beams,
+                max_length=output_seq_len,
+                min_length=BARTModelTRTConfig.MIN_OUTPUT_LENGTH[metadata.variant],
+                use_cuda=False,
+                batch_size=batch_size,
+                early_stopping=(not benchmarking_mode),
+            )
 
         # Prepare runtime results.
         runtime=[
@@ -186,7 +203,7 @@ class BARTONNXRT(OnnxRTCommand):
 
         # Remove the padding and end tokens.
         semantic_outputs = tokenizer.decode(
-            decoder_output_greedy[-1, :], skip_special_tokens=True
+            decoder_output[-1, :], skip_special_tokens=True
         )
 
         if isinstance(semantic_outputs, list):
@@ -241,10 +258,10 @@ class BARTONNXRT(OnnxRTCommand):
                 use_cache=metadata.other.kv_cache,
                 num_layers=BARTModelTRTConfig.NUMBER_OF_LAYERS[metadata.variant],
             )
-            self.BART_trt_encoder = BARTOnnxEncoder(
+            self.BART_ort_encoder = BARTOnnxEncoder(
                 lookup_onnx_table["encoder"].fpath, metadata, tfm_config
             )
-            self.BART_trt_decoder = BARTOnnxDecoder(
+            self.BART_ort_decoder = BARTOnnxDecoder(
                 lookup_onnx_table["decoder"].fpath, metadata, tfm_config
             )
 
@@ -252,13 +269,13 @@ class BARTONNXRT(OnnxRTCommand):
                 for ninput in network_input:
                     results.append(
                         self.execute_inference(
-                            metadata, lookup_onnx_table, ninput, timing_profile, batch_size
+                            metadata, lookup_onnx_table, ninput, timing_profile, batch_size, args.num_beams
                         )
                     )
             else:
                 benchmarking_args = BARTBenchmarkingArgs(args.input_seq_len, args.output_seq_len)
                 results = self.execute_inference(
-                    metadata, lookup_onnx_table, None, timing_profile, batch_size, True, benchmarking_args
+                    metadata, lookup_onnx_table, None, timing_profile, batch_size, args.num_beams, True, benchmarking_args
                 )
 
         finally:

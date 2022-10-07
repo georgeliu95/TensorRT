@@ -98,8 +98,8 @@ class T5ONNXRT(OnnxRTCommand):
             "Runs polygraphy results for T5 model.",
             T5FHuggingFace,
         )
-        self.t5_trt_decoder = None
-        self.t5_trt_encoder = None
+        self.t5_ort_decoder = None
+        self.t5_ort_encoder = None
 
     def cleanup(
         self,
@@ -108,10 +108,10 @@ class T5ONNXRT(OnnxRTCommand):
         keep_torch_model: bool = False,
     ) -> None:
         # Deactivates context
-        if self.t5_trt_encoder:
-            self.t5_trt_encoder.release()
-        if self.t5_trt_decoder:
-            self.t5_trt_decoder.release()
+        if self.t5_ort_encoder:
+            self.t5_ort_encoder.release()
+        if self.t5_ort_decoder:
+            self.t5_ort_decoder.release()
 
         self.frameworks_cmd.cleanup(workspace, keep_onnx_model, keep_torch_model)
 
@@ -138,18 +138,18 @@ class T5ONNXRT(OnnxRTCommand):
             input_ids = torch.randint(0, T5ModelTRTConfig.VOCAB_SIZE, (batch_size, input_seq_len))
 
         encoder_last_hidden_state, encoder_e2e_time = encoder_inference(
-            self.t5_trt_encoder, input_ids, timing_profile
+            self.t5_ort_encoder, input_ids, timing_profile
         )
         _, decoder_e2e_time = decoder_inference(
-            self.t5_trt_decoder,
+            self.t5_ort_decoder,
             input_ids,
             encoder_last_hidden_state,
             timing_profile,
             use_cuda=False,
         )
         decoder_output_greedy, full_e2e_runtime = full_inference_greedy(
-            self.t5_trt_encoder,
-            self.t5_trt_decoder,
+            self.t5_ort_encoder,
+            self.t5_ort_decoder,
             input_ids,
             tokenizer,
             timing_profile,
@@ -241,10 +241,10 @@ class T5ONNXRT(OnnxRTCommand):
                 use_cache=metadata.other.kv_cache,
                 num_layers=T5ModelTRTConfig.NUMBER_OF_LAYERS[metadata.variant],
             )
-            self.t5_trt_encoder = T5OnnxEncoder(
+            self.t5_ort_encoder = T5OnnxEncoder(
                 lookup_onnx_table["encoder"].fpath, metadata, tfm_config
             )
-            self.t5_trt_decoder = T5OnnxDecoder(
+            self.t5_ort_decoder = T5OnnxDecoder(
                 lookup_onnx_table["decoder"].fpath, metadata, tfm_config
             )
 
