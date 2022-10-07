@@ -49,7 +49,7 @@ from NNDF.networks import (
 )
 from BART.export import BARTEncoderTorchFile, BARTDecoderTorchFile
 from BART.BARTModelConfig import BARTModelTRTConfig, BARTBenchmarkingArgs
-from BART.measurements import decoder_inference, encoder_inference, full_inference_greedy
+from BART.measurements import decoder_inference, encoder_inference, full_inference_greedy, full_inference_beam
 from NNDF.general_utils import confirm_folder_delete, NNFolderWorkspace
 
 
@@ -182,6 +182,7 @@ class BARTHuggingFace(FrameworkCommand):
         timing_profile: TimingProfile,
         use_cpu: bool,
         batch_size: int = 1,
+        num_beams: int = 1,
         benchmarking_mode: bool = False,
         benchmarking_args: BARTBenchmarkingArgs = None,
     ) -> Union[NetworkResult, BenchmarkingResult]:
@@ -218,20 +219,35 @@ class BARTHuggingFace(FrameworkCommand):
         _, decoder_e2e_time = decoder_inference(
             BART_torch_decoder, input_ids, encoder_last_hidden_state, timing_profile, use_cuda=(not use_cpu), use_cache=metadata.other.kv_cache
         )
-        decoder_output_greedy, full_e2e_runtime = full_inference_greedy(
-            BART_torch_encoder,
-            BART_torch_decoder,
-            input_ids,
-            tokenizer,
-            timing_profile,
-            max_length=output_seq_len, # note: T5 uses XXModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant] which is the max input length. Here should rather be the max output length for generation
-            use_cuda=(not use_cpu),
-            batch_size=batch_size,
-            use_cache=metadata.other.kv_cache,
-            early_stopping=(not benchmarking_mode),
-        )
 
-
+        if num_beams == 1:
+            decoder_output, full_e2e_runtime = full_inference_greedy(
+                BART_torch_encoder,
+                BART_torch_decoder,
+                input_ids,
+                tokenizer,
+                timing_profile,
+                max_length=output_seq_len, # note: T5 uses XXModelTRTConfig.MAX_SEQUENCE_LENGTH[metadata.variant] which is the max input length. Here should rather be the max output length for generation
+                use_cuda=(not use_cpu),
+                batch_size=batch_size,
+                use_cache=metadata.other.kv_cache,
+                early_stopping=(not benchmarking_mode),
+            )
+        else:
+            decoder_output, full_e2e_runtime = full_inference_beam(
+                BART_torch_encoder,
+                BART_torch_decoder,
+                input_ids,
+                tokenizer,
+                timing_profile,
+                num_beams=num_beams,
+                max_length=output_seq_len,
+                min_length=BARTModelTRTConfig.MIN_OUTPUT_LENGTH[metadata.variant],
+                batch_size=batch_size,
+                use_cache=metadata.other.kv_cache,
+                early_stopping=(not benchmarking_mode),
+            )
+        
         # Prepare runtime results.
         runtime=[
             NetworkRuntime(
@@ -254,7 +270,7 @@ class BARTHuggingFace(FrameworkCommand):
 
         # Remove the padding and end tokens.
         semantic_outputs = tokenizer.decode(
-            decoder_output_greedy[-1, :], skip_special_tokens=True
+            decoder_output[-1, :], skip_special_tokens=True
         )
 
         if isinstance(semantic_outputs, list):
@@ -294,13 +310,13 @@ class BARTHuggingFace(FrameworkCommand):
                 for ninput in network_input:
                     results.append(
                         self.execute_inference(
-                            metadata, network_fpaths, ninput, timing_profile, use_cpu, batch_size
+                            metadata, network_fpaths, ninput, timing_profile, use_cpu, batch_size, args.num_beams
                         )
                     )
             else:
                 benchmarking_args = BARTBenchmarkingArgs(args.input_seq_len, args.output_seq_len)
                 results = self.execute_inference(
-                    metadata, network_fpaths, None, timing_profile, use_cpu, batch_size, True, benchmarking_args
+                    metadata, network_fpaths, None, timing_profile, use_cpu, batch_size, args.num_beams, True, benchmarking_args
                 )
         finally:
             self.cleanup(workspace, keep_onnx_model, keep_pytorch_model)

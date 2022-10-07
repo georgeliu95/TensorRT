@@ -48,6 +48,9 @@ class BARTMetadata(_BARTMetadata, MetadataArgparseInteropMixin):
             action="store_true",
             default=False,
         )
+        network_group.add_argument(
+            "--num-beams", type=int, default=1, help="Enables beam search during decoding."
+        )
 
     @staticmethod
     def from_args(args: argparse.Namespace):
@@ -153,7 +156,10 @@ class BARTModelTRTConfig(NNConfig):
         TARGET_MODELS[3]: 200,
     } 
 
+    # BART specific configs: https://huggingface.co/facebook/bart-base/blob/main/config.json 
     NO_REPEAT_NGRAM_SIZE = 3
+    BOS_TOKEN_ID = 0
+    EOS_TOKEN_ID = 2
 
     VOCAB_SIZE = {
         TARGET_MODELS[0]: 50265,
