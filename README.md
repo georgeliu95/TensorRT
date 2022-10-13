@@ -37,6 +37,7 @@ To build the TensorRT-OSS components, you will first need the following software
   * [Docker](https://docs.docker.com/install/) >= 19.03
   * [NVIDIA Container Toolkit](https://github.com/NVIDIA/nvidia-docker)
 * Toolchains and SDKs
+  * (Cross compilation for Jetson platform) [NVIDIA JetPack](https://developer.nvidia.com/embedded/jetpack) >= 5.0 (current support only for TensorRT 8.4.0)
   * (Cross compilation for QNX platform) [QNX Toolchain](https://blackberry.qnx.com/en)
 * PyPI packages (for demo applications/tests)
   * [onnx](https://pypi.org/project/onnx/) 1.9.0
@@ -75,6 +76,14 @@ To build the TensorRT-OSS components, you will first need the following software
     export TRT_LIBPATH=`pwd`/TensorRT-8.5.1.4
     ```
 
+
+3. #### (Optional - for Jetson builds only) Download the JetPack SDK
+    1. Download and launch the JetPack SDK manager. Login with your NVIDIA developer account.
+    2. Select the  platform and target OS  (example: Jetson AGX Xavier, `Linux Jetpack 5.0`), and click Continue.
+    3. Under `Download & Install Options` change the download folder and select `Download now, Install later`. Agree to the license terms and click Continue.
+    4. Move the extracted files into the `<TensorRT-OSS>/docker/jetpack_files` folder.
+
+
 ## Setting Up The Build Environment
 
 For Linux platforms, we recommend that you generate a docker container for building TensorRT OSS as described below. For native builds, please install the [prerequisite](#prerequisites) *System Packages*.
@@ -89,6 +98,10 @@ For Linux platforms, we recommend that you generate a docker container for build
     **Example: CentOS/RedHat 7 on x86-64 with cuda-10.2**
     ```bash
     ./docker/build.sh --file docker/centos-7.Dockerfile --tag tensorrt-centos7-cuda10.2 --cuda 10.2
+    ```
+    **Example: Ubuntu 20.04 cross-compile for Jetson (aarch64) with cuda-11.4.2 (JetPack SDK)**
+    ```bash
+    ./docker/build.sh --file docker/ubuntu-cross-aarch64.Dockerfile --tag tensorrt-jetpack-cuda11.4
     ```
     **Example: Ubuntu 20.04 on aarch64 with cuda-11.4.2**
     ```bash
@@ -141,6 +154,16 @@ For Linux platforms, we recommend that you generate a docker container for build
     CC=/usr/bin/gcc make -j$(nproc)
     ```
     > NOTE: C compiler must be explicitly specified via `CC=` for native `aarch64` builds of protobuf.
+
+    **Example: Ubuntu 20.04 Cross-Compile for Jetson (aarch64) with cuda-11.4 (JetPack)**
+    ```bash
+    cd $TRT_OSSPATH
+    mkdir -p build && cd build
+    cmake .. -DCMAKE_TOOLCHAIN_FILE=$TRT_OSSPATH/cmake/toolchains/cmake_aarch64.toolchain -DCUDA_VERSION=11.4 -DCUDNN_LIB=/pdk_files/cudnn/usr/lib/aarch64-linux-gnu/libcudnn.so -DCUBLAS_LIB=/usr/local/cuda-11.4/targets/aarch64-linux/lib/stubs/libcublas.so -DCUBLASLT_LIB=/usr/local/cuda-11.4/targets/aarch64-linux/lib/stubs/libcublasLt.so -DTRT_LIB_DIR=/pdk_files/tensorrt/lib
+
+    make -j$(nproc)
+    ```
+    > NOTE: The latest JetPack SDK v5.0 only supports TensorRT 8.4.0.
 
 	> NOTE:
 	<br> 1. The default CUDA version used by CMake is 11.8.0. To override this, for example to 10.2, append `-DCUDA_VERSION=10.2` to the cmake command.
