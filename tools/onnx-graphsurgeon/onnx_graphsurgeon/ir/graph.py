@@ -16,6 +16,7 @@
 #
 
 import copy
+import numbers
 from collections import OrderedDict, defaultdict
 from typing import Sequence
 
@@ -654,6 +655,10 @@ class Graph(object):
 
         def update_foldable_outputs(graph_constants):
             def is_foldable(node):
+                NO_FOLD_OPS = ["QuantizeLinear", "DequantizeLinear", "DynamicQuantizeLinear"]
+                if node.op in NO_FOLD_OPS:
+                    return False
+
                 def all_tensors_const(tensors):
                     return all([t.name in graph_constants for t in tensors])
 
@@ -665,6 +670,7 @@ class Graph(object):
                     if isinstance(attr, Graph):
                         foreign_tensors = attr._foreign_tensors().values()
                         all_subgraph_foreign_tensors_const &= all_tensors_const(foreign_tensors)
+
                 return all_subgraph_foreign_tensors_const
 
             # Walks along the outputs of graph_constants to see if they can also be computed statically.
@@ -1053,8 +1059,11 @@ class Graph(object):
                     new_io.append(tensor)
                 elif isinstance(elem, np.ndarray):
                     new_io.append(Constant(name=self._generate_name("onnx_graphsurgeon_constant"), values=elem))
-                elif isinstance(elem, list) or isinstance(elem, tuple):
-                    dtype = np.float32 if any([isinstance(x, float) for x in elem]) else np.int64
+                elif isinstance(elem, list) or isinstance(elem, tuple) or isinstance(elem, numbers.Number):
+                    if isinstance(elem, list) or isinstance(elem, tuple):
+                        dtype = np.float32 if any([isinstance(x, float) for x in elem]) else np.int64
+                    else:
+                        dtype = np.float32 if isinstance(elem, float) else np.int64
                     arr = np.array(elem, dtype=dtype)
                     new_io.append(Constant(name=self._generate_name("onnx_graphsurgeon_lst_constant"), values=arr))
                 else:

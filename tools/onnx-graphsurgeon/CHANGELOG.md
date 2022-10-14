@@ -2,6 +2,11 @@
 
 Dates are in YYYY-MM-DD format.
 
+## v0.3.25 (2022-10-14)
+### Fixed
+- Fixed a bug where `fold_constants` would fold quantization nodes, which are intended to be executed
+    at runtime even though they are computable beforehand.
+
 ## v0.3.24 (2022-08-31)
 ### Fixed
 - Fixed a bug where `fold_constants` would not work at all when `onnxruntime` was not installed.
