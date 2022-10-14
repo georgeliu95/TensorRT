@@ -818,7 +818,7 @@ def simple_foldable():
     graph = Graph()
     inp = Variable("input", shape=(1, 3), dtype=np.float32)
     c = graph.add(weights, weights, name="c")
-    out = graph.add(inp, c)
+    out = graph.add(inp, c, name="out")
 
     graph.inputs = [inp]
     graph.outputs = [out]
@@ -1404,6 +1404,55 @@ class TestFoldConstants(object):
         graph.fold_constants().cleanup()
         assert len(graph.nodes) == 1
         assert graph.nodes[0].op == "QuantizeLinear" if op == "Q" else "DequantizeLinear"
+
+    @pytest.mark.parametrize(
+        "should_exclude_node_func,expected_node_names",
+        [
+            (
+                lambda node: True,
+                [
+                    "onnx_graphsurgeon_node_1",
+                    "onnx_graphsurgeon_node_3",
+                    "onnx_graphsurgeon_node_5",
+                    "onnx_graphsurgeon_node_7",
+                ],
+            ),
+            (
+                lambda node: node.name == "onnx_graphsurgeon_node_5",
+                ["onnx_graphsurgeon_node_5", "onnx_graphsurgeon_node_7"],
+            ),
+            (
+                lambda node: node.op == "Add",
+                [
+                    "onnx_graphsurgeon_node_1",
+                    "onnx_graphsurgeon_node_3",
+                    "onnx_graphsurgeon_node_5",
+                    "onnx_graphsurgeon_node_7",
+                ],
+            ),
+            (
+                lambda node: node.op == "Relu",
+                [
+                    "onnx_graphsurgeon_node_3",
+                    "onnx_graphsurgeon_node_5",
+                    "onnx_graphsurgeon_node_7",
+                ],
+            ),
+        ],
+    )
+    def test_custom_should_exclude_node(self, should_exclude_node_func, expected_node_names):
+        inp = gs.Constant("input", np.ones(shape=(1, 3, 5, 5), dtype=np.float32))
+        graph = Graph(inputs=[inp])
+
+        add_0 = graph.add(inp, inp)  # onnx_graphsurgeon_node_1 -> add_out_0
+        relu_0 = graph.relu(add_0)  # onnx_graphsurgeon_node_3 -> relu_out_2
+        add_1 = graph.add(relu_0, relu_0)  # onnx_graphsurgeon_node_5 -> add_out_4
+        relu_1 = graph.relu(add_1)  # onnx_graphsurgeon_node_7 -> relu_out_6
+
+        graph.outputs = [relu_1]
+
+        graph.fold_constants(should_exclude_node=should_exclude_node_func).cleanup()
+        assert [node.name for node in graph.nodes] == expected_node_names
 
 
 class TestIO(object):
