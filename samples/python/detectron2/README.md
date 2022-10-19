@@ -48,7 +48,7 @@ python detectron2/tools/deploy/export_model.py \
     --config-file detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml \
     --export-method tracing \
     --format onnx \
-    --output ./
+    --output ./ \
     MODEL.WEIGHTS path/to/model_final_f10217.pkl \
     MODEL.DEVICE cuda
 
@@ -70,7 +70,7 @@ python create_onnx.py \
     --exported_onnx /path/to/model.onnx \
     --onnx /path/to/converted.onnx \
     --det2_config /detectron2/configs/COCO-InstanceSegmentation/mask_rcnn_R_50_FPN_3x.yaml \
-    --det2_weights /model_final_f10217.pkl
+    --det2_weights /model_final_f10217.pkl \
     --sample_image any_image.jpg
 ```
 
