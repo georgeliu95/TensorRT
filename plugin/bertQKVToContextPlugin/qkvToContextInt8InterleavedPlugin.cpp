@@ -279,8 +279,16 @@ int QKVToContextInterleavedPlugin::enqueue(const PluginTensorDesc* inputDesc, co
     params.enable_i2f_trick
         = -double(1 << 22) * double(scaleBmm2) <= -128.F && double(1 << 22) * double(scaleBmm2) >= 127.F;
 
-    mXmmaKernel->run(params, stream);
-    return cudaPeekAtLastError();
+    try
+    {
+        mXmmaKernel->run(params, stream);
+        return cudaPeekAtLastError();
+    }
+    catch (std::exception const& e)
+    {
+        caughtError(e);
+        return -1;
+    }
 }
 
 QKVToContextInterleavedPluginCreator::QKVToContextInterleavedPluginCreator()

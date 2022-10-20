@@ -51,8 +51,7 @@ using namespace nvinfer1;
         cublasStatus_t s_ = call;                                                                                      \
         if (s_ != CUBLAS_STATUS_SUCCESS)                                                                               \
         {                                                                                                              \
-            sample::gLogError << "cuBLAS Error: " << cublasGetStatusName(s_) << " " << cublasGetStatusString(s_)       \
-                              << std::endl;                                                                            \
+            sample::gLogError << "cuBLAS Error: " << s_ << std::endl;                                                  \
             return s_;                                                                                                 \
         }                                                                                                              \
     }
