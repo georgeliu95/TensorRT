@@ -174,9 +174,9 @@ bool QKVToContextPluginDynamic::supportsFormatCombination(
     // we only support int8 IO in fused mha runner, and we only support fused mha runner on Xavier, Turing and Ampere
     if (mType == DataType::kINT8)
     {
-        if (mSM != kSM_75 && mSM != kSM_80 && mSM != kSM_86 && mSM != kSM_87)
+        if (mSM != kSM_75 && mSM != kSM_80 && mSM != kSM_86 && mSM != kSM_87 && mSM != kSM_89 && mSM != kSM_90)
         {
-            gLogError << "INT8 IO is only supported on Turing and Ampere for plugin " << QKV_TO_CONTEXT_PLUGIN_NAME
+            gLogError << "INT8 IO is only supported on Turing, Ampere and Hopper for plugin " << QKV_TO_CONTEXT_PLUGIN_NAME
                       << std::endl;
             return false;
         }
@@ -601,7 +601,7 @@ QKVToContextVarSeqlenPlugin::QKVToContextVarSeqlenPlugin(std::string const name,
     {
         // variable sequence length is only supported with the fused MHA kernels
         // we should not override mS!
-        PLUGIN_ASSERT((mSM == kSM_87 || mSM == kSM_86 || mSM == kSM_80 || mSM == kSM_75 || mSM == kSM_72)
+        PLUGIN_ASSERT((mSM == kSM_90 || mSM == kSM_87 || mSM == kSM_86 || mSM == kSM_89 || mSM == kSM_80 || mSM == kSM_75 || mSM == kSM_72)
             && (type == DataType::kINT8 || type == DataType::kHALF)
             && "requesting maxSeqlen not compatible with GPU arch");
         // the layout changes: SxB will be a combined \sum_i s_i and hdim will be the 2nd dimension instead of the third
@@ -641,7 +641,7 @@ void QKVToContextVarSeqlenPlugin::createMHARunner()
         return;
     }
 
-    if (mSM == kSM_87 || mSM == kSM_86 || mSM == kSM_80 || mSM == kSM_75 || mSM == kSM_72)
+    if (mSM == kSM_90 || mSM == kSM_87 || mSM == kSM_86 || mSM == kSM_89 || mSM == kSM_80 || mSM == kSM_75 || mSM == kSM_72)
     {
         int32_t headSize = mHeadSize;
         if (mHeadSize != 32 && mHeadSize != 64)
@@ -708,7 +708,7 @@ bool QKVToContextVarSeqlenPlugin::supportsFormatCombination(
     int32_t pos, const PluginTensorDesc* inOut, int32_t nbInputs, int32_t nbOutputs) noexcept
 {
     // we only support int8 IO in fused mha runner, and we only support fused mha runner on Turing and Ampere
-    if (mType == DataType::kINT8 && mSM != kSM_87 && mSM != kSM_86 && mSM != kSM_80 && mSM != kSM_75 && mSM != kSM_72)
+    if (mType == DataType::kINT8 && mSM != kSM_90 && mSM != kSM_89 && mSM != kSM_87 && mSM != kSM_86 && mSM != kSM_80 && mSM != kSM_75 && mSM != kSM_72)
     {
         BERT_DEBUG_VALUE(
             "INT8 IO is only supported on Xavier, Turing and Ampere for plugin ", QKV_TO_CONTEXT_PLUGIN_NAME);
