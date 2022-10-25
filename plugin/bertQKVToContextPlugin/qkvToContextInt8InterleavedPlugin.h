@@ -32,6 +32,8 @@ static constexpr int32_t kSM_TURING = 75;
 static constexpr int32_t kSM_AMPERE_100 = 80;
 static constexpr int32_t kSM_AMPERE_10X = 86;
 static constexpr int32_t kSM_AMPERE_10B = 87;
+static constexpr int32_t kSM_ADA_10X = 89;
+static constexpr int32_t kSM_HOPPER_100 = 90;
 
 class QKVToContextInterleavedPlugin : public nvinfer1::IPluginV2DynamicExt
 {
