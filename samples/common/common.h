@@ -939,7 +939,7 @@ inline int32_t getMaxPersistentCacheSize()
     CHECK(cudaGetDevice(&deviceIndex));
 
     int32_t maxPersistentL2CacheSize;
-#if CUDART_VERSION >= 11020
+#if CUDART_VERSION >= 11030
     CHECK(cudaDeviceGetAttribute(&maxPersistentL2CacheSize, cudaDevAttrMaxPersistingL2CacheSize, deviceIndex));
 #else
     maxPersistentL2CacheSize = 0;

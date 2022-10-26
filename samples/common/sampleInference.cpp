@@ -181,18 +181,20 @@ template <>
 void FillBindingClosure<nvinfer1::safe::ICudaEngine, nvinfer1::safe::IExecutionContext>::getTensorInfo(
     TensorInfo& tensorInfo)
 {
+    // Use enqueueV3 for safe engine/context
     auto const b = tensorInfo.bindingIndex;
-    tensorInfo.name = engine->getBindingName(b);
-    tensorInfo.dims = engine->getBindingDimensions(b);
+    auto const name = engine->getIOTensorName(b);
+    tensorInfo.name = name;
+    tensorInfo.dims = engine->getTensorShape(name);
     tensorInfo.isDynamic = false;
-    tensorInfo.comps = engine->getBindingComponentsPerElement(b);
-    tensorInfo.strides = context->getStrides(b);
-    tensorInfo.vectorDimIndex = engine->getBindingVectorizedDim(b);
-    tensorInfo.isInput = engine->bindingIsInput(b);
-    tensorInfo.dataType = engine->getBindingDataType(b);
+    tensorInfo.comps = engine->getTensorComponentsPerElement(name);
+    tensorInfo.strides = context->getTensorStrides(name);
+    tensorInfo.vectorDimIndex = engine->getTensorVectorizedDim(name);
+    tensorInfo.isInput = engine->getTensorIOMode(name) == TensorIOMode::kINPUT;
+    tensorInfo.dataType = engine->getTensorDataType(name);
 }
 
-bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inference)
+bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inference, SystemOptions const& system)
 {
     int32_t device{};
     cudaCheck(cudaGetDevice(&device));
@@ -234,6 +236,15 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
 
     auto* engine = iEnv.engine.get();
     SMP_RETVAL_IF_FALSE(engine != nullptr, "Got invalid engine!", false, sample::gLogError);
+
+    bool const hasDLA = system.DLACore >= 0;
+    if (engine->hasImplicitBatchDimension() && hasDLA && inference.batch != engine->getMaxBatchSize())
+    {
+        sample::gLogError << "When using DLA with an implicit batch engine, the inference batch size must be the same "
+                             "as the engine's maximum batch size. Please specify the batch size by adding: '--batch="
+                          << engine->getMaxBatchSize() << "' to your command." << std::endl;
+        return false;
+    }
 
     // Release serialized blob to save memory space.
     iEnv.engine.releaseBlob();
@@ -412,7 +423,10 @@ TaskInferenceEnvironment::TaskInferenceEnvironment(
     iEnv = std::move(tmp);
 
     cudaCheck(cudaSetDevice(device));
-    if (!setUpInference(*iEnv, iOptions))
+    SystemOptions system{};
+    system.device = device;
+    system.DLACore = DLACore;
+    if (!setUpInference(*iEnv, iOptions, system))
     {
         sample::gLogError << "Inference set up failed" << std::endl;
     }
@@ -588,15 +602,16 @@ public:
 class EnqueueSafe
 {
 public:
-    explicit EnqueueSafe(nvinfer1::safe::IExecutionContext& context, void** buffers)
+    explicit EnqueueSafe(nvinfer1::safe::IExecutionContext& context, Bindings const& bindings)
         : mContext(context)
-        , mBuffers(buffers)
+        , mBindings(bindings)
     {
+        ASSERT(mBindings.setSafeTensorAddresses(mContext));
     }
 
     bool operator()(TrtCudaStream& stream) const
     {
-        if (mContext.enqueueV2(mBuffers, stream.get(), nullptr))
+        if (mContext.enqueueV3(stream.get()))
         {
             return true;
         }
@@ -604,7 +619,8 @@ public:
     }
 
     nvinfer1::safe::IExecutionContext& mContext;
-    void** mBuffers{};
+private:
+    Bindings const& mBindings;
 };
 
 using EnqueueFunction = std::function<bool(TrtCudaStream&)>;
@@ -853,7 +869,7 @@ private:
 
     void createEnqueueFunction(InferenceOptions const& inference, nvinfer1::safe::IExecutionContext& context, Bindings&)
     {
-        mEnqueue = EnqueueFunction(EnqueueSafe(context, mBindings.getDeviceBuffers()));
+        mEnqueue = EnqueueFunction(EnqueueSafe(context, mBindings));
         if (inference.graph)
         {
             TrtCudaStream& stream = getStream(StreamType::kCOMPUTE);
@@ -1470,6 +1486,29 @@ bool Bindings::setTensorAddresses(nvinfer1::IExecutionContext& context) const
                 {
                     return false;
                 }
+            }
+        }
+    }
+    return true;
+}
+
+bool Bindings::setSafeTensorAddresses(nvinfer1::safe::IExecutionContext& context) const
+{
+    for (auto const& b : mNames)
+    {
+        auto const name = b.first.c_str();
+        if (context.getEngine().getTensorIOMode(name) == nvinfer1::TensorIOMode::kINPUT)
+        {
+            if (!context.setInputTensorAddress(name, static_cast<void const*>(mDevicePointers[b.second])))
+            {
+                return false;
+            }
+        }
+        else
+        {
+            if (!context.setOutputTensorAddress(name, mDevicePointers[b.second]))
+            {
+                return false;
             }
         }
     }

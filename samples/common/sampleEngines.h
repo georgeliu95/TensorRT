@@ -147,9 +147,11 @@ struct BuildEnvironment
     {
     }
 
+    //! Do NOT adjust the declare sequence here: builder -> network -> parser.
+    //! So that when ~BuildEnvironment() executes, the destroy sequence is: parser -> network -> builder.
+    //! Else we will violates TRT object lifetime requirement in the developer guide.
+    std::unique_ptr<nvinfer1::IBuilder> builder;
     std::unique_ptr<nvinfer1::INetworkDefinition> network;
-    //! Parser that creates the network. Must be declared *after* network, so that when
-    //! ~BuildEnvironment() executes, the parser is destroyed before the network is destroyed.
     Parser parser;
     LazilyDeserializedEngine engine;
 };
