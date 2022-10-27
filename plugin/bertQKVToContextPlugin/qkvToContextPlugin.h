@@ -181,6 +181,11 @@ private:
     bool mHasImask;
     nvinfer1::DataType mType;
     float mDqProbs;
+
+    using IPluginV2::getOutputDimensions;
+    using IPluginV2::getWorkspaceSize;
+    using IPluginV2::enqueue;
+    using IPluginV2Ext::configurePlugin;
 };
 
 class QKVToContextPluginDynamicCreator : public nvinfer1::IPluginCreator
@@ -273,6 +278,11 @@ private:
     int32_t mHdim;
     bool mUseVarSeqlen;
     bool mUseInt8ScaleMax{true};
+
+    using IPluginV2::getOutputDimensions;
+    using IPluginV2::getWorkspaceSize;
+    using IPluginV2::enqueue;
+    using IPluginV2Ext::configurePlugin;
 };
 
 class QKVToContextVarSeqlenPluginCreator : public nvinfer1::IPluginCreator

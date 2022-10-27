@@ -78,6 +78,8 @@ Dims CoordConvACPlugin::getOutputDimensions(int index, const Dims* inputs, int n
     PLUGIN_ASSERT(inputs != nullptr);
     // CHW
     nvinfer1::Dims dimsOutput;
+    // Don't trigger null dereference since we check if inputs is nullptr above.
+    // NOLINTNEXTLINE(clang-analyzer-core.NullDereference)
     PLUGIN_ASSERT(inputs[0].nbDims == 3);
     dimsOutput.nbDims = inputs[0].nbDims;
     dimsOutput.d[0] = inputs[0].d[0] + NUM_COORDCONV_CHANNELS;

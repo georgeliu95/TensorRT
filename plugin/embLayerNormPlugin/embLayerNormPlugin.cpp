@@ -54,6 +54,7 @@ EmbLayerNormPluginDynamic::EmbLayerNormPluginDynamic(std::string const& name, Da
 {
     // Assuming Weights.count is the number of elements and not bytes
     PLUGIN_VALIDATE(beta.count == gamma.count);
+    PLUGIN_VALIDATE(mLd > 0U);
     PLUGIN_VALIDATE(wordEmb.count % mLd == 0);
     PLUGIN_VALIDATE(posEmb.count % mLd == 0);
     PLUGIN_VALIDATE(tokEmb.count % mLd == 0);
@@ -539,11 +540,11 @@ IPluginV2* EmbLayerNormPluginDynamicCreator::createPlugin(char const* name, cons
 
         bool output_fp16 = false;
         bool useFullMask = false;
-        Weights beta;
-        Weights gamma;
-        Weights word_emb;
-        Weights pos_emb;
-        Weights tok_emb;
+        Weights beta{};     // required attribute - validateRequiredAttributesExist() will verify existence
+        Weights gamma{};    // required attribute - validateRequiredAttributesExist() will verify existence
+        Weights word_emb{}; // required attribute - validateRequiredAttributesExist() will verify existence
+        Weights pos_emb{};  // required attribute - validateRequiredAttributesExist() will verify existence
+        Weights tok_emb{};  // required attribute - validateRequiredAttributesExist() will verify existence
         int32_t mhaTypeId = 0;
         std::set<std::string> const requiredAttributes{
             "bert_embeddings_layernorm_beta",
