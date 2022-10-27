@@ -1,0 +1,35 @@
+[tool.poetry]
+name = "trt-huggingface-demo"
+version = "0.1.0"
+description = ""
+authors = ["TensorRT [tensorrt@nvidia.com]"]
+readme = "README.md"
+
+[[tool.poetry.source]]
+name = "pypi_"
+url = "https://pypi.org/simple/"
+default = true
+
+[[tool.poetry.source]]
+name = "ngc_"
+url = "https://pypi.ngc.nvidia.com"
+secondary = true
+
+[tool.poetry.dependencies]
+python = ">=3.7,<4"
+transformers = "4.8.0"
+torch = "<=1.11"
+tabulate = "^0.9.0"
+toml = "^0.10.2"
+polygraphy = ">=0.42.2"
+onnx-graphsurgeon = "^0.3.24"
+sentencepiece = [{version = "0.1.95", python = "<3.10"},
+                {version = "0.1.97", python = ">=3.10"}]
+protobuf = [{version="3.20.1", python = "<=3.7"},
+            {version="*", python = ">3.7"}]
+onnx = [{version = "1.9.0", python = "<3.8"},
+       {version = "1.12.0", python = ">=3.8"}]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
