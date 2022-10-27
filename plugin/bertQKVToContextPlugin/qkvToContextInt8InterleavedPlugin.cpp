@@ -323,7 +323,10 @@ IPluginV2* QKVToContextInterleavedPluginCreator::createPlugin(const char* name, 
     try
     {
         int32_t hiddenSize = 0;
-        int32_t numHeads = 0;
+        // Since numHeads must always exist or validateRequiredAttributes will fail,
+        // we can set numHeads to -1 so that static analysis tools don't warn about
+        // a division by zero in QKVToContextInterleavedPlugin constructor.
+        int32_t numHeads{-1};
 
         float dqProbs = -1;
         int32_t useInt8ScaleMax{-1};

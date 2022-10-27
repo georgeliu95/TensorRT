@@ -108,6 +108,11 @@ private:
     std::shared_ptr<CudaBind<float>> mBnScales{};
     std::shared_ptr<CudaBind<float>> mBnBias{};
     size_t mNbScaleBias{};
+
+    using IPluginV2::getOutputDimensions;
+    using IPluginV2::getWorkspaceSize;
+    using IPluginV2::enqueue;
+    using IPluginV2Ext::configurePlugin;
 };
 
 class GroupNormalizationPluginCreator : public IPluginCreator

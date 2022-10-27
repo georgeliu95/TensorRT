@@ -494,7 +494,10 @@ IPluginV2* QKVToContextPluginDynamicCreator::createPlugin(const char* name, cons
         BERT_DEBUG_MSG("Creating QKV2ContextPlugin...");
         PLUGIN_VALIDATE(fc != nullptr);
         int32_t hiddenSize = 0;
-        int32_t numHeads = 0;
+        // Since numHeads must always exist or validateRequiredAttributes will fail,
+        // we can set numHeads to -1 so that static analysis tools don't warn about
+        // a division by zero in QKVToContextPluginDynamic constructor.
+        int32_t numHeads{-1};
         bool hasMask = false;
         int32_t typeId = -1;
 
@@ -1054,7 +1057,10 @@ IPluginV2* QKVToContextVarSeqlenPluginCreator::createPlugin(const char* name, co
     BERT_DEBUG_MSG("Creating QKV2ContextPlugin...");
 
     int32_t hiddenSize = 0;
-    int32_t numHeads = 0;
+    // Since numHeads must always exist or validateRequiredAttributes will fail,
+    // we can set numHeads to -1 so that static analysis tools don't warn about
+    // a division by zero in QKVToContextVarSeqelnPlugin constructor.
+    int32_t numHeads{-1};
     bool hasMask = false;
     int32_t typeId = -1;
 

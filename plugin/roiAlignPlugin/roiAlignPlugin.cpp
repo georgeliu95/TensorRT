@@ -28,6 +28,7 @@ namespace
 {
 char const* kROIALIGN_PLUGIN_VERSION{"1"};
 char const* kROIALIGN_PLUGIN_NAME{"ROIAlign_TRT"};
+size_t constexpr kSERIALIZATION_SIZE{sizeof(int32_t) * 5 + sizeof(float) + sizeof(int32_t) * 4};
 } // namespace
 
 PluginFieldCollection ROIAlignPluginCreator::mFC{};
@@ -344,7 +345,7 @@ int32_t ROIAlign::enqueue(PluginTensorDesc const* inputDesc, PluginTensorDesc co
 
 size_t ROIAlign::getSerializationSize() const noexcept
 {
-    return sizeof(int32_t) * 5 + sizeof(float) + sizeof(int32_t) * 4;
+    return kSERIALIZATION_SIZE;
 }
 
 void ROIAlign::serialize(void* buffer) const noexcept
@@ -381,7 +382,7 @@ ROIAlign::ROIAlign(
 ROIAlign::ROIAlign(void const* data, size_t length)
 {
     PLUGIN_VALIDATE(data != nullptr);
-    PLUGIN_VALIDATE(length == getSerializationSize());
+    PLUGIN_VALIDATE(length == kSERIALIZATION_SIZE);
 
     char const *d = static_cast<char const*>(data);
     char const *a = d;
