@@ -46,7 +46,7 @@ DEB_PACKAGES_CROSS_SBSA=[
     "libnvparsers8-cross-sbsa_8.5.1-1+cuda11.8_all.deb",
 ]
 
-ROOT_URL = "http://cuda-repo/release-candidates/Libraries/TensorRT/v8.5/8.5.1.1-78a84d23/"
+ROOT_URL = "http://cuda-repo/release-candidates/Libraries/TensorRT/v8.5/8.5.1.7-d95eb1a4/"
 
 def get_cuda_props(cuda_ver):
     assert len(cuda_ver) >= 4

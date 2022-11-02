@@ -62,7 +62,7 @@ protected:
 //! operations that are safety certified and the resulting serialized engine can be executed with TensorRT's safe
 //! runtime APIs in the nvinfer1::safe namespace. EngineCapability::kDLA_STANDALONE provides a restricted subset of
 //! network operations that are DLA compatible and the resulting serialized engine can be executed using standalone
-//! DLA runtime APIs. See sampleNvmedia for an example of integrating NvMediaDLA APIs with TensorRT APIs.
+//! DLA runtime APIs. See sampleCudla for an example of integrating cuDLA APIs with TensorRT APIs.
 //!
 
 enum class EngineCapability : int32_t
@@ -1259,7 +1259,7 @@ public:
     //!        that the target will be reached. This parameter is ignored for the first (default) optimization profile
     //!        that is defined.
     //!
-    //! \return true if the input is in the valid range (between 0 and 1 inclusive), else false
+    //! \return true if the input is in the valid range (between 0 and 1 inclusive), else false.
     //!
     bool setExtraMemoryTarget(float target) noexcept
     {
@@ -1268,6 +1268,10 @@ public:
 
     //!
     //! \brief Get the extra memory target that has been defined for this profile.
+    //!
+    //! This defaults to 1.0F.
+    //!
+    //! \return the valid value set by setExtraMemoryTarget or 1.0F.
     //!
     float getExtraMemoryTarget() const noexcept
     {
@@ -1283,7 +1287,8 @@ public:
     //! that the maximum dimensions are at least as large as the optimum dimensions. Some validation steps require
     //! knowledge of the network definition and are deferred to engine build time.
     //!
-    //! \return true if the optimization profile is valid and may be passed to an IBuilderConfig, else false
+    //!
+    //! \return true if the optimization profile is valid and may be passed to an IBuilderConfig, else false.
     //!
     bool isValid() const noexcept
     {
