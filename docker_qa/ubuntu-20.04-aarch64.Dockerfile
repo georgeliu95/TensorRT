@@ -18,7 +18,7 @@
 # Multi-arch container support available in non-cudnn containers.
 FROM gitlab-master.nvidia.com:5005/dl/dgx/cuda:11.8-devel-ubuntu20.04--5691963
 
-ENV TRT_VERSION 8.5.1.1
+ENV TRT_VERSION 8.5.1.7
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
