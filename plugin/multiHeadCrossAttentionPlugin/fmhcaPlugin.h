@@ -155,11 +155,13 @@ public:
     bool supportsFormatCombination(
         int32_t pos, const PluginTensorDesc* inOut, int32_t nbInputs, int32_t nbOutputs) noexcept override
     {
-        if (mSM != kSM_89 && mSM != kSM_86 && mSM != kSM_80)
+        createMHARunner();
+        if (!mKernels || !mKernels->isValid(/* dummy seq*/64))
         {
-            gLogError << "Only Ampere is supported for plugin " << PLUGIN_NAME << std::endl;
+            gLogError << "GPU is not supported for plugin " << PLUGIN_NAME << std::endl;
             return false;
         }
+
         if (inOut[pos].format != TensorFormat::kLINEAR)
         {
             return false;

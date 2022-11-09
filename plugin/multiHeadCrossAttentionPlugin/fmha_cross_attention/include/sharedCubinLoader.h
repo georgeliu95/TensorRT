@@ -119,13 +119,6 @@ public:
         }
 
         loadCubinKernels(mSM);
-
-        // sm_86 chips prefer sm_86 sass, but can also use sm_80 sass if sm_86 not exist.
-        // sm_87 cannot run sm_80 sass
-        if (mSM == kSM_86)
-        {
-            loadCubinKernels(kSM_80);
-        }
     }
 
     bool isValid(int s) const
@@ -141,11 +134,7 @@ public:
         }
 
         const auto findIter = mFunctions.find(hashID(params));
-        // Provide debug information if the kernel is missing in the pool.
-        std::stringstream configss;
-        configss << "s: " << params.s << " d: " << params.d << " interleaved?: " << params.interleaved
-                 << " forceUnroll?: " << params.force_unroll;
-        PLUGIN_ASSERT(findIter != mFunctions.end() && configss.str().c_str());
+        PLUGIN_ASSERT(findIter != mFunctions.end());
 
         const auto& kernelMeta = mKernelMeta[findIter->second.mMetaInfoIndex];
         const CUfunction func = findIter->second.mDeviceFunction;
@@ -159,8 +148,8 @@ public:
         }
         else
         {
-            int32_t unroll = kernelMeta.mS / kernelMeta.mUnrollStep;
-            PLUGIN_ASSERT(kernelMeta.mS == kernelMeta.mUnrollStep * unroll);
+            int32_t unroll = params.s_q / kernelMeta.mUnrollStep;
+            PLUGIN_ASSERT(params.s_q == kernelMeta.mUnrollStep * unroll);
             cuErrCheck(mDriver.cuLaunchKernel(func, params.h, params.b, unroll, kernelMeta.mThreadsPerCTA, 1, 1,
                            kernelMeta.mSharedMemBytes, ss, kernelParams, nullptr),
                 mDriver);

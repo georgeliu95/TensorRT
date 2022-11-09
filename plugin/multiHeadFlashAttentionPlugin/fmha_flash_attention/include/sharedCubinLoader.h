@@ -102,11 +102,6 @@ public:
                     }
                 }
                 mFunctions.insert({kernelKey, funcInfo});
-                const int s = static_cast<int>(kernelMeta.mS);
-                if (mValidSequences.find(s) == mValidSequences.end())
-                {
-                    mValidSequences.insert(s);
-                }
             }
         }
     }
@@ -119,18 +114,11 @@ public:
         }
 
         loadCubinKernels(mSM);
-
-        // sm_86 chips prefer sm_86 sass, but can also use sm_80 sass if sm_86 not exist.
-        // sm_87 cannot run sm_80 sass
-        if (mSM == kSM_86)
-        {
-            loadCubinKernels(kSM_80);
-        }
     }
 
     bool isValid(int s) const
     {
-        return (mValidSequences.find(s) != mValidSequences.end());
+        return !mFunctions.empty();
     }
 
     virtual void run(TKernelParam& params, cudaStream_t ss) const
@@ -141,11 +129,7 @@ public:
         }
 
         const auto findIter = mFunctions.find(hashID(params));
-        // Provide debug information if the kernel is missing in the pool.
-        std::stringstream configss;
-        configss << "s: " << params.s << " d: " << params.d << " interleaved?: " << params.interleaved
-                 << " forceUnroll?: " << params.force_unroll;
-        PLUGIN_ASSERT(findIter != mFunctions.end() && configss.str().c_str());
+        PLUGIN_ASSERT(findIter != mFunctions.end());
 
         const auto& kernelMeta = mKernelMeta[findIter->second.mMetaInfoIndex];
         const CUfunction func = findIter->second.mDeviceFunction;
@@ -182,7 +166,6 @@ protected:
         CUfunction mDeviceFunction;
     };
     std::unordered_map<uint64_t, FusedMultiHeadAttentionKernelInfo> mFunctions;
-    std::set<int> mValidSequences;
 };
 
 template <typename TKernelList>
