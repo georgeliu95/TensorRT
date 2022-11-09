@@ -46,7 +46,9 @@ set(PLUGIN_LISTS
     generateDetectionPlugin
     gridAnchorPlugin
     groupNormalizationPlugin
+    groupNormPlugin
     instanceNormalizationPlugin
+    layerNormPlugin
     leakyReluPlugin
     multilevelCropAndResizePlugin
     multilevelProposeROI
@@ -66,6 +68,7 @@ set(PLUGIN_LISTS
     scatterPlugin
     specialSlicePlugin
     splitPlugin
+    splitGeLUPlugin
     voxelGeneratorPlugin
     )
 
