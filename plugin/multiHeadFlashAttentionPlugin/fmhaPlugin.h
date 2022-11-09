@@ -147,12 +147,16 @@ public:
         int32_t pos, const PluginTensorDesc* inOut, int32_t nbInputs, int32_t nbOutputs) noexcept override
     {
         // load kernel and check if we have any implementations.
-        createMHARunner();
-        if (!mKernels || !mKernels->isValid(/*dummy seq*/64))
+        auto hasImplement = [this](DataType dt)
         {
-            gLogError << "GPU is not supported for plugin " << PLUGIN_NAME << std::endl;
+            switch (dt)
+            {
+            case DataType::kFLOAT: return getCubinKernels(plugin::DATA_TYPE_FP32, mSM)->isValid(/*dummy seq*/128);
+            case DataType::kHALF: return getCubinKernels(plugin::DATA_TYPE_FP16, mSM)->isValid(/*dummy seq*/128);
+            default: break;
+            }
             return false;
-        }
+        };
 
         if (inOut[pos].format != TensorFormat::kLINEAR)
         {
@@ -162,7 +166,7 @@ public:
         bool res = false;
         switch (pos)
         {
-        case 0: res = inOut[pos].type == DataType::kHALF && inOut[pos].dims.nbDims == 5; break;
+        case 0: res = hasImplement(inOut[pos].type) && inOut[pos].dims.nbDims == 5; break;
         case 1: res = inOut[pos].type == inOut[0].type && inOut[pos].dims.nbDims == 4; break;
         default: // should NOT be here
             break;

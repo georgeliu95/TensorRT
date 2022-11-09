@@ -127,7 +127,7 @@ int32_t run_fmhca_api(void* q_packed_d, void* kv_packed_d, void* cu_seqlens_q_d,
     float scale_bmm2 = 1.f;
 
     // Set the params.
-    Fused_multihead_attention_params_mhca params;
+    Fused_multihead_attention_params_mhca params{};
     set_params(params, data_type, acc_type, b, s_q, s_kv, h, d, total, q_packed_d, kv_packed_d, cu_seqlens_q_d,
         cu_seqlens_kv_d, o_packed_d, p_d, s_d, scale_bmm1, scale_softmax, scale_bmm2, interleaved, ignore_b1opt,
         force_unroll, use_int8_scale_max, use_tma);

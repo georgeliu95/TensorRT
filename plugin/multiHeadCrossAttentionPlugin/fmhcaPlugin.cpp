@@ -55,12 +55,9 @@ int32_t fmhcaPlugin::enqueue(const PluginTensorDesc* inputDesc, const PluginTens
             }
         }
 
-        if (batchSize != m_.mOptBatchSize || m_.mOptSeqLenQ != seqLenQ)
+        if (batchSize != m_.mOptBatchSize || m_.mOptSeqLenQ != seqLenQ || m_.mOptSeqLenKV != seqLenKV)
         {
             m_.mOptSeqLenQ = initializeSeqlens(batchSize, seqLenQ, mCuSeqLensQ.get(), stream);
-        }
-        if (batchSize != m_.mOptBatchSize || m_.mOptSeqLenKV != seqLenKV)
-        {
             m_.mOptSeqLenKV = initializeSeqlens(batchSize, seqLenKV, mCuSeqLensKV.get(), stream);
         }
 
