@@ -1,0 +1,346 @@
+#pragma once
+#ifndef _FMHA_PLUGIN_
+#define _FMHA_PLUGIN_
+#include "common/bertCommon.h"
+#include "fmha_flash_attention/include/commonDatatype.h"
+#include "fmha_flash_attention/include/fmha_flash_attention.h"
+
+#include <NvInfer.h>
+#include <cassert>
+#include <string>
+#include <vector>
+
+namespace
+{
+static const char* PLUGIN_NAME{"fMHA_V2"};
+static const char* PLUGIN_VERSION{"1"};
+} // namespace
+
+namespace nvinfer1
+{
+namespace plugin
+{
+class fmhaPlugin : public IPluginV2DynamicExt
+{
+private:
+    const std::string mLayerName;
+    std::string mNamespace;
+
+    // scalar need copy
+    struct
+    {
+        int32_t mOptBatchSize{};
+        int32_t mOptSeqLen{};
+
+        int32_t mMaxBatchSize{128};
+        DataType mDataType{DataType::kFLOAT};
+    } m_;
+
+public:
+    fmhaPlugin(const std::string& name, int32_t maxBatchSize)
+        : mLayerName(name)
+    {
+        m_.mMaxBatchSize = maxBatchSize;
+        init();
+    }
+
+    fmhaPlugin(const std::string& name, const void* data, size_t length)
+        : mLayerName(name)
+    {
+        memcpy(&m_, data, sizeof(m_));
+    }
+
+    fmhaPlugin() = delete;
+    ~fmhaPlugin() = default;
+
+    void init(bool loadCubins = false)
+    {
+        try
+        {
+            mSM = bert::getSMVersion();
+
+            // allocate seqlens buffer
+            if (!mCuSeqLen)
+            {
+                void* cudaMem{nullptr};
+                PLUGIN_CHECK(cudaMalloc(&cudaMem, sizeof(int32_t) * (m_.mMaxBatchSize + 1)));
+                bert::make_cuda_shared(mCuSeqLen, cudaMem);
+            }
+
+            // initialize seqlens buffer
+            initializeSeqlens(m_.mOptBatchSize, m_.mOptSeqLen, mCuSeqLen.get());
+
+            if (loadCubins)
+            {
+                createMHARunner();
+            }
+        }
+        catch (const std::exception& e)
+        {
+            caughtError(e);
+        }
+    }
+
+    void createMHARunner()
+    {
+        switch (m_.mDataType)
+        {
+        case DataType::kFLOAT: mKernels = getCubinKernels(plugin::DATA_TYPE_FP32, mSM); break;
+        case DataType::kHALF: mKernels = getCubinKernels(plugin::DATA_TYPE_FP16, mSM); break;
+        default: break;
+        }
+    }
+
+    size_t getSerializationSize() const noexcept override
+    {
+        return sizeof(m_);
+    }
+
+    void serialize(void* buffer) const noexcept override
+    {
+        memcpy(buffer, &m_, sizeof(m_));
+    }
+
+    IPluginV2DynamicExt* clone() const noexcept override
+    {
+        try
+        {
+            std::vector<char> buff;
+            buff.resize(getSerializationSize());
+            serialize(buff.data());
+
+            auto p = new fmhaPlugin(mLayerName, buff.data(), buff.size());
+            p->mCuSeqLen = mCuSeqLen;
+            p->setPluginNamespace(mNamespace.c_str());
+            p->init(true);
+            return p;
+        }
+        catch (const std::exception& e)
+        {
+            caughtError(e);
+        }
+        return nullptr;
+    }
+
+    int32_t getNbOutputs() const noexcept override
+    {
+        return 1;
+    }
+
+    // input0 qkv_packed in [b, s, h, 3, d] ??
+    // input1 cu_seqlens in [b + 1]
+    // output O in [b, s, h, d]
+    DimsExprs getOutputDimensions(
+        int32_t outputIndex, const DimsExprs* inputs, int32_t nbInputs, IExprBuilder& exprBuilder) noexcept override
+    {
+        DimsExprs out;
+        out.nbDims = 4;
+        out.d[0] = inputs[0].d[0];
+        ;
+        out.d[1] = inputs[0].d[1];
+        out.d[2] = inputs[0].d[2];
+        out.d[3] = inputs[0].d[4];
+        return out;
+    }
+
+    bool supportsFormatCombination(
+        int32_t pos, const PluginTensorDesc* inOut, int32_t nbInputs, int32_t nbOutputs) noexcept override
+    {
+        if (mSM != kSM_89 && mSM != kSM_86 && mSM != kSM_80)
+        {
+            gLogError << "Only Ampere is supported for plugin " << PLUGIN_NAME << std::endl;
+            return false;
+        }
+
+        if (inOut[pos].format != TensorFormat::kLINEAR)
+        {
+            return false;
+        }
+
+        bool res = false;
+        switch (pos)
+        {
+        case 0: res = inOut[pos].type == DataType::kHALF && inOut[pos].dims.nbDims == 5; break;
+        case 1: res = inOut[pos].type == inOut[0].type && inOut[pos].dims.nbDims == 4; break;
+        default: // should NOT be here
+            break;
+        }
+        return res;
+    }
+
+    DataType getOutputDataType(
+        int32_t outputIndex, const DataType* inputTypes, int32_t nbInputs) const noexcept override
+    {
+        return inputTypes[0];
+    }
+
+    void initializeSeqlens(int32_t b, int32_t s, void* cu_seqlens_d, cudaStream_t stream = 0)
+    {
+        if (!b || !s)
+        {
+            return;
+        }
+
+        if (b != m_.mOptBatchSize || s != m_.mOptSeqLen)
+        {
+            std::vector<int32_t> cuSeqLens(b + 1, 0);
+            // Compute the prefix sum of the seqlen
+            for (int32_t it = 0; it < b; it++)
+            {
+                cuSeqLens[it + 1] = cuSeqLens[it] + s;
+            }
+
+            PLUGIN_CUASSERT(cudaMemcpyAsync(
+                cu_seqlens_d, cuSeqLens.data(), sizeof(int32_t) * cuSeqLens.size(), cudaMemcpyHostToDevice, stream));
+            m_.mOptBatchSize = b;
+            m_.mOptSeqLen = s;
+        }
+    };
+
+    void configurePlugin(const DynamicPluginTensorDesc* in, int32_t nbInputs, const DynamicPluginTensorDesc* out,
+        int32_t nbOutputs) noexcept override
+    {
+        try
+        {
+            int32_t const batchSize = in[0].max.d[0];
+            int32_t const seqLen = in[0].max.d[1];
+            initializeSeqlens(batchSize, seqLen, mCuSeqLen.get());
+
+            m_.mDataType = in[0].desc.type;
+            createMHARunner();
+        }
+        catch (const std::exception& e)
+        {
+            caughtError(e);
+        }
+    }
+
+    size_t getWorkspaceSize(const PluginTensorDesc* inputs, int32_t nbInputs, const PluginTensorDesc* outputs,
+        int32_t nbOutputs) const noexcept override
+    {
+        return 0;
+    }
+
+    void setPluginNamespace(const char* szNamespace) noexcept override
+    {
+        mNamespace = szNamespace;
+    }
+    const char* getPluginNamespace() const noexcept override
+    {
+        return mNamespace.c_str();
+    }
+    const char* getPluginType() const noexcept override
+    {
+        return PLUGIN_NAME;
+    }
+    const char* getPluginVersion() const noexcept override
+    {
+        return PLUGIN_VERSION;
+    }
+    int32_t initialize() noexcept override
+    {
+        return 0;
+    }
+    void terminate() noexcept override
+    {
+        return;
+    }
+
+    void destroy() noexcept override
+    {
+        delete this;
+    }
+
+    int32_t enqueue(const PluginTensorDesc* inputDesc, const PluginTensorDesc* outputDesc, const void* const* inputs,
+        void* const* outputs, void* workspace, cudaStream_t stream) noexcept override;
+
+private:
+    bert::cuda_shared_ptr<void> mCuSeqLen;
+    int32_t mSM{};
+    FusedMultiHeadFlashAttentionKernel const* mKernels{};
+
+}; // class fmhaPlugin
+
+class fmhaPluginCreator : public IPluginCreator
+{
+private:
+    static PluginFieldCollection mFc;
+    static std::vector<PluginField> mPluginAttributes;
+    std::string mNamespace;
+
+public:
+    fmhaPluginCreator()
+    {
+        mFc.nbFields = mPluginAttributes.size();
+        mFc.fields = mPluginAttributes.data();
+    }
+
+    ~fmhaPluginCreator() {}
+
+    IPluginV2* createPlugin(const char* name, const PluginFieldCollection* fc) noexcept override
+    {
+        try
+        {
+            int32_t maxBatchSize = 128;
+            for (int32_t i = 0; i < fc->nbFields; i++)
+            {
+                std::string field_name(fc->fields[i].name);
+                if (field_name.compare("max_batch_size") == 0)
+                {
+                    maxBatchSize = static_cast<const int32_t*>(fc->fields[i].data)[0];
+                }
+            }
+
+            return new fmhaPlugin(name, maxBatchSize);
+        }
+        catch (std::exception const& e)
+        {
+            caughtError(e);
+        }
+        return nullptr;
+    }
+
+    IPluginV2* deserializePlugin(const char* name, const void* serialData, size_t serialLength) noexcept override
+    {
+        try
+        {
+            auto p = new fmhaPlugin(name, serialData, serialLength);
+            p->init(true);
+            return p;
+        }
+        catch (std::exception const& e)
+        {
+            caughtError(e);
+        }
+        return nullptr;
+    }
+
+    void setPluginNamespace(const char* szNamespace) noexcept override
+    {
+        mNamespace = szNamespace;
+    }
+
+    const char* getPluginNamespace() const noexcept override
+    {
+        return mNamespace.c_str();
+    }
+
+    const char* getPluginName() const noexcept override
+    {
+        return PLUGIN_NAME;
+    }
+
+    const char* getPluginVersion() const noexcept override
+    {
+        return PLUGIN_VERSION;
+    }
+
+    const PluginFieldCollection* getFieldNames() noexcept override
+    {
+        return &mFc;
+    }
+}; // class fmhaPluginCreator
+} // namespace plugin
+} // namespace nvinfer1
+
+#endif

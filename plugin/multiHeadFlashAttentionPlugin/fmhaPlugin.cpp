@@ -1,0 +1,46 @@
+#include "fmhaPlugin.h"
+#include "fmha.h"
+
+namespace nvinfer1
+{
+namespace plugin
+{
+PluginFieldCollection fmhaPluginCreator::mFc{};
+std::vector<PluginField> fmhaPluginCreator::mPluginAttributes;
+
+int32_t fmhaPlugin::enqueue(const PluginTensorDesc* inputDesc, const PluginTensorDesc* outputDesc,
+    const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) noexcept
+{
+    // input[ 0]:  [float16],  (b, s, h, 3, d)
+    // output[0]:  [float16],  (b,s,h,d)
+    try
+    {
+        PLUGIN_ASSERT(mKernels);
+        PLUGIN_ASSERT(mSM);
+
+        // update cuseqlens when bs or seq changed.
+        int32_t const batchSize = inputDesc[0].dims.d[0];
+        int32_t const seqLen = inputDesc[0].dims.d[1];
+        initializeSeqlens(batchSize, seqLen, mCuSeqLen.get(), stream);
+
+        // launch kernel.
+        int32_t const head_num = inputDesc[0].dims.d[2];
+        int32_t const size_per_head = inputDesc[0].dims.d[4];
+        size_t const total = m_.mOptBatchSize * m_.mOptSeqLen;
+        run_fmha_v2_api((void*) inputs[0], (void*) mCuSeqLen.get(), (void*) outputs[0], total, mSM, mKernels,
+            (const size_t) m_.mOptBatchSize, (const size_t) head_num, (const size_t) size_per_head,
+            (const size_t) m_.mOptSeqLen, stream);
+
+        return 0;
+    }
+    catch (const std::exception& e)
+    {
+        caughtError(e);
+    }
+    return -1;
+}
+
+REGISTER_TENSORRT_PLUGIN(fmhaPluginCreator);
+
+} // namespace plugin
+} // namespace nvinfer1

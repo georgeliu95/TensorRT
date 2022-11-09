@@ -70,7 +70,11 @@ set(PLUGIN_LISTS
     splitPlugin
     splitGeLUPlugin
     voxelGeneratorPlugin
+    multiHeadFlashAttentionPlugin
+    multiHeadCrossAttentionPlugin
     )
+include_directories(multiHeadFlashAttentionPlugin/fmha_flash_attention/include/)
+include_directories(multiHeadCrossAttentionPlugin/fmha_cross_attention/include/)
 
 # Add BERT sources if ${BERT_GENCODES} was populated
 if(BERT_GENCODES)
