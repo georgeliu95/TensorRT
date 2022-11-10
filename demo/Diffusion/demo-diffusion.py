@@ -50,6 +50,7 @@ def parseArgs():
     parser.add_argument('--onnx-dir', default='onnx', help="Output directory for ONNX export")
     parser.add_argument('--force-onnx-export', action='store_true', help="Force ONNX export of CLIP, UNET, and VAE models")
     parser.add_argument('--force-onnx-optimize', action='store_true', help="Force ONNX optimizations for CLIP, UNET, and VAE models")
+    parser.add_argument('--force-engine-build', action='store_true', help="Force rebuilding the TensorRT engine")
 
     # TensorRT inference
     parser.add_argument('--engine-dir', default='engine', help="Output directory for TensorRT engines")
@@ -161,6 +162,7 @@ class DemoDiffusion:
         opt_batch_size=4,
         force_export=False,
         force_optimize=False,
+        force_build=False,
     ):
         """
         Build and load engines for TensorRT accelerated inference.
@@ -177,6 +179,8 @@ class DemoDiffusion:
                 Force re-exporting the ONNX models.
             force_optimize (bool):
                 Force re-optimizing the ONNX models.
+            force_build (bool):
+                Force re-building the TensorRT engine.
         """
 
         def exportOnnx (model_name, obj):
@@ -209,7 +213,7 @@ class DemoDiffusion:
 
         for model_name, obj in self.models.items():
             engine = Engine(model_name, engine_dir)
-            if not os.path.exists(engine.engine_path):
+            if force_build or not os.path.exists(engine.engine_path):
                 onnx_path = self.getModelPath(model_name, onnx_dir)
                 if not os.path.exists(onnx_path):
                     exportOnnx(model_name, obj)
@@ -425,7 +429,7 @@ if __name__ == "__main__":
         profile=args.profile)
 
     print("Building TensorRT engines")
-    demo.loadEngines(args.engine_dir, args.onnx_dir, args.onnx_opset, opt_batch_size=len(prompt), force_export=args.force_onnx_export, force_optimize=args.force_onnx_optimize)
+    demo.loadEngines(args.engine_dir, args.onnx_dir, args.onnx_opset, opt_batch_size=len(prompt), force_export=args.force_onnx_export, force_optimize=args.force_onnx_optimize, force_build=args.force_engine_build)
     demo.loadModules()
 
     print("Warming up ..")
