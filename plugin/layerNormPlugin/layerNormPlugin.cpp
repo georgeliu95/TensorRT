@@ -46,7 +46,7 @@ LayerNormPlugin::LayerNormPlugin(std::string const& name, void const* buffer, si
     char const* d = static_cast<char const*>(buffer);
     char const* a = d;
 
-    mEpsilon = read<int32_t>(d);
+    mEpsilon = read<float>(d);
 
     PLUGIN_VALIDATE(d == a + length);
 }
