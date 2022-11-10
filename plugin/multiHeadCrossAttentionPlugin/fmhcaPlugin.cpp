@@ -17,10 +17,13 @@ std::vector<PluginField> fmhcaPluginCreator::mPluginAttributes;
 int32_t fmhcaPlugin::enqueue(const PluginTensorDesc* inputDesc, const PluginTensorDesc* outputDesc,
     const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) noexcept
 {
+    int32_t result{-1};
     try
     {
         PLUGIN_ASSERT(mKernels);
         PLUGIN_ASSERT(mSM);
+        PLUGIN_ASSERT(mCuSeqLensQ);
+        PLUGIN_ASSERT(mCuSeqLensKV);
 
         constexpr int32_t seqLenKvPadded = 128;
         int32_t const batchSize = inputDesc[0].dims.d[0];
@@ -32,30 +35,27 @@ int32_t fmhcaPlugin::enqueue(const PluginTensorDesc* inputDesc, const PluginTens
         // Check for seq len to support dynamic input shape
         if (sizePerHead <= 64)
         {
-            if (seqLenQ % 64 != 0)
-            {
-                gLogError << "Not support q buffer sequence length not multiple of 64 when head size < 64 for plugin "
-                          << PLUGIN_NAME << " (q = " << seqLenQ << ", headSize = " << sizePerHead << ")" << std::endl;
-                return 1;
-            }
+            std::ostringstream oss;
+            oss << "Not support q buffer sequence length not multiple of 64 when head size < 64 for plugin "
+                << PLUGIN_NAME << " (q = " << seqLenQ << ", headSize = " << sizePerHead << ")" << std::endl;
+
+            PLUGIN_VALIDATE(seqLenQ % 64 == 0, oss.str().c_str());
         }
         else if (sizePerHead <= 128)
         {
-            if (seqLenQ % 32 != 0)
-            {
-                gLogError << "Not support q buffer sequence length not multiple of 32 when head size < 128 for plugin "
-                          << PLUGIN_NAME << " (q = " << seqLenQ << ", headSize = " << sizePerHead << ")" << std::endl;
-                return 1;
-            }
+            std::ostringstream oss;
+            oss << "Not support q buffer sequence length not multiple of 32 when head size < 128 for plugin "
+                << PLUGIN_NAME << " (q = " << seqLenQ << ", headSize = " << sizePerHead << ")" << std::endl;
+
+            PLUGIN_VALIDATE(seqLenQ % 32 == 0, oss.str().c_str());
         }
         else
         {
-            if (seqLenQ % 16 != 0)
-            {
-                gLogError << "Not support q buffer sequence length not multiple of 16 for plugin " << PLUGIN_NAME
-                          << " (q = " << seqLenQ << ", headSize = " << sizePerHead << ")" << std::endl;
-                return 1;
-            }
+            std::ostringstream oss;
+            oss << "Not support q buffer sequence length not multiple of 16 for plugin " << PLUGIN_NAME
+                << " (q = " << seqLenQ << ", headSize = " << sizePerHead << ")" << std::endl;
+
+            PLUGIN_VALIDATE(seqLenQ % 16 == 0, oss.str().c_str());
         }
 
         if (batchSize != m_.mOptBatchSize || m_.mOptSeqLenQ != seqLenQ || m_.mOptSeqLenKV != seqLenKV)
@@ -64,18 +64,16 @@ int32_t fmhcaPlugin::enqueue(const PluginTensorDesc* inputDesc, const PluginTens
             m_.mOptSeqLenKV = initializeSeqlens(batchSize, seqLenKV, mCuSeqLensKV.get(), stream);
         }
 
-        run_fmhca_api((void*) inputs[0], (void*) inputs[1], mCuSeqLensQ.get(), mCuSeqLensKV.get(), (void*) outputs[0],
+        result = run_fmhca_api((void*) inputs[0], (void*) inputs[1], mCuSeqLensQ.get(), mCuSeqLensKV.get(), (void*) outputs[0],
             mSM, mKernels, static_cast<size_t>(batchSize), static_cast<size_t>(headNum),
             static_cast<size_t>(sizePerHead), static_cast<size_t>(seqLenQ), static_cast<size_t>(seqLenKvPadded),
             stream);
-
-        return 0;
     }
     catch (const std::exception& e)
     {
         caughtError(e);
     }
-    return -1;
+    return result;
 }
 
 REGISTER_TENSORRT_PLUGIN(fmhcaPluginCreator);

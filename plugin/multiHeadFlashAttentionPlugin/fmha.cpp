@@ -10,18 +10,18 @@ void set_alpha(uint32_t& alpha, float norm, Data_type dtype)
     if (dtype == DATA_TYPE_FP16)
     {
         half x = __float2half_rn(norm);
-        uint16_t h = reinterpret_cast<const uint16_t&>(x);
+        uint16_t h = reinterpret_cast<uint16_t const&>(x);
         ushort2 h2 = {h, h};
-        alpha = reinterpret_cast<const uint32_t&>(h2);
+        alpha = reinterpret_cast<uint32_t const&>(h2);
     }
     else if (dtype == DATA_TYPE_FP32)
     {
-        alpha = reinterpret_cast<const uint32_t&>(norm);
+        alpha = reinterpret_cast<uint32_t const&>(norm);
     }
     else if (dtype == DATA_TYPE_INT32)
     {
         int32_t inorm = static_cast<int32_t>(norm);
-        alpha = reinterpret_cast<const uint32_t&>(inorm);
+        alpha = reinterpret_cast<uint32_t const&>(inorm);
     }
     else
     {
@@ -33,13 +33,13 @@ void set_params(Fused_multihead_attention_params_v2& params,
     // types
     Data_type data_type, Data_type acc_type,
     // sizes
-    const size_t b, const size_t s, const size_t h, const size_t d, const size_t total,
+    size_t b, size_t s, size_t h, size_t d, size_t total,
     // device pointers
     void* qkv_packed_d, void* cu_seqlens_d, void* o_packed_d, void* p_d, void* s_d,
     // scale factors
-    const float scale_bmm1, const float scale_softmax, const float scale_bmm2,
+    float scale_bmm1, float scale_softmax, float scale_bmm2,
     // flags
-    const bool interleaved, const bool ignore_b1opt, const bool force_unroll, const bool use_int8_scale_max)
+    bool interleaved, bool ignore_b1opt, bool force_unroll, bool use_int8_scale_max)
 {
 
     memset(&params, 0, sizeof(params));
@@ -97,7 +97,7 @@ void set_params(Fused_multihead_attention_params_v2& params,
 }
 
 int run_fmha_v2_api(void* qkv_packed_d, void* cu_seqlens_d, void* o_packed_d, size_t total, int32_t sm,
-    FusedMultiHeadFlashAttentionKernel const* kernels, const size_t b, const size_t h, const size_t d, const size_t s,
+    FusedMultiHeadFlashAttentionKernel const* kernels, size_t b, size_t h, size_t d, size_t s,
     cudaStream_t stream)
 {
 
@@ -105,10 +105,10 @@ int run_fmha_v2_api(void* qkv_packed_d, void* cu_seqlens_d, void* o_packed_d, si
     Data_type data_type = DATA_TYPE_FP16;
     // The type of the intermediate P matrix.
     Data_type acc_type = DATA_TYPE_FP16;
-    const bool force_unroll = true;
-    const bool interleaved = false;
-    const bool ignore_b1opt = false;
-    const bool use_int8_scale_max = false;
+    bool const force_unroll = true;
+    bool const interleaved = false;
+    bool const ignore_b1opt = false;
+    bool const use_int8_scale_max = false;
     void* p_d = nullptr;
     void* s_d = nullptr;
 

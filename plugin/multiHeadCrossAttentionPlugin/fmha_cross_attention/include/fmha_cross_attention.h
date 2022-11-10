@@ -59,13 +59,13 @@ struct Gmem_params
     int64_t stride_in_bytes;
 
     // The number of heads
-    int h;
+    int32_t h;
 
     // Hidden dim per head
-    int d;
+    int32_t d;
 
     // array of length b+1 holding prefix sum of actual sequence lenghts.
-    int* cu_seqlens;
+    int32_t* cu_seqlens;
 };
 
 struct Fused_multihead_attention_params_mhca
@@ -99,7 +99,7 @@ struct Fused_multihead_attention_params_mhca
 #endif // defined(STORE_S)
 
     // The dimensions.
-    int b, h, s, d;
+    int32_t b, h, s, d;
     // The scaling factors for the kernel.
     uint32_t scale_bmm1, scale_softmax, scale_bmm2;
 
@@ -108,7 +108,7 @@ struct Fused_multihead_attention_params_mhca
     bool enable_i2f_trick;
 
     // array of length b+1 holding prefix sum of actual sequence lenghts
-    int* cu_seqlens;
+    int32_t* cu_seqlens;
 
     // use C/32 Format.
     bool interleaved = false;
@@ -117,8 +117,8 @@ struct Fused_multihead_attention_params_mhca
     bool use_int8_scale_max = false;
 
     // Sequence length of Q
-    int s_q;
-    int d_padded;
+    int32_t s_q;
+    int32_t d_padded;
 
     Gmem_params gmem_q_params;
     Gmem_params gmem_kv_params;
@@ -186,34 +186,31 @@ extern uint32_t cubin_fmha_mhca_fp16_128_256_sm80_cu_cubin_len;
 extern uint32_t cubin_fmha_mhca_fp16_128_256_sm86_cu_cubin_len;
 extern uint32_t cubin_fmha_mhca_fp16_128_256_sm89_cu_cubin_len;
 
-#if !(defined(ENABLE_SM72) || defined(ENABLE_SM75) || defined(ENABLE_SM80) || defined(ENABLE_SM86)                     \
-    || defined(ENABLE_SM87) || defined(ENABLE_SM89) || defined(ENABLE_SM90))
-// TRT-17573: Remove SM72 support from this file by factoring out the common logic required by the
-// V2 headers into a separate header.
-#error This file can only be included one of sm 72, 75, 80, 86, 87, 89, or 90 are defined.
+#if !(defined(ENABLE_SM80) || defined(ENABLE_SM86) || defined(ENABLE_SM89))
+#error This file can only be included one of sm 80, 86 or 89 are defined.
 #endif
 static const struct FusedMultiHeadCrossAttentionKernelMetaInfoV2
 {
     Data_type mDataType;
-    unsigned int mS;
-    unsigned int mD;
-    unsigned int mSM;
-    const unsigned char* mCubin;
-    unsigned int mCubinSize;
-    const char* mFuncName;
-    unsigned int mSharedMemBytes;
-    unsigned int mThreadsPerCTA;
-    unsigned int mUnrollStep;
+    uint32_t mS;
+    uint32_t mD;
+    uint32_t mSM;
+    unsigned char const* mCubin;
+    uint32_t mCubinSize;
+    char const* mFuncName;
+    uint32_t mSharedMemBytes;
+    uint32_t mThreadsPerCTA;
+    uint32_t mUnrollStep;
     bool mInterleaved;
 } sMhaKernelMetaInfos[] = {
-#if defined(ENABLE_SM80) || defined(ENABLE_SM86) || defined(ENABLE_SM89)
+#if defined(ENABLE_SM80) 
     { DATA_TYPE_FP16, 128, 64, kSM_80,  cubin_fmha_mhca_fp16_128_64_sm80_cu_cubin, cubin_fmha_mhca_fp16_128_64_sm80_cu_cubin_len, "fmha_mhca_fp16_128_64_sm80_kernel", 49152, 128, 0, false },
     { DATA_TYPE_FP16, 128, 64, kSM_80,  cubin_fmha_mhca_fp16_128_64_sm80_cu_cubin, cubin_fmha_mhca_fp16_128_64_sm80_cu_cubin_len, "fmha_mhca_fp16_128_64_sm80_kernel_nl", 49152, 128, 64, false },
     { DATA_TYPE_FP16, 128, 128, kSM_80,  cubin_fmha_mhca_fp16_128_128_sm80_cu_cubin, cubin_fmha_mhca_fp16_128_128_sm80_cu_cubin_len, "fmha_mhca_fp16_128_128_sm80_kernel", 98304, 128, 0, false },
     { DATA_TYPE_FP16, 128, 128, kSM_80,  cubin_fmha_mhca_fp16_128_128_sm80_cu_cubin, cubin_fmha_mhca_fp16_128_128_sm80_cu_cubin_len, "fmha_mhca_fp16_128_128_sm80_kernel_nl", 81920, 128, 32, false },
     { DATA_TYPE_FP16, 128, 256, kSM_80,  cubin_fmha_mhca_fp16_128_256_sm80_cu_cubin, cubin_fmha_mhca_fp16_128_256_sm80_cu_cubin_len, "fmha_mhca_fp16_128_256_sm80_kernel", 163840, 256, 0, false },
     { DATA_TYPE_FP16, 128, 256, kSM_80,  cubin_fmha_mhca_fp16_128_256_sm80_cu_cubin, cubin_fmha_mhca_fp16_128_256_sm80_cu_cubin_len, "fmha_mhca_fp16_128_256_sm80_kernel_nl", 147456, 256, 16, false },
-#endif // defined(ENABLE_SM80) || defined(SM86) || defined(ENABLE_SM89)
+#endif 
 #if defined(ENABLE_SM86)
     { DATA_TYPE_FP16, 128, 64, kSM_86,  cubin_fmha_mhca_fp16_128_64_sm86_cu_cubin, cubin_fmha_mhca_fp16_128_64_sm86_cu_cubin_len, "fmha_mhca_fp16_128_64_sm86_kernel", 49152, 128, 0, false },
     { DATA_TYPE_FP16, 128, 64, kSM_86,  cubin_fmha_mhca_fp16_128_64_sm86_cu_cubin, cubin_fmha_mhca_fp16_128_64_sm86_cu_cubin_len, "fmha_mhca_fp16_128_64_sm86_kernel_nl", 49152, 128, 64, false },
@@ -236,7 +233,7 @@ class FusedMultiHeadCrossAttentionKernel
     : public TSharedCubinKernel<FusedMultiHeadCrossAttentionKernelMetaInfoV2, Fused_multihead_attention_params_mhca>
 {
 public:
-    FusedMultiHeadCrossAttentionKernel(const FusedMultiHeadCrossAttentionKernelMetaInfoV2* pMetaStart,
+    FusedMultiHeadCrossAttentionKernel(FusedMultiHeadCrossAttentionKernelMetaInfoV2 const* pMetaStart,
         uint32_t nMetaCount, Data_type type, uint32_t sm)
         : TSharedCubinKernel<FusedMultiHeadCrossAttentionKernelMetaInfoV2, Fused_multihead_attention_params_mhca>(
             pMetaStart, nMetaCount, type, sm)
@@ -250,12 +247,12 @@ public:
         return static_cast<uint64_t>(s) << 32 | (headsize << 2) | (interleaved ? 2U : 0U) | (unroll ? 1U : 0U);
     }
 
-    uint64_t hashID(const Fused_multihead_attention_params_mhca& param) const
+    uint64_t hashID(Fused_multihead_attention_params_mhca const& param) const
     {
         return hashID(param.s, param.d_padded, param.interleaved, param.force_unroll);
     }
 
-    uint64_t hashID(const KernelMeta& kernelMeta) const
+    uint64_t hashID(KernelMeta const& kernelMeta) const
     {
         return hashID(kernelMeta.mS, kernelMeta.mD, kernelMeta.mInterleaved, kernelMeta.mUnrollStep > 0);
     }
@@ -263,7 +260,7 @@ public:
 
 using FusedMHACrossKernelFactory = TSharedCubinKernelFactory<FusedMultiHeadCrossAttentionKernel>;
 
-inline const FusedMultiHeadCrossAttentionKernel* getFMHCACubinKernels(Data_type type, uint32_t sm)
+inline FusedMultiHeadCrossAttentionKernel const* getFMHCACubinKernels(Data_type type, uint32_t sm)
 {
     return FusedMHACrossKernelFactory::Get().getCubinKernels(
         sMhaKernelMetaInfos, sizeof(sMhaKernelMetaInfos) / sizeof(sMhaKernelMetaInfos[0]), type, sm);

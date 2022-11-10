@@ -81,7 +81,7 @@ struct Fused_multihead_attention_params_v2
 #endif // defined(STORE_S)
 
     // The dimensions.
-    int b, h, s, d;
+    int32_t b, h, s, d;
     // The scaling factors for the kernel.
     uint32_t scale_bmm1, scale_softmax, scale_bmm2;
 
@@ -90,7 +90,7 @@ struct Fused_multihead_attention_params_v2
     bool enable_i2f_trick;
 
     // array of length b+1 holding prefix sum of actual sequence lenghts
-    int* cu_seqlens;
+    int32_t* cu_seqlens;
 
     // use C/32 Format.
     bool interleaved = false;
@@ -188,30 +188,26 @@ extern uint32_t cubin_fmha_v2_flash_attention_fp16_S_128_sm89_cu_cubin_len;
 extern uint32_t cubin_fmha_v2_flash_attention_fp16_S_160_sm89_cu_cubin_len;
 extern uint32_t cubin_fmha_v2_flash_attention_fp16_S_256_sm89_cu_cubin_len;
 
+constexpr uint32_t S{0};
 
-constexpr unsigned int S{0};
-
-#if !(defined(ENABLE_SM72) || defined(ENABLE_SM75) || defined(ENABLE_SM80) || defined(ENABLE_SM86)                     \
-    || defined(ENABLE_SM87) || defined(ENABLE_SM89) || defined(ENABLE_SM90))
-// TRT-17573: Remove SM72 support from this file by factoring out the common logic required by the
-// V2 headers into a separate header.
-#error This file can only be included one of sm 72, 75, 80, 86, 87, 89, or 90 are defined.
+#if !(defined(ENABLE_SM80) || defined(ENABLE_SM86) || defined(ENABLE_SM89))
+#error This file can only be included one of sm 80, 86 or 89 are defined.
 #endif
 static const struct FusedMultiHeadFlashAttentionKernelMetaInfoV2
 {
     Data_type mDataType;
-    unsigned int mS;
-    unsigned int mD;
-    unsigned int mSM;
-    const unsigned char* mCubin;
-    unsigned int mCubinSize;
-    const char* mFuncName;
-    unsigned int mSharedMemBytes;
-    unsigned int mThreadsPerCTA;
-    unsigned int mUnrollStep;
+    uint32_t mS;
+    uint32_t mD;
+    uint32_t mSM;
+    unsigned char const* mCubin;
+    uint32_t mCubinSize;
+    char const* mFuncName;
+    uint32_t mSharedMemBytes;
+    uint32_t mThreadsPerCTA;
+    uint32_t mUnrollStep;
     bool mInterleaved;
 } sMhaKernelMetaInfos[] = {
-#if defined(ENABLE_SM80) || defined(ENABLE_SM86) || defined(ENABLE_SM89)
+#if defined(ENABLE_SM80)
     { DATA_TYPE_FP16, S, 16, kSM_80,  cubin_fmha_v2_flash_attention_fp16_S_16_sm80_cu_cubin, cubin_fmha_v2_flash_attention_fp16_S_16_sm80_cu_cubin_len, "fmha_v2_flash_attention_fp16_S_16_sm80_kernel", 8192, 128, 0, false },
     { DATA_TYPE_FP16, S, 16, kSM_80,  cubin_fmha_v2_flash_attention_fp16_S_16_sm80_cu_cubin, cubin_fmha_v2_flash_attention_fp16_S_16_sm80_cu_cubin_len, "fmha_v2_flash_attention_fp16_S_16_sm80_kernel_nl", 8192, 128, 64, false },
     { DATA_TYPE_FP16, S, 32, kSM_80,  cubin_fmha_v2_flash_attention_fp16_S_32_sm80_cu_cubin, cubin_fmha_v2_flash_attention_fp16_S_32_sm80_cu_cubin_len, "fmha_v2_flash_attention_fp16_S_32_sm80_kernel", 16384, 128, 0, false },
@@ -228,7 +224,7 @@ static const struct FusedMultiHeadFlashAttentionKernelMetaInfoV2
     { DATA_TYPE_FP16, S, 160, kSM_80,  cubin_fmha_v2_flash_attention_fp16_S_160_sm80_cu_cubin, cubin_fmha_v2_flash_attention_fp16_S_160_sm80_cu_cubin_len, "fmha_v2_flash_attention_fp16_S_160_sm80_kernel_nl", 98304, 128, 64, false },
     { DATA_TYPE_FP16, S, 256, kSM_80,  cubin_fmha_v2_flash_attention_fp16_S_256_sm80_cu_cubin, cubin_fmha_v2_flash_attention_fp16_S_256_sm80_cu_cubin_len, "fmha_v2_flash_attention_fp16_S_256_sm80_kernel", 98304, 128, 0, false },
     { DATA_TYPE_FP16, S, 256, kSM_80,  cubin_fmha_v2_flash_attention_fp16_S_256_sm80_cu_cubin, cubin_fmha_v2_flash_attention_fp16_S_256_sm80_cu_cubin_len, "fmha_v2_flash_attention_fp16_S_256_sm80_kernel_nl", 98304, 128, 64, false },
-#endif // defined(ENABLE_SM80) || defined(SM86) || defined(ENABLE_SM89)
+#endif // defined(ENABLE_SM80)
 #if defined(ENABLE_SM86)
     { DATA_TYPE_FP16, S, 16, kSM_86,  cubin_fmha_v2_flash_attention_fp16_S_16_sm86_cu_cubin, cubin_fmha_v2_flash_attention_fp16_S_16_sm86_cu_cubin_len, "fmha_v2_flash_attention_fp16_S_16_sm86_kernel", 8192, 128, 0, false },
     { DATA_TYPE_FP16, S, 16, kSM_86,  cubin_fmha_v2_flash_attention_fp16_S_16_sm86_cu_cubin, cubin_fmha_v2_flash_attention_fp16_S_16_sm86_cu_cubin_len, "fmha_v2_flash_attention_fp16_S_16_sm86_kernel_nl", 8192, 128, 64, false },
@@ -272,7 +268,7 @@ class FusedMultiHeadFlashAttentionKernel
     : public TSharedCubinKernel<FusedMultiHeadFlashAttentionKernelMetaInfoV2, Fused_multihead_attention_params_v2>
 {
 public:
-    FusedMultiHeadFlashAttentionKernel(const FusedMultiHeadFlashAttentionKernelMetaInfoV2* pMetaStart,
+    FusedMultiHeadFlashAttentionKernel(FusedMultiHeadFlashAttentionKernelMetaInfoV2 const* pMetaStart,
         uint32_t nMetaCount, Data_type type, uint32_t sm)
         : TSharedCubinKernel<FusedMultiHeadFlashAttentionKernelMetaInfoV2, Fused_multihead_attention_params_v2>(
             pMetaStart, nMetaCount, type, sm)
@@ -286,12 +282,12 @@ public:
         return (headsize << 2) | (interleaved ? 2U : 0U) | (unroll ? 1U : 0U);
     }
 
-    uint64_t hashID(const Fused_multihead_attention_params_v2& param) const
+    uint64_t hashID(Fused_multihead_attention_params_v2 const& param) const
     {
         return hashID(param.d, param.interleaved, param.force_unroll);
     }
 
-    uint64_t hashID(const KernelMeta& kernelMeta) const
+    uint64_t hashID(KernelMeta const& kernelMeta) const
     {
         return hashID(kernelMeta.mD, kernelMeta.mInterleaved, kernelMeta.mUnrollStep > 0);
     }
@@ -299,7 +295,7 @@ public:
 
 using FusedMHAFlashKernelFactory = TSharedCubinKernelFactory<FusedMultiHeadFlashAttentionKernel>;
 
-inline const FusedMultiHeadFlashAttentionKernel* getFMHACubinKernels(Data_type type, uint32_t sm)
+inline FusedMultiHeadFlashAttentionKernel const* getFMHACubinKernels(Data_type type, uint32_t sm)
 {
     return FusedMHAFlashKernelFactory::Get().getCubinKernels(
         sMhaKernelMetaInfos, sizeof(sMhaKernelMetaInfos) / sizeof(sMhaKernelMetaInfos[0]), type, sm);

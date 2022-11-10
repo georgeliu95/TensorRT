@@ -39,10 +39,10 @@ public:
     using KernelMeta = TKernelMeta;
     using KernelParam = TKernelParam;
 
-    virtual uint64_t hashID(const KernelMeta& kernelMeta) const = 0;
-    virtual uint64_t hashID(const TKernelParam& param) const = 0;
+    virtual uint64_t hashID(KernelMeta const& kernelMeta) const = 0;
+    virtual uint64_t hashID(TKernelParam const& param) const = 0;
 
-    TSharedCubinKernel(const TKernelMeta* pMetaStart, uint32_t nMetaCount, Data_type type, uint32_t sm)
+    TSharedCubinKernel(TKernelMeta const* pMetaStart, uint32_t nMetaCount, Data_type type, uint32_t sm)
         : mDataType(type)
         , mKernelMeta(pMetaStart)
         , mKernelMetaCount(nMetaCount)
@@ -55,12 +55,12 @@ public:
     {
         for (uint32_t i = 0; i < mKernelMetaCount; ++i)
         {
-            const auto& kernelMeta = mKernelMeta[i];
-            const auto kernelKey = hashID(kernelMeta);
+            auto const& kernelMeta = mKernelMeta[i];
+            auto const kernelKey = hashID(kernelMeta);
             if (kernelMeta.mSM == smVersion && kernelMeta.mDataType == mDataType
                 && mFunctions.find(kernelKey) == mFunctions.end())
             {
-                const uint32_t DEFAULT_SMEM_SIZE{48 * 1024};
+                uint32_t const DEFAULT_SMEM_SIZE{48 * 1024};
                 if (kernelMeta.mSharedMemBytes >= DEFAULT_SMEM_SIZE)
                 {
                     int32_t deviceID{0};
@@ -116,7 +116,7 @@ public:
         loadCubinKernels(mSM);
     }
 
-    bool isValid(int s) const
+    bool isValid(int32_t s) const
     {
         return !mFunctions.empty();
     }
@@ -128,11 +128,11 @@ public:
             PLUGIN_ASSERT(mDataType == DATA_TYPE_INT8);
         }
 
-        const auto findIter = mFunctions.find(hashID(params));
+        auto const findIter = mFunctions.find(hashID(params));
         PLUGIN_ASSERT(findIter != mFunctions.end());
 
-        const auto& kernelMeta = mKernelMeta[findIter->second.mMetaInfoIndex];
-        const CUfunction func = findIter->second.mDeviceFunction;
+        auto const& kernelMeta = mKernelMeta[findIter->second.mMetaInfoIndex];
+        CUfunction const func = findIter->second.mDeviceFunction;
 
         void* kernelParams[] = {&params, nullptr};
         if (!params.force_unroll)
@@ -156,10 +156,10 @@ protected:
     nvinfer1::CUDADriverWrapper mDriver;
 
     Data_type mDataType;
-    const TKernelMeta* mKernelMeta;
+    TKernelMeta const* mKernelMeta;
     uint32_t mKernelMetaCount;
     uint32_t mSM;
-    std::unordered_map<const unsigned char*, CUmodule> mModules;
+    std::unordered_map<unsigned char const*, CUmodule> mModules;
     struct FusedMultiHeadAttentionKernelInfo
     {
         uint32_t mMetaInfoIndex;
@@ -172,14 +172,14 @@ template <typename TKernelList>
 class TSharedCubinKernelFactory
 {
 public:
-    const TKernelList* getCubinKernels(
-        const typename TKernelList::KernelMeta* pKernelList, uint32_t nbKernels, Data_type type, uint32_t sm)
+    TKernelList const* getCubinKernels(
+        typename TKernelList::KernelMeta const* pKernelList, uint32_t nbKernels, Data_type type, uint32_t sm)
     {
         static std::mutex s_mutex;
         std::lock_guard<std::mutex> lg(s_mutex);
 
-        const auto id = hashID(type, sm);
-        const auto findIter = mKernels.find(id);
+        auto const id = hashID(type, sm);
+        auto const findIter = mKernels.find(id);
         if (findIter == mKernels.end())
         {
             TKernelList* newKernel = new TKernelList{pKernelList, nbKernels, type, sm};
@@ -211,7 +211,7 @@ private:
         return (uint64_t) type << 48 | (uint64_t) deviceID << 32 | sm;
     }
 
-    std::unordered_map<uint64_t, const std::unique_ptr<TKernelList>> mKernels;
+    std::unordered_map<uint64_t, std::unique_ptr<TKernelList> const> mKernels;
 };
 
 } // namespace plugin

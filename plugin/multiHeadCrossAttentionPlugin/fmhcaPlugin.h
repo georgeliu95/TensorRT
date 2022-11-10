@@ -14,8 +14,8 @@
 
 namespace
 {
-static const char* PLUGIN_NAME{"fMHCA"};
-static const char* PLUGIN_VERSION{"1"};
+static char const* PLUGIN_NAME{"fMHCA"};
+static char const* PLUGIN_VERSION{"1"};
 } // namespace
 
 namespace nvinfer1
@@ -26,7 +26,7 @@ namespace plugin
 class fmhcaPlugin : public IPluginV2DynamicExt
 {
 private:
-    const std::string mLayerName;
+    std::string const mLayerName;
     std::string mNamespace;
 
     // scalar need copy
@@ -40,13 +40,13 @@ private:
     } m_;
 
 public:
-    fmhcaPlugin(const std::string& name)
+    fmhcaPlugin(std::string const& name)
         : mLayerName(name)
     {
         init();
     }
 
-    fmhcaPlugin(const std::string& name, const void* data, size_t length)
+    fmhcaPlugin(std::string const& name, void const* data, size_t length)
         : mLayerName(name)
     {
         memcpy(&m_, data, sizeof(m_));
@@ -71,7 +71,7 @@ public:
                 createMHARunner();
             }
         }
-        catch (const std::exception& e)
+        catch (std::exception const& e)
         {
             caughtError(e);
         }
@@ -112,7 +112,7 @@ public:
             p->init(true);
             return p;
         }
-        catch (const std::exception& e)
+        catch (std::exception const& e)
         {
             caughtError(e);
         }
@@ -128,9 +128,9 @@ public:
     // input1 kv_packed in [b, s_kv, h, 2, d]
     // output 0 in [b, s_q, h, d]
     DimsExprs getOutputDimensions(
-        int32_t outputIndex, const DimsExprs* inputs, int32_t nbInputs, IExprBuilder& exprBuilder) noexcept override
+        int32_t outputIndex, DimsExprs const* inputs, int32_t nbInputs, IExprBuilder& exprBuilder) noexcept override
     {
-        DimsExprs out;
+        DimsExprs out{};
         out.nbDims = 4;
         out.d[0] = inputs[0].d[0];
         out.d[1] = inputs[0].d[1];
@@ -140,7 +140,7 @@ public:
     }
 
     bool supportsFormatCombination(
-        int32_t pos, const PluginTensorDesc* inOut, int32_t nbInputs, int32_t nbOutputs) noexcept override
+        int32_t pos, PluginTensorDesc const* inOut, int32_t nbInputs, int32_t nbOutputs) noexcept override
     {
         bool res = false;
         try
@@ -171,7 +171,7 @@ public:
                 break;
             }
         }
-        catch (const std::exception& e)
+        catch (std::exception const& e)
         {
             caughtError(e);
         }
@@ -215,12 +215,12 @@ public:
     }
 
     DataType getOutputDataType(
-        int32_t outputIndex, const DataType* inputTypes, int32_t nbInputs) const noexcept override
+        int32_t outputIndex, DataType const* inputTypes, int32_t nbInputs) const noexcept override
     {
         return inputTypes[0];
     }
 
-    void configurePlugin(const DynamicPluginTensorDesc* in, int32_t nbInputs, const DynamicPluginTensorDesc* out,
+    void configurePlugin(DynamicPluginTensorDesc const* in, int32_t nbInputs, const DynamicPluginTensorDesc* out,
         int32_t nbOutputs) noexcept override
     {
         try
@@ -239,13 +239,13 @@ public:
             m_.mDataType = in[0].desc.type;
             createMHARunner();
         }
-        catch (const std::exception& e)
+        catch (std::exception const& e)
         {
             caughtError(e);
         }
     }
 
-    size_t getWorkspaceSize(const PluginTensorDesc* inputs, int32_t nbInputs, const PluginTensorDesc* outputs,
+    size_t getWorkspaceSize(PluginTensorDesc const* inputs, int32_t nbInputs, PluginTensorDesc const* outputs,
         int32_t nbOutputs) const noexcept override
     {
         return 0;
@@ -255,15 +255,15 @@ public:
     {
         mNamespace = szNamespace;
     }
-    const char* getPluginNamespace() const noexcept override
+    char const* getPluginNamespace() const noexcept override
     {
         return mNamespace.c_str();
     }
-    const char* getPluginType() const noexcept override
+    char const* getPluginType() const noexcept override
     {
         return PLUGIN_NAME;
     }
-    const char* getPluginVersion() const noexcept override
+    char const* getPluginVersion() const noexcept override
     {
         return PLUGIN_VERSION;
     }
@@ -281,7 +281,7 @@ public:
         delete this;
     }
 
-    int32_t enqueue(const PluginTensorDesc* inputDesc, const PluginTensorDesc* outputDesc, const void* const* inputs,
+    int32_t enqueue(PluginTensorDesc const* inputDesc, PluginTensorDesc const* outputDesc, void const* const* inputs,
         void* const* outputs, void* workspace, cudaStream_t stream) noexcept override;
 
 private:
@@ -307,7 +307,7 @@ public:
 
     ~fmhcaPluginCreator() {}
 
-    IPluginV2* createPlugin(const char* name, const PluginFieldCollection* fc) noexcept override
+    IPluginV2* createPlugin(char const* name, PluginFieldCollection const* fc) noexcept override
     {
         try
         {
@@ -320,7 +320,7 @@ public:
         return nullptr;
     }
 
-    IPluginV2* deserializePlugin(const char* name, const void* serialData, size_t serialLength) noexcept override
+    IPluginV2* deserializePlugin(char const* name, void const* serialData, size_t serialLength) noexcept override
     {
         try
         {
@@ -335,27 +335,27 @@ public:
         return nullptr;
     }
 
-    void setPluginNamespace(const char* szNamespace) noexcept override
+    void setPluginNamespace(char const* szNamespace) noexcept override
     {
         mNamespace = szNamespace;
     }
 
-    const char* getPluginNamespace() const noexcept override
+    char const* getPluginNamespace() const noexcept override
     {
         return mNamespace.c_str();
     }
 
-    const char* getPluginName() const noexcept override
+    char const* getPluginName() const noexcept override
     {
         return PLUGIN_NAME;
     }
 
-    const char* getPluginVersion() const noexcept override
+    char const* getPluginVersion() const noexcept override
     {
         return PLUGIN_VERSION;
     }
 
-    const PluginFieldCollection* getFieldNames() noexcept override
+    PluginFieldCollection const* getFieldNames() noexcept override
     {
         return &mFC;
     }
