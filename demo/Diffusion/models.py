@@ -538,7 +538,7 @@ class BaseModel():
         self.text_maxlen = text_maxlen
         self.embedding_dim = embedding_dim
         self.min_batch = 1
-        self.max_batch = 8
+        self.max_batch = 16
 
     def get_model(self):
         pass

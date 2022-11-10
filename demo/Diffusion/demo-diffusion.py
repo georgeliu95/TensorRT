@@ -43,7 +43,7 @@ def parseArgs():
     parser.add_argument('--steps', type=int, default=50, help="Number of inference steps")
     parser.add_argument('--denoise-prec', type=str, default='fp16', choices=['fp32', 'fp16'], help="UNet model precision")
     parser.add_argument('--negative-prompt', nargs = '*', default=[''], help="The negative prompt(s) to guide the image generation.")
-    parser.add_argument('--repeat-prompt', type=int, default=1, choices=[1, 2, 4, 8], help="Number of times to repeat the prompt (batch size multiplier)")
+    parser.add_argument('--repeat-prompt', type=int, default=1, choices=[1, 2, 4, 8, 16], help="Number of times to repeat the prompt (batch size multiplier)")
 
     # ONNX export
     parser.add_argument('--onnx-opset', type=int, default=16, choices=range(7,18), help="Select ONNX opset version to target for exported models")
