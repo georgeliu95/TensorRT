@@ -24,26 +24,29 @@
 #include "commonDatatype.h"
 #include "sharedCubinLoader.h"
 
+namespace
+{
+    static inline size_t get_size_in_bytes(size_t n, nvinfer1::plugin::Data_type dtype)
+    {
+        switch (dtype)
+        {
+        case nvinfer1::plugin::DATA_TYPE_E8M10: return n * 4;
+        case nvinfer1::plugin::DATA_TYPE_FP32: return n * 4;
+        case nvinfer1::plugin::DATA_TYPE_FP16: return n * 2;
+        case nvinfer1::plugin::DATA_TYPE_INT32: return n * 4;
+        case nvinfer1::plugin::DATA_TYPE_INT8: return n;
+        case nvinfer1::plugin::DATA_TYPE_INT4: return n / 2U;
+        case nvinfer1::plugin::DATA_TYPE_BOOL: return n / 8U;
+        case nvinfer1::plugin::DATA_TYPE_E8M7: return n * 2;
+        default: PLUGIN_ASSERT(false); return 0;
+        }
+    }
+}
+
 namespace nvinfer1
 {
 namespace plugin
 {
-
-static inline size_t get_size_in_bytes(size_t n, Data_type dtype)
-{
-    switch (dtype)
-    {
-    case DATA_TYPE_E8M10: return n * 4;
-    case DATA_TYPE_FP32: return n * 4;
-    case DATA_TYPE_FP16: return n * 2;
-    case DATA_TYPE_INT32: return n * 4;
-    case DATA_TYPE_INT8: return n;
-    case DATA_TYPE_INT4: return n / 2U;
-    case DATA_TYPE_BOOL: return n / 8U;
-    case DATA_TYPE_E8M7: return n * 2;
-    default: PLUGIN_ASSERT(false); return 0;
-    }
-}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -296,7 +299,7 @@ public:
 
 using FusedMHAFlashKernelFactory = TSharedCubinKernelFactory<FusedMultiHeadFlashAttentionKernel>;
 
-inline const FusedMultiHeadFlashAttentionKernel* getCubinKernels(Data_type type, uint32_t sm)
+inline const FusedMultiHeadFlashAttentionKernel* getFMHACubinKernels(Data_type type, uint32_t sm)
 {
     return FusedMHAFlashKernelFactory::Get().getCubinKernels(
         sMhaKernelMetaInfos, sizeof(sMhaKernelMetaInfos) / sizeof(sMhaKernelMetaInfos[0]), type, sm);

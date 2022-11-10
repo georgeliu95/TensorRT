@@ -31,16 +31,14 @@ private:
     {
         int32_t mOptBatchSize{};
         int32_t mOptSeqLen{};
-
-        int32_t mMaxBatchSize{128};
+        int32_t mMaxBatchSize{};
         DataType mDataType{DataType::kFLOAT};
     } m_;
 
 public:
-    fmhaPlugin(const std::string& name, int32_t maxBatchSize)
+    fmhaPlugin(const std::string& name)
         : mLayerName(name)
     {
-        m_.mMaxBatchSize = maxBatchSize;
         init();
     }
 
@@ -59,15 +57,8 @@ public:
         {
             mSM = bert::getSMVersion();
 
-            // allocate seqlens buffer
-            if (!mCuSeqLen)
-            {
-                void* cudaMem{nullptr};
-                PLUGIN_CHECK(cudaMalloc(&cudaMem, sizeof(int32_t) * (m_.mMaxBatchSize + 1)));
-                bert::make_cuda_shared(mCuSeqLen, cudaMem);
-            }
-
             // initialize seqlens buffer
+            allocateSeqlens(m_.mMaxBatchSize);
             initializeSeqlens(m_.mOptBatchSize, m_.mOptSeqLen, mCuSeqLen.get());
 
             if (loadCubins)
@@ -85,8 +76,8 @@ public:
     {
         switch (m_.mDataType)
         {
-        case DataType::kFLOAT: mKernels = getCubinKernels(plugin::DATA_TYPE_FP32, mSM); break;
-        case DataType::kHALF: mKernels = getCubinKernels(plugin::DATA_TYPE_FP16, mSM); break;
+        case DataType::kFLOAT: mKernels = getFMHACubinKernels(plugin::DATA_TYPE_FP32, mSM); break;
+        case DataType::kHALF: mKernels = getFMHACubinKernels(plugin::DATA_TYPE_FP16, mSM); break;
         default: break;
         }
     }
@@ -146,30 +137,37 @@ public:
     bool supportsFormatCombination(
         int32_t pos, const PluginTensorDesc* inOut, int32_t nbInputs, int32_t nbOutputs) noexcept override
     {
-        // load kernel and check if we have any implementations.
-        auto hasImplement = [this](DataType dt)
-        {
-            switch (dt)
-            {
-            case DataType::kFLOAT: return getCubinKernels(plugin::DATA_TYPE_FP32, mSM)->isValid(/*dummy seq*/128);
-            case DataType::kHALF: return getCubinKernels(plugin::DATA_TYPE_FP16, mSM)->isValid(/*dummy seq*/128);
-            default: break;
-            }
-            return false;
-        };
-
-        if (inOut[pos].format != TensorFormat::kLINEAR)
-        {
-            return false;
-        }
-
         bool res = false;
-        switch (pos)
+        try
         {
-        case 0: res = hasImplement(inOut[pos].type) && inOut[pos].dims.nbDims == 5; break;
-        case 1: res = inOut[pos].type == inOut[0].type && inOut[pos].dims.nbDims == 4; break;
-        default: // should NOT be here
-            break;
+            // load kernel and check if we have any implementations.
+            auto hasImplement = [this](DataType dt)
+            {
+                switch (dt)
+                {
+                case DataType::kFLOAT: return getFMHACubinKernels(plugin::DATA_TYPE_FP32, mSM)->isValid(/*dummy seq*/128);
+                case DataType::kHALF: return getFMHACubinKernels(plugin::DATA_TYPE_FP16, mSM)->isValid(/*dummy seq*/128);
+                default: break;
+                }
+                return false;
+            };
+
+            if (inOut[pos].format != TensorFormat::kLINEAR)
+            {
+                return false;
+            }
+
+            switch (pos)
+            {
+            case 0: res = hasImplement(inOut[pos].type) && inOut[pos].dims.nbDims == 5; break;
+            case 1: res = inOut[pos].type == inOut[0].type && inOut[pos].dims.nbDims == 4; break;
+            default: // should NOT be here
+                break;
+            }
+        }
+        catch (const std::exception& e)
+        {
+            caughtError(e);
         }
         return res;
     }
@@ -180,6 +178,19 @@ public:
         return inputTypes[0];
     }
 
+    void allocateSeqlens(int32_t maxBatchSize)
+    {
+        // allocate seqlens buffer
+        if (!mCuSeqLen && maxBatchSize)
+        {
+            void* cudaMem{nullptr};
+            PLUGIN_CHECK(cudaMalloc(&cudaMem, sizeof(int32_t) * (maxBatchSize + 1)));
+            bert::make_cuda_shared(mCuSeqLen, cudaMem);
+        }
+
+        m_.mMaxBatchSize = maxBatchSize;
+    }
+
     void initializeSeqlens(int32_t b, int32_t s, void* cu_seqlens_d, cudaStream_t stream = 0)
     {
         if (!b || !s)
@@ -187,20 +198,17 @@ public:
             return;
         }
 
-        if (b != m_.mOptBatchSize || s != m_.mOptSeqLen)
+        std::vector<int32_t> cuSeqLens(b + 1, 0);
+        // Compute the prefix sum of the seqlen
+        for (int32_t it = 0; it < b; it++)
         {
-            std::vector<int32_t> cuSeqLens(b + 1, 0);
-            // Compute the prefix sum of the seqlen
-            for (int32_t it = 0; it < b; it++)
-            {
-                cuSeqLens[it + 1] = cuSeqLens[it] + s;
-            }
-
-            PLUGIN_CUASSERT(cudaMemcpyAsync(
-                cu_seqlens_d, cuSeqLens.data(), sizeof(int32_t) * cuSeqLens.size(), cudaMemcpyHostToDevice, stream));
-            m_.mOptBatchSize = b;
-            m_.mOptSeqLen = s;
+            cuSeqLens[it + 1] = cuSeqLens[it] + s;
         }
+
+        PLUGIN_CUASSERT(cudaMemcpyAsync(
+                                        cu_seqlens_d, cuSeqLens.data(), sizeof(int32_t) * cuSeqLens.size(), cudaMemcpyHostToDevice, stream));
+        m_.mOptBatchSize = b;
+        m_.mOptSeqLen = s;
     };
 
     void configurePlugin(const DynamicPluginTensorDesc* in, int32_t nbInputs, const DynamicPluginTensorDesc* out,
@@ -210,7 +218,12 @@ public:
         {
             int32_t const batchSize = in[0].max.d[0];
             int32_t const seqLen = in[0].max.d[1];
-            initializeSeqlens(batchSize, seqLen, mCuSeqLen.get());
+
+            allocateSeqlens(batchSize);
+            if (batchSize != m_.mOptBatchSize || seqLen != m_.mOptSeqLen)
+            {
+                initializeSeqlens(batchSize, seqLen, mCuSeqLen.get());
+            }
 
             m_.mDataType = in[0].desc.type;
             createMHARunner();
@@ -287,17 +300,7 @@ public:
     {
         try
         {
-            int32_t maxBatchSize = 128;
-            for (int32_t i = 0; i < fc->nbFields; i++)
-            {
-                std::string field_name(fc->fields[i].name);
-                if (field_name.compare("max_batch_size") == 0)
-                {
-                    maxBatchSize = static_cast<const int32_t*>(fc->fields[i].data)[0];
-                }
-            }
-
-            return new fmhaPlugin(name, maxBatchSize);
+            return new fmhaPlugin(name);
         }
         catch (std::exception const& e)
         {

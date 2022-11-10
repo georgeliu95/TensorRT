@@ -21,7 +21,10 @@ int32_t fmhaPlugin::enqueue(const PluginTensorDesc* inputDesc, const PluginTenso
         // update cuseqlens when bs or seq changed.
         int32_t const batchSize = inputDesc[0].dims.d[0];
         int32_t const seqLen = inputDesc[0].dims.d[1];
-        initializeSeqlens(batchSize, seqLen, mCuSeqLen.get(), stream);
+        if (batchSize != m_.mOptBatchSize || seqLen != m_.mOptSeqLen)
+        {
+            initializeSeqlens(batchSize, seqLen, mCuSeqLen.get(), stream);
+        }
 
         // launch kernel.
         int32_t const head_num = inputDesc[0].dims.d[2];

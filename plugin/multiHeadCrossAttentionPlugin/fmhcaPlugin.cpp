@@ -19,6 +19,9 @@ int32_t fmhcaPlugin::enqueue(const PluginTensorDesc* inputDesc, const PluginTens
 {
     try
     {
+        PLUGIN_ASSERT(mKernels);
+        PLUGIN_ASSERT(mSM);
+
         constexpr int32_t seqLenKvPadded = 128;
         int32_t const batchSize = inputDesc[0].dims.d[0];
         int32_t const seqLenQ = inputDesc[0].dims.d[1];

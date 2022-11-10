@@ -35,16 +35,14 @@ private:
         int32_t mOptBatchSize{};
         int32_t mOptSeqLenQ{};
         int32_t mOptSeqLenKV{};
-
-        int32_t mMaxBatchSize{1024};
+        int32_t mMaxBatchSize{};
         DataType mDataType{DataType::kFLOAT};
     } m_;
 
 public:
-    fmhcaPlugin(const std::string& name, int32_t maxBatchSize)
+    fmhcaPlugin(const std::string& name)
         : mLayerName(name)
     {
-        m_.mMaxBatchSize = maxBatchSize;
         init();
     }
 
@@ -63,19 +61,8 @@ public:
         {
             mSM = bert::getSMVersion();
 
-            // allocate seqlens buffer
-            auto allocBuffer = [this](bert::cuda_shared_ptr<void>& dptr) {
-                if (!dptr)
-                {
-                    void* cudaMem{nullptr};
-                    PLUGIN_CHECK(cudaMalloc(&cudaMem, sizeof(int32_t) * (m_.mMaxBatchSize + 1)));
-                    bert::make_cuda_shared(dptr, cudaMem);
-                }
-            };
-            allocBuffer(mCuSeqLensQ);
-            allocBuffer(mCuSeqLensKV);
-
             // initialize seqlens buffer
+            allocateSeqlens(m_.mMaxBatchSize);
             m_.mOptSeqLenQ = initializeSeqlens(m_.mOptBatchSize, m_.mOptSeqLenQ, mCuSeqLensQ.get());
             m_.mOptSeqLenKV = initializeSeqlens(m_.mOptBatchSize, m_.mOptSeqLenKV, mCuSeqLensKV.get());
 
@@ -94,8 +81,8 @@ public:
     {
         switch (m_.mDataType)
         {
-        case DataType::kFLOAT: mKernels = getCubinKernels(plugin::DATA_TYPE_FP32, mSM); break;
-        case DataType::kHALF: mKernels = getCubinKernels(plugin::DATA_TYPE_FP16, mSM); break;
+        case DataType::kFLOAT: mKernels = getFMHCACubinKernels(plugin::DATA_TYPE_FP32, mSM); break;
+        case DataType::kHALF: mKernels = getFMHCACubinKernels(plugin::DATA_TYPE_FP16, mSM); break;
         default: break;
         }
     }
@@ -155,33 +142,56 @@ public:
     bool supportsFormatCombination(
         int32_t pos, const PluginTensorDesc* inOut, int32_t nbInputs, int32_t nbOutputs) noexcept override
     {
-        // load kernel and check if we have any implementations.
-        auto hasImplement = [this](DataType dt)
-        {
-            switch (dt)
-            {
-            case DataType::kFLOAT: return getCubinKernels(plugin::DATA_TYPE_FP32, mSM)->isValid(/*dummy seq*/128);
-            case DataType::kHALF: return getCubinKernels(plugin::DATA_TYPE_FP16, mSM)->isValid(/*dummy seq*/128);
-            default: break;
-            }
-            return false;
-        };
-
-        if (inOut[pos].format != TensorFormat::kLINEAR)
-        {
-            return false;
-        }
-
         bool res = false;
-        switch (pos)
+        try
         {
-        case 0: res = hasImplement(inOut[pos].type) && inOut[pos].dims.nbDims == 4; break;
-        case 1: res = inOut[pos].type == inOut[0].type && inOut[pos].dims.nbDims == 5; break;
-        case 2: res = inOut[pos].type == inOut[0].type && inOut[pos].dims.nbDims == 4; break;
-        default: // should NOT be here
-            break;
+            // load kernel and check if we have any implementations.
+            auto hasImplement = [this](DataType dt)
+            {
+                switch (dt)
+                {
+                case DataType::kFLOAT: return getFMHCACubinKernels(plugin::DATA_TYPE_FP32, mSM)->isValid(/*dummy seq*/128);
+                case DataType::kHALF: return getFMHCACubinKernels(plugin::DATA_TYPE_FP16, mSM)->isValid(/*dummy seq*/128);
+                default: break;
+                }
+                return false;
+            };
+
+            if (inOut[pos].format != TensorFormat::kLINEAR)
+            {
+                return false;
+            }
+
+            switch (pos)
+            {
+            case 0: res = hasImplement(inOut[pos].type) && inOut[pos].dims.nbDims == 4; break;
+            case 1: res = inOut[pos].type == inOut[0].type && inOut[pos].dims.nbDims == 5; break;
+            case 2: res = inOut[pos].type == inOut[0].type && inOut[pos].dims.nbDims == 4; break;
+            default: // should NOT be here
+                break;
+            }
+        }
+        catch (const std::exception& e)
+        {
+            caughtError(e);
         }
         return res;
+    }
+
+    void allocateSeqlens(int32_t maxBatchSize)
+    {
+        // allocate seqlens buffer
+        auto allocBuffer = [this, &maxBatchSize](bert::cuda_shared_ptr<void>& dptr) {
+            if (!dptr && maxBatchSize)
+            {
+                void* cudaMem{nullptr};
+                PLUGIN_CHECK(cudaMalloc(&cudaMem, sizeof(int32_t) * (maxBatchSize + 1)));
+                bert::make_cuda_shared(dptr, cudaMem);
+            }
+        };
+        allocBuffer(mCuSeqLensQ);
+        allocBuffer(mCuSeqLensKV);
+        m_.mMaxBatchSize = maxBatchSize;
     }
 
     int32_t initializeSeqlens(int32_t b, int32_t s, void* cuSeqlensDev, cudaStream_t stream = 0)
@@ -218,6 +228,8 @@ public:
             int32_t const batchSize = in[0].max.d[0];
             int32_t const seqLenQ = in[0].max.d[1];
             int32_t const seqLenKV = in[1].max.d[1];
+
+            allocateSeqlens(batchSize);
             if (batchSize != m_.mOptBatchSize || m_.mOptSeqLenQ != seqLenQ || m_.mOptSeqLenKV != seqLenKV)
             {
                 m_.mOptSeqLenQ = initializeSeqlens(batchSize, seqLenQ, mCuSeqLensQ.get());
@@ -299,17 +311,7 @@ public:
     {
         try
         {
-            int32_t maxBatchSize = 1024;
-            for (int32_t i = 0; i < fc->nbFields; i++)
-            {
-                std::string field_name(fc->fields[i].name);
-                if (field_name.compare("max_batch_size") == 0)
-                {
-                    maxBatchSize = static_cast<const int32_t*>(fc->fields[i].data)[0];
-                }
-            }
-
-            return new fmhcaPlugin(name, maxBatchSize);
+            return new fmhcaPlugin(name);
         }
         catch (std::exception const& e)
         {
