@@ -19,10 +19,10 @@ Takes query, key and value tensors and computes cross multi-head attention.
 The `multiHeadCrossAttentionPlugin` takes two inputs: `input_q` and `input_kv`.
 
 `input_q`
-`input_q` is a tensor with shape `[B, S_Q, #H, H]` where `B` is the batch size, `S_Q` is the sequence length for query, `#H` is the number of heads and `H` is the head size. 
+input_q is a tensor with shape `[B, S_Q, #H, H]` where `B` is the batch size, `S_Q` is the sequence length for query, `#H` is the number of heads and `H` is the head size. 
 
 `input_kv`
-`input_q` is a tensor with shape `[B, S_KV, #H, 2, H]` where `B` is the batch size, `S_KV` is the sequence length for key and value, `#H` is the number of heads and `H` is the head size. 
+input_kv is a tensor with shape `[B, S_KV, #H, 2, H]` where `B` is the batch size, `S_KV` is the sequence length for key and value, `#H` is the number of heads and `H` is the head size. 
 
 The `multiHeadCrossAttentionPlugin` generates the following output:
 
