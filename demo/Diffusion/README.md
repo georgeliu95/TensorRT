@@ -1,6 +1,6 @@
 # Introduction
 
-This demo application (`demoDiffusion`) showcases the acceleration of Stable Diffusion pipeline using TensorRT plugins.
+This demo application ("demoDiffusion") showcases the acceleration of [Stable Diffusion](https://huggingface.co/CompVis/stable-diffusion-v1-4) pipeline using TensorRT plugins.
 
 # Setup
 
@@ -9,18 +9,17 @@ This demo application (`demoDiffusion`) showcases the acceleration of Stable Dif
 ```bash
 git clone ssh://git@gitlab-master.nvidia.com:12051/TensorRT/Public/oss.git -b dev/demodiffusion --single-branch
 cd oss
-git submodule update --init --recursive
 ```
-
 > TODO - update following to GitHub repo for release
 
 ### Launch NVidia TensorRT container
 
-NOTE: Alternatively, you can instead use your preferred container with TensorRT 8.5 installed.
+Install nvidia-docker using [these intructions](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#docker).
 
 ```bash
 docker run --rm -it --gpus all -v $PWD:/workspace nvcr.io/nvidia/tensorrt:22.10-py3 /bin/bash
 ```
+NOTE: Alternatively, you can download and install TensorRT packages from [NVIDIA TensorRT Developer Zone](https://developer.nvidia.com/tensorrt).
 
 ### Build TensorRT plugins library
 
@@ -63,7 +62,8 @@ torch               1.12.0+cu116
 transformers        4.24.0
 ```
 
-> NOTE: optionally install HuggingFace [accelerate](https://pypi.org/project/accelerate/) package to reduce CPU overhead when running the demo.
+> NOTE: optionally install HuggingFace [accelerate](https://pypi.org/project/accelerate/) package for faster and less memory-intense model loading.
+
 
 # Running demoDiffusion
 
@@ -91,10 +91,10 @@ export PLUGIN_LIBS="/tmp/fmhaPlugin.so:/tmp/fmhcaPlugin.so:$PLUGIN_LIBS"
 
 LD_PRELOAD=${PLUGIN_LIBS} python3 demo-diffusion.py "a beautiful photograph of Mt. Fuji during cherry blossom" --hf-token=$HF_TOKEN -v
 ```
-
 > TODO - remove extra step for MHA plugins
 
 The above prompt `a beautiful photograph of Mt. Fuji during cherry blossom"` might generate and image similar to the following.
+
 
 # Restrictions
 
