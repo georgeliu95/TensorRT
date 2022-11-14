@@ -39,7 +39,7 @@ class Engine():
         model_name,
         engine_dir,
     ):
-        self.engine_path =  os.path.join(engine_dir, model_name+'.plan')
+        self.engine_path = os.path.join(engine_dir, model_name+'.plan')
         self.engine = None
         self.context = None
         self.buffers = OrderedDict()
@@ -59,7 +59,16 @@ class Engine():
             for name, dims in input_profile.items():
                 assert len(dims) == 3
                 p.add(name, min=dims[0], opt=dims[1], max=dims[2])
-        engine = engine_from_network(network_from_onnx_path(onnx_path), config=CreateConfig(fp16=fp16, profiles=[p]))
+
+        # FASTER_DYNAMIC_SHAPES_0805 should only be used for TRT 8.5.1 or above.
+        preview_features = []
+        trt_version = [int(i) for i in trt.__version__.split(".")]
+        if trt_version[0] > 8 or \
+            (trt_version[0] == 8 and (trt_version[1] > 5 or (trt_version[1] == 5 and trt_version[2] >= 1))):
+            preview_features = [trt.PreviewFeature.FASTER_DYNAMIC_SHAPES_0805]
+
+        engine = engine_from_network(network_from_onnx_path(onnx_path), config=CreateConfig(fp16=fp16, profiles=[p],
+            preview_features=preview_features))
         save_engine(engine, path=self.engine_path)
 
     def activate(self):
@@ -95,7 +104,6 @@ class Engine():
         noerror = self.context.execute_async_v2(bindings=bindings, stream_handle=stream.ptr)
         if not noerror:
             raise ValueError(f"ERROR: inference failed.")
-            exit()
 
         return self.tensors
 

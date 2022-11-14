@@ -65,6 +65,7 @@ set(PLUGIN_LISTS
     resizeNearestPlugin
     roiAlignPlugin
     scatterPlugin
+    seqLen2SpatialPlugin
     specialSlicePlugin
     splitPlugin
     voxelGeneratorPlugin

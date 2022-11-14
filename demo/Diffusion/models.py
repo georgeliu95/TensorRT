@@ -20,15 +20,11 @@ from collections import OrderedDict
 from copy import deepcopy
 from diffusers.models import AutoencoderKL, UNet2DConditionModel
 import numpy as np
-import onnx
 from onnx import shape_inference
-from onnx.external_data_helper import convert_model_to_external_data
 import onnx_graphsurgeon as gs
 from polygraphy.backend.onnx.loader import fold_constants
-from polygraphy.backend.trt import Profile
 import torch
-from transformers import CLIPFeatureExtractor, CLIPTextModel, CLIPTokenizer
-import os
+from transformers import CLIPTextModel
 
 class Optimizer():
     def __init__(
@@ -88,6 +84,38 @@ class Optimizer():
 
         self.cleanup()
         return nRemoveCastNode
+
+    def remove_parallel_swish(self):
+        mRemoveSwishNode = 0
+        for node in self.graph.nodes:
+            if node.op == "Gemm" and len(node.outputs[0].outputs) > 6:
+                swishOutputTensor = None
+                for nextNode in node.outputs[0].outputs:
+                    if nextNode.op == "Mul":
+                        if swishOutputTensor is None:
+                            swishOutputTensor = nextNode.outputs[0]
+                        else:
+                            nextGemmNode = nextNode.o(0)
+                            assert nextGemmNode.op == "Gemm", "Unexpected node type for nextGemmNode {}".format(nextGemmNode.name)
+                            nextGemmNode.inputs = [swishOutputTensor, nextGemmNode.inputs[1], nextGemmNode.inputs[2]]
+                            nextNode.outputs.clear()
+                            mRemoveSwishNode += 1
+
+        self.cleanup()
+        return mRemoveSwishNode
+
+    def adjustAddNode(self):
+        nAdjustAddNode = 0
+        for node in self.graph.nodes:
+            # Change the bias const to the second input to allow Gemm+BiasAdd fusion in TRT.
+            if node.op in ["Add"] and isinstance(node.inputs[0], gs.ir.tensor.Constant):
+                tensor = node.inputs[1]
+                bias = node.inputs[0]
+                node.inputs = [tensor, bias]
+                nAdjustAddNode += 1
+
+        self.cleanup()
+        return nAdjustAddNode
 
     def decompose_instancenorms(self):
         nRemoveInstanceNorm = 0
@@ -248,6 +276,35 @@ class Optimizer():
 
         self.cleanup()
         return nSplitGeLUPlugin
+
+    def insert_seq2spatial_plugin(self):
+        nSeqLen2SpatialPlugin = 0
+        for node in self.graph.nodes:
+            if node.op == "Transpose" and node.o().op == "Conv":
+                transposeNode = node
+                reshapeNode = node.i()
+                assert reshapeNode.op == "Reshape", "Unexpected node type for reshapeNode {}".format(reshapeNode.name)
+                residualNode = reshapeNode.i(0)
+                assert residualNode.op == "Add", "Unexpected node type for residualNode {}".format(residualNode.name)
+                biasNode = residualNode.i(0)
+                assert biasNode.op == "Add", "Unexpected node type for biasNode {}".format(biasNode.name)
+                biasIndex = [type(i) == gs.ir.tensor.Constant for i in biasNode.inputs].index(True)
+                bias = np.array(deepcopy(biasNode.inputs[biasIndex].values.tolist()), dtype=np.float32)
+                biasInput = gs.Constant("AddAddSeqLen2SpatialBias-" + str(nSeqLen2SpatialPlugin), np.ascontiguousarray(bias.reshape(-1)))
+                inputIndex = 1 - biasIndex
+                inputTensor = biasNode.inputs[inputIndex]
+                residualInput = residualNode.inputs[1]
+                outputTensor = transposeNode.outputs[0]
+                seqLen2SpatialNode = gs.Node("SeqLen2Spatial", "AddAddSeqLen2Spatial-" + str(nSeqLen2SpatialPlugin),
+                    attrs=OrderedDict([("height", outputTensor.shape[2]), ("width", outputTensor.shape[3])]),
+                    inputs=[inputTensor, biasInput, residualInput], outputs=[outputTensor])
+                self.graph.nodes.append(seqLen2SpatialNode)
+                biasNode.inputs.clear()
+                transposeNode.outputs.clear()
+                nSeqLen2SpatialPlugin += 1
+
+        self.cleanup()
+        return nSeqLen2SpatialPlugin
 
     def fuse_kv(self, node_k, node_v, fused_kv_idx, heads, dynamic_batch=False):
         # Get weights of K
@@ -561,7 +618,7 @@ class BaseModel():
     def get_shape_dict(self, batch_size):
         return None
 
-    def optimize(self, onnx_graph):
+    def optimize(self, onnx_graph, minimal_optimization=False):
         return onnx_graph
 
 class CLIP(BaseModel):
@@ -595,12 +652,14 @@ class CLIP(BaseModel):
     def get_sample_input(self, batch_size):
         return torch.zeros(batch_size, self.text_maxlen, dtype=torch.int32, device=self.device)
 
-    def optimize(self, onnx_graph):
+    def optimize(self, onnx_graph, minimal_optimization=False):
+
+        enable_optimization = not minimal_optimization
 
         # Remove Cast Node to optimize Attention block
-        bRemoveCastNode = True
+        bRemoveCastNode = enable_optimization
         # Insert LayerNormalization Plugin
-        bLayerNormPlugin = True
+        bLayerNormPlugin = enable_optimization
 
         opt = Optimizer(onnx_graph, verbose=self.verbose)
         opt.info('CLIP: original')
@@ -668,14 +727,21 @@ class UNet(BaseModel):
             torch.randn(2*batch_size, self.text_maxlen, self.embedding_dim, dtype=dtype, device=self.device)
         )
 
-    def optimize(self, onnx_graph):
+    def optimize(self, onnx_graph, minimal_optimization=False):
+
+        enable_optimization = not minimal_optimization
+
         # Decompose InstanceNormalization into primitive Ops
-        bRemoveInstanceNorm = True
+        bRemoveInstanceNorm = enable_optimization
         # Remove Cast Node to optimize Attention block
-        bRemoveCastNode = True
+        bRemoveCastNode = enable_optimization
+        # Remove parallel Swish ops
+        bRemoveParallelSwish = enable_optimization
+        # Adjust the bias to be the second input to the Add ops
+        bAdjustAddNode = enable_optimization
 
         # Common override for disabling all plugins below
-        bDisablePlugins = False
+        bDisablePlugins = minimal_optimization
         # Use multi-head attention Plugin
         bMHAPlugin = True
         # Use multi-head cross attention Plugin
@@ -686,6 +752,8 @@ class UNet(BaseModel):
         bLayerNormPlugin = True
         # Insert Split+GeLU Plugin
         bSplitGeLUPlugin = True
+        # Replace BiasAdd+ResidualAdd+SeqLen2Spatial with plugin
+        bSeqLen2SpatialPlugin = True
 
         opt = Optimizer(onnx_graph, verbose=self.verbose)
         opt.info('UNet: original')
@@ -697,6 +765,14 @@ class UNet(BaseModel):
         if bRemoveCastNode:
             num_casts_removed = opt.remove_casts()
             opt.info('UNet: removed '+str(num_casts_removed)+' casts')
+
+        if bRemoveParallelSwish:
+            num_parallel_swish_removed = opt.remove_parallel_swish()
+            opt.info('UNet: removed '+str(num_parallel_swish_removed)+' parallel swish ops')
+
+        if bAdjustAddNode:
+            num_adjust_add = opt.adjustAddNode()
+            opt.info('UNet: adjusted '+str(num_adjust_add)+' adds')
 
         opt.cleanup()
         opt.info('UNet: cleanup')
@@ -725,6 +801,10 @@ class UNet(BaseModel):
         if bSplitGeLUPlugin and not bDisablePlugins:
             num_splitgelu_inserted = opt.insert_splitgelu_plugin()
             opt.info('UNet: inserted '+str(num_splitgelu_inserted)+' SplitGeLU plugins')
+
+        if bSeqLen2SpatialPlugin and not bDisablePlugins:
+            num_seq2spatial_inserted = opt.insert_seq2spatial_plugin()
+            opt.info('UNet: inserted '+str(num_seq2spatial_inserted)+' SeqLen2Spatial plugins')
 
         onnx_opt_graph = opt.cleanup(return_onnx=True)
         opt.info('UNet: final')
@@ -765,13 +845,16 @@ class VAE(BaseModel):
     def get_sample_input(self, batch_size):
         return torch.randn(batch_size,4,self.latent_height,self.latent_width, dtype=torch.float32, device=self.device)
 
-    def optimize(self, onnx_graph):
+    def optimize(self, onnx_graph, minimal_optimization=False):
+
+        enable_optimization = not minimal_optimization
+
         # Decompose InstanceNormalization into primitive Ops
-        bRemoveInstanceNorm = True
+        bRemoveInstanceNorm = enable_optimization
         # Remove Cast Node to optimize Attention block
-        bRemoveCastNode = True
+        bRemoveCastNode = enable_optimization
         # Insert GroupNormalization Plugin
-        bGroupNormPlugin = True
+        bGroupNormPlugin = enable_optimization
 
         opt = Optimizer(onnx_graph, verbose=self.verbose)
         opt.info('VAE: original')

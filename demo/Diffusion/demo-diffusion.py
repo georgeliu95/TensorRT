@@ -23,9 +23,6 @@ import numpy as np
 import nvtx
 import os
 import onnx
-from polygraphy.backend.common import BytesFromPath
-from polygraphy.backend.trt import CreateConfig, EngineFromBytes, EngineFromNetwork, NetworkFromOnnxPath, SaveEngine
-from polygraphy.backend.trt import util as trt_util
 from polygraphy import cuda
 import time
 import torch
@@ -51,6 +48,7 @@ def parseArgs():
     parser.add_argument('--force-onnx-export', action='store_true', help="Force ONNX export of CLIP, UNET, and VAE models")
     parser.add_argument('--force-onnx-optimize', action='store_true', help="Force ONNX optimizations for CLIP, UNET, and VAE models")
     parser.add_argument('--force-engine-build', action='store_true', help="Force rebuilding the TensorRT engine")
+    parser.add_argument('--minimal-optimization', action='store_true', help="Limited optimizations to only const folding and shape inference.")
 
     # TensorRT inference
     parser.add_argument('--engine-dir', default='engine', help="Output directory for TensorRT engines")
@@ -163,6 +161,7 @@ class DemoDiffusion:
         force_export=False,
         force_optimize=False,
         force_build=False,
+        minimal_optimization=False,
     ):
         """
         Build and load engines for TensorRT accelerated inference.
@@ -206,7 +205,7 @@ class DemoDiffusion:
                     print(f"Found cached model: {onnx_path}")
 
                 print(f"Generating optimizing model: {onnx_opt_path}")
-                onnx_opt_graph = obj.optimize(onnx.load(onnx_path))
+                onnx_opt_graph = obj.optimize(onnx.load(onnx_path), minimal_optimization=minimal_optimization)
                 onnx.save(onnx_opt_graph, onnx_opt_path)
             else:
                 print(f"Found cached optimized model: {onnx_opt_path} ")
@@ -429,7 +428,9 @@ if __name__ == "__main__":
         profile=args.profile)
 
     print("Building TensorRT engines")
-    demo.loadEngines(args.engine_dir, args.onnx_dir, args.onnx_opset, opt_batch_size=len(prompt), force_export=args.force_onnx_export, force_optimize=args.force_onnx_optimize, force_build=args.force_engine_build)
+    demo.loadEngines(args.engine_dir, args.onnx_dir, args.onnx_opset, opt_batch_size=len(prompt), \
+        force_export=args.force_onnx_export, force_optimize=args.force_onnx_optimize, \
+        force_build=args.force_engine_build, minimal_optimization=args.minimal_optimization)
     demo.loadModules()
 
     print("Warming up ..")
