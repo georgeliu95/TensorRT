@@ -61,6 +61,7 @@ using namespace nvinfer1::plugin;
 #include "resizeNearestPlugin.h"
 #include "roiAlignPlugin.h"
 #include "scatterPlugin.h"
+#include "seqLen2SpatialPlugin.h"
 #include "specialSlicePlugin.h"
 #include "split.h"
 #include "splitGeLUPlugin.h"
@@ -213,6 +214,7 @@ extern "C"
         initializePlugin<nvinfer1::plugin::RPROIPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::ROIAlignPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::ScatterNDPluginCreator>(logger, libNamespace);
+        initializePlugin<nvinfer1::plugin::SeqLen2SpatialPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::SpecialSlicePluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::SplitGeLUPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::SplitPluginCreator>(logger, libNamespace);
