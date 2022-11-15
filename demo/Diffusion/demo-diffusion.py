@@ -395,12 +395,10 @@ class DemoDiffusion:
             torch.cuda.synchronize()
             e2e_toc = time.perf_counter()
             if not warmup:
-                print("End-to-end host latency: {:0.2f}ms".format((e2e_toc - e2e_tic)*1000.))
-                if verbose:
-                    print("GPU compute time:")
-                    print("- text encoder: %6.2f ms" % (cudart.cudaEventElapsedTime(events['clip-start'], events['clip-stop'])[1]))
-                    print("- denoising: %6.2f ms" % (cudart.cudaEventElapsedTime(events['denoise-start'], events['denoise-stop'])[1]))
-                    print("- vae: %6.2f ms" % (cudart.cudaEventElapsedTime(events['vae-start'], events['vae-stop'])[1]))
+                print("CLIP: %6.2f ms" % (cudart.cudaEventElapsedTime(events['clip-start'], events['clip-stop'])[1]))
+                print("UNet x %d: %6.2f ms" % (self.denoising_steps, cudart.cudaEventElapsedTime(events['denoise-start'], events['denoise-stop'])[1]))
+                print("VAE: %6.2f ms" % (cudart.cudaEventElapsedTime(events['vae-start'], events['vae-stop'])[1]))
+                print("Pipeline: {:0.2f}ms".format((e2e_toc - e2e_tic)*1000.))
 
                 # Save image
                 image_name_prefix = 'sd-'+('fp16' if self.denoising_fp16 else 'fp32')+''.join(set(['-'+prompt[i].replace(' ','_')[:10] for i in range(batch_size)]))+'-'
@@ -408,7 +406,7 @@ class DemoDiffusion:
 
 if __name__ == "__main__":
 
-    print("Initializing StableDiffusion demo with TensorRT Plugins")
+    print("[I] Initializing StableDiffusion demo with TensorRT Plugins")
     args = parseArgs()
 
     # Process prompt
@@ -423,6 +421,10 @@ if __name__ == "__main__":
     else:
         negative_prompt = args.negative_prompt
 
+    # Register TensorRT plugins
+    trt.init_libnvinfer_plugins(TRT_LOGGER, '')
+
+    # Initialize demo
     demo = DemoDiffusion(
         image_height=args.height,
         image_width=args.width,
@@ -433,17 +435,18 @@ if __name__ == "__main__":
         verbose=args.verbose,
         profile=args.profile)
 
+    # Build/load TensorRT engines and torch models
     demo.loadEngines(args.engine_dir, args.onnx_dir, args.onnx_opset, opt_batch_size=len(prompt), \
         force_export=args.force_onnx_export, force_optimize=args.force_onnx_optimize, \
         force_build=args.force_engine_build, minimal_optimization=args.minimal_optimization, \
         enable_preview=args.enable_preview_features)
     demo.loadModules()
 
-    print("Warming up ..")
+    print("[I] Warming up ..")
     for _ in range(args.num_warmup_runs):
         images = demo.infer(prompt, negative_prompt, warmup=True, verbose=False)
 
-    print("Running StableDiffusion pipeline")
+    print("[I] Running StableDiffusion pipeline")
     if args.profile:
         cudart.cudaProfilerStart()
     images = demo.infer(prompt, negative_prompt, verbose=args.verbose)
