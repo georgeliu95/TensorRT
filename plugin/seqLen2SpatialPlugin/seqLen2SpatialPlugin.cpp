@@ -267,5 +267,3 @@ PluginFieldCollection const* SeqLen2SpatialPluginCreator::getFieldNames() noexce
 {
     return &mFC;
 }
-
-REGISTER_TENSORRT_PLUGIN(SeqLen2SpatialPluginCreator);
