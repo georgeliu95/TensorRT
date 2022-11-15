@@ -11,7 +11,6 @@ git clone git@github.com:NVIDIA/TensorRT.git -b release/8.5 --single-branch
 cd oss
 git submodule update --init --recursive
 ```
-> TODO - update to GitHub repo for release
 
 ### Launch TensorRT NGC container
 
@@ -20,7 +19,13 @@ Install nvidia-docker using [these intructions](https://docs.nvidia.com/datacent
 ```bash
 docker run --rm -it --gpus all -v $PWD:/workspace nvcr.io/nvidia/tensorrt:22.10-py3 /bin/bash
 ```
-NOTE: Alternatively, you can download and install TensorRT packages from [NVIDIA TensorRT Developer Zone](https://developer.nvidia.com/tensorrt).
+
+### (Optional) Install latest TensorRT release
+
+```bash
+python3 -m pip install --upgrade tensorrt
+```
+> NOTE: Alternatively, you can download and install TensorRT packages from [NVIDIA TensorRT Developer Zone](https://developer.nvidia.com/tensorrt).
 
 ### Build TensorRT plugins library
 
@@ -76,7 +81,7 @@ python3 demo-diffusion.py --help
 
 ### HuggingFace user access token
 
-To download the model checkpoints for the Stable Diffusion pipeline, you will need a `read` access token. See instructions on how to generate it [here](https://huggingface.co/docs/hub/security-tokens).
+To download the model checkpoints for the Stable Diffusion pipeline, you will need a `read` access token. See [instructions](https://huggingface.co/docs/hub/security-tokens).
 
 ```bash
 export HF_TOKEN=<your access token>
