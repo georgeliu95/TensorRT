@@ -52,7 +52,7 @@ class Engine():
         del self.buffers
         del self.tensors
 
-    def build(self, onnx_path, fp16, input_profile=None):
+    def build(self, onnx_path, fp16, input_profile=None, enable_preview=False):
         print(f"Building TensorRT engine for {onnx_path}: {self.engine_path}")
         p = Profile()
         if input_profile:
@@ -60,12 +60,13 @@ class Engine():
                 assert len(dims) == 3
                 p.add(name, min=dims[0], opt=dims[1], max=dims[2])
 
-        # FASTER_DYNAMIC_SHAPES_0805 should only be used for TRT 8.5.1 or above.
         preview_features = []
-        trt_version = [int(i) for i in trt.__version__.split(".")]
-        if trt_version[0] > 8 or \
-            (trt_version[0] == 8 and (trt_version[1] > 5 or (trt_version[1] == 5 and trt_version[2] >= 1))):
-            preview_features = [trt.PreviewFeature.FASTER_DYNAMIC_SHAPES_0805]
+        if enable_preview:
+            trt_version = [int(i) for i in trt.__version__.split(".")]
+            # FASTER_DYNAMIC_SHAPES_0805 should only be used for TRT 8.5.1 or above.
+            if trt_version[0] > 8 or \
+                (trt_version[0] == 8 and (trt_version[1] > 5 or (trt_version[1] == 5 and trt_version[2] >= 1))):
+                preview_features = [trt.PreviewFeature.FASTER_DYNAMIC_SHAPES_0805]
 
         engine = engine_from_network(network_from_onnx_path(onnx_path), config=CreateConfig(fp16=fp16, profiles=[p],
             preview_features=preview_features))

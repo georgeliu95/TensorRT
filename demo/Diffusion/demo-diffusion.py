@@ -49,6 +49,7 @@ def parseArgs():
     parser.add_argument('--force-onnx-optimize', action='store_true', help="Force ONNX optimizations for CLIP, UNET, and VAE models")
     parser.add_argument('--force-engine-build', action='store_true', help="Force rebuilding the TensorRT engine")
     parser.add_argument('--minimal-optimization', action='store_true', help="Limited optimizations to only const folding and shape inference.")
+    parser.add_argument('--enable-preview-features', action='store_true', help="Enable TensorRT preview features.")
 
     # TensorRT inference
     parser.add_argument('--engine-dir', default='engine', help="Output directory for TensorRT engines")
@@ -162,6 +163,7 @@ class DemoDiffusion:
         force_optimize=False,
         force_build=False,
         minimal_optimization=False,
+        enable_preview=False,
     ):
         """
         Build and load engines for TensorRT accelerated inference.
@@ -180,6 +182,10 @@ class DemoDiffusion:
                 Force re-optimizing the ONNX models.
             force_build (bool):
                 Force re-building the TensorRT engine.
+            minimal_optimization (bool):
+                Apply minimal optimizations during build (no plugins).
+            enable_preview (bool):
+                Enable TensorRT preview features.
         """
 
         def exportOnnx (model_name, obj):
@@ -216,7 +222,7 @@ class DemoDiffusion:
                 onnx_path = self.getModelPath(model_name, onnx_dir)
                 if not os.path.exists(onnx_path):
                     exportOnnx(model_name, obj)
-                engine.build(onnx_path, fp16=True, input_profile=obj.get_input_profile(batch_size=opt_batch_size))
+                engine.build(onnx_path, fp16=True, input_profile=obj.get_input_profile(batch_size=opt_batch_size), enable_preview=enable_preview)
             engine.activate()
             self.engine[model_name] = engine
 
@@ -427,10 +433,10 @@ if __name__ == "__main__":
         verbose=args.verbose,
         profile=args.profile)
 
-    print("Building TensorRT engines")
     demo.loadEngines(args.engine_dir, args.onnx_dir, args.onnx_opset, opt_batch_size=len(prompt), \
         force_export=args.force_onnx_export, force_optimize=args.force_onnx_optimize, \
-        force_build=args.force_engine_build, minimal_optimization=args.minimal_optimization)
+        force_build=args.force_engine_build, minimal_optimization=args.minimal_optimization, \
+        enable_preview=args.enable_preview_features)
     demo.loadModules()
 
     print("Warming up ..")
