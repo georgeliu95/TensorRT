@@ -305,3 +305,5 @@ PluginFieldCollection const* GroupNormPluginCreator::getFieldNames() noexcept
 {
     return &mFC;
 }
+
+REGISTER_TENSORRT_PLUGIN(GroupNormPluginCreator);

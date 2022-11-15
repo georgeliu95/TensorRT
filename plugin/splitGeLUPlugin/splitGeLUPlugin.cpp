@@ -242,3 +242,5 @@ PluginFieldCollection const* SplitGeLUPluginCreator::getFieldNames() noexcept
 {
     return &mFC;
 }
+
+REGISTER_TENSORRT_PLUGIN(SplitGeLUPluginCreator);
