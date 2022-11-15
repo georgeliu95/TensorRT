@@ -65,7 +65,6 @@ set(PLUGIN_LISTS
     resizeNearestPlugin
     roiAlignPlugin
     scatterPlugin
-    seqLen2SpatialPlugin
     specialSlicePlugin
     splitPlugin
     voxelGeneratorPlugin
@@ -92,6 +91,7 @@ if(STABLE_DIFFUSION_GENCODES)
         ${PLUGIN_LISTS}
         groupNormPlugin
         layerNormPlugin
+        seqLen2SpatialPlugin
         splitGeLUPlugin
         multiHeadFlashAttentionPlugin
         multiHeadCrossAttentionPlugin
