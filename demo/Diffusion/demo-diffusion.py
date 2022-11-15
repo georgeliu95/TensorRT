@@ -395,10 +395,15 @@ class DemoDiffusion:
             torch.cuda.synchronize()
             e2e_toc = time.perf_counter()
             if not warmup:
-                print("CLIP: %6.2f ms" % (cudart.cudaEventElapsedTime(events['clip-start'], events['clip-stop'])[1]))
-                print("UNet x %d: %6.2f ms" % (self.denoising_steps, cudart.cudaEventElapsedTime(events['denoise-start'], events['denoise-stop'])[1]))
-                print("VAE: %6.2f ms" % (cudart.cudaEventElapsedTime(events['vae-start'], events['vae-stop'])[1]))
-                print("Pipeline: {:0.2f}ms".format((e2e_toc - e2e_tic)*1000.))
+                print('|------------|--------------|')
+                print('| {:^10} | {:^12} |'.format('Module', 'Latency'))
+                print('|------------|--------------|')
+                print('| {:^10} | {:>9.2f} ms |'.format('CLIP', cudart.cudaEventElapsedTime(events['clip-start'], events['clip-stop'])[1]))
+                print('| {:^10} | {:>9.2f} ms |'.format('UNet x '+str(self.denoising_steps), cudart.cudaEventElapsedTime(events['denoise-start'], events['denoise-stop'])[1]))
+                print('| {:^10} | {:>9.2f} ms |'.format('VAE', cudart.cudaEventElapsedTime(events['vae-start'], events['vae-stop'])[1]))
+                print('|------------|--------------|')
+                print('| {:^10} | {:>9.2f} ms |'.format('Pipeline', (e2e_toc - e2e_tic)*1000.))
+                print('|------------|--------------|')
 
                 # Save image
                 image_name_prefix = 'sd-'+('fp16' if self.denoising_fp16 else 'fp32')+''.join(set(['-'+prompt[i].replace(' ','_')[:10] for i in range(batch_size)]))+'-'
