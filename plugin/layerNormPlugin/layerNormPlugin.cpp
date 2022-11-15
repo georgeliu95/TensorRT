@@ -288,5 +288,3 @@ PluginFieldCollection const* LayerNormPluginCreator::getFieldNames() noexcept
 {
     return &mFC;
 }
-
-REGISTER_TENSORRT_PLUGIN(LayerNormPluginCreator);
