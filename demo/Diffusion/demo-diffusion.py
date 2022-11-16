@@ -48,6 +48,7 @@ def parseArgs():
     parser.add_argument('--force-onnx-export', action='store_true', help="Force ONNX export of CLIP, UNET, and VAE models")
     parser.add_argument('--force-onnx-optimize', action='store_true', help="Force ONNX optimizations for CLIP, UNET, and VAE models")
     parser.add_argument('--force-engine-build', action='store_true', help="Force rebuilding the TensorRT engine")
+    parser.add_argument('--force-static-batch', action='store_true', help="Force building TensorRT engines with fixed batch size.")
     parser.add_argument('--minimal-optimization', action='store_true', help="Limited optimizations to only const folding and shape inference.")
     parser.add_argument('--enable-preview-features', action='store_true', help="Enable TensorRT preview features.")
 
@@ -158,11 +159,12 @@ class DemoDiffusion:
         engine_dir,
         onnx_dir,
         onnx_opset,
-        opt_batch_size=4,
+        opt_batch_size,
         force_export=False,
         force_optimize=False,
         force_build=False,
         minimal_optimization=False,
+        static_batch=False,
         enable_preview=False,
     ):
         """
@@ -176,6 +178,8 @@ class DemoDiffusion:
                 Directory to write the ONNX models.
             onnx_opset (int):
                 ONNX opset version to export the models.
+            opt_batch_size (int):
+                Batch size to optimize for during engine building.
             force_export (bool):
                 Force re-exporting the ONNX models.
             force_optimize (bool):
@@ -184,6 +188,8 @@ class DemoDiffusion:
                 Force re-building the TensorRT engine.
             minimal_optimization (bool):
                 Apply minimal optimizations during build (no plugins).
+            static_batch (bool):
+                Build engine only for specified opt_batch_size.
             enable_preview (bool):
                 Enable TensorRT preview features.
         """
@@ -222,7 +228,9 @@ class DemoDiffusion:
                 onnx_path = self.getModelPath(model_name, onnx_dir)
                 if not os.path.exists(onnx_path):
                     exportOnnx(model_name, obj)
-                engine.build(onnx_path, fp16=True, input_profile=obj.get_input_profile(batch_size=opt_batch_size), enable_preview=enable_preview)
+                engine.build(onnx_path, fp16=True, \
+                    input_profile=obj.get_input_profile(batch_size=opt_batch_size, static_batch=static_batch), \
+                    enable_preview=enable_preview)
             engine.activate()
             self.engine[model_name] = engine
 
@@ -444,7 +452,7 @@ if __name__ == "__main__":
     demo.loadEngines(args.engine_dir, args.onnx_dir, args.onnx_opset, opt_batch_size=len(prompt), \
         force_export=args.force_onnx_export, force_optimize=args.force_onnx_optimize, \
         force_build=args.force_engine_build, minimal_optimization=args.minimal_optimization, \
-        enable_preview=args.enable_preview_features)
+        static_batch=args.force_static_batch, enable_preview=args.enable_preview_features)
     demo.loadModules()
 
     print("[I] Warming up ..")

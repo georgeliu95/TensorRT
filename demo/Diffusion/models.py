@@ -611,7 +611,7 @@ class BaseModel():
     def get_sample_input(self):
         pass
 
-    def get_input_profile(self, batch_size):
+    def get_input_profile(self, batch_size, static_batch=False):
         return None
 
     def get_shape_dict(self, batch_size):
@@ -636,10 +636,12 @@ class CLIP(BaseModel):
             'text_embeddings': {0: 'B'}
         }
 
-    def get_input_profile(self, batch_size):
+    def get_input_profile(self, batch_size, static_batch=False):
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
+        min_batch = batch_size if static_batch else self.min_batch
+        max_batch = batch_size if static_batch else self.max_batch
         return {
-            'input_ids': [(self.min_batch, self.text_maxlen), (batch_size, self.text_maxlen), (self.max_batch, self.text_maxlen)],
+            'input_ids': [(min_batch, self.text_maxlen), (batch_size, self.text_maxlen), (max_batch, self.text_maxlen)],
         }
 
     def get_shape_dict(self, batch_size):
@@ -704,11 +706,13 @@ class UNet(BaseModel):
             'latent': {0: '2B'}
         }
 
-    def get_input_profile(self, batch_size):
+    def get_input_profile(self, batch_size, static_batch=False):
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
+        min_batch = batch_size if static_batch else self.min_batch
+        max_batch = batch_size if static_batch else self.max_batch
         return {
-            'sample': [(2*self.min_batch, 4, self.latent_height, self.latent_width), (2*batch_size, 4, self.latent_height, self.latent_width), (2*self.max_batch, 4, self.latent_height, self.latent_width)],
-            'encoder_hidden_states': [(2*self.min_batch, self.text_maxlen, self.embedding_dim), (2*batch_size, self.text_maxlen, self.embedding_dim), (2*self.max_batch, self.text_maxlen, self.embedding_dim)],
+            'sample': [(2*min_batch, 4, self.latent_height, self.latent_width), (2*batch_size, 4, self.latent_height, self.latent_width), (2*max_batch, 4, self.latent_height, self.latent_width)],
+            'encoder_hidden_states': [(2*min_batch, self.text_maxlen, self.embedding_dim), (2*batch_size, self.text_maxlen, self.embedding_dim), (2*max_batch, self.text_maxlen, self.embedding_dim)],
         }
 
     def get_shape_dict(self, batch_size):
@@ -829,10 +833,12 @@ class VAE(BaseModel):
             'images': {0: 'B'}
         }
 
-    def get_input_profile(self, batch_size):
+    def get_input_profile(self, batch_size, static_batch=False):
         assert batch_size >= self.min_batch and batch_size <= self.max_batch
+        min_batch = batch_size if static_batch else self.min_batch
+        max_batch = batch_size if static_batch else self.max_batch
         return {
-            'latent': [(self.min_batch, 4, self.latent_height, self.latent_width), (batch_size, 4, self.latent_height, self.latent_width), (self.max_batch, 4, self.latent_height, self.latent_width)],
+            'latent': [(min_batch, 4, self.latent_height, self.latent_width), (batch_size, 4, self.latent_height, self.latent_width), (max_batch, 4, self.latent_height, self.latent_width)],
         }
 
     def get_shape_dict(self, batch_size):
