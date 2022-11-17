@@ -1,5 +1,4 @@
 #
-# Copyright 2022 The HuggingFace Inc. team.
 # SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
@@ -28,7 +27,7 @@ import time
 import torch
 from transformers import CLIPTokenizer
 import tensorrt as trt
-from utilities import Engine, Scheduler, save_image, TRT_LOGGER
+from utilities import Engine, DPMScheduler, LMSDiscreteScheduler, save_image, TRT_LOGGER
 
 def parseArgs():
     parser = argparse.ArgumentParser(description="Options for Stable Diffusion Demo")
@@ -41,6 +40,7 @@ def parseArgs():
     parser.add_argument('--denoise-prec', type=str, default='fp16', choices=['fp32', 'fp16'], help="UNet model precision")
     parser.add_argument('--negative-prompt', nargs = '*', default=[''], help="The negative prompt(s) to guide the image generation.")
     parser.add_argument('--repeat-prompt', type=int, default=1, choices=[1, 2, 4, 8, 16], help="Number of times to repeat the prompt (batch size multiplier)")
+    parser.add_argument('--scheduler', type=str, default="LMSD", choices=["LMSD", "DPM"], help="Scheduler for diffusion process")
 
     # ONNX export
     parser.add_argument('--onnx-opset', type=int, default=16, choices=range(7,18), help="Select ONNX opset version to target for exported models")
@@ -56,6 +56,7 @@ def parseArgs():
     parser.add_argument('--engine-dir', default='engine', help="Output directory for TensorRT engines")
     parser.add_argument('--num-warmup-runs', type=int, default=5, help="Number of warmup runs before benchmarking performance")
     parser.add_argument('--profile', action='store_true', help="Enable performance profiling")
+    parser.add_argument('--seed', type=int, default=None, help="Seed for random generator to get consistent results")
 
     parser.add_argument('--output-dir', default='output', help="Output directory for logs and image artifacts")
     parser.add_argument('--hf-token', type=str, help="HuggingFace API token to use for downloading checkpoints")
@@ -71,6 +72,7 @@ class DemoDiffusion:
         image_height,
         image_width,
         denoising_steps,
+        scheduler="LMSD",
         denoising_fp16=True,
         guidance_scale=7.5,
         device='cuda',
@@ -109,7 +111,7 @@ class DemoDiffusion:
         """
 
         if image_height % 8 != 0 or image_width % 8 != 0:
-            raise ValueError(f"Image height and width have to be divisible by 8 but specified as: {height} and {width}.")
+            raise ValueError(f"Image height and width have to be divisible by 8 but specified as: {image_height} and {image_width}.")
         # Spatial dimensions of latent tensor
         self.latent_height = image_height // 8
         self.latent_width = image_width // 8
@@ -129,10 +131,15 @@ class DemoDiffusion:
         self.profile = profile
 
         # A scheduler to be used in combination with unet to denoise the encoded image latens.
-        # This demo uses an adaptation of LMSDiscreteScheduler:
-        #   LMSDiscreteScheduler(beta_start=0.00085, beta_end=0.012, beta_schedule="scaled_linear", num_train_timesteps=1000)
-        lms_opts = {'beta_start': 0.00085, 'beta_end': 0.012, 'num_train_timesteps': 1000}
-        self.scheduler = Scheduler(device=self.device, **lms_opts)
+        # This demo uses an adaptation of LMSDiscreteScheduler or DPMScheduler:
+        sched_opts = {'num_train_timesteps': 1000, 'beta_start': 0.00085, 'beta_end': 0.012}
+        if scheduler == "DPM":
+            self.scheduler = DPMScheduler(device=self.device, **sched_opts)
+        elif scheduler == "LMSD":
+            self.scheduler = LMSDiscreteScheduler(device=self.device, **sched_opts)
+        else:
+            raise ValueError(f"Scheduler should be either DPM or LMSD")
+
         self.tokenizer = None
 
         self.unet_model_key = 'unet_fp16' if denoising_fp16 else 'unet'
@@ -240,8 +247,7 @@ class DemoDiffusion:
         self.tokenizer = CLIPTokenizer.from_pretrained("openai/clip-vit-large-patch14")
         self.scheduler.set_timesteps(self.denoising_steps)
         # Pre-compute latent input scales and linear multistep coefficients
-        self.latent_input_scales = self.scheduler.get_latent_scales()
-        self.lms_coeffs = self.scheduler.get_lms_coefficients()
+        self.scheduler.configure()
 
     def runEngine(self, model_name, feed_dict):
         engine = self.engine[model_name]
@@ -267,29 +273,33 @@ class DemoDiffusion:
             verbose (bool):
                 Enable verbose logging.
         """
-        # process inputs
+        # Process inputs
         batch_size = len(prompt)
         assert len(prompt) == len(negative_prompt)
 
-        # create profiling events
+        # Create profiling events
         events = {}
         for stage in ['clip', 'denoise', 'vae']:
             for marker in ['start', 'stop']:
                 events[stage+'-'+marker] = cudart.cudaEventCreate()[1]
 
-        # allocate buffers for TensorRT engine bindings
+        # Allocate buffers for TensorRT engine bindings
         for model_name, obj in self.models.items():
             self.engine[model_name].allocate_buffers(shape_dict=obj.get_shape_dict(batch_size=batch_size), device=self.device)
 
-        # run stable diffusion pipeline
+        generator = None
+        if args.seed is not None:
+            generator = torch.Generator(device="cuda").manual_seed(args.seed) 
+
+        # Run Stable Diffusion pipeline
         with torch.inference_mode(), torch.autocast("cuda"), trt.Runtime(TRT_LOGGER) as runtime:
-            # latents need to be generated in the target device
+            # latents need to be generated on the target device
             unet_channels = 4 # unet.in_channels
             latents_shape = (batch_size * self.num_images, unet_channels, self.latent_height, self.latent_width)
             latents_dtype = torch.float32 # text_embeddings.dtype
-            latents = torch.randn(latents_shape, device=self.device, dtype=latents_dtype)
+            latents = torch.randn(latents_shape, device=self.device, dtype=latents_dtype, generator=generator)
 
-            # scale the initial noise by the standard deviation required by the scheduler
+            # Scale the initial noise by the standard deviation required by the scheduler
             latents = latents * self.scheduler.init_noise_sigma
 
             torch.cuda.synchronize()
@@ -298,7 +308,7 @@ class DemoDiffusion:
             if self.profile:
                 nvtx_clip = nvtx.start_range(message='clip', color='green')
             cudart.cudaEventRecord(events['clip-start'], 0)
-            # tokenize input
+            # Tokenize input
             text_input_ids = self.tokenizer(
                 prompt,
                 padding="max_length",
@@ -310,7 +320,7 @@ class DemoDiffusion:
             text_input_ids_inp = cuda.DeviceView(ptr=text_input_ids.data_ptr(), shape=text_input_ids.shape, dtype=np.int32)
             text_embeddings = self.runEngine('clip', {"input_ids": text_input_ids_inp})['text_embeddings']
 
-            # duplicate text embeddings for each generation per prompt, using mps friendly method
+            # Duplicate text embeddings for each generation per prompt
             bs_embed, seq_len, _ = text_embeddings.shape
             text_embeddings = text_embeddings.repeat(1, self.num_images, 1)
             text_embeddings = text_embeddings.view(bs_embed * self.num_images, seq_len, -1)
@@ -326,13 +336,12 @@ class DemoDiffusion:
             uncond_input_ids_inp = cuda.DeviceView(ptr=uncond_input_ids.data_ptr(), shape=uncond_input_ids.shape, dtype=np.int32)
             uncond_embeddings = self.runEngine('clip', {"input_ids": uncond_input_ids_inp})['text_embeddings']
 
-            # duplicate unconditional embeddings for each generation per prompt, using mps friendly method
+            # Duplicate unconditional embeddings for each generation per prompt
             seq_len = uncond_embeddings.shape[1]
             uncond_embeddings = uncond_embeddings.repeat(1, self.num_images, 1)
             uncond_embeddings = uncond_embeddings.view(batch_size * self.num_images, seq_len, -1)
 
-            # For classifier free guidance, we need to do two forward passes.
-            # Here we concatenate the unconditional and text embeddings into a single batch to avoid doing two forward passes
+            # Concatenate the unconditional and text embeddings into a single batch to avoid doing two forward passes for classifier free guidance
             text_embeddings = torch.cat([uncond_embeddings, text_embeddings])
 
             if self.denoising_fp16:
@@ -343,13 +352,13 @@ class DemoDiffusion:
                 nvtx.end_range(nvtx_clip)
 
             cudart.cudaEventRecord(events['denoise-start'], 0)
-            for step_index, t in enumerate(self.scheduler.timesteps):
+            for step_index, timestep in enumerate(self.scheduler.timesteps):
                 if self.profile:
                     nvtx_latent_scale = nvtx.start_range(message='latent_scale', color='pink')
                 # expand the latents if we are doing classifier free guidance
                 latent_model_input = torch.cat([latents] * 2)
                 # LMSDiscreteScheduler.scale_model_input()
-                latent_model_input = latent_model_input * self.latent_input_scales[step_index]
+                latent_model_input = self.scheduler.scale_model_input(latent_model_input, step_index)
                 if self.profile:
                     nvtx.end_range(nvtx_latent_scale)
 
@@ -357,8 +366,12 @@ class DemoDiffusion:
                 if self.profile:
                     nvtx_unet = nvtx.start_range(message='unet', color='blue')
                 dtype = np.float16 if self.denoising_fp16 else np.float32
+                if timestep.dtype != torch.float32:
+                    timestep_float = timestep.float()
+                else:
+                    timestep_float = timestep
                 sample_inp = cuda.DeviceView(ptr=latent_model_input.data_ptr(), shape=latent_model_input.shape, dtype=np.float32)
-                timestep_inp = cuda.DeviceView(ptr=t.data_ptr(), shape=t.shape, dtype=np.float32)
+                timestep_inp = cuda.DeviceView(ptr=timestep_float.data_ptr(), shape=timestep_float.shape, dtype=np.float32)
                 embeddings_inp = cuda.DeviceView(ptr=text_embeddings.data_ptr(), shape=text_embeddings.shape, dtype=dtype)
                 noise_pred = self.runEngine(self.unet_model_key, {"sample": sample_inp, "timestep": timestep_inp, "encoder_hidden_states": embeddings_inp})['latent']
                 if self.profile:
@@ -366,25 +379,12 @@ class DemoDiffusion:
 
                 if self.profile:
                     nvtx_latent_step = nvtx.start_range(message='latent_step', color='pink')
-                # perform guidance
+                # Perform guidance
                 noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
                 noise_pred = noise_pred_uncond + self.guidance_scale * (noise_pred_text - noise_pred_uncond)
 
-                # compute the previous noisy sample x_t -> x_t-1
-                # 1. compute predicted original sample (x_0) from sigma-scaled predicted noise
-                sigma = self.scheduler.sigmas[step_index]
-                pred_original_sample = latents - sigma * noise_pred
-                # 2. Convert to an ODE derivative
-                derivative = (latents - pred_original_sample) / sigma
-                self.scheduler.derivatives.append(derivative)
-                if len(self.scheduler.derivatives) > self.scheduler.order:
-                    self.scheduler.derivatives.pop(0)
-                # 3. Compute previous sample based on the derivatives path
-                prev_sample = latents + sum(
-                   coeff * derivative for coeff, derivative in zip(self.lms_coeffs[step_index], reversed(self.scheduler.derivatives))
-                )
+                latents = self.scheduler.step(noise_pred, latents, step_index, timestep)
 
-                latents = prev_sample
                 if self.profile:
                     nvtx.end_range(nvtx_latent_step)
 
@@ -444,6 +444,7 @@ if __name__ == "__main__":
         denoising_steps=args.steps,
         denoising_fp16=(args.denoise_prec == 'fp16'),
         output_dir=args.output_dir,
+        scheduler=args.scheduler,
         hf_token=args.hf_token,
         verbose=args.verbose,
         profile=args.profile)
