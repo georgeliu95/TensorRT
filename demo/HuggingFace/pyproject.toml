@@ -17,6 +17,8 @@ secondary = true
 
 [tool.poetry.dependencies]
 python = ">=3.7,<4"
+numpy = [{version = ">=1.23.5", python = ">=3.8"},
+         {version = "*", python = "<3.8"}]
 transformers = "4.8.0"
 torch = "<=1.11"
 tabulate = "^0.9.0"
