@@ -110,7 +110,7 @@ void logError(const char* msg, const char* file, const char* fn, int line)
 void reportValidationFailure(char const* msg, char const* file, int line)
 {
     std::ostringstream stream;
-    stream << "Validation failed: " << msg << "\n" << file << ':' << line;
+    stream << "Validation failed: " << msg << "\n" << file << ':' << line << "\n";
 #ifdef COMPILE_VFC_PLUGIN
     ILogger* logger = getPluginLogger();
     if (logger != nullptr)
