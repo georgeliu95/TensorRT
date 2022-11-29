@@ -229,6 +229,7 @@ class DemoDiffusion:
             else:
                 print(f"Found cached optimized model: {onnx_opt_path} ")
 
+        # Build engines
         for model_name, obj in self.models.items():
             engine = Engine(model_name, engine_dir)
             if force_build or not os.path.exists(engine.engine_path):
@@ -238,6 +239,10 @@ class DemoDiffusion:
                 engine.build(onnx_path, fp16=True, \
                     input_profile=obj.get_input_profile(batch_size=opt_batch_size, static_batch=static_batch), \
                     enable_preview=enable_preview)
+
+        # Load engines
+        for model_name, obj in self.models.items():
+            engine = Engine(model_name, engine_dir)
             engine.activate()
             self.engine[model_name] = engine
 

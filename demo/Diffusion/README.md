@@ -8,7 +8,7 @@ This demo application ("demoDiffusion") showcases the acceleration of [Stable Di
 
 ```bash
 git clone git@github.com:NVIDIA/TensorRT.git -b release/8.5 --single-branch
-cd oss
+cd TensorRT
 git submodule update --init --recursive
 ```
 
@@ -23,6 +23,7 @@ docker run --rm -it --gpus all -v $PWD:/workspace nvcr.io/nvidia/tensorrt:22.10-
 ### (Optional) Install latest TensorRT release
 
 ```bash
+python3 -m pip install --upgrade pip
 python3 -m pip install --upgrade tensorrt
 ```
 > NOTE: Alternatively, you can download and install TensorRT packages from [NVIDIA TensorRT Developer Zone](https://developer.nvidia.com/tensorrt).
@@ -47,7 +48,6 @@ export PLUGIN_LIBS="$TRT_OSSPATH/build/out/libnvinfer_plugin.so"
 
 ```bash
 cd $TRT_OSSPATH/demo/Diffusion
-pip3 install --upgrade pip
 pip3 install -r requirements.txt
 
 # Create output directories
@@ -96,6 +96,6 @@ LD_PRELOAD=${PLUGIN_LIBS} python3 demo-diffusion.py "a beautiful photograph of M
 
 # Restrictions
 
-- The demo supports upto 16 simultaneous prompts (maximum batch size) per inference.
+- This demo supports upto 16 simultaneous prompts (maximum batch size) per inference.
 - TensorRT engines must be re-generated if the image dimensions change (default = 512x512)
-  - Dynamic image shapes will be supported in our subsequent release.
+  - Dynamic image shapes will be supported in a subsequent release.

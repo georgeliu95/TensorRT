@@ -1,4 +1,4 @@
 __pycache__/
 onnx/*.onnx
-**/*.so
-**/*.d
+engine/*.plan
+output/*.png
