@@ -31,7 +31,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ENABLED_SMS}")
 set(PLUGIN_SOURCES)
 set(PLUGIN_CU_SOURCES)
 
-
 set(PLUGIN_LISTS
     batchTilePlugin
     batchedNMSPlugin
@@ -84,7 +83,7 @@ if(BERT_GENCODES)
     include_directories(bertQKVToContextPlugin/fused_multihead_attention/include bertQKVToContextPlugin/fused_multihead_attention_v2/include)
 endif()
 
-# Add Stable Diffusion sources if ${BERT_GENCODES} was populated
+# Add Stable Diffusion sources if ${STABLE_DIFFUSION_GENCODES} was populated
 if(STABLE_DIFFUSION_GENCODES)
     set(STABLE_DIFFUSION_CU_SOURCES)
     set(PLUGIN_LISTS
