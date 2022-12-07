@@ -46,6 +46,7 @@ using namespace nvinfer1::plugin;
 #include "instanceNormalizationPlugin.h"
 #include "layerNormPlugin.h"
 #include "lReluPlugin.h"
+#include "multiHeadFlashAttentionPlugin/fmhaPlugin.h"
 #include "multilevelCropAndResizePlugin.h"
 #include "multilevelProposeROIPlugin.h"
 #include "multiscaleDeformableAttnPlugin.h"
@@ -191,8 +192,9 @@ extern "C"
         initializePlugin<nvinfer1::plugin::EfficientNMSImplicitTFTRTPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::FlattenConcatPluginCreator>(logger, libNamespace);
 #if defined(ENABLE_SM75) || defined(ENABLE_SM80) || defined(ENABLE_SM86) || defined(ENABLE_SM89)
+        initializePlugin<nvinfer1::plugin::FMHAPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::FMHCAPluginCreator>(logger, libNamespace);
-#endif // defined(ENABLE_SM80) || defined(ENABLE_SM86) || defined(ENABLE_SM89)
+#endif // defined(ENABLE_SM75) || defined(ENABLE_SM80) || defined(ENABLE_SM86) || defined(ENABLE_SM89)
         initializePlugin<nvinfer1::plugin::GenerateDetectionPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::GridAnchorPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::GridAnchorRectPluginCreator>(logger, libNamespace);
