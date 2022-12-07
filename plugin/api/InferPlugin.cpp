@@ -39,6 +39,7 @@ using namespace nvinfer1::plugin;
 #include "tftrt/efficientNMSImplicitTFTRTPlugin.h"
 #include "tftrt/efficientNMSExplicitTFTRTPlugin.h"
 #include "flattenConcat.h"
+#include "fmhcaPlugin.h"
 #include "generateDetectionPlugin.h"
 #include "gridAnchorPlugin.h"
 #include "groupNormPlugin.h"
@@ -189,6 +190,9 @@ extern "C"
         initializePlugin<nvinfer1::plugin::EfficientNMSExplicitTFTRTPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::EfficientNMSImplicitTFTRTPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::FlattenConcatPluginCreator>(logger, libNamespace);
+#if defined(ENABLE_SM75) || defined(ENABLE_SM80) || defined(ENABLE_SM86) || defined(ENABLE_SM89)
+        initializePlugin<nvinfer1::plugin::FMHCAPluginCreator>(logger, libNamespace);
+#endif // defined(ENABLE_SM80) || defined(ENABLE_SM86) || defined(ENABLE_SM89)
         initializePlugin<nvinfer1::plugin::GenerateDetectionPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::GridAnchorPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::GridAnchorRectPluginCreator>(logger, libNamespace);
