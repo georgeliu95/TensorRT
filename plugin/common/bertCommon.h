@@ -61,6 +61,8 @@ constexpr int32_t kSM_75 = 75;
 constexpr int32_t kSM_80 = 80;
 constexpr int32_t kSM_86 = 86;
 constexpr int32_t kSM_87 = 87;
+constexpr int32_t kSM_89 = 89;
+constexpr int32_t kSM_90 = 90;
 
 // For full mask mode, we must produce the compressed mask format expected by the fused attention path. Currently, only
 // two sequence lengths are supported. We hard code the sizes here.
@@ -96,7 +98,7 @@ inline int getMHAMaskPackedSize(int smVersion, nvinfer1::DataType dataType, int 
 {
     // this code must match EmbLayerNormPluginDynamic::getOutputDimensions in embLayerNormPlugin.cpp
     int packedSize = unfusedMaskSize;
-    bool isSmOK = (smVersion == kSM_75 || smVersion == kSM_80 || smVersion == kSM_86 || smVersion == kSM_87);
+    bool isSmOK = (smVersion == kSM_75 || smVersion == kSM_80 || smVersion == kSM_86 || smVersion == kSM_87 || smVersion == kSM_90);
     bool isPrecisionOK = (dataType == nvinfer1::DataType::kINT8 || dataType == nvinfer1::DataType::kHALF);
     if (isSmOK && isPrecisionOK)
     {

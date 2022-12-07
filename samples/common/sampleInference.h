@@ -83,7 +83,7 @@ inline nvinfer1::safe::IExecutionContext* InferenceEnvironment::getContext(int32
 //!
 //! \brief Set up contexts and bindings for inference
 //!
-bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inference);
+bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inference, SystemOptions const& system);
 
 //!
 //! \brief Deserialize the engine and time how long it takes.
@@ -233,6 +233,8 @@ public:
     std::unordered_map<std::string, int> getBindings(std::function<bool(Binding const&)> predicate) const;
 
     bool setTensorAddresses(nvinfer1::IExecutionContext& context) const;
+
+    bool setSafeTensorAddresses(nvinfer1::safe::IExecutionContext& context) const;
 
 private:
     std::unordered_map<std::string, int32_t> mNames;

@@ -302,7 +302,7 @@ int main(int argc, char** argv)
         }
     }
 
-    if (!setUpInference(*iEnv, options.inference))
+    if (!setUpInference(*iEnv, options.inference, options.system))
     {
         sample::gLogError << "Inference set up failed" << std::endl;
         return sample::gLogger.reportFail(sampleTest);

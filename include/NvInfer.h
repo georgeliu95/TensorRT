@@ -5936,7 +5936,7 @@ protected:
 //! The subgraph which terminates with the \p scale tensor must be a build-time constant.  The same restrictions apply
 //! to the \p zeroPt.
 //! The output type, if constrained, must be constrained to DataType::kINT8. The input type, if constrained, must be
-//! constrained to DataType::kFLOAT (FP16 input is not supported).
+//! constrained to DataType::kFLOAT or DataType::kHALF.
 //! The output size is the same as the input size. The quantization axis is in reference to the input tensor's
 //! dimensions.
 //!
@@ -6021,13 +6021,12 @@ protected:
 //!
 //! The subgraph which terminates with the \p scale tensor must be a build-time constant.  The same restrictions apply
 //! to the \p zeroPt.
-//! The output type, if constrained, must be constrained to DataType::kINT8. The input type, if constrained, must be
-//! constrained to DataType::kFLOAT (FP16 input is not supported).
-//! The output size is the same as the input size. The quantization axis is in reference to the input tensor's
-//! dimensions.
+//! The output type, if constrained, must be constrained to DataType::kFLOAT or DataType::kHALF. The input type, if
+//! constrained, must be constrained to DataType::kINT8. The output size is the same as the input size. The quantization
+//! axis is in reference to the input tensor's dimensions.
 //!
 //! IDequantizeLayer only supports DataType::kINT8 precision and will default to this precision during instantiation.
-//! IDequantizeLayer only supports DataType::kFLOAT output.
+//! IDequantizeLayer only supports DataType::kFLOAT or DataType::kHALF output.
 //!
 //! As an example of the operation of this layer, imagine a 4D NCHW activation input which can be quantized using a
 //! single scale coefficient (referred to as per-tensor quantization):
@@ -6328,15 +6327,17 @@ public:
 protected:
     apiv::VOneHotLayer* mImpl;
 };
+
 //! \class IGridSampleLayer
 //!
 //! \brief A GridSample layer in a network definition.
 //!
 //! This layer uses an input tensor and a grid tensor to produce an interpolated output tensor.
+//! The input and grid tensors must be shape tensors of rank 4. The only supported SampleMode
+//! values are SampleMode::kCLAMP, SampleMode::kFILL, and SampleMode::kREFLECT.
 //!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
-
 class IGridSampleLayer : public ILayer
 {
 public:
@@ -6354,6 +6355,8 @@ public:
     //! \brief Get the grid sample interpolation mode.
     //!
     //! \see setInterpolationMode()
+    //!
+    //! \return The value specified by setInterpolationMode, or InterpolationMode::kLINEAR otherwise.
     //!
     InterpolationMode getInterpolationMode() const noexcept
     {
@@ -6375,6 +6378,8 @@ public:
     //!
     //! \see setAlignCorners()
     //!
+    //! \return The value specified by setAlignCorners(), or false otherwise.
+    //!
     bool getAlignCorners() const noexcept
     {
         return mImpl->getAlignCorners();
@@ -6385,7 +6390,8 @@ public:
     //!
     //! \see getSampleMode()
     //!
-    //! \return True if layer's sample mode was set to mode, False otherwise
+    //! \return true if layer's sample mode was set to mode, false otherwise.
+    //!
     bool setSampleMode(SampleMode mode) noexcept
     {
         return mImpl->setSampleMode(mode);
@@ -6395,6 +6401,8 @@ public:
     //! \brief Get the sample mode.
     //!
     //! \see setSampleMode()
+    //!
+    //! \returns the value specified by a successful call to setSampleMode(), or SampleMode::kFILL otherwise.
     //!
     SampleMode getSampleMode() const noexcept
     {
@@ -7575,9 +7583,6 @@ public:
     //!
     //! \deprecated Deprecated in TensorRT 8.0.
     //!
-    //! hasExplicitPrecision() is true if and only if this INetworkDefinition
-    //! was created with createNetworkV2() with NetworkDefinitionCreationFlag::kEXPLICIT_PRECISION set.
-    //!
     //! \see createNetworkV2
     //!
     //! \return True if network has explicit precision, false otherwise.
@@ -7666,6 +7671,11 @@ public:
     //! \param op The fill operation that the layer applies.
     //!
     //! \warning For FillOperation::kLINSPACE, dimensions.nbDims must be 1.
+    //!
+    //! This layer is non-deterministic across subsequent calls as the same inputs will produce different
+    //! output tensors if \p op is either FillOperation::kRANDOM_UNIFORM or FillOperation::kRANDOM_NORMAL
+    //! due to random state being shared across calls. The output tensors generated are determinstic when
+    //! starting from the same initial state.
     //!
     //! The network must not have an implicit batch dimension.
     //!
@@ -7845,7 +7855,8 @@ public:
     //! \param grid The grid tensor to the layer.
     //! \see IGridSampleLayer
     //!
-    //! Currently only inputs with 4d shapes are supported
+    //! Creates a GridSample layer with a InterpolationMode::kLINEAR, unaligned corners,
+    //! and SampleMode::kFILL for 4d-shape input tensors.
     //!
     //! \return The new GridSample layer, or nullptr if it could not be created.
     //!

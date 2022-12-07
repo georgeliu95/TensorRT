@@ -46,7 +46,7 @@ DEB_PACKAGES_CROSS_SBSA=[
     "libnvparsers8-cross-sbsa_8.5.1-1+cuda11.8_all.deb",
 ]
 
-ROOT_URL = "http://cuda-repo/release-candidates/Libraries/TensorRT/v8.5/8.5.1.1-78a84d23/"
+ROOT_URL = "http://cuda-repo/release-candidates/Libraries/TensorRT/v8.5/8.5.1.7-d95eb1a4/"
 
 def get_cuda_props(cuda_ver):
     assert len(cuda_ver) >= 4
@@ -60,7 +60,7 @@ def get_cuda_props(cuda_ver):
         exit(-1)
 
 def get_arch_props(os):
-    if os == "20.04" or os == "18.04":
+    if os == "22.04" or os == "20.04" or os == "18.04":
         return "amd64", "Ubuntu{ver}-x64-agnostic".format(ver=os.replace(".", "_")), "deb", "+", "_", False
     elif os == "7":
         return "x86_64", "RHEL7_9-x64-agnostic", "rpm", ".", ".", True

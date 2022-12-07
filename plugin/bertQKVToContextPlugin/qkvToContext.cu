@@ -913,7 +913,7 @@ public:
         , sm(interface->mSm)
         , xmmaKernel(getXMMAKernelsV2(DATA_TYPE_FP16, sm))
     {
-        assert((sm == kSM_72 || sm == kSM_75 || sm == kSM_80 || sm == kSM_86 || sm == kSM_87)
+        assert((sm == kSM_72 || sm == kSM_75 || sm == kSM_80 || sm == kSM_86 || sm == kSM_87 || sm == kSM_89 || sm == kSM_90)
             && "Unsupported architecture");
         params.clear();
     }
@@ -1074,7 +1074,7 @@ public:
         , xmmas_n(0U)
         , threads_per_cta(1U)
     {
-        assert((sm == kSM_72 || sm == kSM_75 || sm == kSM_80 || sm == kSM_86 || sm == kSM_87)
+        assert((sm == kSM_72 || sm == kSM_75 || sm == kSM_80 || sm == kSM_86 || sm == kSM_87 || sm == kSM_89 || sm == kSM_90)
             && "Unsupported architecture");
         params.clear();
     }

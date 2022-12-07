@@ -63,7 +63,7 @@ QKVToContextInterleavedPlugin::QKVToContextInterleavedPlugin(
     // variable sequence length is only supported with the fused MHA kernels
     // we should not override mS!
     PLUGIN_VALIDATE((mSM == kSM_AMPERE_100 || mSM == kSM_AMPERE_10X || mSM == kSM_AMPERE_10B || mSM == kSM_TURING
-               || mSM == kSM_XAVIER)
+               || mSM == kSM_XAVIER || mSM == kSM_ADA_10X || mSM == kSM_HOPPER_100)
         && "requesting maxSeqlen not compatible with GPU arch");
     // the layout changes: SxB will be a combined \sum_i s_i and hdim will be the 2nd dimension instead of the third
     mXmmaKernel = getXMMAKernelsV2(DATA_TYPE_INT8, mSM);
@@ -279,8 +279,16 @@ int QKVToContextInterleavedPlugin::enqueue(const PluginTensorDesc* inputDesc, co
     params.enable_i2f_trick
         = -double(1 << 22) * double(scaleBmm2) <= -128.F && double(1 << 22) * double(scaleBmm2) >= 127.F;
 
-    mXmmaKernel->run(params, stream);
-    return cudaPeekAtLastError();
+    try
+    {
+        mXmmaKernel->run(params, stream);
+        return cudaPeekAtLastError();
+    }
+    catch (std::exception const& e)
+    {
+        caughtError(e);
+        return -1;
+    }
 }
 
 QKVToContextInterleavedPluginCreator::QKVToContextInterleavedPluginCreator()
@@ -315,7 +323,10 @@ IPluginV2* QKVToContextInterleavedPluginCreator::createPlugin(const char* name, 
     try
     {
         int32_t hiddenSize = 0;
-        int32_t numHeads = 0;
+        // Since numHeads must always exist or validateRequiredAttributes will fail,
+        // we can set numHeads to -1 so that static analysis tools don't warn about
+        // a division by zero in QKVToContextInterleavedPlugin constructor.
+        int32_t numHeads{-1};
 
         float dqProbs = -1;
         int32_t useInt8ScaleMax{-1};

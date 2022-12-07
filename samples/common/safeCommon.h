@@ -48,8 +48,8 @@
         }                                                                                                              \
     } while (0)
 
-#undef ASSERT
-#define ASSERT(condition)                                                   \
+#undef SAFE_ASSERT
+#define SAFE_ASSERT(condition)                                                   \
     do                                                                      \
     {                                                                       \
         if (!(condition))                                                   \
@@ -166,12 +166,12 @@ public:
         const auto ret = cudaStreamEndCapture(stream, &mGraph);
         if (ret == cudaErrorStreamCaptureInvalidated)
         {
-            ASSERT(mGraph == nullptr);
+            SAFE_ASSERT(mGraph == nullptr);
         }
         else
         {
-            ASSERT(ret == cudaSuccess);
-            ASSERT(mGraph != nullptr);
+            SAFE_ASSERT(ret == cudaSuccess);
+            SAFE_ASSERT(mGraph != nullptr);
             CHECK(cudaGraphDestroy(mGraph));
             mGraph = nullptr;
         }

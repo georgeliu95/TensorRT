@@ -33,7 +33,15 @@ else:
 def load_plugin_lib():
     for plugin_lib in HARDMAX_PLUGIN_LIBRARY:
         if os.path.isfile(plugin_lib):
-            ctypes.CDLL(plugin_lib, winmode=0)
+            try:
+                # Python specifies that winmode is 0 by default, but some implementations
+                # incorrectly default to None instead. See:
+                # https://docs.python.org/3.8/library/ctypes.html
+                # https://github.com/python/cpython/blob/3.10/Lib/ctypes/__init__.py#L343
+                ctypes.CDLL(plugin_lib, winmode=0)
+            except TypeError:
+                # winmode only introduced in python 3.8
+                ctypes.CDLL(plugin_lib)
             return
 
     raise IOError(

@@ -37,6 +37,7 @@ from torch.nn import Module
 # huggingface
 from transformers.generation_utils import GenerationMixin
 from transformers.modeling_outputs import Seq2SeqLMOutput
+from transformers import BartForConditionalGeneration
 
 # TRT-HuggingFace
 from BART.BARTModelConfig import BARTModelTRTConfig
@@ -121,6 +122,10 @@ class BARTDecoderTorchFile(TorchModelFile):
             self.bias = final_logits_bias
             self.config = config
 
+        @staticmethod
+        def _reorder_cache(past, beam_idx):
+            return BartForConditionalGeneration._reorder_cache(past, beam_idx)
+            
         def prepare_inputs_for_generation(self, input_ids, past=None, use_cache=None, **kwargs):
             # cut decoder_input_ids if past is used
             if past is not None:
@@ -294,7 +299,10 @@ class BARTDecoderConverter(ModelFileConverter):
             torch.onnx.export(
                 decoder_with_lm_head_and_bias,
                 (input_ids[:,-1:], encoder_hidden_states,past_key_values),
-                # (1) input_ids should be the t token (last one) while past_key_values is 0 to t-1 caches (2) since past_key_values is kwargs, ideally use "(input_ids[:,-1:], encoder_hidden_states, {"past_key_values": past_key_values})", but onnx.export seems to unable to take kwargs properly (although PyTorch 1.11 claims it supports already). Therefore, we need to wrap inside _export_forward() and make past_key_values indeed a kwargs
+                # (1) input_ids should be the t token (last one) while past_key_values is 0 to t-1 caches 
+                # (2) since past_key_values is kwargs, ideally use "(input_ids[:,-1:], encoder_hidden_states, {"past_key_values": past_key_values})",
+                # but onnx.export seems to unable to take kwargs properly (although PyTorch 1.11 claims it supports already). 
+                # Therefore, we need to wrap inside _export_forward() and make past_key_values indeed a kwargs
                 output_fpath,
                 export_params=True,
                 opset_version=12,

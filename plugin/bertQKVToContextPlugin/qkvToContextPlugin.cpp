@@ -174,9 +174,9 @@ bool QKVToContextPluginDynamic::supportsFormatCombination(
     // we only support int8 IO in fused mha runner, and we only support fused mha runner on Xavier, Turing and Ampere
     if (mType == DataType::kINT8)
     {
-        if (mSM != kSM_75 && mSM != kSM_80 && mSM != kSM_86 && mSM != kSM_87)
+        if (mSM != kSM_75 && mSM != kSM_80 && mSM != kSM_86 && mSM != kSM_87 && mSM != kSM_89 && mSM != kSM_90)
         {
-            gLogError << "INT8 IO is only supported on Turing and Ampere for plugin " << QKV_TO_CONTEXT_PLUGIN_NAME
+            gLogError << "INT8 IO is only supported on Turing, Ampere and Hopper for plugin " << QKV_TO_CONTEXT_PLUGIN_NAME
                       << std::endl;
             return false;
         }
@@ -439,15 +439,23 @@ int32_t QKVToContextPluginDynamic::enqueue(const PluginTensorDesc* inputDesc, co
     PLUGIN_ASSERT(mS == inputDesc->dims.d[SDIM]);
     PLUGIN_ASSERT(mB == inputDesc->dims.d[BDIM]);
 
-    const void* maskPtr = mHasImask ? inputs[1] : nullptr;
-    if (fusedDispatcher.get() && fusedDispatcher->isValid(inputDesc->dims.d[SDIM]))
+    try
     {
-        fusedDispatcher->run(inputDesc[0], outputDesc[0], inputs[0], maskPtr, outputs[0], workspace, stream);
+        void const* const maskPtr = mHasImask ? inputs[1] : nullptr;
+        if (fusedDispatcher.get() && fusedDispatcher->isValid(inputDesc->dims.d[SDIM]))
+        {
+            fusedDispatcher->run(inputDesc[0], outputDesc[0], inputs[0], maskPtr, outputs[0], workspace, stream);
+        }
+        else
+        {
+            PLUGIN_VALIDATE(unfusedDispatcher.get(), "The Unfused MHARunner is uninitialized, no MHARunner available!");
+            unfusedDispatcher->run(inputDesc[0], outputDesc[0], inputs[0], maskPtr, outputs[0], workspace, stream);
+        }
     }
-    else
+    catch (std::exception const& e)
     {
-        PLUGIN_ASSERT(unfusedDispatcher.get());
-        unfusedDispatcher->run(inputDesc[0], outputDesc[0], inputs[0], maskPtr, outputs[0], workspace, stream);
+        caughtError(e);
+        return -1;
     }
     return 0;
 }
@@ -486,7 +494,10 @@ IPluginV2* QKVToContextPluginDynamicCreator::createPlugin(const char* name, cons
         BERT_DEBUG_MSG("Creating QKV2ContextPlugin...");
         PLUGIN_VALIDATE(fc != nullptr);
         int32_t hiddenSize = 0;
-        int32_t numHeads = 0;
+        // Since numHeads must always exist or validateRequiredAttributes will fail,
+        // we can set numHeads to -1 so that static analysis tools don't warn about
+        // a division by zero in QKVToContextPluginDynamic constructor.
+        int32_t numHeads{-1};
         bool hasMask = false;
         int32_t typeId = -1;
 
@@ -593,7 +604,7 @@ QKVToContextVarSeqlenPlugin::QKVToContextVarSeqlenPlugin(std::string const name,
     {
         // variable sequence length is only supported with the fused MHA kernels
         // we should not override mS!
-        PLUGIN_ASSERT((mSM == kSM_87 || mSM == kSM_86 || mSM == kSM_80 || mSM == kSM_75 || mSM == kSM_72)
+        PLUGIN_ASSERT((mSM == kSM_90 || mSM == kSM_87 || mSM == kSM_86 || mSM == kSM_89 || mSM == kSM_80 || mSM == kSM_75 || mSM == kSM_72)
             && (type == DataType::kINT8 || type == DataType::kHALF)
             && "requesting maxSeqlen not compatible with GPU arch");
         // the layout changes: SxB will be a combined \sum_i s_i and hdim will be the 2nd dimension instead of the third
@@ -633,7 +644,7 @@ void QKVToContextVarSeqlenPlugin::createMHARunner()
         return;
     }
 
-    if (mSM == kSM_87 || mSM == kSM_86 || mSM == kSM_80 || mSM == kSM_75 || mSM == kSM_72)
+    if (mSM == kSM_90 || mSM == kSM_87 || mSM == kSM_86 || mSM == kSM_89 || mSM == kSM_80 || mSM == kSM_75 || mSM == kSM_72)
     {
         int32_t headSize = mHeadSize;
         if (mHeadSize != 32 && mHeadSize != 64)
@@ -700,7 +711,7 @@ bool QKVToContextVarSeqlenPlugin::supportsFormatCombination(
     int32_t pos, const PluginTensorDesc* inOut, int32_t nbInputs, int32_t nbOutputs) noexcept
 {
     // we only support int8 IO in fused mha runner, and we only support fused mha runner on Turing and Ampere
-    if (mType == DataType::kINT8 && mSM != kSM_87 && mSM != kSM_86 && mSM != kSM_80 && mSM != kSM_75 && mSM != kSM_72)
+    if (mType == DataType::kINT8 && mSM != kSM_90 && mSM != kSM_89 && mSM != kSM_87 && mSM != kSM_86 && mSM != kSM_80 && mSM != kSM_75 && mSM != kSM_72)
     {
         BERT_DEBUG_VALUE(
             "INT8 IO is only supported on Xavier, Turing and Ampere for plugin ", QKV_TO_CONTEXT_PLUGIN_NAME);
@@ -968,8 +979,16 @@ int32_t QKVToContextVarSeqlenPlugin::enqueue(const nvinfer1::PluginTensorDesc* i
 
             MhaRunParameter paddingArgs
                 = patcher->patchMhaArgs(inputDesc, outputDesc, inputs, outputs, paddingWorkspace, sumSeqLen, mNumHeads);
-            this->dispatcher->run(paddingArgs.inputDesc, paddingArgs.outputDesc, paddingArgs.inputs,
-                paddingArgs.outputs, workspace, stream);
+            try
+            {
+                this->dispatcher->run(paddingArgs.inputDesc, paddingArgs.outputDesc, paddingArgs.inputs,
+                    paddingArgs.outputs, workspace, stream);
+            }
+            catch (std::exception const& e)
+            {
+                caughtError(e);
+                return -1;
+            }
 
             ret = patcher->unpad(paddingArgs.outputs[0], outputs[0], sumSeqLen, mNumHeads, mHeadSize, stream);
             if (ret != cudaSuccess)
@@ -979,7 +998,15 @@ int32_t QKVToContextVarSeqlenPlugin::enqueue(const nvinfer1::PluginTensorDesc* i
         }
         else
         {
-            this->dispatcher->run(inputDesc, outputDesc, inputs, outputs, workspace, stream);
+            try
+            {
+                this->dispatcher->run(inputDesc, outputDesc, inputs, outputs, workspace, stream);
+            }
+            catch (std::exception const& e)
+            {
+                caughtError(e);
+                return -1;
+            }
         }
 
         return cudaGetLastError();
@@ -1030,7 +1057,10 @@ IPluginV2* QKVToContextVarSeqlenPluginCreator::createPlugin(const char* name, co
     BERT_DEBUG_MSG("Creating QKV2ContextPlugin...");
 
     int32_t hiddenSize = 0;
-    int32_t numHeads = 0;
+    // Since numHeads must always exist or validateRequiredAttributes will fail,
+    // we can set numHeads to -1 so that static analysis tools don't warn about
+    // a division by zero in QKVToContextVarSeqelnPlugin constructor.
+    int32_t numHeads{-1};
     bool hasMask = false;
     int32_t typeId = -1;
 

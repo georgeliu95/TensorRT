@@ -42,9 +42,9 @@ BenchmarkingResult = namedtuple(
     ["median_runtime", "models"],
 )
 
-"""CheckpointResult(network_results: List[NetworkResult], accuracy: float)"""
+"""CheckpointResult(network_results: List[NetworkResult], accuracy: float, perplexity: float)"""
 NetworkCheckpointResult = namedtuple(
-    "NetworkCheckpointResult", ["network_results", "accuracy"]
+    "NetworkCheckpointResult", ["network_results", "accuracy", "perplexity"]
 )
 
 # Tracks TRT Precision Config
@@ -54,8 +54,8 @@ Precision = namedtuple("Precision", ["fp16"])
 """NetworkMetadata(variant: str, precision: Precision, other: Union[namedtuple, None])"""
 NetworkMetadata = namedtuple("NetworkMetadata", ["variant", "precision", "other"])
 
-"""TimingProfile(iterations: int, repeat: int)"""
-TimingProfile = namedtuple("TimingProfile", ["iterations", "number", "warmup", "duration"])
+"""TimingProfile(iterations: int, number: int, warmup: int, duration: int, percentile: int or [int])"""
+TimingProfile = namedtuple("TimingProfile", ["iterations", "number", "warmup", "duration", "percentile"])
 
 
 """NetworkModel(name: str, fpath: str)"""

@@ -290,7 +290,7 @@ public:
     RndInt8Calibrator(int32_t batches, std::vector<int64_t>& elemCount, std::string const& cacheFile,
         nvinfer1::INetworkDefinition const& network, std::ostream& err);
 
-    ~RndInt8Calibrator()
+    ~RndInt8Calibrator() override
     {
         for (auto& elem : mInputDeviceBuffers)
         {
@@ -307,7 +307,7 @@ public:
 
     const void* readCalibrationCache(size_t& length) noexcept override;
 
-    virtual void writeCalibrationCache(const void*, size_t) noexcept override {}
+    void writeCalibrationCache(void const*, size_t) noexcept override {}
 
 private:
     int32_t mBatches{};
@@ -1071,20 +1071,21 @@ bool networkToSerializedEngine(
 //!
 //! \brief Parse a given model, create a network and an engine.
 //!
-bool modelToBuildEnv(
-    const ModelOptions& model, BuildOptions const& build, SystemOptions const& sys, BuildEnvironment& env, std::ostream& err)
+bool modelToBuildEnv(const ModelOptions& model, BuildOptions const& build, SystemOptions const& sys,
+    BuildEnvironment& env, std::ostream& err)
 {
-    std::unique_ptr<IBuilder> builder{createInferBuilder(sample::gLogger.getTRTLogger())};
-    SMP_RETVAL_IF_FALSE(builder != nullptr, "Builder creation failed", false, err);
-    builder->setErrorRecorder(&gRecorder);
+    env.builder.reset(createInferBuilder(sample::gLogger.getTRTLogger()));
+    SMP_RETVAL_IF_FALSE(env.builder != nullptr, "Builder creation failed", false, err);
+    env.builder->setErrorRecorder(&gRecorder);
     auto networkFlags
         = (build.maxBatch) ? 0U : 1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
 
-    env.network.reset(builder->createNetworkV2(networkFlags));
+    env.network.reset(env.builder->createNetworkV2(networkFlags));
     SMP_RETVAL_IF_FALSE(env.network != nullptr, "Network creation failed", false, err);
     env.parser = modelToNetwork(model, *env.network, err);
     SMP_RETVAL_IF_FALSE(env.parser.operator bool(), "Parsing model failed", false, err);
-    SMP_RETVAL_IF_FALSE(networkToSerializedEngine(build, sys, *builder, env, err), "Building engine failed", false, err);
+    SMP_RETVAL_IF_FALSE(
+        networkToSerializedEngine(build, sys, *env.builder, env, err), "Building engine failed", false, err);
     return true;
 }
 
