@@ -128,6 +128,10 @@ extern unsigned char fused_multihead_attention_v2_int8_384_64_kernel_sm75_cubin[
 extern unsigned char fused_multihead_attention_v2_int8_384_64_kernel_sm80_cubin[];
 extern unsigned char fused_multihead_attention_v2_int8_384_64_kernel_sm86_cubin[];
 
+extern unsigned char cubin_fmha_v2_int8_64_64_sm80_cu_cubin[];
+extern unsigned char cubin_fmha_v2_il_int8_64_64_sm80_cu_cubin[];
+extern unsigned char cubin_fmha_v2_int8_96_64_sm80_cu_cubin[];
+extern unsigned char cubin_fmha_v2_il_int8_96_64_sm80_cu_cubin[];
 extern unsigned char cubin_fmha_v2_int8_512_64_sm80_cu_cubin[];
 extern unsigned char cubin_fmha_v2_int8_512_32_sm80_cu_cubin[];
 extern unsigned char cubin_fmha_v2_int8_256_32_sm80_cu_cubin[];
@@ -216,6 +220,10 @@ extern uint32_t fused_multihead_attention_v2_int8_384_64_kernel_sm75_cubin_len;
 extern uint32_t fused_multihead_attention_v2_int8_384_64_kernel_sm80_cubin_len;
 extern uint32_t fused_multihead_attention_v2_int8_384_64_kernel_sm86_cubin_len;
 
+extern uint32_t cubin_fmha_v2_il_int8_96_64_sm80_cu_cubin_len;
+extern uint32_t cubin_fmha_v2_il_int8_64_64_sm80_cu_cubin_len;
+extern uint32_t cubin_fmha_v2_int8_96_64_sm80_cu_cubin_len;
+extern uint32_t cubin_fmha_v2_int8_64_64_sm80_cu_cubin_len;
 extern uint32_t cubin_fmha_v2_int8_512_64_sm80_cu_cubin_len;
 extern uint32_t cubin_fmha_v2_int8_512_32_sm80_cu_cubin_len;
 extern uint32_t cubin_fmha_v2_int8_256_32_sm80_cu_cubin_len;
@@ -504,6 +512,15 @@ static const struct FusedMultiHeadAttentionKernelMetaInfoV2
     {DATA_TYPE_FP16, 384, 64, kSM_80, fused_multihead_attention_v2_fp16_384_64_kernel_sm80_cubin,
         fused_multihead_attention_v2_fp16_384_64_kernel_sm80_cubin_len,
         "fused_multihead_attention_v2_fp16_384_64_kernel_sm80", 114688, 256, 0, false},
+
+    {DATA_TYPE_INT8, 64, 64, kSM_80, cubin_fmha_v2_int8_64_64_sm80_cu_cubin, cubin_fmha_v2_int8_64_64_sm80_cu_cubin_len,
+        "fmha_v2_int8_64_64_sm80_kernel", 24576, 128, 0, false},
+    {DATA_TYPE_INT8, 96, 64, kSM_80, cubin_fmha_v2_int8_96_64_sm80_cu_cubin, cubin_fmha_v2_int8_96_64_sm80_cu_cubin_len,
+        "fmha_v2_int8_96_64_sm80_kernel", 28672, 128, 0, false},
+    {DATA_TYPE_INT8, 64, 64, kSM_80, cubin_fmha_v2_il_int8_64_64_sm80_cu_cubin,
+        cubin_fmha_v2_il_int8_64_64_sm80_cu_cubin_len, "fmha_v2_il_int8_64_64_sm80_kernel", 20480, 128, 0, true},
+    {DATA_TYPE_INT8, 96, 64, kSM_80, cubin_fmha_v2_il_int8_96_64_sm80_cu_cubin,
+        cubin_fmha_v2_il_int8_96_64_sm80_cu_cubin_len, "fmha_v2_il_int8_96_64_sm80_kernel", 22528, 128, 0, true},
 
     {DATA_TYPE_INT8, 128, 64, kSM_80, fused_multihead_attention_v2_int8_128_64_kernel_sm80_cubin,
         fused_multihead_attention_v2_int8_128_64_kernel_sm80_cubin_len,
@@ -869,10 +886,36 @@ public:
 
         const auto findIter = mFunctions.find(hashID(params.s, params.d, params.interleaved, forceUnroll));
         // Provide debug information if the kernel is missing in the pool.
-        std::stringstream configss;
-        configss << "s: " << params.s << " d: " << params.d << " interleaved?: "
-                 << params.interleaved << " forceUnroll?: " << forceUnroll;
-        PLUGIN_ASSERT(findIter != mFunctions.end() && configss.str().c_str());
+        std::stringstream errMsg;
+        errMsg << "Could not find kernel for:\n"
+               << "\t s: " << params.s << "\n"
+               << "\t d: " << params.d << "\n"
+               << "\t interleaved: " << params.interleaved << "\n"
+               << "\t forceUnroll: " << forceUnroll << "\n"
+               << "Was the plugin compiled on a compatible CUDA and SM version?\n"
+               << "\t Compiled on CUDA " << CUDA_VERSION << "\n"
+               << "\t Current SM version: " << mSM << "\n"
+               << "\t SM versions enabled during compilation: "
+#if defined(ENABLE_SM72)
+               << "72 "
+#endif
+#if defined(ENABLE_SM75)
+               << "75 "
+#endif
+#if defined(ENABLE_SM80)
+               << "80 "
+#endif
+#if defined(ENABLE_SM86)
+               << "86 "
+#endif
+#if defined(ENABLE_SM87)
+               << "87 "
+#endif
+#if defined(ENABLE_SM90)
+               << "90 "
+#endif
+               << "\n";
+        PLUGIN_VALIDATE(findIter != mFunctions.end(), errMsg.str().c_str());
 
         const auto& kernelMeta = mKernelMeta[findIter->second.mMetaInfoIndex];
         const CUfunction func = findIter->second.mDeviceFunction;

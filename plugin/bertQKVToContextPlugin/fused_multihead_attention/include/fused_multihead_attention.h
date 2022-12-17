@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-#pragma once
 #ifndef _BERT_FMHA_FMHA
 #define _BERT_FMHA_FMHA
 #include "common/bertCommon.h"
@@ -122,6 +121,9 @@ extern unsigned char fused_multihead_attention_fp16_128_64_kernel_sm80_cu_o[];
 extern unsigned char fused_multihead_attention_fp16_384_64_kernel_sm80_cu_o[];
 extern unsigned char fused_multihead_attention_fp16_384_64_kernel_sm86_cu_o[];
 
+extern unsigned char cubin_fmha_v1_int8_64_64_sm80_cu_cubin[];
+extern unsigned char cubin_fmha_v1_int8_96_64_sm80_cu_cubin[];
+
 extern unsigned char cubin_fmha_v1_int8_384_64_sm87_cu_cubin[];
 extern unsigned char cubin_fmha_v1_int8_128_64_sm87_cu_cubin[];
 extern unsigned char cubin_fmha_v1_fp16_384_64_sm87_cu_cubin[];
@@ -151,6 +153,9 @@ extern uint32_t fused_multihead_attention_int8_128_64_kernel_sm80_cu_o_len;
 extern uint32_t fused_multihead_attention_fp16_128_64_kernel_sm80_cu_o_len;
 extern uint32_t fused_multihead_attention_fp16_384_64_kernel_sm80_cu_o_len;
 extern uint32_t fused_multihead_attention_fp16_384_64_kernel_sm86_cu_o_len;
+
+extern uint32_t cubin_fmha_v1_int8_64_64_sm80_cu_cubin_len;
+extern uint32_t cubin_fmha_v1_int8_96_64_sm80_cu_cubin_len;
 
 extern uint32_t cubin_fmha_v1_int8_384_64_sm87_cu_cubin_len;
 extern uint32_t cubin_fmha_v1_int8_128_64_sm87_cu_cubin_len;
@@ -220,6 +225,10 @@ static const struct FusedMultiHeadAttentionKernelMetaInfoV1
     {DATA_TYPE_FP16, 384, 64, kSM_80, fused_multihead_attention_fp16_384_64_kernel_sm80_cu_o,
         fused_multihead_attention_fp16_384_64_kernel_sm80_cu_o_len, "fused_multihead_attention_fp16_384_64_kernel_sm80",
         114688, 256},
+    {DATA_TYPE_INT8, 64, 64, kSM_80, cubin_fmha_v1_int8_64_64_sm80_cu_cubin, cubin_fmha_v1_int8_64_64_sm80_cu_cubin_len,
+        "fmha_v1_int8_64_64_sm80_kernel", 24576, 128},
+    {DATA_TYPE_INT8, 96, 64, kSM_80, cubin_fmha_v1_int8_96_64_sm80_cu_cubin, cubin_fmha_v1_int8_96_64_sm80_cu_cubin_len,
+        "fmha_v1_int8_96_64_sm80_kernel", 28672, 128},
     {DATA_TYPE_INT8, 128, 64, kSM_80, fused_multihead_attention_int8_128_64_kernel_sm80_cu_o,
         fused_multihead_attention_int8_128_64_kernel_sm80_cu_o_len, "fused_multihead_attention_int8_128_64_kernel_sm80",
         24576, 128},
@@ -395,7 +404,34 @@ public:
     virtual void run(TKernelParam& params, cudaStream_t ss) const
     {
         const auto findIter = mFunctions.find(hashID(params.s, params.d));
-        PLUGIN_ASSERT(findIter != mFunctions.end());
+        std::stringstream errMsg;
+        errMsg << "Could not find kernel for:\n"
+               << "\t s: " << params.s << "\n"
+               << "\t d: " << params.d << "\n"
+               << "Was the plugin compiled on a compatible CUDA and SM version?\n"
+               << "\t Compiled on CUDA " << CUDA_VERSION << "\n"
+               << "\t Current SM version: " << mSM << "\n"
+               << "\t SM versions enabled during compilation: "
+#if defined(ENABLE_SM72)
+               << "72 "
+#endif
+#if defined(ENABLE_SM75)
+               << "75 "
+#endif
+#if defined(ENABLE_SM80)
+               << "80 "
+#endif
+#if defined(ENABLE_SM86)
+               << "86 "
+#endif
+#if defined(ENABLE_SM87)
+               << "87 "
+#endif
+#if defined(ENABLE_SM90)
+               << "90 "
+#endif
+               << "\n";
+        PLUGIN_VALIDATE(findIter != mFunctions.end(), errMsg.str().c_str());
 
         const auto& kernelMeta = mKernelMeta[findIter->second.mMetaInfoIndex];
         const CUfunction func = findIter->second.mDeviceFunction;
