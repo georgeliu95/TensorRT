@@ -40,7 +40,7 @@ ifneq ($(NV_IS_WDDM),1)
   $(error Unsupported NV_TARGET_OS $(NV_TARGET_OS). Linux support is planned but not implemented yet.)
 endif
 
-VFC_PLUGIN_BASENAME = nvinfer_vfc_plugin
+VFC_PLUGIN_BASENAME = nvinfer_vc_plugin
 
 ifeq ($(NV_TARGET_OS_FAMILY),Windows)
   VFC_PLUGIN_TARGETS += $(OUTPUTDIR)/$(VFC_PLUGIN_BASENAME).dll

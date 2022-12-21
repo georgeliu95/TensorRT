@@ -1,0 +1,1 @@
+targets/#MULTIARCH_DIR#/lib/libnvinfer_vc_plugin.so.*   /usr/lib/#MULTIARCH_DIR#
