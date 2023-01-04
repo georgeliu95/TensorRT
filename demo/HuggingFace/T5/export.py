@@ -107,7 +107,7 @@ def add_extra_fp32(network_definition):
                 if l.op == trt.ElementWiseOperation.PROD:
                     l.precision = trt.float32
                     l.set_output_type(0, trt.float32)
-    
+
     return network_definition
 
 # Torch File Encoding #
@@ -138,7 +138,7 @@ class T5DecoderTorchFile(TorchModelFile):
             # To really enable KV cache in HuggingFace, these args must be passed. Just specifying use_cache = True in T5Config is not enough. Also see the additional "past_key_values" fields in the forward() return below.
             if self.config.use_cache:
                 ret["use_cache"] = use_cache
-                ret["past_key_values"] = past   
+                ret["past_key_values"] = past
 
             return ret
 
@@ -153,13 +153,13 @@ class T5DecoderTorchFile(TorchModelFile):
             # as seen in https://huggingface.co/transformers/_modules/transformers/models/t5/modeling_t5.html#T5ForConditionalGeneration
             sequence_output = decoder_outputs[0] * self.config.d_model ** -0.5
             logits = self.lm_head(sequence_output)
-            
+
             # temporary solution: force connection between encoder_hidden_states and outputs in KV cache mode, otherwise onnx.export elimiates it and cause inconsistency between non-KV cache & KV cache and also T5 & BART
             if self.config.use_cache:
                 logits = logits.view(encoder_hidden_states.size(0),logits.size(1), logits.size(2)) # (batch_size, seq_len, vocab_size)
             if not kwargs.get("return_dict", False):
                 return (logits,) + decoder_outputs[1:]
-            
+
             return Seq2SeqLMOutput(logits=logits, past_key_values=decoder_outputs.past_key_values if self.config.use_cache else None,)
 
     def __init__(self, model, network_metadata):
@@ -260,7 +260,7 @@ class T5DecoderConverter(ModelFileConverter):
         version_minor = int((torch.__version__).split('.')[1])
         if version_major < 1 or (version_major == 1 and version_minor < 11):
             opt_args['use_external_data_format'] = True
-        
+
         if not network_metadata.other.kv_cache:
             # This code allows for huggingface compatible torch class to use onnx exporter
             old_forward = decoder_with_lm_head.forward
@@ -281,7 +281,7 @@ class T5DecoderConverter(ModelFileConverter):
                     **inputs.get_torch_dynamic_axis_encoding(),
                     **outputs.get_torch_dynamic_axis_encoding(),
                 },
-                training=False,
+                training=torch.onnx.TrainingMode.EVAL,
                 **opt_args
             )
         else:
@@ -303,13 +303,13 @@ class T5DecoderConverter(ModelFileConverter):
                 result = old_forward(input_ids, encoder_hidden_states, past_key_values=past_key_values)
                 return (result[0], result[1])
             decoder_with_lm_head.forward = _export_forward
-            
+
             torch.onnx.export(
                 decoder_with_lm_head,
                 (input_ids[:,-1:], encoder_hidden_states,past_key_values),
-                # (1) input_ids should be the t token (last one) while past_key_values is 0 to t-1 caches 
-                # (2) since past_key_values is kwargs, ideally use "(input_ids[:,-1:], encoder_hidden_states, {"past_key_values": past_key_values})", 
-                # but onnx.export seems to unable to take kwargs properly (although PyTorch 1.11 claims it supports already). 
+                # (1) input_ids should be the t token (last one) while past_key_values is 0 to t-1 caches
+                # (2) since past_key_values is kwargs, ideally use "(input_ids[:,-1:], encoder_hidden_states, {"past_key_values": past_key_values})",
+                # but onnx.export seems to unable to take kwargs properly (although PyTorch 1.11 claims it supports already).
                 # Therefore, we need to wrap inside _export_forward() and make past_key_values indeed a kwargs
                 kv_fpath,
                 export_params=True,
@@ -320,7 +320,7 @@ class T5DecoderConverter(ModelFileConverter):
                     **inputs.get_torch_dynamic_axis_encoding(),
                     **outputs.get_torch_dynamic_axis_encoding(),
                 },
-                training=False,
+                training=torch.onnx.TrainingMode.EVAL,
                 **opt_args
             )
 
@@ -348,7 +348,7 @@ class T5DecoderConverter(ModelFileConverter):
                     **inputs_non_kv.get_torch_dynamic_axis_encoding(),
                     **outputs.get_torch_dynamic_axis_encoding(),
                 },
-                training=False,
+                training=torch.onnx.TrainingMode.EVAL,
                 **opt_args
             )
 
