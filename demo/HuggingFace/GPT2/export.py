@@ -43,9 +43,9 @@ from GPT2.GPT2ModelConfig import GPT2ModelTRTConfig
 from NNDF.networks import NetworkMetadata, Dims
 from NNDF.logger import G_LOGGER
 from NNDF.models import (
-    TRTEngineFile, 
-    TorchModelFile, 
-    ONNXModelFile, 
+    TRTEngineFile,
+    TorchModelFile,
+    ONNXModelFile,
     ModelFileConverter,
 )
 
@@ -76,7 +76,7 @@ class GPT2TorchFile(TorchModelFile):
             if self.config.use_cache:
                 ret["use_cache"] = use_cache
                 ret["past_key_values"] = past
-            
+
             return ret
 
         def forward(self, input_ids, **kwargs):
@@ -85,7 +85,7 @@ class GPT2TorchFile(TorchModelFile):
             lm_logits = self.lm_head(hidden_states)
 
             return CausalLMOutputWithCrossAttentions(logits=lm_logits, past_key_values=transformer_outputs.past_key_values if self.config.use_cache else None,)
-        
+
         def _reorder_cache(self, past, beam_idx):
             """
             This function is used to re-order the :obj:`past_key_values` cache if
@@ -200,7 +200,7 @@ class GPT2Converter(ModelFileConverter):
                 result = old_forward(*args, **kwargs)
                 return result[0]
             gpt2_model.forward = _export_forward
-            
+
             torch.onnx._export(
                 gpt2_model,
                 input_ids,
@@ -218,7 +218,7 @@ class GPT2Converter(ModelFileConverter):
         else:
             decoder_output = gpt2_model(input_ids[:,:-1])
             past_key_values = decoder_output[1]
-            
+
             decoder_root, decoder_fullname = os.path.split(output_fpath)
             # Split kv and non kv onnx into separate folders to avoid weight overlap
             non_kv_root = os.path.join(decoder_root, "non-kv")
@@ -226,7 +226,7 @@ class GPT2Converter(ModelFileConverter):
             decoder_name, decoder_ext = os.path.splitext(decoder_fullname)
             non_kv_fpath = os.path.join(non_kv_root, decoder_name + "-non-kv" + decoder_ext)
             kv_fpath = os.path.join(kv_root, decoder_fullname)
-            
+
             # Exporting the kv cache engine
             old_forward = gpt2_model.forward
             def _export_forward(input_ids, past_key_values):
@@ -254,7 +254,7 @@ class GPT2Converter(ModelFileConverter):
                 result = old_forward(input_ids, use_cache=True)
                 return (result[0], result[1])
             gpt2_model.forward = _export_forward_non_kv
-            
+
             # inputs are same as non-kv model
             # outputs are same as kv model
             dict_inputs = inputs.get_dims()
@@ -272,7 +272,7 @@ class GPT2Converter(ModelFileConverter):
                     **inputs_non_kv.get_torch_dynamic_axis_encoding(),
                     **outputs.get_torch_dynamic_axis_encoding(),
                 },
-                training=False,
+                training=torch.onnx.TrainingMode.EVAL,
                 **opt_args
             )
 
