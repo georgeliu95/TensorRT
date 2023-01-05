@@ -18,6 +18,7 @@
 #include "NvInfer.h"
 #include "common/bertCommon.h"
 #include "common/common.cuh"
+#include "common/fused_multihead_attention_v2.h"
 #include "common/serialize.hpp"
 #include "qkvToContextPlugin.h"
 
@@ -27,7 +28,6 @@
 #include <tuple>
 #include <vector>
 
-#include "bertQKVToContextPlugin/fused_multihead_attention_v2/include/fused_multihead_attention_v2.h"
 using namespace nvinfer1;
 
 namespace nvinfer1
@@ -601,7 +601,7 @@ bool UnfusedMHARunner::isValid(int s) const
     return mType != DataType::kINT8;
 }
 
-static inline void set_alpha(uint32_t& alpha, float norm, Data_type dtype)
+static inline void set_alpha(uint32_t& alpha, float norm, MHADataType dtype)
 {
     if (dtype == DATA_TYPE_FP16)
     {
@@ -679,7 +679,7 @@ public:
         const float scale_softmax = 1.f; // Seems to be only required for int8
         const float scale_bmm2 = 1.f;
 
-        Data_type scale_type = DATA_TYPE_FP16;
+        MHADataType scale_type = DATA_TYPE_FP16;
         set_alpha(params.scale_bmm1, scale_bmm1, scale_type);
         set_alpha(params.scale_softmax, scale_softmax, scale_type);
         set_alpha(params.scale_bmm2, scale_bmm2, scale_type);
@@ -975,7 +975,7 @@ public:
         const float scale_softmax = 1.f; // Seems to be only required for int8
         const float scale_bmm2 = 1.f;
 
-        Data_type scale_type = DATA_TYPE_FP16;
+        MHADataType scale_type = DATA_TYPE_FP16;
         set_alpha(params.scale_bmm1, scale_bmm1, scale_type);
         set_alpha(params.scale_softmax, scale_softmax, scale_type);
         set_alpha(params.scale_bmm2, scale_bmm2, scale_type);

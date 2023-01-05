@@ -17,9 +17,8 @@
 
 #ifndef _BERT_FMHAV2_FMHAV2
 #define _BERT_FMHAV2_FMHAV2
-#include "bertQKVToContextPlugin/fused_multihead_attention/include/fused_multihead_attention.h"
-#include "bertQKVToContextPlugin/fused_multihead_attention/include/fused_multihead_attention_common.h"
 #include "common/bertCommon.h"
+#include "common/fused_multihead_attention.h"
 #include <cstdint>
 
 namespace nvinfer1
@@ -289,7 +288,7 @@ extern uint32_t cubin_fmha_v2_fp16_64_64_sm90_cu_cubin_len;
 #endif
 static const struct FusedMultiHeadAttentionKernelMetaInfoV2
 {
-    Data_type mDataType;
+    MHADataType mDataType;
     uint32_t mS;
     uint32_t mD;
     uint32_t mSM;
@@ -801,7 +800,7 @@ class FusedMultiHeadAttentionXMMAKernelV2
 {
 public:
     FusedMultiHeadAttentionXMMAKernelV2(
-        const FusedMultiHeadAttentionKernelMetaInfoV2* pMetaStart, uint32_t nMetaCount, Data_type type, uint32_t sm)
+        const FusedMultiHeadAttentionKernelMetaInfoV2* pMetaStart, uint32_t nMetaCount, MHADataType type, uint32_t sm)
         : TFusedMultiHeadAttentionXMMAKernel<FusedMultiHeadAttentionKernelMetaInfoV2,
               Fused_multihead_attention_params_v2>(pMetaStart, nMetaCount, type, sm)
     {
@@ -823,7 +822,7 @@ public:
     {
         if (params.interleaved)
         {
-            PLUGIN_ASSERT(mDataType == bert::DATA_TYPE_INT8);
+            PLUGIN_ASSERT(mDataType == DATA_TYPE_INT8);
         }
 
         bool forceUnroll = params.force_unroll;
@@ -832,49 +831,49 @@ public:
             const struct
             {
                 uint32_t mSM;
-                Data_type mDataType;
+                MHADataType mDataType;
                 int32_t mS;
                 int32_t mMaxBatch;
             } unrollList[]
-                = { {kSM_75, bert::DATA_TYPE_FP16, 256, 1},
-                      {kSM_75, bert::DATA_TYPE_FP16, 384, 1},
-                      {kSM_75, bert::DATA_TYPE_INT8, 128, 1},
-                      {kSM_75, bert::DATA_TYPE_INT8, 192, 2},
-                      {kSM_75, bert::DATA_TYPE_INT8, 256, 1},
-                      {kSM_75, bert::DATA_TYPE_INT8, 384, 1},
+                = { {kSM_75, DATA_TYPE_FP16, 256, 1},
+                      {kSM_75, DATA_TYPE_FP16, 384, 1},
+                      {kSM_75, DATA_TYPE_INT8, 128, 1},
+                      {kSM_75, DATA_TYPE_INT8, 192, 2},
+                      {kSM_75, DATA_TYPE_INT8, 256, 1},
+                      {kSM_75, DATA_TYPE_INT8, 384, 1},
 #if CUDA_VERSION >= 11000
-                      {kSM_80, bert::DATA_TYPE_FP16, 128, 4},
-                      {kSM_80, bert::DATA_TYPE_FP16, 256, 4},
-                      {kSM_80, bert::DATA_TYPE_FP16, 384, 4},
-                      {kSM_80, bert::DATA_TYPE_INT8, 128, 4},
-                      {kSM_80, bert::DATA_TYPE_INT8, 192, 16},
-                      {kSM_80, bert::DATA_TYPE_INT8, 256, 8},
-                      {kSM_80, bert::DATA_TYPE_INT8, 384, 8},
+                      {kSM_80, DATA_TYPE_FP16, 128, 4},
+                      {kSM_80, DATA_TYPE_FP16, 256, 4},
+                      {kSM_80, DATA_TYPE_FP16, 384, 4},
+                      {kSM_80, DATA_TYPE_INT8, 128, 4},
+                      {kSM_80, DATA_TYPE_INT8, 192, 16},
+                      {kSM_80, DATA_TYPE_INT8, 256, 8},
+                      {kSM_80, DATA_TYPE_INT8, 384, 8},
 
-                      {kSM_86, bert::DATA_TYPE_FP16, 128, 4},
-                      {kSM_86, bert::DATA_TYPE_FP16, 256, 4},
-                      {kSM_86, bert::DATA_TYPE_INT8, 128, 4},
-                      {kSM_86, bert::DATA_TYPE_INT8, 192, 16},
-                      {kSM_86, bert::DATA_TYPE_INT8, 256, 8},
-                      {kSM_86, bert::DATA_TYPE_INT8, 384, 8},
+                      {kSM_86, DATA_TYPE_FP16, 128, 4},
+                      {kSM_86, DATA_TYPE_FP16, 256, 4},
+                      {kSM_86, DATA_TYPE_INT8, 128, 4},
+                      {kSM_86, DATA_TYPE_INT8, 192, 16},
+                      {kSM_86, DATA_TYPE_INT8, 256, 8},
+                      {kSM_86, DATA_TYPE_INT8, 384, 8},
 #endif
 #if CUDA_VERSION >= 11040
-                      {kSM_87, bert::DATA_TYPE_FP16, 128, 4},
-                      {kSM_87, bert::DATA_TYPE_FP16, 256, 4},
-                      {kSM_87, bert::DATA_TYPE_FP16, 384, 4},
-                      {kSM_87, bert::DATA_TYPE_INT8, 128, 4},
-                      {kSM_87, bert::DATA_TYPE_INT8, 192, 16},
-                      {kSM_87, bert::DATA_TYPE_INT8, 256, 8},
-                      {kSM_87, bert::DATA_TYPE_INT8, 384, 8},
+                      {kSM_87, DATA_TYPE_FP16, 128, 4},
+                      {kSM_87, DATA_TYPE_FP16, 256, 4},
+                      {kSM_87, DATA_TYPE_FP16, 384, 4},
+                      {kSM_87, DATA_TYPE_INT8, 128, 4},
+                      {kSM_87, DATA_TYPE_INT8, 192, 16},
+                      {kSM_87, DATA_TYPE_INT8, 256, 8},
+                      {kSM_87, DATA_TYPE_INT8, 384, 8},
 #endif
 #if CUDA_VERSION >= 11080
-                      {kSM_90, bert::DATA_TYPE_FP16, 128, 4},
-                      {kSM_90, bert::DATA_TYPE_FP16, 256, 4},
-                      {kSM_90, bert::DATA_TYPE_FP16, 384, 4},
-                      {kSM_90, bert::DATA_TYPE_INT8, 128, 4},
-                      {kSM_90, bert::DATA_TYPE_INT8, 192, 16},
-                      {kSM_90, bert::DATA_TYPE_INT8, 256, 8},
-                      {kSM_90, bert::DATA_TYPE_INT8, 384, 8},
+                      {kSM_90, DATA_TYPE_FP16, 128, 4},
+                      {kSM_90, DATA_TYPE_FP16, 256, 4},
+                      {kSM_90, DATA_TYPE_FP16, 384, 4},
+                      {kSM_90, DATA_TYPE_INT8, 128, 4},
+                      {kSM_90, DATA_TYPE_INT8, 192, 16},
+                      {kSM_90, DATA_TYPE_INT8, 256, 8},
+                      {kSM_90, DATA_TYPE_INT8, 384, 8},
 #endif
                   };
             for (uint32_t i = 0u; i < sizeof(unrollList) / sizeof(unrollList[0]); ++i)
@@ -944,7 +943,7 @@ public:
 
 using FusedMHAKernelFactoryV2 = TFusedMHAKernelFactory<FusedMultiHeadAttentionXMMAKernelV2>;
 
-inline const FusedMultiHeadAttentionXMMAKernelV2* getXMMAKernelsV2(Data_type type, uint32_t sm)
+inline const FusedMultiHeadAttentionXMMAKernelV2* getXMMAKernelsV2(MHADataType type, uint32_t sm)
 {
     return FusedMHAKernelFactoryV2::Get().getXMMAKernels(
         sMhaKernelMetaInfosV2, sizeof(sMhaKernelMetaInfosV2) / sizeof(sMhaKernelMetaInfosV2[0]), type, sm);
