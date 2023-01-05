@@ -18,7 +18,7 @@
 #ifndef TRT_FMHCA_H
 #define TRT_FMHCA_H
 
-#include "fmha_cross_attention/include/fmha_cross_attention.h"
+#include "common/fmha_cross_attention.h"
 
 namespace nvinfer1
 {

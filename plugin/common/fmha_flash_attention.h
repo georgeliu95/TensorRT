@@ -20,15 +20,14 @@
 
 #include "common/bertCommon.h"
 #include "common/plugin.h"
-#include "commonDatatype.h"
-#include "sharedCubinLoader.h"
+#include "common/sharedCubinLoader.h"
 
 namespace
 {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Do not modify this, it is integrated from src/fused_multihead_attention_utils.h in fmha-flash-attention.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-static void set_alpha(uint32_t& alpha, float norm, nvinfer1::plugin::MHFADataType dtype)
+static void set_alpha(uint32_t& alpha, float norm, nvinfer1::plugin::MHADataType dtype)
 {
     if (dtype == nvinfer1::plugin::DATA_TYPE_FP16)
     {
@@ -52,7 +51,7 @@ static void set_alpha(uint32_t& alpha, float norm, nvinfer1::plugin::MHFADataTyp
     }
 }
 
-static int64_t get_size_in_bytes(size_t n, nvinfer1::plugin::MHFADataType dtype)
+static int64_t get_size_in_bytes(size_t n, nvinfer1::plugin::MHADataType dtype)
 {
     switch (dtype)
     {
@@ -277,7 +276,7 @@ constexpr int32_t S{0};
 #endif
 static const struct FusedMultiHeadFlashAttentionKernelMetaInfoV2
 {
-    MHFADataType mDataType;
+    MHADataType mDataType;
     int32_t mS;
     int32_t mQStep;
     int32_t mKVStep;
@@ -407,7 +406,7 @@ static const struct FusedMultiHeadFlashAttentionKernelMetaInfoV2
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static Fused_multihead_flash_attention_params_v2 getMHFAParams(
     // types
-    MHFADataType data_type, MHFADataType acc_type,
+    MHADataType data_type, MHADataType acc_type,
     // sizes
     int32_t b, int32_t s, int32_t h, int32_t d, int32_t total,
     // device pointers
@@ -450,8 +449,8 @@ static Fused_multihead_flash_attention_params_v2 getMHFAParams(
     params.d = d;
 
     // Set the different scale values.
-    MHFADataType scale_type1 = data_type == DATA_TYPE_FP16 ? acc_type : DATA_TYPE_FP32;
-    MHFADataType scale_type2 = data_type == DATA_TYPE_FP16 ? DATA_TYPE_FP16 : DATA_TYPE_FP32;
+    MHADataType scale_type1 = data_type == DATA_TYPE_FP16 ? acc_type : DATA_TYPE_FP32;
+    MHADataType scale_type2 = data_type == DATA_TYPE_FP16 ? DATA_TYPE_FP16 : DATA_TYPE_FP32;
 
     set_alpha(params.scale_bmm1, scale_bmm1, scale_type1);
     set_alpha(params.scale_softmax, scale_softmax, scale_type1);
@@ -478,7 +477,7 @@ class FusedMultiHeadFlashAttentionKernel
 {
 public:
     FusedMultiHeadFlashAttentionKernel(FusedMultiHeadFlashAttentionKernelMetaInfoV2 const* pMetaStart,
-        int32_t nMetaCount, MHFADataType type, int32_t sm)
+        int32_t nMetaCount, MHADataType type, int32_t sm)
         : TSharedCubinKernel<FusedMultiHeadFlashAttentionKernelMetaInfoV2, Fused_multihead_flash_attention_params_v2>(
             pMetaStart, nMetaCount, type, sm)
     {
@@ -524,11 +523,54 @@ public:
         return hashID(
             kernelMeta.mD, kernelMeta.mQStep, kernelMeta.mKVStep, kernelMeta.mInterleaved, kernelMeta.mUnrollStep > 0);
     }
+
+    int32_t getUnrolls(KernelParam const& params, KernelMeta const& kernelMeta) const
+    {
+        return (params.s + kernelMeta.mUnrollStep - 1) / kernelMeta.mUnrollStep;
+    }
+
+    void onLoadCubinKernel(KernelMeta const& kernelMeta)
+    {
+    }
+
+    bool isValid(int32_t s) const
+    {
+        return !mFunctions.empty();
+    }
+
+    std::string toString(KernelParam const& params, const char* prefix) const
+    {
+        std::ostringstream errMsg;
+        errMsg << prefix
+               << "\n\t s: " << params.s << "\n"
+               << "\t d: " << params.d << "\n"
+               << "\t interleaved: " << params.interleaved << "\n"
+               << "\t forceUnroll: " << params.force_unroll << "\n"
+               << "Was the plugin compiled on a compatible CUDA and SM version?\n"
+               << "\t Compiled on CUDA " << CUDA_VERSION << "\n"
+               << "\t Current SM version: " << mSM << "\n"
+               << "\t SM versions enabled during compilation: "
+#if defined(ENABLE_SM75)
+               << "75 "
+#endif
+#if defined(ENABLE_SM80)
+               << "80 "
+#endif
+#if defined(ENABLE_SM86)
+               << "86 "
+#endif
+#if defined(ENABLE_SM89)
+               << "89 "
+#endif
+               << "\n";
+        return errMsg.str();
+
+    }
 };
 
 using FusedMHAFlashKernelFactory = TSharedCubinKernelFactory<FusedMultiHeadFlashAttentionKernel>;
 
-inline FusedMultiHeadFlashAttentionKernel const* getFMHAFlashCubinKernels(MHFADataType type, int32_t sm)
+inline FusedMultiHeadFlashAttentionKernel const* getFMHAFlashCubinKernels(MHADataType type, int32_t sm)
 {
     return FusedMHAFlashKernelFactory::Get().getCubinKernels(
         sMhaKernelMetaInfos, sizeof(sMhaKernelMetaInfos) / sizeof(sMhaKernelMetaInfos[0]), type, sm);

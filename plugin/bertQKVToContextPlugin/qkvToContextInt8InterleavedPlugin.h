@@ -20,7 +20,7 @@
 
 #include "NvInferPlugin.h"
 #include "cublas_v2.h"
-#include "fused_multihead_attention_v2/include/fused_multihead_attention_v2.h"
+#include "common/fused_multihead_attention_v2.h"
 #include <cuda.h>
 #include <string>
 #include <vector>
