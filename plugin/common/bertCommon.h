@@ -82,6 +82,22 @@ constexpr size_t packedMaskSize96 = xmmasM128 * threadsPerCta128;
 constexpr size_t packedMaskSize128 = xmmasM128 * threadsPerCta128;
 constexpr size_t packedMaskSize384 = xmmasM384 * threadsPerCta384;
 
+namespace nvinfer1
+{
+namespace plugin
+{
+enum MHADataType
+{
+    DATA_TYPE_BOOL,
+    DATA_TYPE_E8M10,
+    DATA_TYPE_E8M7,
+    DATA_TYPE_FP16,
+    DATA_TYPE_FP32,
+    DATA_TYPE_INT4,
+    DATA_TYPE_INT8,
+    DATA_TYPE_INT32
+};
+
 namespace bert
 {
 
@@ -104,11 +120,11 @@ inline int getMHAMaskPackedSize(int smVersion, nvinfer1::DataType dataType, int 
     {
         if (sequenceLength == 64)
         {
-            packedSize = (dataType == nvinfer1::DataType::kHALF ? packedMaskSize64 : packedSize);
+            packedSize = packedMaskSize64;
         }
         else if (sequenceLength == 96)
         {
-            packedSize = (dataType == nvinfer1::DataType::kHALF ? packedMaskSize96 : packedSize);
+            packedSize = packedMaskSize96;
         }
         else if (sequenceLength == 128)
         {
@@ -479,6 +495,8 @@ inline nvinfer1::DataType fieldTypeToDataType(const nvinfer1::PluginFieldType ft
 }
 
 } // namespace bert
+} // namespace plugin
+} // namespace nvinfer1
 #endif // BERT_COMMON_H
 
 #endif // CUDA_VERSION >= 10010

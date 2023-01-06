@@ -18,7 +18,7 @@
 #ifndef TRT_FMHA_H
 #define TRT_FMHA_H
 
-#include "fmha_flash_attention/include/fmha_flash_attention.h"
+#include "common/fmha_flash_attention.h"
 
 namespace nvinfer1
 {

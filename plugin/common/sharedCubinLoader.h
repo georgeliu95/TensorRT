@@ -18,7 +18,7 @@
 #ifndef TRT_SHARED_CUBIN_LOADER_H
 #define TRT_SHARED_CUBIN_LOADER_H
 #include "common/cudaDriverWrapper.h"
-#include "commonDatatype.h"
+#include "common/bertCommon.h"
 #include <cuda_runtime_api.h>
 #include <memory>
 #include <mutex>
@@ -39,9 +39,13 @@ public:
     using KernelParam = TKernelParam;
 
     virtual uint64_t hashID(KernelMeta const& kernelMeta) const = 0;
-    virtual uint64_t hashID(TKernelParam const& param) const = 0;
+    virtual uint64_t hashID(KernelParam const& param) const = 0;
+    virtual int32_t getUnrolls(KernelParam const& params, KernelMeta const& kernelMeta) const = 0;
+    virtual void onLoadCubinKernel(KernelMeta const& kernelMeta) = 0;
+    virtual bool isValid(int32_t s) const = 0;
+    virtual std::string toString(KernelParam const& params, const char* prefix) const = 0;
 
-    TSharedCubinKernel(TKernelMeta const* pMetaStart, int32_t nMetaCount, MHCADataType type, int32_t sm)
+    TSharedCubinKernel(TKernelMeta const* pMetaStart, int32_t nMetaCount, MHADataType type, int32_t sm)
         : mDataType(type)
         , mKernelMeta(pMetaStart)
         , mKernelMetaCount(nMetaCount)
@@ -100,12 +104,8 @@ public:
                         continue;
                     }
                 }
+				onLoadCubinKernel(kernelMeta);
                 mFunctions.insert({kernelKey, funcInfo});
-                auto const s = static_cast<int32_t>(kernelMeta.mS);
-                if (mValidSequences.find(s) == mValidSequences.end())
-                {
-                    mValidSequences.insert(s);
-                }
             }
         }
     }
@@ -120,11 +120,6 @@ public:
         loadCubinKernels(mSM);
     }
 
-    bool isValid(int32_t s) const
-    {
-        return (mValidSequences.find(s) != mValidSequences.end());
-    }
-
     virtual void run(TKernelParam& params, cudaStream_t ss) const
     {
         if (params.interleaved)
@@ -132,31 +127,9 @@ public:
             PLUGIN_ASSERT(mDataType == DATA_TYPE_INT8);
         }
 
+        std::string errMsg = toString(params, "Could not find kernel for:");
         auto const findIter = mFunctions.find(hashID(params));
-        std::ostringstream errMsg;
-        errMsg << "Could not find kernel for:\n"
-               << "\t s: " << params.s << "\n"
-               << "\t dPadded: " << params.d_padded << "\n"
-               << "\t interleaved: " << params.interleaved << "\n"
-               << "\t forceUnroll: " << params.force_unroll << "\n"
-               << "Was the plugin compiled on a compatible CUDA and SM version?\n"
-               << "\t Compiled on CUDA " << CUDA_VERSION << "\n"
-               << "\t Current SM version: " << mSM << "\n"
-               << "\t SM versions enabled during compilation: "
-#if defined(ENABLE_SM75)
-               << "75 "
-#endif
-#if defined(ENABLE_SM80)
-               << "80 "
-#endif
-#if defined(ENABLE_SM86)
-               << "86 "
-#endif
-#if defined(ENABLE_SM89)
-               << "89 "
-#endif
-               << "\n";
-        PLUGIN_VALIDATE(findIter != mFunctions.end(), errMsg.str().c_str());
+        PLUGIN_VALIDATE(findIter != mFunctions.end(), errMsg.c_str());
 
         auto const& kernelMeta = mKernelMeta[findIter->second.mMetaInfoIndex];
         CUfunction const func = findIter->second.mDeviceFunction;
@@ -170,8 +143,7 @@ public:
         }
         else
         {
-            int32_t unroll = (params.s_q + kernelMeta.mUnrollStep-1) / kernelMeta.mUnrollStep;
-            PLUGIN_ASSERT(params.s_q <= kernelMeta.mUnrollStep * unroll);
+            int32_t unroll = getUnrolls(params, kernelMeta);
             cuErrCheck(mDriver.cuLaunchKernel(func, params.h, params.b, unroll, kernelMeta.mThreadsPerCTA, 1, 1,
                            kernelMeta.mSharedMemBytes, ss, kernelParams, nullptr),
                 mDriver);
@@ -183,7 +155,7 @@ public:
 protected:
     nvinfer1::CUDADriverWrapper mDriver;
 
-    MHCADataType mDataType;
+    MHADataType mDataType;
     TKernelMeta const* mKernelMeta;
     int32_t mKernelMetaCount;
     int32_t mSM;
@@ -194,7 +166,6 @@ protected:
         CUfunction mDeviceFunction;
     };
     std::unordered_map<uint64_t, FusedMultiHeadAttentionKernelInfo> mFunctions;
-    std::set<int32_t> mValidSequences;
 };
 
 template <typename TKernelList>
@@ -202,7 +173,7 @@ class TSharedCubinKernelFactory
 {
 public:
     TKernelList const* getCubinKernels(
-        typename TKernelList::KernelMeta const* pKernelList, int32_t nbKernels, MHCADataType type, int32_t sm)
+        typename TKernelList::KernelMeta const* pKernelList, int32_t nbKernels, MHADataType type, int32_t sm)
     {
         static std::mutex sMutex;
         std::lock_guard<std::mutex> lg(sMutex);
@@ -228,7 +199,7 @@ public:
 private:
     TSharedCubinKernelFactory() = default;
 
-    inline uint64_t hashID(MHCADataType type, int32_t sm) const
+    inline uint64_t hashID(MHADataType type, int32_t sm) const
     {
         // use deviceID in hasID for multi GPU support before driver support context-less loading of cubin
         int32_t deviceID{0};

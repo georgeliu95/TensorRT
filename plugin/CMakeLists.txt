@@ -66,6 +66,7 @@ set(PLUGIN_LISTS
     scatterPlugin
     specialSlicePlugin
     splitPlugin
+    swinQKVToContextPlugin
     voxelGeneratorPlugin
 )
 

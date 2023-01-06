@@ -20,15 +20,14 @@
 
 #include "common/bertCommon.h"
 #include "common/plugin.h"
-#include "commonDatatype.h"
-#include "sharedCubinLoader.h"
+#include "common/sharedCubinLoader.h"
 
 namespace
 {
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // Do not modify this, it is integrated from src/fused_multihead_attention_utils.h in fmha_v2.
 ////////////////////////////////////////////////////////////////////////////////////////////////////
-static void set_alpha(uint32_t& alpha, float norm, nvinfer1::plugin::MHCADataType dtype)
+static void set_alpha(uint32_t& alpha, float norm, nvinfer1::plugin::MHADataType dtype)
 {
     if (dtype == nvinfer1::plugin::DATA_TYPE_FP16)
     {
@@ -52,7 +51,7 @@ static void set_alpha(uint32_t& alpha, float norm, nvinfer1::plugin::MHCADataTyp
     }
 }
 
-static int64_t get_size_in_bytes(size_t n, nvinfer1::plugin::MHCADataType dtype)
+static int64_t get_size_in_bytes(size_t n, nvinfer1::plugin::MHADataType dtype)
 {
     switch (dtype)
     {
@@ -230,7 +229,7 @@ extern uint32_t cubin_fmha_mhca_fp16_128_256_sm89_cu_cubin_len;
 #endif
 static const struct FusedMultiHeadCrossAttentionKernelMetaInfoV2
 {
-    MHCADataType mDataType;
+    MHADataType mDataType;
     int32_t mS;
     int32_t mD;
     int32_t mSM;
@@ -281,7 +280,7 @@ static const struct FusedMultiHeadCrossAttentionKernelMetaInfoV2
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 static Fused_multihead_attention_params_mhca getMHCAParams(
     // types
-    MHCADataType data_type, MHCADataType acc_type,
+    MHADataType data_type, MHADataType acc_type,
     // sizes
     int32_t b, int32_t s_q, int32_t s_kv, int32_t h, int32_t d, int32_t total,
     // device pointers
@@ -319,8 +318,8 @@ static Fused_multihead_attention_params_mhca getMHCAParams(
     params.d_padded = d_padded;
 
     // Set the different scale values.
-    MHCADataType scale_type1 = data_type == DATA_TYPE_FP16 ? acc_type : DATA_TYPE_FP32;
-    MHCADataType scale_type2 = data_type == DATA_TYPE_FP16 ? DATA_TYPE_FP16 : DATA_TYPE_FP32;
+    MHADataType scale_type1 = data_type == DATA_TYPE_FP16 ? acc_type : DATA_TYPE_FP32;
+    MHADataType scale_type2 = data_type == DATA_TYPE_FP16 ? DATA_TYPE_FP16 : DATA_TYPE_FP32;
 
     set_alpha(params.scale_bmm1, scale_bmm1, scale_type1);
     set_alpha(params.scale_softmax, scale_softmax, scale_type1);
@@ -360,7 +359,7 @@ class FusedMultiHeadCrossAttentionKernel
 {
 public:
     FusedMultiHeadCrossAttentionKernel(FusedMultiHeadCrossAttentionKernelMetaInfoV2 const* pMetaStart,
-        int32_t nMetaCount, MHCADataType type, int32_t sm)
+        int32_t nMetaCount, MHADataType type, int32_t sm)
         : TSharedCubinKernel<FusedMultiHeadCrossAttentionKernelMetaInfoV2, Fused_multihead_attention_params_mhca>(
             pMetaStart, nMetaCount, type, sm)
     {
@@ -382,11 +381,64 @@ public:
     {
         return hashID(kernelMeta.mS, kernelMeta.mD, kernelMeta.mInterleaved, kernelMeta.mUnrollStep > 0);
     }
+
+    int32_t getUnrolls(KernelParam const& params, KernelMeta const& kernelMeta) const
+    {
+        int32_t unroll = (params.s_q + kernelMeta.mUnrollStep-1) / kernelMeta.mUnrollStep;
+        PLUGIN_ASSERT(params.s_q <= kernelMeta.mUnrollStep * unroll);
+        return unroll;
+    }
+
+    void onLoadCubinKernel(KernelMeta const& kernelMeta)
+    {
+        auto const s = static_cast<int32_t>(kernelMeta.mS);
+        if (mValidSequences.find(s) == mValidSequences.end())
+        {
+            mValidSequences.insert(s);
+        }
+    }
+
+    bool isValid(int32_t s) const
+    {
+        return (mValidSequences.find(s) != mValidSequences.end());
+    }
+
+    std::string toString(KernelParam const& params, const char* prefix) const
+    {
+        std::ostringstream errMsg;
+        errMsg << prefix
+               << "\n\t s: " << params.s << "\n"
+               << "\t dPadded: " << params.d_padded << "\n"
+               << "\t interleaved: " << params.interleaved << "\n"
+               << "\t forceUnroll: " << params.force_unroll << "\n"
+               << "Was the plugin compiled on a compatible CUDA and SM version?\n"
+               << "\t Compiled on CUDA " << CUDA_VERSION << "\n"
+               << "\t Current SM version: " << mSM << "\n"
+               << "\t SM versions enabled during compilation: "
+#if defined(ENABLE_SM75)
+               << "75 "
+#endif
+#if defined(ENABLE_SM80)
+               << "80 "
+#endif
+#if defined(ENABLE_SM86)
+               << "86 "
+#endif
+#if defined(ENABLE_SM89)
+               << "89 "
+#endif
+               << "\n";
+
+        return errMsg.str();
+    }
+
+protected:
+    std::set<int32_t> mValidSequences;
 };
 
 using FusedMHACrossKernelFactory = TSharedCubinKernelFactory<FusedMultiHeadCrossAttentionKernel>;
 
-inline FusedMultiHeadCrossAttentionKernel const* getFMHCACubinKernels(MHCADataType type, int32_t sm)
+inline FusedMultiHeadCrossAttentionKernel const* getFMHCACubinKernels(MHADataType type, int32_t sm)
 {
     return FusedMHACrossKernelFactory::Get().getCubinKernels(
         sMhaKernelMetaInfos, sizeof(sMhaKernelMetaInfos) / sizeof(sMhaKernelMetaInfos[0]), type, sm);
