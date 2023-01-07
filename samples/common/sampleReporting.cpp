@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -432,9 +432,9 @@ void dumpOutputs(ContextType const& context, Bindings const& bindings, std::ostr
     bindings.dumpOutputs(context, os);
 }
 
-template 
+template
 void dumpOutputs(nvinfer1::IExecutionContext const& context, Bindings const& bindings, std::ostream& os);
-template 
+template
 void dumpOutputs(nvinfer1::safe::IExecutionContext const& context, Bindings const& bindings, std::ostream& os);
 
 template <typename ContextType>
@@ -461,10 +461,10 @@ void exportJSONOutput(
     os << "]" << std::endl;
 }
 
-template 
+template
 void exportJSONOutput(nvinfer1::IExecutionContext const& context, Bindings const& bindings, std::string const& fileName, int32_t batch);
 
-template 
+template
 void exportJSONOutput(nvinfer1::safe::IExecutionContext const& context, Bindings const& bindings, std::string const& fileName, int32_t batch);
 
 } // namespace sample

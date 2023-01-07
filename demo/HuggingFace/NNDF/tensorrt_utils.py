@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -70,14 +70,14 @@ def set_kv_data(kv_dict, past_or_present, layer_id, segment_value_dict):
         kv_dict: Dict[str, tuple/torch.dtype], the dict to modify within the function
         past_or_present: str, either "past" or "present"
         layer_id: int, need kv cache for each decoder layer
-        segment_value_dict: Dict[str, tuple/torch.dtype], example: 
+        segment_value_dict: Dict[str, tuple/torch.dtype], example:
             kvcache type: {"encoder": torch.float32, "decoder": torch.float32}
             kvcache shape: {"encoder": cross_attention_kv_shape, "decoder": self_attention_kv_shape}
     '''
     for segment, value in segment_value_dict.items():
         for code in ['key', 'value']:
             kv_dict[f"{past_or_present}_key_values.{layer_id}.{segment}.{code}"] = value
-            
+
 
 def clamp_weights_onnx(onnx_input_fpath: str, onnx_output_fpath: str, min: float, max: float, ignore_nodes: List = None):
     """

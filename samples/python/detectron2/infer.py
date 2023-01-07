@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -115,8 +115,8 @@ class TensorRTInfer:
         # Process I/O and execute the network.
         _cuda_error_check(
             cuda.cuMemcpyHtoD(
-                self.inputs[0]['allocation'], 
-                np.ascontiguousarray(batch), 
+                self.inputs[0]['allocation'],
+                np.ascontiguousarray(batch),
                 self.inputs[0]['size']))
 
         self.context.execute_v2(self.allocations)
@@ -141,15 +141,15 @@ class TensorRTInfer:
                 # Select a mask.
                 mask = masks[i][n]
 
-                # Calculate scaling values for bboxes. 
-                scale = self.inputs[0]['shape'][2]                 
+                # Calculate scaling values for bboxes.
+                scale = self.inputs[0]['shape'][2]
                 scale /= scales[i]
                 scale_y = scale
                 scale_x = scale
-                
+
                 if nms_threshold and scores[i][n] < nms_threshold:
                     continue
-                # Append to detections          
+                # Append to detections
                 detections[i].append({
                     'ymin': boxes[i][n][0] * scale_y,
                     'xmin': boxes[i][n][1] * scale_x,
@@ -195,10 +195,10 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--input", default=None, help="Path to the image or directory to process")
     parser.add_argument("-c", "--det2_config", help="The Detectron 2 config file (.yaml) for the model", type=str)
     parser.add_argument("-o", "--output", default=None, help="Directory where to save the visualization results")
-    parser.add_argument("-t", "--nms_threshold", type=float, 
+    parser.add_argument("-t", "--nms_threshold", type=float,
                         help="Override the score threshold for the NMS operation, if higher than the threshold in the engine.")
-    parser.add_argument("--iou_threshold", default=0.5, type=float, 
-                        help="Select the IoU threshold for the mask segmentation. Range is 0 to 1. Pixel values more than threshold will become 1, less 0")                                                              
+    parser.add_argument("--iou_threshold", default=0.5, type=float,
+                        help="Select the IoU threshold for the mask segmentation. Range is 0 to 1. Pixel values more than threshold will become 1, less 0")
     args = parser.parse_args()
     if not all([args.engine, args.input, args.output, args.det2_config]):
         parser.print_help()

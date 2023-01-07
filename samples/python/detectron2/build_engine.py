@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -93,8 +93,8 @@ class EngineCalibrator(trt.IInt8MinMaxCalibrator):
             log.info("Calibrating image {} / {}".format(self.image_batcher.image_index, self.image_batcher.num_images))
             _cuda_error_check(
                 cuda.cuMemcpyHtoD(
-                    self.batch_allocation, 
-                    np.ascontiguousarray(batch), 
+                    self.batch_allocation,
+                    np.ascontiguousarray(batch),
                     self.size))
 
             return [int(self.batch_allocation)]

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -227,7 +227,7 @@ class DemoDiffusion:
                                     output_names = obj.get_output_names(),
                                     dynamic_axes=obj.get_dynamic_axes(),
                             )
-                        
+
                         del model
                         torch.cuda.empty_cache()
                         gc.collect()
@@ -311,7 +311,7 @@ class DemoDiffusion:
 
         generator = None
         if args.seed is not None:
-            generator = torch.Generator(device="cuda").manual_seed(args.seed) 
+            generator = torch.Generator(device="cuda").manual_seed(args.seed)
 
         # Run Stable Diffusion pipeline
         with torch.inference_mode(), torch.autocast("cuda"), trt.Runtime(TRT_LOGGER) as runtime:
@@ -484,7 +484,7 @@ if __name__ == "__main__":
         max_batch_size=max_batch_size)
 
     # Load TensorRT engines and pytorch modules
-    demo.loadEngines(args.engine_dir, args.onnx_dir, args.onnx_opset, 
+    demo.loadEngines(args.engine_dir, args.onnx_dir, args.onnx_opset,
         opt_batch_size=len(prompt), opt_image_height=image_height, opt_image_width=image_width, \
         force_export=args.force_onnx_export, force_optimize=args.force_onnx_optimize, \
         force_build=args.force_engine_build, minimal_optimization=args.onnx_minimal_optimization, \

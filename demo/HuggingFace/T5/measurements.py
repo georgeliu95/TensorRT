@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -55,7 +55,7 @@ def decoder_inference(
 
     def decoder_stmt():
         t5_decoder(
-            input_ids=input_ids, encoder_hidden_states=encoder_last_hidden_state, use_cache=use_cache, 
+            input_ids=input_ids, encoder_hidden_states=encoder_last_hidden_state, use_cache=use_cache,
             past_key_values=past_key_values
         )
 
@@ -95,7 +95,7 @@ def full_inference_greedy(
         MinLengthLogitsProcessor(min_length, tokenizer.convert_tokens_to_ids(tokenizer.eos_token)),
         ForcedEOSTokenLogitsProcessor(max_length, tokenizer.convert_tokens_to_ids(tokenizer.eos_token))
     ])
-    
+
     decoder_input_ids = torch.full(
         (batch_size, 1), tokenizer.convert_tokens_to_ids(tokenizer.pad_token), dtype=torch.int32
     )
@@ -130,7 +130,7 @@ def full_inference_greedy(
                 use_cache=use_cache
             )
         return decoder_output_greedy
-        
+
     measurement_function = _e2e
     if isinstance(t5_decoder, TRTNativeRunner):
         t5_decoder.set_return_device("cuda" if use_cuda else "cpu")
@@ -164,7 +164,7 @@ def full_inference_beam(
         MinLengthLogitsProcessor(min_length, tokenizer.convert_tokens_to_ids(tokenizer.eos_token)),
         ForcedEOSTokenLogitsProcessor(max_length, tokenizer.convert_tokens_to_ids(tokenizer.eos_token))
     ])
-    
+
     decoder_input_ids = torch.full(
         (batch_size, 1), tokenizer.convert_tokens_to_ids(tokenizer.pad_token), dtype=torch.int32
     )
@@ -187,7 +187,7 @@ def full_inference_beam(
             )
 
             encoder_last_hidden_state = t5_encoder(input_ids=input_ids)
-            
+
             encoder_last_hidden_state = expand_inputs_for_beam_search(encoder_last_hidden_state, expand_size=num_beams)
 
             decoder_output_beam = t5_decoder.beam_search(
@@ -212,9 +212,9 @@ def full_inference_beam(
             )
 
             encoder_last_hidden_state = t5_encoder(input_ids=input_ids)
-            
+
             encoder_last_hidden_state = expand_inputs_for_beam_search(encoder_last_hidden_state, expand_size=num_beams)
-            
+
             t5_decoder.set_encoder_hidden_states_for_inference_cycle(encoder_last_hidden_state)
             decoder_output_beam = t5_decoder.beam_search(
                 input_ids=decoder_input_ids,

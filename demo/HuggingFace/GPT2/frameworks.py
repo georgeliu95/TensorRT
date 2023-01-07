@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -95,7 +95,7 @@ class GPT2HuggingFace(FrameworkCommand):
             )
             model = AutoModelForCausalLM.from_config(tfm_config).from_pretrained(pytorch_model_dir)
             model.config.use_cache = cache_variant # somehow the use_cache config automatically set to True even though specified in tfm_config before. Force change
-        
+
         onnx_model_fpath = os.path.join(onnx_root, metadata_serialized + ".onnx")
 
         gpt2 = GPT2TorchFile(model, metadata)

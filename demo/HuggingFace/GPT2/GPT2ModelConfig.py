@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -130,8 +130,8 @@ class GPT2ModelTRTConfig(NNConfig):
         TARGET_MODELS[3]: 50,
         TARGET_MODELS[4]: 50,
     }
-    
-    # The maximum sequence length that this model might ever be used with. 
+
+    # The maximum sequence length that this model might ever be used with.
     # Typically set this to something large. Use for benchmarking in this case
     MAX_SEQUENCE_LENGTH = {
         TARGET_MODELS[0]: 1024,
@@ -183,7 +183,7 @@ class GPT2ModelTRTConfig(NNConfig):
         base_requirements.append('transformers==4.20.0; python_version>="3.7"')
         base_requirements.append('transformers==4.18.0; python_version<"3.7"')
         return base_requirements
-    
+
     def get_metadata_string(self, metadata: NetworkMetadata) -> str:
         # Remove redundant GPT2 name
         metadata = metadata._replace(variant=metadata.variant.lstrip("GPT2-"))
@@ -201,11 +201,11 @@ class GPT2ModelTRTConfig(NNConfig):
         if metadata.other.kv_cache:
             # for KV cache version, we need add per-layer KV cache inputs. `past_key_values` at each layer is (self-attention K, self-attention V)
             for i in range(GPT2ModelTRTConfig.NUMBER_OF_LAYERS[metadata.variant]):
-                # decoder self-attention KV cache (dim[0] & dim[2] are dynamic, and dim[2] varies at each decoding timestep) 
+                # decoder self-attention KV cache (dim[0] & dim[2] are dynamic, and dim[2] varies at each decoding timestep)
                 self_attention_past_kv_dims = (Dims.BATCH, "num_heads", Dims.create_new_sequence_dim("past_decoder_length"), "embedding_size_per_head")
                 decoder_inputs_dict[f"past_key_values.{i}.decoder.key"] = self_attention_past_kv_dims
                 decoder_inputs_dict[f"past_key_values.{i}.decoder.value"] = self_attention_past_kv_dims
-        
+
         decoder_inputs = Dims(decoder_inputs_dict)
 
         return {
@@ -232,11 +232,11 @@ class GPT2ModelTRTConfig(NNConfig):
         if metadata.other.kv_cache:
             # for KV cache version, we need add per-layer KV cache inputs. `past_key_values` at each layer is (self-attention K, self-attention V)
             for i in range(GPT2ModelTRTConfig.NUMBER_OF_LAYERS[metadata.variant]):
-                # decoder self-attention KV cache (dim[0] & dim[2] are dynamic, and dim[2] varies at each decoding timestep) 
+                # decoder self-attention KV cache (dim[0] & dim[2] are dynamic, and dim[2] varies at each decoding timestep)
                 self_attention_present_kv_dims = (Dims.BATCH, "num_heads", Dims.create_new_sequence_dim("decoder_length"), "embedding_size_per_head")
                 decoder_outputs_dict[f"present_key_values.{i}.decoder.key"] = self_attention_present_kv_dims
                 decoder_outputs_dict[f"present_key_values.{i}.decoder.value"] = self_attention_present_kv_dims
-        
+
         decoder_outputs = Dims(decoder_outputs_dict)
 
         return {
