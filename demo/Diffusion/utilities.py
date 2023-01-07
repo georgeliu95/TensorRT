@@ -1,6 +1,6 @@
 #
 # Copyright 2022 The HuggingFace Inc. team.
-# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -269,7 +269,7 @@ class DPMScheduler():
 
             timestep_list = [self.timesteps[step_index - 1], timestep]
             self.multistep_dpm_solver_second_order_coefs_precompute(timestep_list, prev_timestep)
-                
+
             timestep_list = [self.timesteps[step_index - 2], self.timesteps[step_index - 1], timestep]
             self.multistep_dpm_solver_third_order_coefs_precompute(timestep_list, prev_timestep)
 
@@ -296,7 +296,7 @@ class DPMScheduler():
         h = lambda_t - lambda_s0
         if self.algorithm_type == "dpmsolver++":
             # See https://arxiv.org/abs/2211.01095 for detailed derivations
-            if self.solver_type == "midpoint": 
+            if self.solver_type == "midpoint":
                 self.second_order_first_coef.append(sigma_t / sigma_s0)
                 self.second_order_second_coef.append((alpha_t * (torch.exp(-h) - 1.0)))
                 self.second_order_third_coef.append(0.5 * (alpha_t * (torch.exp(-h) - 1.0)))

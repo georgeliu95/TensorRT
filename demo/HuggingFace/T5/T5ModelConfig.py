@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -94,10 +94,10 @@ T5TRTBenchmarkingArgs = namedtuple("T5TRTBenchmarkingArgs", ["input_seq_len", "o
 
 class T5ModelTRTConfig(NNConfig):
 
-   
+
     TARGET_MODELS = ["t5-small", "t5-base", "t5-large", "t5-3b"]
     # in all T5 variants, # of encoder layers and # of decoder layers are the same
-    
+
     NUMBER_OF_LAYERS = {
         TARGET_MODELS[0]: 12,
         TARGET_MODELS[1]: 24,
@@ -120,8 +120,8 @@ class T5ModelTRTConfig(NNConfig):
     }
 
     NUMBER_OF_HEADS = {
-        TARGET_MODELS[0]: 8, 
-        TARGET_MODELS[1]: 12, 
+        TARGET_MODELS[0]: 8,
+        TARGET_MODELS[1]: 12,
         TARGET_MODELS[2]: 16,
         TARGET_MODELS[3]: 32,
     }
@@ -154,7 +154,7 @@ class T5ModelTRTConfig(NNConfig):
         TARGET_MODELS[1]: 0,
         TARGET_MODELS[2]: 0,
         TARGET_MODELS[3]: 0,
-    } 
+    }
 
     #TODO: this might better be an inference time input like the `max_length` arg in generate() and greedy_search(). The change needed is in NNDF/interface.py:__call__ so it's a fundamental change affecting GPT2 and T5 code. Here I just put this option in T5 model config for now. But it's also reasonable to treat this as a model config, because the TRT engine building may need this to have fixed dimension (e.g., to enable KV-cache)
     # see task-specific params in config.json of each variant model
@@ -163,7 +163,7 @@ class T5ModelTRTConfig(NNConfig):
         TARGET_MODELS[1]: 768,
         TARGET_MODELS[2]: 1024,
         TARGET_MODELS[3]: 1024,
-    } 
+    }
 
     NETWORK_FULL_NAME = "full"
     NETWORK_DECODER_SEGMENT_NAME = "decoder"
@@ -233,16 +233,16 @@ class T5ModelTRTConfig(NNConfig):
         if metadata.other.kv_cache:
             # for KV cache version, we need add per-layer KV cache inputs. `past_key_values` at each layer is (self-attention K, self-attention V, cross-attention K, cross-attention V)
             for i in range(T5ModelTRTConfig.NUMBER_OF_DECODER_LAYERS[metadata.variant]):
-                # decoder self-attention KV cache (dim[0] & dim[2] are dynamic, and dim[2] varies at each decoding timestep) 
+                # decoder self-attention KV cache (dim[0] & dim[2] are dynamic, and dim[2] varies at each decoding timestep)
                 self_attention_past_kv_dims = (Dims.BATCH, "num_heads", Dims.create_new_sequence_dim("past_decoder_length"), "embedding_size_per_head")
                 decoder_inputs_dict[f"past_key_values.{i}.decoder.key"] = self_attention_past_kv_dims
                 decoder_inputs_dict[f"past_key_values.{i}.decoder.value"] = self_attention_past_kv_dims
-                
+
                 # encoder-decoder cross-attention KV cache (dim[0] & dim[2] are dynamic, but dim[2] is constant at each decoding timestep)
-                cross_attention_past_kv_dims = (Dims.BATCH, "num_heads", Dims.create_new_sequence_dim("encoder_length"), "embedding_size_per_head") 
+                cross_attention_past_kv_dims = (Dims.BATCH, "num_heads", Dims.create_new_sequence_dim("encoder_length"), "embedding_size_per_head")
                 decoder_inputs_dict[f"past_key_values.{i}.encoder.key"] = cross_attention_past_kv_dims
                 decoder_inputs_dict[f"past_key_values.{i}.encoder.value"] = cross_attention_past_kv_dims
-        
+
         decoder_inputs = Dims(decoder_inputs_dict)
 
         encoder_inputs = Dims(OrderedDict({"input_ids": (Dims.BATCH, Dims.SEQUENCE)}))
@@ -267,18 +267,18 @@ class T5ModelTRTConfig(NNConfig):
         if metadata.other.kv_cache:
             # for KV cache version, we need add per-layer KV cache inputs. `past_key_values` at each layer is (self-attention K, self-attention V, cross-attention K, cross-attention V)
             for i in range(T5ModelTRTConfig.NUMBER_OF_DECODER_LAYERS[metadata.variant]):
-                # decoder self-attention KV cache (dim[0] & dim[2] are dynamic, and dim[2] varies at each decoding timestep) 
+                # decoder self-attention KV cache (dim[0] & dim[2] are dynamic, and dim[2] varies at each decoding timestep)
                 self_attention_present_kv_dims = (Dims.BATCH, "num_heads", Dims.create_new_sequence_dim("decoder_length"), "embedding_size_per_head")
                 decoder_outputs_dict[f"present_key_values.{i}.decoder.key"] = self_attention_present_kv_dims
                 decoder_outputs_dict[f"present_key_values.{i}.decoder.value"] = self_attention_present_kv_dims
-                
+
                 # encoder-decoder cross-attention KV cache (dim[0] & dim[2] are dynamic, but dim[2] is constant at each decoding timestep)
-                cross_attention_present_kv_dims = (Dims.BATCH, "num_heads", Dims.create_new_sequence_dim("encoder_length"), "embedding_size_per_head") 
+                cross_attention_present_kv_dims = (Dims.BATCH, "num_heads", Dims.create_new_sequence_dim("encoder_length"), "embedding_size_per_head")
                 decoder_outputs_dict[f"present_key_values.{i}.encoder.key"] = cross_attention_present_kv_dims
                 decoder_outputs_dict[f"present_key_values.{i}.encoder.value"] = cross_attention_present_kv_dims
 
         decoder_outputs = Dims(decoder_outputs_dict)
-        
+
         encoder_outputs = Dims(
             OrderedDict(
                 {

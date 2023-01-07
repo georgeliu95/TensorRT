@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -98,8 +98,8 @@ class T5FHuggingFace(FrameworkCommand):
             model = T5ForConditionalGeneration(tfm_config).from_pretrained(
                 pytorch_model_dir
             )
-        
-        # These ONNX models can be converted using special encoder and decoder classes.        
+
+        # These ONNX models can be converted using special encoder and decoder classes.
         encoder_onnx_model_fpath = os.path.join(encoder_onnx_root, metadata_serialized + "-encoder.onnx")
         decoder_onnx_model_fpath = os.path.join(decoder_onnx_root, metadata_serialized + "-decoder-with-lm-head.onnx")
 
@@ -210,7 +210,7 @@ class T5FHuggingFace(FrameworkCommand):
             t5_torch_encoder, input_ids, timing_profile, use_cuda=(not use_cpu)
         )
 
-        # Need to feed the decoder a new empty input_ids for text generation. 
+        # Need to feed the decoder a new empty input_ids for text generation.
         decoder_output_len = output_seq_len // 2 if (not metadata.other.kv_cache) else 1
 
         decoder_input_ids = torch.full(
@@ -224,7 +224,7 @@ class T5FHuggingFace(FrameworkCommand):
             timing_profile,
             use_cache=metadata.other.kv_cache,
         )
-        
+
         if num_beams == 1:
             decoder_output, full_e2e_runtime = full_inference_greedy(
                 t5_torch_encoder,

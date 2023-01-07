@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -116,10 +116,10 @@ class Optimizer():
         for node in self.graph.nodes:
             if node.op == "Resize" and len(node.inputs) == 3:
                 name = node.name + "/"
-                
+
                 add_node = node.o().o().i(1)
                 div_node = node.i()
-                
+
                 shape_hw_out = gs.Variable(name=name + "shape_hw_out", dtype=np.int64, shape=[4])
                 shape_hw = gs.Node(op="Shape", name=name+"shape_hw", inputs=[add_node.outputs[0]], outputs=[shape_hw_out])
 
@@ -710,7 +710,7 @@ class CLIP(BaseModel):
         return ['input_ids']
 
     def get_output_names(self):
-       return ['text_embeddings', 'pooler_output'] 
+       return ['text_embeddings', 'pooler_output']
 
     def get_dynamic_axes(self):
         return {
@@ -779,7 +779,7 @@ class UNet(BaseModel):
         return ['sample', 'timestep', 'encoder_hidden_states']
 
     def get_output_names(self):
-       return ['latent'] 
+       return ['latent']
 
     def get_dynamic_axes(self):
         return {
@@ -826,7 +826,7 @@ class UNet(BaseModel):
         # Adjust the bias to be the second input to the Add ops
         bAdjustAddNode = enable_optimization
         # Change Resize node to take size instead of scale
-        bResizeFix = enable_optimization 
+        bResizeFix = enable_optimization
 
         # Common override for disabling all plugins below
         bDisablePlugins = minimal_optimization
