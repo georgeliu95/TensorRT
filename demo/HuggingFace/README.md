@@ -18,10 +18,20 @@ Currently, this repository supports the following models:
 
 ## Setup
 
-Follow the setup steps in the TensorRT OSS repository, and then install the additional dependencies below. It is recommended to experiment inside Docker container.
 
-```python
-pip3 install -r requirements.txt
+Follow the setup steps in the TensorRT OSS repository. It is recommended to experiment inside Docker container.
+For a smoother setup experience, it is recommended to use [Poetry](https://python-poetry.org/) to install requirements and execute:
+
+```bash
+poetry install # one-time setup
+poetry run python run.py <args> # execute program
+```
+
+However requirements.txt are also provided.
+
+```bash
+pip3 install -r requirements.txt # install requirements
+python run.py <args> # execute program
 ```
 
 **Please note that due to end-of-life, Python <= 3.6 is no longer supported.**
@@ -152,6 +162,14 @@ The `benchmark` action will benchmark the specific script under the model direct
 
 ```python
 python3 run.py benchmark GPT2 [frameworks | trt] --variant [gpt2 | gpt2-medium | gpt2-large | gpt2-xl | EleutherAI/gpt-j-6B] --working-dir temp --input-seq-len 128 --output-seq-len 256
+```
+
+## How to run in performance benchmarking mode
+
+The `benchmark` action will benchmark the specific script under the model directory using random input data with specified input/output sequence lengths. Note that since the input data is random, the accuracy is not guaranteed, but the benchmarking mode is useful for performance measurement since it allows arbitrary and controllable input/output sequence lengths with early stopping being disabled and allows apples-to-apples performance comparisons across different frameworks.
+
+```python
+python3 run.py benchmark GPT2 [frameworks | trt] --variant [gpt2 | gpt2-large] --working-dir temp --input-seq-len 128 --output-seq-len 256
 ```
 
 ## Testing
