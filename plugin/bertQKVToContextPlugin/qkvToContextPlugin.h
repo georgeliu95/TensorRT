@@ -268,19 +268,20 @@ private:
     std::unique_ptr<MHARunner> dispatcher;
     std::unique_ptr<QkvPaddingRunner> patcher;
 
-    int32_t mS;
-    int32_t mB;
-    int32_t mSM;
-    int32_t mHeadSize;
-    int32_t mHiddenSize;
-    int32_t mNumHeads;
-    bool mHasImask;
-    nvinfer1::DataType mType;
+    int32_t mMaxS{};
+    int32_t mS{};
+    int32_t mB{};
+    int32_t mSM{};
+    int32_t mHeadSize{};
+    int32_t mHiddenSize{};
+    int32_t mNumHeads{};
+    bool mHasImask{};
+    nvinfer1::DataType mType{};
 
-    float mDqProbs;
+    float mDqProbs{};
 
-    int32_t mHdim;
-    bool mUseVarSeqlen;
+    int32_t mHdim{};
+    bool mUseVarSeqlen{};
     bool mUseInt8ScaleMax{true};
 
     using IPluginV2::getOutputDimensions;
@@ -369,6 +370,34 @@ private:
     class mhaImpl;
     std::unique_ptr<mhaImpl> pimpl;
 };
+
+#if defined(ENABLE_SM75) || defined(ENABLE_SM80) || defined(ENABLE_SM86) || defined(ENABLE_SM89)
+class FusedMHAFlashRunnerFP16 : public MHARunner
+{
+public:
+    FusedMHAFlashRunnerFP16(int32_t numHeads, int32_t headSize, int32_t sm);
+    ~FusedMHAFlashRunnerFP16() = default;
+
+    virtual void setup(int32_t sequence, int32_t batch) override;
+
+    void run(nvinfer1::PluginTensorDesc const& inputDesc, nvinfer1::PluginTensorDesc const& outputDesc,
+        void const* qkvPtr, void const* maskPtr, void* output, void* workspace, cudaStream_t stream) override;
+
+    void run(nvinfer1::PluginTensorDesc const* inputDesc, nvinfer1::PluginTensorDesc const* outputDesc,
+        void const* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) override;
+
+    size_t getWorkspaceSize() const override;
+
+    void deserialize(void const* data, size_t length) override;
+
+    bool isValid(int32_t sequence) const override;
+
+private:
+    int32_t mSM{};
+    class MhaImpl;
+    std::unique_ptr<MhaImpl> mImpl;
+};
+#endif
 
 class FusedMHARunnerInt8 : public MHARunner
 {
