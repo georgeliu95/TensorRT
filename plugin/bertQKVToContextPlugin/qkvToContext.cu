@@ -18,9 +18,6 @@
 #include "NvInfer.h"
 #include "common/bertCommon.h"
 #include "common/common.cuh"
-#if defined(ENABLE_SM75) || defined(ENABLE_SM80) || defined(ENABLE_SM86) || defined(ENABLE_SM89)
-#include "common/fmha_flash_attention.h"
-#endif
 #include "common/fused_multihead_attention_v2.h"
 #include "common/serialize.hpp"
 #include "qkvToContextPlugin.h"
@@ -1069,94 +1066,6 @@ bool FusedMHARunnerFP16v2::isValid(int s) const
 {
     return pimpl->isValid(s);
 }
-
-#if defined(ENABLE_SM75) || defined(ENABLE_SM80) || defined(ENABLE_SM86) || defined(ENABLE_SM89)
-class FusedMHAFlashRunnerFP16::MhaImpl
-{
-public:
-    MhaImpl(FusedMHAFlashRunnerFP16* interface)
-        : mXmmaKernel(getFMHAFlashCubinKernels(DATA_TYPE_FP16, interface->mSM))
-    {
-    }
-
-    ~MhaImpl() {}
-
-    void setup(int32_t sequence, int32_t batch)
-    {
-        mSequence = sequence;
-        mBatch = batch;
-    }
-
-    void run(PluginTensorDesc const& inputDesc, PluginTensorDesc const& outputDesc, void const* qkvPtr,
-        void const* maskPtr, void const* cuSeqlenPtr, void* output, int32_t numHeads, int32_t headSize, void* workspace,
-        cudaStream_t stream)
-    {
-        Fused_multihead_flash_attention_params_v2 params
-            = getMHFAParams(/* data_type */ DATA_TYPE_FP16, /* acc_type */ DATA_TYPE_FP16, mBatch, mSequence, numHeads,
-                headSize, mBatch * mSequence, qkvPtr, const_cast<void*>(cuSeqlenPtr), output, /* p_d */ nullptr,
-                /* s_d */ nullptr, /* scale_bmm1 */ 1.F / sqrtf(headSize), /* scale_softmax */ 1.F,
-                /* scale_bmm2 */ 1.F, /* interleaved */ false, /* ignore_b1opt */ false, /* force_unroll */ true,
-                /* use_int8_scale_max  */ false);
-
-        mXmmaKernel->run(params, stream);
-        PLUGIN_CHECK(cudaPeekAtLastError());
-    }
-
-    bool isValid(int32_t sequence) const
-    {
-        return mXmmaKernel->isValid(sequence);
-    }
-
-private:
-    int32_t mBatch{};
-    int32_t mSequence{};
-    FusedMultiHeadFlashAttentionKernel const* mXmmaKernel{};
-};
-
-FusedMHAFlashRunnerFP16::FusedMHAFlashRunnerFP16(int32_t numHeads, int32_t headSize, int32_t sm)
-    : MHARunner(DataType::kHALF, numHeads, headSize)
-    , mSM(sm)
-    , mImpl(new MhaImpl(this))
-{
-}
-
-void FusedMHAFlashRunnerFP16::setup(int32_t S, int32_t B)
-{
-    MHARunner::setup(S, B);
-    mImpl->setup(S, B);
-}
-
-size_t FusedMHAFlashRunnerFP16::getWorkspaceSize() const
-{
-    return 0;
-}
-
-void FusedMHAFlashRunnerFP16::deserialize(void const* data, size_t length)
-{
-    MHARunner::deserialize(data, length);
-    setup(mS, mB);
-}
-
-void FusedMHAFlashRunnerFP16::run(PluginTensorDesc const& inputDesc, PluginTensorDesc const& outputDesc,
-    void const* qkvPtr, void const* maskPtr, void* output, void* workspace, cudaStream_t stream)
-{
-    PLUGIN_ERROR("Only variable sequence API interface is supported.");
-}
-
-void FusedMHAFlashRunnerFP16::run(nvinfer1::PluginTensorDesc const* inputDesc,
-    nvinfer1::PluginTensorDesc const* outputDesc, void const* const* inputs, void* const* outputs, void* workspace,
-    cudaStream_t stream)
-{
-    mImpl->run(/* inputDesc */ inputDesc[0], /* outputDesc */ outputDesc[0], /* qkvPtr */ inputs[0],
-        /* maskPtr */ inputs[1], /* cuSeqlenPtr */ inputs[2], /* output */ outputs[0], /* numHeads */ mNumHeads,
-        /* headSize */ mHeadSize, /* workspace */ workspace, /* stream */ stream);
-}
-
-bool FusedMHAFlashRunnerFP16::isValid(int32_t sequence) const
-{
-    return mImpl->isValid(sequence);
-}
-#endif
 
 // Int8 starts here: TODO refactor the duplicate stuff
 
