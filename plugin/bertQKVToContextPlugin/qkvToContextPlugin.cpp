@@ -20,9 +20,9 @@
 #if CUDA_VERSION >= 10010
 
 #include "NvInfer.h"
-#include "common/bertCommon.h"
 #include "common/fused_multihead_attention.h"
 #include "common/fused_multihead_attention_v2.h"
+#include "common/bertCommon.h"
 #include "common/serialize.hpp"
 #include "qkvToContextPlugin.h"
 
@@ -49,9 +49,8 @@ std::vector<PluginField> QKVToContextPluginDynamicCreator::mPluginAttributes;
 
 REGISTER_TENSORRT_PLUGIN(QKVToContextPluginDynamicCreator);
 
-constexpr int32_t IIDX = 0;        // index of the input tensor
-constexpr int32_t MIDX = 1;        // index of the mask
-constexpr int32_t MAX_SEQ_IDX = 3; // index of the max sequence length
+constexpr uint32_t IIDX = 0; // index of the input tensor
+constexpr uint32_t MIDX = 1; // index of the mask
 
 // Static class fields initialization
 PluginFieldCollection QKVToContextVarSeqlenPluginCreator::mFC{};
@@ -582,10 +581,9 @@ const char* QKVToContextPluginDynamicCreator::getPluginNamespace() const noexcep
     return mNamespace.c_str();
 }
 
-QKVToContextVarSeqlenPlugin::QKVToContextVarSeqlenPlugin(std::string name, DataType type, int32_t hiddenSize,
-    int32_t numHeads, float dqProbs, bool hasImask, bool varSeqlen, bool useInt8ScaleMax)
+QKVToContextVarSeqlenPlugin::QKVToContextVarSeqlenPlugin(std::string const name, DataType const type,
+    int32_t const hiddenSize, int32_t const numHeads, float const dqProbs, bool hasImask, bool varSeqlen, bool useInt8ScaleMax)
     : mLayerName(name)
-    , mMaxS(0)
     , mS(0)
     , mB(0)
     , mHeadSize(hiddenSize / numHeads)
@@ -622,7 +620,6 @@ QKVToContextVarSeqlenPlugin::QKVToContextVarSeqlenPlugin(const std::string name,
     deserialize_value(&data, &length, &mHasImask);
     deserialize_value(&data, &length, &mHiddenSize);
     deserialize_value(&data, &length, &mSM);
-    deserialize_value(&data, &length, &mMaxS);
     deserialize_value(&data, &length, &mS);
     deserialize_value(&data, &length, &mB);
 
@@ -656,20 +653,7 @@ void QKVToContextVarSeqlenPlugin::createMHARunner()
 
         if (mType == DataType::kHALF)
         {
-            PLUGIN_VALIDATE(mMaxS && "We need to initialize max sequence to a non-zero value.");
-            if (mMaxS > 512)
-            {
-#if defined(ENABLE_SM75) || defined(ENABLE_SM80) || defined(ENABLE_SM86) || defined(ENABLE_SM89)
-                dispatcher.reset(new FusedMHAFlashRunnerFP16(mNumHeads, headSize, mSM));
-                PLUGIN_VALIDATE(dispatcher->isValid(mMaxS) && "No flash mha implementation for current SM arch.");
-#else
-                PLUGIN_ERROR("No flash mha implementation for current SM arch.");
-#endif
-            }
-            else
-            {
-                dispatcher.reset(new FusedMHARunnerFP16v2(mNumHeads, headSize, mSM));
-            }
+            dispatcher.reset(new FusedMHARunnerFP16v2(mNumHeads, headSize, mSM));
         }
         else if (mType == DataType::kINT8)
         {
@@ -846,8 +830,6 @@ void QKVToContextVarSeqlenPlugin::configurePlugin(
     else
     {
         BERT_DEBUG_MSG("setting up MHA runner for variable sequence length");
-        PluginTensorDesc const& maxSDesc = in[MAX_SEQ_IDX].desc;
-        mMaxS = maxSDesc.dims.d[SDIM] < 0 ? in[MAX_SEQ_IDX].max.d[SDIM] : maxSDesc.dims.d[SDIM];
         createMHARunner();
         // need to initialize S and B with somewhat useful values, they will be reset at enqueue for the actual
         // batchsize
@@ -901,7 +883,7 @@ void QKVToContextVarSeqlenPlugin::terminate() noexcept {}
 size_t QKVToContextVarSeqlenPlugin::getSerializationSize() const noexcept
 {
     return sizeof(mNumHeads) + sizeof(mHeadSize) + sizeof(DataType) + sizeof(mHasImask) + sizeof(mHiddenSize)
-        + sizeof(mSM) + sizeof(mMaxS) + sizeof(mS) + sizeof(mB) + sizeof(mDqProbs) + dispatcher->getSerializationSize()
+        + sizeof(mSM) + sizeof(mS) + sizeof(mB) + sizeof(mDqProbs) + dispatcher->getSerializationSize()
         + sizeof(mUseVarSeqlen) + sizeof(mHdim) + sizeof(mUseInt8ScaleMax);
 }
 
@@ -913,7 +895,6 @@ void QKVToContextVarSeqlenPlugin::serialize(void* buffer) const noexcept
     serialize_value(&buffer, mHasImask);
     serialize_value(&buffer, mHiddenSize);
     serialize_value(&buffer, mSM);
-    serialize_value(&buffer, mMaxS);
     serialize_value(&buffer, mS);
     serialize_value(&buffer, mB);
 
@@ -943,107 +924,98 @@ int32_t QKVToContextVarSeqlenPlugin::enqueue(const nvinfer1::PluginTensorDesc* i
     const nvinfer1::PluginTensorDesc* outputDesc, const void* const* inputs, void* const* outputs, void* workspace,
     cudaStream_t stream) noexcept
 {
-    int32_t result{-1};
-    try
-    {
-        if (mUseVarSeqlen)
-        {
-            int32_t const B = inputDesc[2].dims.d[0] - 1;
-            int32_t const maxS = inputDesc[MAX_SEQ_IDX].dims.d[SDIM];
-            PLUGIN_VALIDATE(mMaxS == maxS
-                && "The third input max_seqlen should not be changed between engine build and inference.");
-            PLUGIN_VALIDATE((maxS <= 512 || mType != DataType::kINT8)
-                          && "No implementation for variable sequence length multi-head attention plugin with sequence > 512 for INT8 precision.");
 
-            int32_t S = 512;
-            if (DataType::kHALF == mType && maxS <= 64)
-            {
-                S = 64;
-            }
-            else if (DataType::kHALF == mType && maxS <= 96)
-            {
-                S = 96;
-            }
-            else if (maxS <= 128)
-            {
-                S = 128;
-            }
-            else if (maxS <= 192 && mType != DataType::kHALF)
-            {
-                S = 192;
-            }
-            else if (maxS <= 256)
+    if (mUseVarSeqlen)
+    {
+        const int32_t B = inputDesc[2].dims.d[0] - 1;
+        const int32_t maxS = inputDesc[3].dims.d[0];
+        PLUGIN_ASSERT((maxS <= 512)
+            && "No implementation for variable sequence length multi-head attention plugin with sequence > 512.");
+
+        int32_t S = 512;
+        if (DataType::kHALF == mType && maxS <= 64)
+        {
+            S = 64;
+        }
+        else if (DataType::kHALF == mType && maxS <= 96)
+        {
+            S = 96;
+        }
+        else if (maxS <= 128)
+        {
+            S = 128;
+        }
+        else if (maxS <= 192)
+        {
+            S = 192;
+            if(mType == DataType::kHALF)
             {
                 S = 256;
             }
-            else if (maxS <= 384)
-            {
-                S = 384;
-            }
-            else if (maxS > 512)
-            {
-                S = maxS;
-            }
 
-            this->dispatcher->setup(S, B);
-
-            if (patcher)
-            {
-                auto sumSeqLen = inputDesc[0].dims.d[0];
-                auto paddingWorkspace = patcher->get16BytesAlignedPointer(workspace, dispatcher->getWorkspaceSize());
-                auto ret = patcher->pad(inputs[0], paddingWorkspace, sumSeqLen, mNumHeads, mHeadSize, stream);
-                if (ret != cudaSuccess)
-                {
-                    return ret;
-                }
-
-                MhaRunParameter paddingArgs = patcher->patchMhaArgs(
-                    inputDesc, outputDesc, inputs, outputs, paddingWorkspace, sumSeqLen, mNumHeads);
-                try
-                {
-                    this->dispatcher->run(paddingArgs.inputDesc, paddingArgs.outputDesc, paddingArgs.inputs,
-                        paddingArgs.outputs, workspace, stream);
-                }
-                catch (std::exception const& e)
-                {
-                    caughtError(e);
-                    return -1;
-                }
-
-                ret = patcher->unpad(paddingArgs.outputs[0], outputs[0], sumSeqLen, mNumHeads, mHeadSize, stream);
-                if (ret != cudaSuccess)
-                {
-                    return ret;
-                }
-            }
-            else
-            {
-                try
-                {
-                    this->dispatcher->run(inputDesc, outputDesc, inputs, outputs, workspace, stream);
-                }
-                catch (std::exception const& e)
-                {
-                    caughtError(e);
-                    return -1;
-                }
-            }
-
-            return cudaGetLastError();
+        }
+        else if (maxS <= 256)
+        {
+            S = 256;
+        }
+        else if (maxS <= 384)
+        {
+            S = 384;
         }
 
-        PLUGIN_VALIDATE(mS == inputDesc->dims.d[SDIM]);
-        PLUGIN_VALIDATE(mB == inputDesc->dims.d[BDIM]);
+        this->dispatcher->setup(S, B);
 
-        void const* maskPtr = mHasImask ? inputs[1] : nullptr;
-        this->dispatcher->run(inputDesc[0], outputDesc[0], inputs[0], maskPtr, outputs[0], workspace, stream);
-        result = cudaGetLastError();
+        if (patcher)
+        {
+            auto sumSeqLen = inputDesc[0].dims.d[0];
+            auto paddingWorkspace = patcher->get16BytesAlignedPointer(workspace, dispatcher->getWorkspaceSize());
+            auto ret = patcher->pad(inputs[0], paddingWorkspace, sumSeqLen, mNumHeads, mHeadSize, stream);
+            if (ret != cudaSuccess)
+            {
+                return ret;
+            }
+
+            MhaRunParameter paddingArgs
+                = patcher->patchMhaArgs(inputDesc, outputDesc, inputs, outputs, paddingWorkspace, sumSeqLen, mNumHeads);
+            try
+            {
+                this->dispatcher->run(paddingArgs.inputDesc, paddingArgs.outputDesc, paddingArgs.inputs,
+                    paddingArgs.outputs, workspace, stream);
+            }
+            catch (std::exception const& e)
+            {
+                caughtError(e);
+                return -1;
+            }
+
+            ret = patcher->unpad(paddingArgs.outputs[0], outputs[0], sumSeqLen, mNumHeads, mHeadSize, stream);
+            if (ret != cudaSuccess)
+            {
+                return ret;
+            }
+        }
+        else
+        {
+            try
+            {
+                this->dispatcher->run(inputDesc, outputDesc, inputs, outputs, workspace, stream);
+            }
+            catch (std::exception const& e)
+            {
+                caughtError(e);
+                return -1;
+            }
+        }
+
+        return cudaGetLastError();
     }
-    catch (std::exception const& e)
-    {
-        caughtError(e);
-    }
-    return result;
+
+    PLUGIN_ASSERT(mS == inputDesc->dims.d[SDIM]);
+    PLUGIN_ASSERT(mB == inputDesc->dims.d[BDIM]);
+
+    void const* maskPtr = mHasImask ? inputs[1] : nullptr;
+    this->dispatcher->run(inputDesc[0], outputDesc[0], inputs[0], maskPtr, outputs[0], workspace, stream);
+    return cudaGetLastError();
 }
 
 QKVToContextVarSeqlenPluginCreator::QKVToContextVarSeqlenPluginCreator()
