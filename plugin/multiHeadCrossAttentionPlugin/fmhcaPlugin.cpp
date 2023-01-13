@@ -18,7 +18,8 @@
 #if defined(ENABLE_SM75) || defined(ENABLE_SM80) || defined(ENABLE_SM86) || defined(ENABLE_SM89)
 #include "fmhcaPlugin.h"
 #include "fmhca.h"
-#include "common/fmha_cross_attention.h"
+#include "fmha_cross_attention/include/commonDatatype.h"
+#include "fmha_cross_attention/include/fmha_cross_attention.h"
 
 namespace
 {

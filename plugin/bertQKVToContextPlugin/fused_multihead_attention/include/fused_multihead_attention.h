@@ -21,6 +21,7 @@
 #include "common/cudaDriverWrapper.h"
 #include "common/plugin.h"
 #include "cuda_runtime_api.h"
+#include "fused_multihead_attention_common.h"
 #include <memory>
 #include <mutex>
 #include <set>
@@ -34,7 +35,7 @@ namespace plugin
 {
 namespace bert
 {
-static inline size_t get_size_in_bytes(size_t n, MHADataType dtype)
+static inline size_t get_size_in_bytes(size_t n, Data_type dtype)
 {
     switch (dtype)
     {
@@ -184,7 +185,7 @@ extern uint32_t cubin_fmha_v1_fp16_64_64_sm90_cu_cubin_len;
 #endif
 static const struct FusedMultiHeadAttentionKernelMetaInfoV1
 {
-    MHADataType mDataType;
+    Data_type mDataType;
     uint32_t mS;
     uint32_t mD;
     uint32_t mSM;
@@ -313,7 +314,7 @@ public:
         return hashID(kernelMeta.mS, kernelMeta.mD);
     }
 
-    TFusedMultiHeadAttentionXMMAKernel(const TKernelMeta* pMetaStart, uint32_t nMetaCount, MHADataType type, uint32_t sm)
+    TFusedMultiHeadAttentionXMMAKernel(const TKernelMeta* pMetaStart, uint32_t nMetaCount, Data_type type, uint32_t sm)
         : mDataType(type)
         , mKernelMeta(pMetaStart)
         , mKernelMetaCount(nMetaCount)
@@ -451,7 +452,7 @@ public:
 protected:
     nvinfer1::CUDADriverWrapper mDriver;
 
-    MHADataType mDataType;
+    Data_type mDataType;
     const TKernelMeta* mKernelMeta;
     uint32_t mKernelMetaCount;
     uint32_t mSM;
@@ -470,7 +471,7 @@ class TFusedMHAKernelFactory
 {
 public:
     const TFusedMHAKernelList* getXMMAKernels(
-        const typename TFusedMHAKernelList::KernelMeta* pKernelList, uint32_t nbKernels, MHADataType type, uint32_t sm)
+        const typename TFusedMHAKernelList::KernelMeta* pKernelList, uint32_t nbKernels, Data_type type, uint32_t sm)
     {
         static std::mutex s_mutex;
         std::lock_guard<std::mutex> lg(s_mutex);
@@ -496,7 +497,7 @@ public:
 private:
     TFusedMHAKernelFactory() = default;
 
-    inline uint64_t hashID(MHADataType type, uint32_t sm) const
+    inline uint64_t hashID(Data_type type, uint32_t sm) const
     {
         // use deviceID in hasID for multi GPU support before driver support context-less loading of cubin
         int32_t deviceID{0};
@@ -515,7 +516,7 @@ using FusedMultiHeadAttentionXMMAKernel
     = TFusedMultiHeadAttentionXMMAKernel<FusedMultiHeadAttentionKernelMetaInfoV1, Fused_multihead_attention_params>;
 using FusedMHAKernelFactory = TFusedMHAKernelFactory<FusedMultiHeadAttentionXMMAKernel>;
 
-inline const FusedMultiHeadAttentionXMMAKernel* getXMMAKernels(MHADataType type, uint32_t sm)
+inline const FusedMultiHeadAttentionXMMAKernel* getXMMAKernels(Data_type type, uint32_t sm)
 {
     return FusedMHAKernelFactory::Get().getXMMAKernels(
         sMhaKernelMetaInfos, sizeof(sMhaKernelMetaInfos) / sizeof(sMhaKernelMetaInfos[0]), type, sm);
