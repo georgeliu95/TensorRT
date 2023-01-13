@@ -735,8 +735,8 @@ class T5TRT(TRTInferenceCommand):
             # Use TensorRT Zero-Tensor feature for the 1st decoder run, self attention is growing with increasing sequence.
             self_attention_profile = {
                 "min": (batch_size * num_beams, num_heads, 0, embedding_size_per_head),
-                "opt": (batch_size * num_beams, num_heads, opt_output_seq_len, embedding_size_per_head),
-                "max": (batch_size * num_beams, num_heads, max_output_length, embedding_size_per_head),
+                "opt": (batch_size * num_beams, num_heads, opt_output_seq_len - 1, embedding_size_per_head),
+                "max": (batch_size * num_beams, num_heads, max_output_length - 1, embedding_size_per_head),
             }
 
             # Cross attention kv cache does not change during single decoder iteration.
