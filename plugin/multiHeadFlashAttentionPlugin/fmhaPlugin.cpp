@@ -18,7 +18,8 @@
 #if defined(ENABLE_SM75) || defined(ENABLE_SM80) || defined(ENABLE_SM86) || defined(ENABLE_SM89)
 #include "fmhaPlugin.h"
 #include "fmha.h"
-#include "common/fmha_flash_attention.h"
+#include "fmha_flash_attention/include/commonDatatype.h"
+#include "fmha_flash_attention/include/fmha_flash_attention.h"
 
 namespace
 {

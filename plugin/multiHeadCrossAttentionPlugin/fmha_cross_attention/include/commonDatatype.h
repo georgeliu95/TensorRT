@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,19 +15,28 @@
  * limitations under the License.
  */
 
-#ifndef TRT_FMHCA_H
-#define TRT_FMHCA_H
-
-#include "fmha_cross_attention/include/fmha_cross_attention.h"
+#ifndef TRT_COMMON_DATATYPE_FLASH_H
+#define TRT_COMMON_DATATYPE_FLASH_H
 
 namespace nvinfer1
 {
 namespace plugin
 {
-int32_t runFMHCAKernel(void const* devQ, void const* devKV, void* cuSeqlensQ, void* cuSeqlensKV, void* devOutput,
-    int32_t sm, FusedMultiHeadCrossAttentionKernel const* kernels, int32_t b = 2, int32_t h = 8, int32_t d = 64,
-    int32_t seqQ = 4096, int32_t seqKV = 77, cudaStream_t stream = 0);
-}
+
+// Do not modify this, it is integrated from src/fused_multihead_attention_utils.h in fmha_v2.
+enum MHCADataType
+{
+    DATA_TYPE_BOOL,
+    DATA_TYPE_E8M10,
+    DATA_TYPE_E8M7,
+    DATA_TYPE_FP16,
+    DATA_TYPE_FP32,
+    DATA_TYPE_INT4,
+    DATA_TYPE_INT8,
+    DATA_TYPE_INT32
+};
+
+} // namespace plugin
 } // namespace nvinfer1
 
-#endif // TRT_FMHCA_H
+#endif // TRT_COMMON_DATATYPE_FLASH_H

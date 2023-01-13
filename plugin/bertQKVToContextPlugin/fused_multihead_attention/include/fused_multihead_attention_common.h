@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,20 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#ifndef _BERT_FMHA_FMHA_COMMON
+#define _BERT_FMHA_FMHA_COMMON
 
-#ifndef TRT_FMHCA_H
-#define TRT_FMHCA_H
-
-#include "fmha_cross_attention/include/fmha_cross_attention.h"
-
+#include "common/checkMacrosPlugin.h"
+#include "common/plugin.h"
+#include <cstdint>
 namespace nvinfer1
 {
 namespace plugin
 {
-int32_t runFMHCAKernel(void const* devQ, void const* devKV, void* cuSeqlensQ, void* cuSeqlensKV, void* devOutput,
-    int32_t sm, FusedMultiHeadCrossAttentionKernel const* kernels, int32_t b = 2, int32_t h = 8, int32_t d = 64,
-    int32_t seqQ = 4096, int32_t seqKV = 77, cudaStream_t stream = 0);
-}
+namespace bert
+{
+enum Data_type
+{
+    DATA_TYPE_BOOL,
+    DATA_TYPE_E8M10,
+    DATA_TYPE_E8M7,
+    DATA_TYPE_FP16,
+    DATA_TYPE_FP32,
+    DATA_TYPE_INT4,
+    DATA_TYPE_INT8,
+    DATA_TYPE_INT32
+};
+} // namespace bert
+} // namespace plugin
 } // namespace nvinfer1
-
-#endif // TRT_FMHCA_H
+#endif // _BERT_FMHA_FMHA_COMMON
