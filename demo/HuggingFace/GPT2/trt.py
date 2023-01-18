@@ -167,7 +167,7 @@ class GPT2TRTDecoder(TRTHFRunner):
                 set_kv_data(self.input_types, "past", i, kv_type_dict)
                 set_kv_data(self.output_types,"present", i, kv_type_dict)
 
-                self_attention_kv_shape = (self.batch_size * num_beams, self.num_heads, self.max_output_length, self.embedding_size_per_head)
+                self_attention_kv_shape = (self.batch_size * num_beams, self.num_heads, self.max_output_length - 1, self.embedding_size_per_head)
                 kv_shape_dict = {"decoder": self_attention_kv_shape}
 
                 set_kv_data(self.input_shapes, "past", i, kv_shape_dict)
