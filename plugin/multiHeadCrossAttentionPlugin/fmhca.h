@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +18,7 @@
 #ifndef TRT_FMHCA_H
 #define TRT_FMHCA_H
 
-#include "common/fmha_cross_attention.h"
+#include "fmha_cross_attention/include/fmha_cross_attention.h"
 
 namespace nvinfer1
 {

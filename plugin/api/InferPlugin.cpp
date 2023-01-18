@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -58,7 +58,6 @@ using namespace nvinfer1::plugin;
 #include "proposalLayerPlugin.h"
 #include "proposalPlugin.h"
 #include "pyramidROIAlignPlugin.h"
-#include "qkvToContextWithPosBiasPlugin.h"
 #include "regionPlugin.h"
 #include "reorgPlugin.h"
 #include "resizeNearestPlugin.h"
@@ -215,9 +214,6 @@ extern "C"
         initializePlugin<nvinfer1::plugin::ProposalPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::ProposalDynamicPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::PyramidROIAlignPluginCreator>(logger, libNamespace);
-#if defined(ENABLE_SM75) || defined(ENABLE_SM80) || defined(ENABLE_SM86)
-        initializePlugin<nvinfer1::plugin::QKVToContextWithPosBiasPluginCreator>(logger, libNamespace);
-#endif // defined(ENABLE_SM75) || defined(ENABLE_SM80) || defined(ENABLE_SM86)
         initializePlugin<nvinfer1::plugin::RegionPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::ReorgPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::ResizeNearestPluginCreator>(logger, libNamespace);

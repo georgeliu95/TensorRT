@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,3 +17,6 @@
 file(GLOB SRCS src/*.cpp)
 set(PLUGIN_SOURCES ${PLUGIN_SOURCES} ${SRCS})
 set(PLUGIN_SOURCES ${PLUGIN_SOURCES} PARENT_SCOPE)
+file(GLOB CU_SRCS src/*.cu)
+set(STABLE_DIFFUSION_CU_SOURCES ${STABLE_DIFFUSION_CU_SOURCES} ${CU_SRCS})
+set(STABLE_DIFFUSION_CU_SOURCES ${STABLE_DIFFUSION_CU_SOURCES} PARENT_SCOPE)

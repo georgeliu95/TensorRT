@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -86,18 +86,6 @@ namespace nvinfer1
 {
 namespace plugin
 {
-enum MHADataType
-{
-    DATA_TYPE_BOOL,
-    DATA_TYPE_E8M10,
-    DATA_TYPE_E8M7,
-    DATA_TYPE_FP16,
-    DATA_TYPE_FP32,
-    DATA_TYPE_INT4,
-    DATA_TYPE_INT8,
-    DATA_TYPE_INT32
-};
-
 namespace bert
 {
 
