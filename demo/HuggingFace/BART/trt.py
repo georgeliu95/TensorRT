@@ -923,9 +923,9 @@ class BARTTRT(TRTInferenceCommand):
             num_decoder_layers = BARTModelTRTConfig.NUMBER_OF_DECODER_LAYERS[metadata.variant]
 
             self_attention_profile = {
-                "min": (batch_size * num_beams, num_heads, 1, embedding_size_per_head),
-                "opt": (batch_size * num_beams, num_heads, opt_output_seq_len, embedding_size_per_head),
-                "max": (batch_size * num_beams, num_heads, max_output_length, embedding_size_per_head),
+                "min": (batch_size * num_beams, num_heads, 0, embedding_size_per_head),
+                "opt": (batch_size * num_beams, num_heads, opt_output_seq_len - 1, embedding_size_per_head),
+                "max": (batch_size * num_beams, num_heads, max_output_length - 1, embedding_size_per_head),
             }
             cross_attention_profile = {
                 "min": (batch_size * num_beams, num_heads, 1, embedding_size_per_head),

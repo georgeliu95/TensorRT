@@ -66,7 +66,6 @@ set(PLUGIN_LISTS
     scatterPlugin
     specialSlicePlugin
     splitPlugin
-    swinQKVToContextPlugin
     voxelGeneratorPlugin
 )
 
@@ -167,6 +166,11 @@ target_link_libraries(${SHARED_TARGET}
     ${nvinfer_LIB_PATH}
     ${CMAKE_DL_LIBS}
 )
+
+# Needed when static linking CUDART
+if (NOT MSVC)
+    target_link_libraries(${SHARED_TARGET} Threads::Threads ${RT_LIB})
+endif()
 
 ################################## STATIC LIBRARY #######################################
 
