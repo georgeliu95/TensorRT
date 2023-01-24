@@ -481,6 +481,7 @@ class GPT2TRT(TRTInferenceCommand):
         self,
         metadata: NetworkMetadata,
         reference: str,
+        batch_size: int, 
     ):
         tokenizer = GPT2Tokenizer.from_pretrained(metadata.variant)
 
@@ -488,7 +489,7 @@ class GPT2TRT(TRTInferenceCommand):
         # replace with EOS token when using generating mode
         tokenizer.add_special_tokens({"pad_token": "[PAD]"})
         reference = reference.replace("\\n", "\n")
-        ppl_input_ids = tokenizer([reference], padding=False, return_tensors="pt").input_ids
+        ppl_input_ids = tokenizer([reference] * batch_size, padding=False, return_tensors="pt").input_ids
 
         perplexity = calculate_perplexity(
             self.gpt2_trt, ppl_input_ids, GPT2ModelTRTConfig.MAX_LENGTH[metadata.variant]
@@ -700,7 +701,7 @@ class GPT2TRT(TRTInferenceCommand):
                     else:
                         for r in perplexity_reference:
                             ppl_results.append(
-                                self.execute_calculate_perplexity(metadata, r)
+                                self.execute_calculate_perplexity(metadata, r, batch_size)
                             )
             else:
                 # Check that input_seq_len and output_seq_len is valid and within required range
