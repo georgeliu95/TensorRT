@@ -387,7 +387,9 @@ class T5TRTDecoder(TRTHFRunner):
         assert self.trt_context.all_binding_shapes_specified
         self.trt_context.execute_v2(bindings=self.bindings)
         
-        logits = self.hidden_states[:,:input_length,:]
+        # For bs > 1, this is required, so cannnot avoid this D2D copy
+        logits_length = bs * input_length * self.config.vocab_size
+        logits = self.hidden_states.flatten()[:logits_length].view(bs, input_length, self.config.vocab_size)
         if is_cpu_mode:
             logits = logits.cpu()
                 
@@ -598,7 +600,7 @@ class T5TRT(TRTInferenceCommand):
 
         # Remove the padding and end tokens.
         semantic_outputs = tokenizer.decode(
-            decoder_output[-1, :], skip_special_tokens=True
+            decoder_output[0, :], skip_special_tokens=True
         )
 
         if isinstance(semantic_outputs, list):
@@ -617,10 +619,11 @@ class T5TRT(TRTInferenceCommand):
         metadata: NetworkMetadata,
         encoder_input: str,
         decoder_input: str,
+        batch_size: int, 
     ):
         tokenizer = T5Tokenizer.from_pretrained(metadata.variant)
-        encoder_input_ids = tokenizer([encoder_input], padding=True, return_tensors="pt").input_ids
-        decoder_input_ids = tokenizer([decoder_input], padding=True, return_tensors="pt").input_ids
+        encoder_input_ids = tokenizer([encoder_input] * batch_size, padding=True, return_tensors="pt").input_ids
+        decoder_input_ids = tokenizer([decoder_input] * batch_size, padding=True, return_tensors="pt").input_ids
 
         perplexity = calculate_perplexity(
             self.t5_trt_encoder, self.t5_trt_decoder, tokenizer, encoder_input_ids, decoder_input_ids,
@@ -874,7 +877,7 @@ class T5TRT(TRTInferenceCommand):
                     else:
                         for ei, di in zip(network_input, perplexity_reference):
                             ppl_results.append(
-                                self.execute_calculate_perplexity(metadata, ei, di)
+                                self.execute_calculate_perplexity(metadata, ei, di, batch_size)
                             )
                             self.t5_trt_decoder.reset()
 

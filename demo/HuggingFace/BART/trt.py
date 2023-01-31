@@ -806,14 +806,15 @@ class BARTTRT(TRTInferenceCommand):
         metadata: NetworkMetadata,
         encoder_input: str,
         decoder_input: str,
+        batch_size: int,
     ):
         if "mbart" not in metadata.variant:
             tokenizer = BartTokenizer.from_pretrained(metadata.variant)
         else:
             tokenizer = MBart50Tokenizer.from_pretrained(metadata.variant, src_lang="en_XX")
 
-        encoder_input_ids = tokenizer([encoder_input], padding=True, return_tensors="pt").input_ids
-        decoder_input_ids = tokenizer([decoder_input], padding=True, return_tensors="pt").input_ids
+        encoder_input_ids = tokenizer([encoder_input] * batch_size, padding=True, return_tensors="pt").input_ids
+        decoder_input_ids = tokenizer([decoder_input] * batch_size, padding=True, return_tensors="pt").input_ids
 
         perplexity = calculate_perplexity(
             self.BART_trt_encoder, self.BART_trt_decoder, tokenizer, encoder_input_ids, decoder_input_ids,
@@ -1079,7 +1080,7 @@ class BARTTRT(TRTInferenceCommand):
                     else:
                         for ei, di in zip(network_input, perplexity_reference):
                             ppl_results.append(
-                                self.execute_calculate_perplexity(metadata, ei, di)
+                                self.execute_calculate_perplexity(metadata, ei, di, batch_size)
                             )
 
             else:
