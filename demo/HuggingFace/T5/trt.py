@@ -125,6 +125,7 @@ class T5TRTEncoder(TRTHFRunner):
         benchmarking_args: T5TRTBenchmarkingArgs = None
     ):
         super().__init__(trt_engine_file, network_metadata, hf_config, batch_size = batch_size)
+        self.data_type = torch.float16 if network_metadata.precision.fp16 else torch.float32
         # In benchmarking mode, the max_sequence_length should be the designated input_profile_max_len
         if benchmarking_args is not None and benchmarking_args.input_profile_max_len is not None:
             self.max_sequence_length = benchmarking_args.input_profile_max_len
@@ -145,7 +146,7 @@ class T5TRTEncoder(TRTHFRunner):
             "hidden_states": (self.batch_size, self.max_sequence_length, self.encoder_hidden_size)
         }
         self.output_types = {
-            "hidden_states": torch.float32
+            "hidden_states": self.data_type
         }
 
         self.bindings = self._allocate_memory(self.input_shapes, self.input_types, self.output_shapes, self.output_types)
@@ -198,9 +199,9 @@ class T5TRTDecoder(TRTHFRunner):
         batch_size: int = 1,
         num_beams: int = 1,
         benchmarking_args: T5TRTBenchmarkingArgs = None,
-        cache_type = torch.float32
     ):
         super().__init__(trt_engine_file, network_metadata, hf_config, batch_size = batch_size)
+        self.data_type = torch.float16 if network_metadata.precision.fp16 else torch.float32
 
         # In benchmarking mode, the max_sequence_length should be the user-provided input_profile_max_len
         if benchmarking_args is not None and benchmarking_args.input_profile_max_len is not None:
@@ -224,7 +225,7 @@ class T5TRTDecoder(TRTHFRunner):
 
         hidden_states_profile_length = self.max_output_length if not self.config.use_cache else 1
         # Construct buffer for hidden states outputs
-        self.hidden_states = torch.zeros((self.batch_size * num_beams, hidden_states_profile_length, hf_config.vocab_size), dtype = torch.float32).cuda()
+        self.hidden_states = torch.zeros((self.batch_size * num_beams, hidden_states_profile_length, hf_config.vocab_size), dtype = self.data_type).cuda()
         self.bindings[self.trt_engine.get_binding_index("hidden_states")] = self.hidden_states.data_ptr()
 
         if self.config.use_cache:
@@ -241,7 +242,7 @@ class T5TRTDecoder(TRTHFRunner):
                 for code in ["key", "value"]:
                     # Allocate self attention buffer. The buffer is used both as inputs and outputs
                     self_attention_name = f"key_values.{i}.decoder.{code}"
-                    input_buffer = torch.zeros(self_attention_kv_shape, dtype = cache_type).cuda()
+                    input_buffer = torch.zeros(self_attention_kv_shape, dtype = self.data_type).cuda()
                     input_idx = self.trt_engine.get_binding_index("past_" + self_attention_name)
                     self.self_attention_cache[self_attention_name] = input_buffer
                     self.bindings[input_idx] = input_buffer.data_ptr()
@@ -251,7 +252,7 @@ class T5TRTDecoder(TRTHFRunner):
 
                     # Allocate cross attention buffer
                     cross_attention_past_name = f"past_key_values.{i}.encoder.{code}"
-                    cross_attention_buffer = torch.zeros(cross_attention_kv_shape, dtype = cache_type).cuda()
+                    cross_attention_buffer = torch.zeros(cross_attention_kv_shape, dtype = self.data_type).cuda()
                     cross_attention_idx = self.trt_engine.get_binding_index(cross_attention_past_name)
                     self.cross_attention_cache[cross_attention_past_name] = cross_attention_buffer
                     self.bindings[cross_attention_idx] = cross_attention_buffer.data_ptr()
