@@ -502,7 +502,7 @@ class GPT2TRT(TRTInferenceCommand):
         hash_onnx_fpath: Dict[str, NetworkModel],
         batch_size: int,
         num_beams: int,
-        preview_dynamic_shapes: bool,
+        disable_preview_dynamic_shapes: bool,
         benchmarking_args: GPT2TRTBenchmarkingArgs = None,
         seq_tag: bool = False, # whether the benchmark engine tag format should be seq or max
     ) -> None:
@@ -596,10 +596,11 @@ class GPT2TRT(TRTInferenceCommand):
             engine_tag += "-beam{}".format(num_beams)
 
         preview_features = []
-        if preview_dynamic_shapes:
-            preview_features = [PreviewFeature.FASTER_DYNAMIC_SHAPES_0805]
-            engine_tag += "-previewFasterDynamicShapes"
-
+        if disable_preview_dynamic_shapes:
+            engine_tag += "-noPreviewFasterDynamicShapes"
+        else:
+            preview_features.append(PreviewFeature.FASTER_DYNAMIC_SHAPES_0805)
+        
         if not metadata.other.kv_cache:
             self.gpt2_trt_engine = GPT2ONNXFile(
                 decoder_onnx_fpath, metadata
@@ -661,7 +662,7 @@ class GPT2TRT(TRTInferenceCommand):
         batch_size: int = 1,
         args: object = None,
         benchmarking_mode: bool = False,
-        preview_dynamic_shapes: bool = False,
+        disable_preview_dynamic_shapes: bool = False,
         perplexity_reference: List[str] = None,
     ) -> Union[List[NetworkResult], BenchmarkingResult]:
 
@@ -684,7 +685,7 @@ class GPT2TRT(TRTInferenceCommand):
         ppl_results = []
         try:
             if not benchmarking_mode:
-                self._setup_engines(metadata, hash_onnx_fpath, batch_size, args.num_beams, preview_dynamic_shapes)
+                self._setup_engines(metadata, hash_onnx_fpath, batch_size, args.num_beams, disable_preview_dynamic_shapes)
                 for ninput in network_input:
                     inference_results.append(
                         self.execute_inference(
@@ -729,7 +730,7 @@ class GPT2TRT(TRTInferenceCommand):
                 # GPT2 model requires output_seq_len > input_seq_len since it is a text generation model.
                 assert benchmarking_args.input_seq_len <= benchmarking_args.output_seq_len, "GPT2 model text generation requires output_seq_len > input_seq_len."
                 assert benchmarking_args.input_profile_max_len <= benchmarking_args.output_profile_max_len, "GPT2 model text generation requires output_profile_max_len > input_profile_max_len"
-                self._setup_engines(metadata, hash_onnx_fpath, batch_size, args.num_beams, preview_dynamic_shapes, benchmarking_args, seq_tag)
+                self._setup_engines(metadata, hash_onnx_fpath, batch_size, args.num_beams, disable_preview_dynamic_shapes, benchmarking_args, seq_tag)
                 inference_results = self.execute_inference(
                     metadata, hash_onnx_fpath, None, timing_profile, batch_size, args.num_beams, True, benchmarking_args
                 )
