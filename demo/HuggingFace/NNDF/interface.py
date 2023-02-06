@@ -388,7 +388,7 @@ class TRTInferenceCommand(NetworkCommand):
             batch_size=self._args.batch_size,
             args=self._args,
             benchmarking_mode=True,
-            disable_faster_dynamic_shapes=self._args.disable_preview_dynamic_shapes
+            disable_preview_dynamic_shapes=self._args.disable_preview_dynamic_shapes
         )
 
         return network_results
