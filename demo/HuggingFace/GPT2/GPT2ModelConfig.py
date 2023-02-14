@@ -51,26 +51,18 @@ class GPT2Metadata(_GPT2Metadata, MetadataArgparseInteropMixin):
         network_group.add_argument(
             "--num-beams", type=int, default=1, help="Enables beam search during decoding."
         )
+        
+        network_group.add_argument(
+            "--fp16", action="store_true", help="Enables fp16 TensorRT tactics."
+        )
 
     @staticmethod
     def from_args(args: argparse.Namespace):
         return NetworkMetadata(
             variant=args.variant,
-            precision=Precision(fp16=False),
+            precision=Precision(fp16=args.fp16),
             other=GPT2Metadata(kv_cache=args.enable_kv_cache),
         )
-
-    @staticmethod
-    def add_inference_args(parser: argparse.ArgumentParser) -> None:
-        inference_group = parser.add_argument_group("inference group")
-        inference_group.add_argument(
-            "--fp16", action="store_true", help="Enables fp16 TensorRT tactics."
-        )
-
-    @staticmethod
-    def from_inference_args(args: argparse.Namespace):
-        base_metadata = GPT2Metadata.from_args(args)
-        return base_metadata._replace(precision=Precision(fp16=args.fp16))
 
     @staticmethod
     def add_benchmarking_args(parser: argparse.ArgumentParser) -> None:
@@ -97,15 +89,6 @@ class GPT2ModelTRTConfig(NNConfig):
     NETWORK_SEGMENTS = [NETWORK_DECODER_SEGMENT_NAME]
     NETWORK_FULL_NAME = "full"
 
-    # Vocabulary size of the GPT-2 model
-    VOCAB_SIZE = {
-        TARGET_MODELS[0]: 50257,
-        TARGET_MODELS[1]: 50257,
-        TARGET_MODELS[2]: 50257,
-        TARGET_MODELS[3]: 50257,
-        TARGET_MODELS[4]: 50400,
-    }
-
     NUMBER_OF_LAYERS = {
         TARGET_MODELS[0]: 12,
         TARGET_MODELS[1]: 24,
@@ -114,13 +97,6 @@ class GPT2ModelTRTConfig(NNConfig):
         TARGET_MODELS[4]: 28,
     }
 
-    NUMBER_OF_HEADS = {
-        TARGET_MODELS[0]: 12,
-        TARGET_MODELS[1]: 16,
-        TARGET_MODELS[2]: 20,
-        TARGET_MODELS[3]: 25,
-        TARGET_MODELS[4]: 16,
-    }
     # This corresponds to max_length in task_specific_params for text-generation.
     # Both input and output length should not exceed 50.
     MAX_LENGTH = {
@@ -131,25 +107,6 @@ class GPT2ModelTRTConfig(NNConfig):
         TARGET_MODELS[4]: 50,
     }
 
-    # The maximum sequence length that this model might ever be used with.
-    # Typically set this to something large. Use for benchmarking in this case
-    MAX_SEQUENCE_LENGTH = {
-        TARGET_MODELS[0]: 1024,
-        TARGET_MODELS[1]: 1024,
-        TARGET_MODELS[2]: 1024,
-        TARGET_MODELS[3]: 1024,
-        TARGET_MODELS[4]: 2048,
-    }
-
-    # Dimensionality of the embeddings and hidden states.
-    EMBEDDING_SIZE = {
-        TARGET_MODELS[0]: 768,
-        TARGET_MODELS[1]: 1024,
-        TARGET_MODELS[2]: 1280,
-        TARGET_MODELS[3]: 1600,
-        TARGET_MODELS[4]: 4096,
-    }
-
     MIN_OUTPUT_LENGTH = {
         TARGET_MODELS[0]: 0,
         TARGET_MODELS[1]: 0,
@@ -157,9 +114,6 @@ class GPT2ModelTRTConfig(NNConfig):
         TARGET_MODELS[3]: 0,
         TARGET_MODELS[4]: 0,
     }
-
-    BOS_TOKEN_ID = 50256
-    EOS_TOKEN_ID = 50256
 
     def __init__(self):
         precision_fp16 = [False, True]
@@ -225,7 +179,7 @@ class GPT2ModelTRTConfig(NNConfig):
                 "logits": (
                     Dims.BATCH,
                     Dims.SEQUENCE,
-                    GPT2ModelTRTConfig.VOCAB_SIZE[metadata.variant],
+                    "vocab_size"
                 )
             }
         )
