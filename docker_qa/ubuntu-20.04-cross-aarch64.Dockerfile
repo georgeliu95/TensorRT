@@ -14,13 +14,13 @@
 
 # This docker file can compile natively for x86_64 Ubuntu and cross compile for
 # ARM SBSA Ubuntu
-ARG CUDA_VERSION=11.8.0
+ARG CUDA_VERSION=12.0.1
 ARG OS_VERSION=20.04
 
-FROM gitlab-master.nvidia.com:5005/dl/dgx/cuda:11.8-devel-ubuntu20.04--5691963
+FROM gitlab-master.nvidia.com:5005/dl/dgx/cuda:12.0-devel-ubuntu20.04--7342706
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.5.1.7
+ENV TRT_VERSION 8.6.0.8
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -72,15 +72,15 @@ RUN apt-get install -y --no-install-recommends \
 RUN apt-get install -y g++-8-aarch64-linux-gnu
 
 # Install cross-compilation CUDA packages
-RUN wget http://cuda-repo/release-candidates/kitpicks/cuda-r11-8/11.8.0/056/local_installers/cuda-repo-cross-sbsa-ubuntu2004-11-8-local_11.8.0-1_all.deb &&\
-    dpkg -i cuda-repo-cross-sbsa-ubuntu2004-11-8-local_11.8.0-1_all.deb &&\
-    cp /var/cuda-repo-cross-sbsa-ubuntu2004-11-8-local/cuda-*-keyring.gpg /usr/share/keyrings/ &&\
+RUN wget http://cuda-repo/release-candidates/kitpicks/cuda-r12-0/12.0.1/011/local_installers/cuda-repo-cross-sbsa-ubuntu2004-12-0-local_12.0.1-1_all.deb &&\
+    dpkg -i cuda-repo-cross-sbsa-ubuntu2004-12-0-local_12.0.1-1_all.deb &&\
+    cp /var/cuda-repo-cross-sbsa-ubuntu2004-12-0-local/cuda-*-keyring.gpg /usr/share/keyrings/ &&\
     apt-get update && \
     apt-get -y install cuda-cross-sbsa
 
 # Install cross-cudnn
-RUN wget http://cuda-repo/release-candidates/kitpicks/cudnn-v8-6-cuda-11-8/8.6.0.163/001/repos/ubuntu2004/cross-linux-sbsa/libcudnn8-cross-sbsa_8.6.0.163-1+cuda11.8_all.deb &&\
-    dpkg -i libcudnn8-cross-sbsa_8.6.0.163-1+cuda11.8_all.deb
+RUN wget http://cuda-repo/release-candidates/kitpicks/cudnn-v8-8-cuda-12-0/8.8.0.121/001/repos/ubuntu2004/cross-linux-sbsa/libcudnn8-cross-sbsa_8.8.0.121-1+cuda12.0_all.deb &&\
+    dpkg -i libcudnn8-cross-sbsa_8.8.0.121-1+cuda12.0_all.deb
 
 # Install cross TensorRT
 COPY docker_qa/downloadInternal.py /tmp/downloadInternal.py
