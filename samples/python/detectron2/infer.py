@@ -20,11 +20,12 @@ import sys
 import argparse
 import numpy as np
 import tensorrt as trt
-from cuda import cuda
+from cuda import cudart
 from image_batcher import ImageBatcher
-from build_engine import _cuda_error_check
 from visualize import visualize_detections
 
+sys.path.insert(1, os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
+import common
 
 class TensorRTInfer:
     """
@@ -40,9 +41,10 @@ class TensorRTInfer:
         self.logger = trt.Logger(trt.Logger.ERROR)
         trt.init_libnvinfer_plugins(self.logger, namespace="")
         with open(engine_path, "rb") as f, trt.Runtime(self.logger) as runtime:
+            assert runtime
             self.engine = runtime.deserialize_cuda_engine(f.read())
-        self.context = self.engine.create_execution_context()
         assert self.engine
+        self.context = self.engine.create_execution_context()
         assert self.context
 
         # Setup I/O bindings
@@ -61,7 +63,7 @@ class TensorRTInfer:
             size = np.dtype(trt.nptype(dtype)).itemsize
             for s in shape:
                 size *= s
-            allocation = _cuda_error_check(cuda.cuMemAlloc(size))
+            allocation = common.cuda_call(cudart.cudaMalloc(size))
             binding = {
                 'index': i,
                 'name': name,
@@ -113,19 +115,11 @@ class TensorRTInfer:
             outputs.append(np.zeros(shape, dtype))
 
         # Process I/O and execute the network.
-        _cuda_error_check(
-            cuda.cuMemcpyHtoD(
-                self.inputs[0]['allocation'],
-                np.ascontiguousarray(batch),
-                self.inputs[0]['size']))
+        common.memcpy_host_to_device(self.inputs[0]['allocation'], np.ascontiguousarray(batch))
 
         self.context.execute_v2(self.allocations)
         for o in range(len(outputs)):
-            _cuda_error_check(
-                cuda.cuMemcpyDtoH(
-                    outputs[o],
-                    self.outputs[o]['allocation'],
-                    self.outputs[o]['size']))
+            common.memcpy_device_to_host(outputs[o], self.outputs[o]['allocation'])
 
         # Process the results.
         nums = outputs[0]
