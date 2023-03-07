@@ -746,7 +746,7 @@ IPluginV2* FCPluginDynamicCreator::createPlugin(char const* name, PluginFieldCol
 
         int32_t outDims = 0;
         int32_t typeId = -1;
-        Weights W{DataType::kFLOAT, nullptr, 0ll};
+        Weights W{DataType::kFLOAT, nullptr, 0LL};
         plugin::validateRequiredAttributesExist({"out_dims", "type_id", "W"}, fc);
 
         for (int32_t i = 0; i < fc->nbFields; i++)
