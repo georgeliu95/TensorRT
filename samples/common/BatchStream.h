@@ -177,7 +177,6 @@ public:
         mLabels.resize(mBatchSize, 0);
         mFileBatch.resize(mDims.d[0] * mImageSize, 0);
         mFileLabels.resize(mDims.d[0], 0);
-        reset(0);
     }
 
     BatchStream(int batchSize, int maxBatches, std::string const& prefix, std::vector<std::string> const& directories)
@@ -198,7 +197,6 @@ public:
         mLabels.resize(mBatchSize, 0);
         mFileBatch.resize(mDims.d[0] * mImageSize, 0);
         mFileLabels.resize(mDims.d[0], 0);
-        reset(0);
     }
 
     // Resets data members
