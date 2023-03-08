@@ -14,12 +14,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "common/kernel.h"
+#include "common/kernels/kernel.h"
 #include "common/kernels/saturate.h"
 #include "cuda_fp16.h"
 #include <array>
-using namespace nvinfer1;
-using namespace nvinfer1::plugin;
+namespace nvinfer1
+{
+namespace plugin
+{
 // overloading exp for half type
 inline __device__ __half exp(__half a)
 {
@@ -59,6 +61,14 @@ inline __device__ __half mul_fb(const __half & a, const __half & b) {
     return a * b;
 #else
     return __float2half(__half2float(a) * __half2float(b));
+#endif
+}
+
+inline __device__ __half mul_fb(const __half & a, const float & b) {
+#if __CUDA_ARCH__ >= 530
+    return a * __float2half(b);
+#else
+    return __float2half(__half2float(a) * b);
 #endif
 }
 
@@ -278,7 +288,7 @@ __launch_bounds__(nthds_per_cta)
         else
         {
             // Unknown code type.
-            assert("Unknown Box decode code type");
+            assert(!"Unknown Box decode code type");
         }
         // Clip bounding box or not
         if (clip_bbox)
@@ -395,3 +405,5 @@ pluginStatus_t decodeBBoxes(
     }
     return STATUS_BAD_PARAM;
 }
+} // namespace plugin
+} // namespace nvinfer1

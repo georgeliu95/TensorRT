@@ -23,28 +23,21 @@
 #include <sstream>
 #include <vector>
 
-using namespace nvinfer1;
-using nvinfer1::plugin::BatchedNMSBasePluginCreator;
-using nvinfer1::plugin::BatchedNMSDynamicPlugin;
-using nvinfer1::plugin::BatchedNMSDynamicPluginCreator;
-using nvinfer1::plugin::BatchedNMSPlugin;
-using nvinfer1::plugin::BatchedNMSPluginCreator;
-using nvinfer1::plugin::NMSParameters;
+namespace nvinfer1
+{
+namespace plugin
+{
 
 #define NVBUG_3321606_WAR 1
 
 namespace
 {
-const char* NMS_PLUGIN_VERSION{"1"};
-const char* NMS_PLUGIN_NAMES[] = {"BatchedNMS_TRT", "BatchedNMSDynamic_TRT"};
+char const* const kNMS_PLUGIN_VERSION{"1"};
+char const* const kNMS_PLUGIN_NAMES[] = {"BatchedNMS_TRT", "BatchedNMSDynamic_TRT"};
 } // namespace
 
-namespace nvinfer1
-{
-namespace plugin
-{
 template <>
-void write<NMSParameters>(char*& buffer, const NMSParameters& val)
+void write<NMSParameters>(char*& buffer, NMSParameters const& val)
 {
     auto* param = reinterpret_cast<NMSParameters*>(buffer);
     std::memset(param, 0, sizeof(NMSParameters));
@@ -58,13 +51,11 @@ void write<NMSParameters>(char*& buffer, const NMSParameters& val)
     param->isNormalized = val.isNormalized;
     buffer += sizeof(NMSParameters);
 }
-} // namespace plugin
-} // namespace nvinfer1
 
 PluginFieldCollection BatchedNMSBasePluginCreator::mFC{};
 std::vector<PluginField> BatchedNMSBasePluginCreator::mPluginAttributes;
 
-static inline pluginStatus_t checkParams(const NMSParameters& param)
+static inline pluginStatus_t checkParams(NMSParameters const& param)
 {
     // NMS plugin supports maximum thread blocksize of 512 and upto 8 blocks at once.
     constexpr int32_t maxTopK{512 * 8};
@@ -85,9 +76,9 @@ BatchedNMSPlugin::BatchedNMSPlugin(NMSParameters params)
     PLUGIN_VALIDATE(mPluginStatus == STATUS_SUCCESS);
 }
 
-BatchedNMSPlugin::BatchedNMSPlugin(const void* data, size_t length)
+BatchedNMSPlugin::BatchedNMSPlugin(void const* data, size_t length)
 {
-    const char *d = reinterpret_cast<const char*>(data), *a = d;
+    char const *d = reinterpret_cast<char const*>(data), *a = d;
     param = read<NMSParameters>(d);
     mBoxesSize = read<int32_t>(d);
     mScoresSize = read<int32_t>(d);
@@ -109,9 +100,9 @@ BatchedNMSDynamicPlugin::BatchedNMSDynamicPlugin(NMSParameters params)
     PLUGIN_VALIDATE(mPluginStatus == STATUS_SUCCESS);
 }
 
-BatchedNMSDynamicPlugin::BatchedNMSDynamicPlugin(const void* data, size_t length)
+BatchedNMSDynamicPlugin::BatchedNMSDynamicPlugin(void const* data, size_t length)
 {
-    const char *d = reinterpret_cast<const char*>(data), *a = d;
+    char const *d = reinterpret_cast<char const*>(data), *a = d;
     param = read<NMSParameters>(d);
     mBoxesSize = read<int32_t>(d);
     mScoresSize = read<int32_t>(d);
@@ -150,7 +141,7 @@ void BatchedNMSPlugin::terminate() noexcept {}
 
 void BatchedNMSDynamicPlugin::terminate() noexcept {}
 
-Dims BatchedNMSPlugin::getOutputDimensions(int32_t index, const Dims* inputs, int32_t nbInputDims) noexcept
+Dims BatchedNMSPlugin::getOutputDimensions(int32_t index, Dims const* inputs, int32_t nbInputDims) noexcept
 {
     try
     {
@@ -180,7 +171,7 @@ Dims BatchedNMSPlugin::getOutputDimensions(int32_t index, const Dims* inputs, in
         dim1.d[0] = param.keepTopK;
         return dim1;
     }
-    catch (const std::exception& e)
+    catch (std::exception const& e)
     {
         caughtError(e);
     }
@@ -188,7 +179,7 @@ Dims BatchedNMSPlugin::getOutputDimensions(int32_t index, const Dims* inputs, in
 }
 
 DimsExprs BatchedNMSDynamicPlugin::getOutputDimensions(
-    int32_t outputIndex, const DimsExprs* inputs, int32_t nbInputs, IExprBuilder& exprBuilder) noexcept
+    int32_t outputIndex, DimsExprs const* inputs, int32_t nbInputs, IExprBuilder& exprBuilder) noexcept
 {
     try
     {
@@ -224,13 +215,7 @@ DimsExprs BatchedNMSDynamicPlugin::getOutputDimensions(
             out_dim.d[1] = exprBuilder.constant(param.keepTopK);
             out_dim.d[2] = exprBuilder.constant(4);
         }
-        // nmsed_scores
-        else if (outputIndex == 2)
-        {
-            out_dim.nbDims = 2;
-            out_dim.d[0] = inputs[0].d[0];
-            out_dim.d[1] = exprBuilder.constant(param.keepTopK);
-        }
+        // nmsed_scores, outputIndex == 2
         // nmsed_classes
         else
         {
@@ -241,7 +226,7 @@ DimsExprs BatchedNMSDynamicPlugin::getOutputDimensions(
 
         return out_dim;
     }
-    catch (const std::exception& e)
+    catch (std::exception const& e)
     {
         caughtError(e);
     }
@@ -255,7 +240,7 @@ size_t BatchedNMSPlugin::getWorkspaceSize(int32_t maxBatchSize) const noexcept
 }
 
 size_t BatchedNMSDynamicPlugin::getWorkspaceSize(
-    const PluginTensorDesc* inputs, int32_t nbInputs, const PluginTensorDesc* outputs, int32_t nbOutputs) const noexcept
+    PluginTensorDesc const* inputs, int32_t nbInputs, PluginTensorDesc const* outputs, int32_t nbOutputs) const noexcept
 {
     int32_t batchSize = inputs[0].dims.d[0];
     int32_t boxesSize = inputs[0].dims.d[1] * inputs[0].dims.d[2] * inputs[0].dims.d[3];
@@ -270,8 +255,8 @@ int32_t BatchedNMSPlugin::enqueue(
 {
     try
     {
-        const void* const locData = inputs[0];
-        const void* const confData = inputs[1];
+        void const* const locData = inputs[0];
+        void const* const confData = inputs[1];
 
         if (mPluginStatus != STATUS_SUCCESS)
         {
@@ -289,20 +274,20 @@ int32_t BatchedNMSPlugin::enqueue(
             nmsedClasses, workspace, param.isNormalized, false, mClipBoxes, mScoreBits, mCaffeSemantics);
         return status == STATUS_SUCCESS ? 0 : -1;
     }
-    catch (const std::exception& e)
+    catch (std::exception const& e)
     {
         caughtError(e);
     }
     return -1;
 }
 
-int32_t BatchedNMSDynamicPlugin::enqueue(const PluginTensorDesc* inputDesc, const PluginTensorDesc* outputDesc,
-    const void* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) noexcept
+int32_t BatchedNMSDynamicPlugin::enqueue(PluginTensorDesc const* inputDesc, PluginTensorDesc const* outputDesc,
+    void const* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) noexcept
 {
     try
     {
-        const void* const locData = inputs[0];
-        const void* const confData = inputs[1];
+        void const* const locData = inputs[0];
+        void const* const confData = inputs[1];
 
         if (mPluginStatus != STATUS_SUCCESS)
         {
@@ -320,7 +305,7 @@ int32_t BatchedNMSDynamicPlugin::enqueue(const PluginTensorDesc* inputDesc, cons
             nmsedScores, nmsedClasses, workspace, param.isNormalized, false, mClipBoxes, mScoreBits, mCaffeSemantics);
         return status;
     }
-    catch (const std::exception& e)
+    catch (std::exception const& e)
     {
         caughtError(e);
     }
@@ -367,9 +352,9 @@ void BatchedNMSDynamicPlugin::serialize(void* buffer) const noexcept
     PLUGIN_ASSERT(d == a + getSerializationSize());
 }
 
-void BatchedNMSPlugin::configurePlugin(const Dims* inputDims, int32_t nbInputs, const Dims* outputDims,
-    int32_t nbOutputs, const DataType* inputTypes, const DataType* outputTypes, const bool* inputIsBroadcast,
-    const bool* outputIsBroadcast, nvinfer1::PluginFormat format, int32_t maxBatchSize) noexcept
+void BatchedNMSPlugin::configurePlugin(Dims const* inputDims, int32_t nbInputs, Dims const* outputDims,
+    int32_t nbOutputs, DataType const* inputTypes, DataType const* outputTypes, bool const* inputIsBroadcast,
+    bool const* outputIsBroadcast, nvinfer1::PluginFormat format, int32_t maxBatchSize) noexcept
 {
     try
     {
@@ -390,14 +375,14 @@ void BatchedNMSPlugin::configurePlugin(const Dims* inputDims, int32_t nbInputs, 
         PLUGIN_ASSERT(inputDims[0].d[2] == 4);
         mPrecision = inputTypes[0];
     }
-    catch (const std::exception& e)
+    catch (std::exception const& e)
     {
         caughtError(e);
     }
 }
 
 void BatchedNMSDynamicPlugin::configurePlugin(
-    const DynamicPluginTensorDesc* in, int32_t nbInputs, const DynamicPluginTensorDesc* out, int32_t nbOutputs) noexcept
+    DynamicPluginTensorDesc const* in, int32_t nbInputs, DynamicPluginTensorDesc const* out, int32_t nbOutputs) noexcept
 {
     try
     {
@@ -423,7 +408,7 @@ void BatchedNMSDynamicPlugin::configurePlugin(
 
         mPrecision = in[0].desc.type;
     }
-    catch (const std::exception& e)
+    catch (std::exception const& e)
     {
         caughtError(e);
     }
@@ -440,14 +425,14 @@ bool BatchedNMSPlugin::supportsFormat(DataType type, PluginFormat format) const 
 }
 
 bool BatchedNMSDynamicPlugin::supportsFormatCombination(
-    int32_t pos, const PluginTensorDesc* inOut, int32_t nbInputs, int32_t nbOutputs) noexcept
+    int32_t pos, PluginTensorDesc const* inOut, int32_t nbInputs, int32_t nbOutputs) noexcept
 {
     PLUGIN_ASSERT(nbInputs <= 2 && nbInputs >= 0);
     PLUGIN_ASSERT(nbOutputs <= 4 && nbOutputs >= 0);
     PLUGIN_ASSERT(pos < 6 && pos >= 0);
-    const auto* in = inOut;
-    const auto* out = inOut + nbInputs;
-    const bool consistentFloatPrecision = in[0].type == in[pos].type;
+    auto const* in = inOut;
+    auto const* out = inOut + nbInputs;
+    bool const consistentFloatPrecision = in[0].type == in[pos].type;
     switch (pos)
     {
     case 0:
@@ -470,24 +455,24 @@ bool BatchedNMSDynamicPlugin::supportsFormatCombination(
     return false;
 }
 
-const char* BatchedNMSPlugin::getPluginType() const noexcept
+char const* BatchedNMSPlugin::getPluginType() const noexcept
 {
-    return NMS_PLUGIN_NAMES[0];
+    return kNMS_PLUGIN_NAMES[0];
 }
 
-const char* BatchedNMSDynamicPlugin::getPluginType() const noexcept
+char const* BatchedNMSDynamicPlugin::getPluginType() const noexcept
 {
-    return NMS_PLUGIN_NAMES[1];
+    return kNMS_PLUGIN_NAMES[1];
 }
 
-const char* BatchedNMSPlugin::getPluginVersion() const noexcept
+char const* BatchedNMSPlugin::getPluginVersion() const noexcept
 {
-    return NMS_PLUGIN_VERSION;
+    return kNMS_PLUGIN_VERSION;
 }
 
-const char* BatchedNMSDynamicPlugin::getPluginVersion() const noexcept
+char const* BatchedNMSDynamicPlugin::getPluginVersion() const noexcept
 {
-    return NMS_PLUGIN_VERSION;
+    return kNMS_PLUGIN_VERSION;
 }
 
 void BatchedNMSPlugin::destroy() noexcept
@@ -515,7 +500,7 @@ IPluginV2Ext* BatchedNMSPlugin::clone() const noexcept
         plugin->setCaffeSemantics(mCaffeSemantics);
         return plugin;
     }
-    catch (const std::exception& e)
+    catch (std::exception const& e)
     {
         caughtError(e);
     }
@@ -537,49 +522,49 @@ IPluginV2DynamicExt* BatchedNMSDynamicPlugin::clone() const noexcept
         plugin->setCaffeSemantics(mCaffeSemantics);
         return plugin;
     }
-    catch (const std::exception& e)
+    catch (std::exception const& e)
     {
         caughtError(e);
     }
     return nullptr;
 }
 
-void BatchedNMSPlugin::setPluginNamespace(const char* pluginNamespace) noexcept
+void BatchedNMSPlugin::setPluginNamespace(char const* pluginNamespace) noexcept
 {
     try
     {
         mNamespace = pluginNamespace;
     }
-    catch (const std::exception& e)
+    catch (std::exception const& e)
     {
         caughtError(e);
     }
 }
 
-const char* BatchedNMSPlugin::getPluginNamespace() const noexcept
+char const* BatchedNMSPlugin::getPluginNamespace() const noexcept
 {
     return mNamespace.c_str();
 }
 
-void BatchedNMSDynamicPlugin::setPluginNamespace(const char* pluginNamespace) noexcept
+void BatchedNMSDynamicPlugin::setPluginNamespace(char const* pluginNamespace) noexcept
 {
     try
     {
         mNamespace = pluginNamespace;
     }
-    catch (const std::exception& e)
+    catch (std::exception const& e)
     {
         caughtError(e);
     }
 }
 
-const char* BatchedNMSDynamicPlugin::getPluginNamespace() const noexcept
+char const* BatchedNMSDynamicPlugin::getPluginNamespace() const noexcept
 {
     return mNamespace.c_str();
 }
 
 nvinfer1::DataType BatchedNMSPlugin::getOutputDataType(
-    int32_t index, const nvinfer1::DataType* inputTypes, int32_t nbInputs) const noexcept
+    int32_t index, nvinfer1::DataType const* inputTypes, int32_t nbInputs) const noexcept
 {
     if (index == 0)
     {
@@ -589,7 +574,7 @@ nvinfer1::DataType BatchedNMSPlugin::getOutputDataType(
 }
 
 nvinfer1::DataType BatchedNMSDynamicPlugin::getOutputDataType(
-    int32_t index, const nvinfer1::DataType* inputTypes, int32_t nbInputs) const noexcept
+    int32_t index, nvinfer1::DataType const* inputTypes, int32_t nbInputs) const noexcept
 {
     if (index == 0)
     {
@@ -629,7 +614,7 @@ void BatchedNMSDynamicPlugin::setCaffeSemantics(bool caffeSemantics) noexcept
 }
 
 bool BatchedNMSPlugin::isOutputBroadcastAcrossBatch(
-    int32_t outputIndex, const bool* inputIsBroadcasted, int32_t nbInputs) const noexcept
+    int32_t outputIndex, bool const* inputIsBroadcasted, int32_t nbInputs) const noexcept
 {
     return false;
 }
@@ -657,32 +642,32 @@ BatchedNMSBasePluginCreator::BatchedNMSBasePluginCreator()
     mFC.fields = mPluginAttributes.data();
 }
 
-const char* BatchedNMSPluginCreator::getPluginName() const noexcept
+char const* BatchedNMSPluginCreator::getPluginName() const noexcept
 {
-    return NMS_PLUGIN_NAMES[0];
+    return kNMS_PLUGIN_NAMES[0];
 }
 
-const char* BatchedNMSDynamicPluginCreator::getPluginName() const noexcept
+char const* BatchedNMSDynamicPluginCreator::getPluginName() const noexcept
 {
-    return NMS_PLUGIN_NAMES[1];
+    return kNMS_PLUGIN_NAMES[1];
 }
 
-const char* BatchedNMSBasePluginCreator::getPluginVersion() const noexcept
+char const* BatchedNMSBasePluginCreator::getPluginVersion() const noexcept
 {
-    return NMS_PLUGIN_VERSION;
+    return kNMS_PLUGIN_VERSION;
 }
 
-const PluginFieldCollection* BatchedNMSBasePluginCreator::getFieldNames() noexcept
+PluginFieldCollection const* BatchedNMSBasePluginCreator::getFieldNames() noexcept
 {
     return &mFC;
 }
 
-IPluginV2Ext* BatchedNMSPluginCreator::createPlugin(const char* name, const PluginFieldCollection* fc) noexcept
+IPluginV2Ext* BatchedNMSPluginCreator::createPlugin(char const* name, PluginFieldCollection const* fc) noexcept
 {
     try
     {
         NMSParameters params;
-        const PluginField* fields = fc->fields;
+        PluginField const* fields = fc->fields;
         bool clipBoxes = true;
         int32_t scoreBits = 16;
         bool caffeSemantics = true;
@@ -700,57 +685,57 @@ IPluginV2Ext* BatchedNMSPluginCreator::createPlugin(const char* name, const Plug
 
         for (int32_t i = 0; i < fc->nbFields; ++i)
         {
-            const char* attrName = fields[i].name;
+            char const* attrName = fields[i].name;
             if (!strcmp(attrName, "shareLocation"))
             {
-                params.shareLocation = *(static_cast<const bool*>(fields[i].data));
+                params.shareLocation = *(static_cast<bool const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "backgroundLabelId"))
             {
                 PLUGIN_VALIDATE(fields[i].type == PluginFieldType::kINT32);
-                params.backgroundLabelId = *(static_cast<const int32_t*>(fields[i].data));
+                params.backgroundLabelId = *(static_cast<int32_t const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "numClasses"))
             {
                 PLUGIN_VALIDATE(fields[i].type == PluginFieldType::kINT32);
-                params.numClasses = *(static_cast<const int32_t*>(fields[i].data));
+                params.numClasses = *(static_cast<int32_t const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "topK"))
             {
                 PLUGIN_VALIDATE(fields[i].type == PluginFieldType::kINT32);
-                params.topK = *(static_cast<const int32_t*>(fields[i].data));
+                params.topK = *(static_cast<int32_t const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "keepTopK"))
             {
                 PLUGIN_VALIDATE(fields[i].type == PluginFieldType::kINT32);
-                params.keepTopK = *(static_cast<const int32_t*>(fields[i].data));
+                params.keepTopK = *(static_cast<int32_t const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "scoreThreshold"))
             {
                 PLUGIN_VALIDATE(fields[i].type == PluginFieldType::kFLOAT32);
-                params.scoreThreshold = *(static_cast<const float*>(fields[i].data));
+                params.scoreThreshold = *(static_cast<float const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "iouThreshold"))
             {
                 PLUGIN_VALIDATE(fields[i].type == PluginFieldType::kFLOAT32);
-                params.iouThreshold = *(static_cast<const float*>(fields[i].data));
+                params.iouThreshold = *(static_cast<float const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "isNormalized"))
             {
-                params.isNormalized = *(static_cast<const bool*>(fields[i].data));
+                params.isNormalized = *(static_cast<bool const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "clipBoxes"))
             {
-                clipBoxes = *(static_cast<const bool*>(fields[i].data));
+                clipBoxes = *(static_cast<bool const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "scoreBits"))
             {
-                scoreBits = *(static_cast<const int32_t*>(fields[i].data));
+                scoreBits = *(static_cast<int32_t const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "caffeSemantics"))
             {
                 PLUGIN_VALIDATE(fields[i].type == PluginFieldType::kINT32);
-                caffeSemantics = *(static_cast<const bool*>(fields[i].data));
+                caffeSemantics = *(static_cast<bool const*>(fields[i].data));
             }
         }
 
@@ -761,7 +746,7 @@ IPluginV2Ext* BatchedNMSPluginCreator::createPlugin(const char* name, const Plug
         plugin->setPluginNamespace(mNamespace.c_str());
         return plugin;
     }
-    catch (const std::exception& e)
+    catch (std::exception const& e)
     {
         caughtError(e);
     }
@@ -769,12 +754,12 @@ IPluginV2Ext* BatchedNMSPluginCreator::createPlugin(const char* name, const Plug
 }
 
 IPluginV2DynamicExt* BatchedNMSDynamicPluginCreator::createPlugin(
-    const char* name, const PluginFieldCollection* fc) noexcept
+    char const* name, PluginFieldCollection const* fc) noexcept
 {
     try
     {
         NMSParameters params;
-        const PluginField* fields = fc->fields;
+        PluginField const* fields = fc->fields;
         bool clipBoxes = true;
         int32_t scoreBits = 16;
         bool caffeSemantics = true;
@@ -792,57 +777,57 @@ IPluginV2DynamicExt* BatchedNMSDynamicPluginCreator::createPlugin(
 
         for (int32_t i = 0; i < fc->nbFields; ++i)
         {
-            const char* attrName = fields[i].name;
+            char const* attrName = fields[i].name;
             if (!strcmp(attrName, "shareLocation"))
             {
-                params.shareLocation = *(static_cast<const bool*>(fields[i].data));
+                params.shareLocation = *(static_cast<bool const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "backgroundLabelId"))
             {
                 PLUGIN_VALIDATE(fields[i].type == PluginFieldType::kINT32);
-                params.backgroundLabelId = *(static_cast<const int32_t*>(fields[i].data));
+                params.backgroundLabelId = *(static_cast<int32_t const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "numClasses"))
             {
                 PLUGIN_VALIDATE(fields[i].type == PluginFieldType::kINT32);
-                params.numClasses = *(static_cast<const int32_t*>(fields[i].data));
+                params.numClasses = *(static_cast<int32_t const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "topK"))
             {
                 PLUGIN_VALIDATE(fields[i].type == PluginFieldType::kINT32);
-                params.topK = *(static_cast<const int32_t*>(fields[i].data));
+                params.topK = *(static_cast<int32_t const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "keepTopK"))
             {
                 PLUGIN_VALIDATE(fields[i].type == PluginFieldType::kINT32);
-                params.keepTopK = *(static_cast<const int32_t*>(fields[i].data));
+                params.keepTopK = *(static_cast<int32_t const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "scoreThreshold"))
             {
                 PLUGIN_VALIDATE(fields[i].type == PluginFieldType::kFLOAT32);
-                params.scoreThreshold = *(static_cast<const float*>(fields[i].data));
+                params.scoreThreshold = *(static_cast<float const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "iouThreshold"))
             {
                 PLUGIN_VALIDATE(fields[i].type == PluginFieldType::kFLOAT32);
-                params.iouThreshold = *(static_cast<const float*>(fields[i].data));
+                params.iouThreshold = *(static_cast<float const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "isNormalized"))
             {
-                params.isNormalized = *(static_cast<const bool*>(fields[i].data));
+                params.isNormalized = *(static_cast<bool const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "clipBoxes"))
             {
-                clipBoxes = *(static_cast<const bool*>(fields[i].data));
+                clipBoxes = *(static_cast<bool const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "scoreBits"))
             {
-                scoreBits = *(static_cast<const int32_t*>(fields[i].data));
+                scoreBits = *(static_cast<int32_t const*>(fields[i].data));
             }
             else if (!strcmp(attrName, "caffeSemantics"))
             {
                 PLUGIN_VALIDATE(fields[i].type == PluginFieldType::kINT32);
-                caffeSemantics = *(static_cast<const bool*>(fields[i].data));
+                caffeSemantics = *(static_cast<bool const*>(fields[i].data));
             }
         }
 
@@ -853,7 +838,7 @@ IPluginV2DynamicExt* BatchedNMSDynamicPluginCreator::createPlugin(
         plugin->setPluginNamespace(mNamespace.c_str());
         return plugin;
     }
-    catch (const std::exception& e)
+    catch (std::exception const& e)
     {
         caughtError(e);
     }
@@ -861,7 +846,7 @@ IPluginV2DynamicExt* BatchedNMSDynamicPluginCreator::createPlugin(
 }
 
 IPluginV2Ext* BatchedNMSPluginCreator::deserializePlugin(
-    const char* name, const void* serialData, size_t serialLength) noexcept
+    char const* name, void const* serialData, size_t serialLength) noexcept
 {
     try
     {
@@ -871,7 +856,7 @@ IPluginV2Ext* BatchedNMSPluginCreator::deserializePlugin(
         plugin->setPluginNamespace(mNamespace.c_str());
         return plugin;
     }
-    catch (const std::exception& e)
+    catch (std::exception const& e)
     {
         caughtError(e);
     }
@@ -879,7 +864,7 @@ IPluginV2Ext* BatchedNMSPluginCreator::deserializePlugin(
 }
 
 IPluginV2DynamicExt* BatchedNMSDynamicPluginCreator::deserializePlugin(
-    const char* name, const void* serialData, size_t serialLength) noexcept
+    char const* name, void const* serialData, size_t serialLength) noexcept
 {
     try
     {
@@ -889,9 +874,11 @@ IPluginV2DynamicExt* BatchedNMSDynamicPluginCreator::deserializePlugin(
         plugin->setPluginNamespace(mNamespace.c_str());
         return plugin;
     }
-    catch (const std::exception& e)
+    catch (std::exception const& e)
     {
         caughtError(e);
     }
     return nullptr;
 }
+} // namespace plugin
+} // namespace nvinfer1

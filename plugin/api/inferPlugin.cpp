@@ -16,8 +16,50 @@
  */
 #include "NvInfer.h"
 #include "NvInferPlugin.h"
-#include "checkMacrosPlugin.h"
-#include "plugin.h"
+#include "batchTilePlugin/batchTilePlugin.h"
+#include "batchedNMSPlugin/batchedNMSPlugin.h"
+#include "clipPlugin/clipPlugin.h"
+#include "common/checkMacrosPlugin.h"
+#include "common/plugin.h"
+#include "coordConvACPlugin/coordConvACPlugin.h"
+#include "cropAndResizePlugin/cropAndResizePlugin.h"
+#include "decodeBbox3DPlugin/decodeBbox3D.h"
+#include "detectionLayerPlugin/detectionLayerPlugin.h"
+#include "efficientNMSPlugin/efficientNMSPlugin.h"
+#include "efficientNMSPlugin/tftrt/efficientNMSExplicitTFTRTPlugin.h"
+#include "efficientNMSPlugin/tftrt/efficientNMSImplicitTFTRTPlugin.h"
+#include "flattenConcat/flattenConcat.h"
+#include "generateDetectionPlugin/generateDetectionPlugin.h"
+#include "gridAnchorPlugin/gridAnchorPlugin.h"
+#include "groupNormPlugin/groupNormPlugin.h"
+#include "instanceNormalizationPlugin/instanceNormalizationPlugin.h"
+#include "layerNormPlugin/layerNormPlugin.h"
+#include "leakyReluPlugin/lReluPlugin.h"
+#include "modulatedDeformConvPlugin/modulatedDeformConvPlugin.h"
+#include "multiHeadCrossAttentionPlugin/fmhcaPlugin.h"
+#include "multiHeadFlashAttentionPlugin/fmhaPlugin.h"
+#include "multilevelCropAndResizePlugin/multilevelCropAndResizePlugin.h"
+#include "multilevelProposeROI/multilevelProposeROIPlugin.h"
+#include "multiscaleDeformableAttnPlugin/multiscaleDeformableAttnPlugin.h"
+#include "nmsPlugin/nmsPlugin.h"
+#include "normalizePlugin/normalizePlugin.h"
+#include "nvFasterRCNN/nvFasterRCNNPlugin.h"
+#include "pillarScatterPlugin/pillarScatter.h"
+#include "priorBoxPlugin/priorBoxPlugin.h"
+#include "proposalLayerPlugin/proposalLayerPlugin.h"
+#include "proposalPlugin/proposalPlugin.h"
+#include "pyramidROIAlignPlugin/pyramidROIAlignPlugin.h"
+#include "regionPlugin/regionPlugin.h"
+#include "reorgPlugin/reorgPlugin.h"
+#include "resizeNearestPlugin/resizeNearestPlugin.h"
+#include "roiAlignPlugin/roiAlignPlugin.h"
+#include "scatterPlugin/scatterPlugin.h"
+#include "seqLen2SpatialPlugin/seqLen2SpatialPlugin.h"
+#include "specialSlicePlugin/specialSlicePlugin.h"
+#include "splitGeLUPlugin/splitGeLUPlugin.h"
+#include "splitPlugin/split.h"
+#include "voxelGeneratorPlugin/voxelGenerator.h"
+
 #include <algorithm>
 #include <array>
 #include <iostream>
@@ -27,47 +69,6 @@
 #include <unordered_set>
 using namespace nvinfer1;
 using namespace nvinfer1::plugin;
-
-#include "batchTilePlugin.h"
-#include "batchedNMSPlugin.h"
-#include "clipPlugin.h"
-#include "coordConvACPlugin.h"
-#include "cropAndResizePlugin.h"
-#include "decodeBbox3D.h"
-#include "detectionLayerPlugin.h"
-#include "efficientNMSPlugin.h"
-#include "tftrt/efficientNMSImplicitTFTRTPlugin.h"
-#include "tftrt/efficientNMSExplicitTFTRTPlugin.h"
-#include "flattenConcat.h"
-#include "fmhcaPlugin.h"
-#include "generateDetectionPlugin.h"
-#include "gridAnchorPlugin.h"
-#include "groupNormPlugin.h"
-#include "instanceNormalizationPlugin.h"
-#include "layerNormPlugin.h"
-#include "lReluPlugin.h"
-#include "multiHeadFlashAttentionPlugin/fmhaPlugin.h"
-#include "multilevelCropAndResizePlugin.h"
-#include "multilevelProposeROIPlugin.h"
-#include "multiscaleDeformableAttnPlugin.h"
-#include "nmsPlugin.h"
-#include "normalizePlugin.h"
-#include "nvFasterRCNNPlugin.h"
-#include "pillarScatter.h"
-#include "priorBoxPlugin.h"
-#include "proposalLayerPlugin.h"
-#include "proposalPlugin.h"
-#include "pyramidROIAlignPlugin.h"
-#include "regionPlugin.h"
-#include "reorgPlugin.h"
-#include "resizeNearestPlugin.h"
-#include "roiAlignPlugin.h"
-#include "scatterPlugin.h"
-#include "seqLen2SpatialPlugin.h"
-#include "specialSlicePlugin.h"
-#include "split.h"
-#include "splitGeLUPlugin.h"
-#include "voxelGenerator.h"
 
 using nvinfer1::plugin::RPROIParams;
 
@@ -79,6 +80,11 @@ namespace plugin
 
 extern ILogger* gLogger;
 
+} // namespace plugin
+} // namespace nvinfer1
+
+namespace
+{
 // This singleton ensures that each plugin is only registered once for a given
 // namespace and type, and attempts of duplicate registration are ignored.
 class PluginCreatorRegistry
@@ -91,7 +97,7 @@ public:
     }
 
     template <typename CreatorType>
-    void addPluginCreator(void* logger, const char* libNamespace)
+    void addPluginCreator(void* logger, char const* libNamespace)
     {
         // Make accesses to the plugin creator registry thread safe
         std::lock_guard<std::mutex> lock(mRegistryLock);
@@ -164,13 +170,12 @@ public:
 };
 
 template <typename CreatorType>
-void initializePlugin(void* logger, const char* libNamespace)
+void initializePlugin(void* logger, char const* libNamespace)
 {
     PluginCreatorRegistry::getInstance().addPluginCreator<CreatorType>(logger, libNamespace);
 }
 
-} // namespace plugin
-} // namespace nvinfer1
+} // namespace
 // New Plugin APIs
 
 extern "C"
@@ -202,6 +207,7 @@ extern "C"
         initializePlugin<nvinfer1::plugin::InstanceNormalizationPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::LayerNormPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::LReluPluginCreator>(logger, libNamespace);
+        initializePlugin<nvinfer1::plugin::ModulatedDeformableConvPluginDynamicCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::MultilevelCropAndResizePluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::MultilevelProposeROIPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::MultiscaleDeformableAttnPluginCreator>(logger, libNamespace);

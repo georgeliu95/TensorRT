@@ -15,8 +15,11 @@
  * limitations under the License.
  */
 
-#include "common/kernel.h"
-
+#include "common/kernels/kernel.h"
+namespace nvinfer1
+{
+namespace plugin
+{
 template <unsigned nthdsPerCTA>
 __launch_bounds__(nthdsPerCTA) __global__
     void pReLUKernel(const int n, const float negativeSlope, const float* input, float* output)
@@ -42,3 +45,5 @@ pluginStatus_t lReLUInference(
 {
     return lReLUGPU(stream, n, negativeSlope, (const float*) input, (float*) output);
 }
+} // namespace plugin
+} // namespace nvinfer1

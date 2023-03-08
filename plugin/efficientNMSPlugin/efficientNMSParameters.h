@@ -28,8 +28,8 @@ namespace plugin
 struct EfficientNMSParameters
 {
     // Related to NMS Options
-    float iouThreshold = 0.5f;
-    float scoreThreshold = 0.5f;
+    float iouThreshold = 0.5F;
+    float scoreThreshold = 0.5F;
     int numOutputBoxes = 100;
     int numOutputBoxesPerClass = -1;
     bool padOutputBoxesPerClass = false;
@@ -37,6 +37,7 @@ struct EfficientNMSParameters
     bool scoreSigmoid = false;
     bool clipBoxes = false;
     int boxCoding = 0;
+    bool classAgnostic = false;
 
     // Related to NMS Internals
     int numSelectedBoxes = 4096;
