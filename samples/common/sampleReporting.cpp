@@ -364,17 +364,14 @@ void Profiler::reportLayerTime(char const* layerName, float timeMs) noexcept
 
 void Profiler::print(std::ostream& os) const noexcept
 {
-    std::string const nameHdr("Layer");
-    std::string const timeHdr("   Time (ms)");
-    std::string const avgHdr("   Avg. Time (ms)");
-    std::string const medHdr("   Median Time (ms)");
-    std::string const percentageHdr("   Time %");
+    std::string const nameHdr("   Layer");
+    std::string const timeHdr("   Time(ms)");
+    std::string const avgHdr("     Avg.(ms)");
+    std::string const medHdr("   Median(ms)");
+    std::string const percentageHdr("   Time(%)");
 
     float const totalTimeMs = getTotalTime();
 
-    auto const cmpLayer = [](LayerProfile const& a, LayerProfile const& b) { return a.name.size() < b.name.size(); };
-    auto const longestName = std::max_element(mLayers.begin(), mLayers.end(), cmpLayer);
-    auto const nameLength = std::max(longestName->name.size() + 1, nameHdr.size());
     auto const timeLength = timeHdr.size();
     auto const avgLength = avgHdr.size();
     auto const medLength = medHdr.size();
@@ -382,7 +379,7 @@ void Profiler::print(std::ostream& os) const noexcept
 
     os << std::endl
        << "=== Profile (" << mUpdatesCount << " iterations ) ===" << std::endl
-       << std::setw(nameLength) << nameHdr << timeHdr << avgHdr << medHdr << percentageHdr << std::endl;
+       << timeHdr << avgHdr << medHdr << percentageHdr << nameHdr << std::endl;
 
     for (auto const& p : mLayers)
     {
@@ -392,17 +389,18 @@ void Profiler::print(std::ostream& os) const noexcept
             continue;
         }
         // clang-format off
-        os << std::setw(nameLength) << p.name << std::setw(timeLength) << std::fixed << std::setprecision(2) << getTotalTime(p)
+        os << std::setw(timeLength) << std::fixed << std::setprecision(2) << getTotalTime(p)
            << std::setw(avgLength) << std::fixed << std::setprecision(4) << getAvgTime(p)
            << std::setw(medLength) << std::fixed << std::setprecision(4) << getMedianTime(p)
            << std::setw(percentageLength) << std::fixed << std::setprecision(1) << getTotalTime(p) / totalTimeMs * 100
-           << std::endl;
+           << "   " << p.name << std::endl;
     }
     {
-        os << std::setw(nameLength) << "Total" << std::setw(timeLength) << std::fixed << std::setprecision(2)
+        os << std::setw(timeLength) << std::fixed << std::setprecision(2)
            << totalTimeMs << std::setw(avgLength) << std::fixed << std::setprecision(4) << totalTimeMs / mUpdatesCount
            << std::setw(medLength) << std::fixed << std::setprecision(4) << getMedianTime()
-           << std::setw(percentageLength) << std::fixed << std::setprecision(1) << 100.0 << std::endl;
+           << std::setw(percentageLength) << std::fixed << std::setprecision(1) << 100.0
+           << "   Total" << std::endl;
         // clang-format on
     }
     os << std::endl;
