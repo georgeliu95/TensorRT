@@ -886,7 +886,10 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
         config.setFlag(BuilderFlag::kENABLE_TACTIC_HEURISTIC);
     }
 
-    config.setBuilderOptimizationLevel(build.builderOptimizationLevel);
+    if (build.builderOptimizationLevel != defaultBuilderOptimizationLevel)
+    {
+        config.setBuilderOptimizationLevel(build.builderOptimizationLevel);
+    }
 
     if (build.timingCacheMode == TimingCacheMode::kDISABLE)
     {

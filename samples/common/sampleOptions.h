@@ -37,7 +37,7 @@ constexpr int32_t maxBatchNotProvided{0};
 constexpr int32_t defaultMinTiming{1};
 constexpr int32_t defaultAvgTiming{8};
 constexpr int32_t defaultMaxAuxStreams{-1};
-constexpr int32_t defaultBuilderOptimizationLevel{3};
+constexpr int32_t defaultBuilderOptimizationLevel{-1};
 
 // System default params
 constexpr int32_t defaultDevice{0};
