@@ -44,9 +44,15 @@ namespace pluginInternal
 class BasePlugin : public IPluginV2
 {
 protected:
-    void setPluginNamespace(const char* libNamespace) noexcept override { mNamespace = libNamespace; }
+    void setPluginNamespace(char const* libNamespace) noexcept override
+    {
+        mNamespace = libNamespace;
+    }
 
-    const char* getPluginNamespace() const noexcept override { return mNamespace.c_str(); }
+    char const* getPluginNamespace() const noexcept override
+    {
+        return mNamespace.c_str();
+    }
 
     std::string mNamespace;
 };
@@ -54,12 +60,12 @@ protected:
 class BaseCreator : public IPluginCreator
 {
 public:
-    void setPluginNamespace(const char* libNamespace) noexcept override
+    void setPluginNamespace(char const* libNamespace) noexcept override
     {
         mNamespace = libNamespace;
     }
 
-    const char* getPluginNamespace() const noexcept override
+    char const* getPluginNamespace() const noexcept override
     {
         return mNamespace.c_str();
     }
@@ -74,20 +80,22 @@ namespace plugin
 {
 
 // Write values into buffer
-template <typename T>
-void write(char*& buffer, const T& val)
+template <typename Type, typename BufferType>
+void write(BufferType*& buffer, Type const& val)
 {
-    std::memcpy(buffer, &val, sizeof(T));
-    buffer += sizeof(T);
+    static_assert(sizeof(BufferType) == 1, "BufferType must be a 1 byte type.");
+    std::memcpy(buffer, &val, sizeof(Type));
+    buffer += sizeof(Type);
 }
 
 // Read values from buffer
-template <typename T>
-T read(const char*& buffer)
+template <typename OutType, typename BufferType>
+OutType read(BufferType const*& buffer)
 {
-    T val{};
-    std::memcpy(&val, buffer, sizeof(T));
-    buffer += sizeof(T);
+    static_assert(sizeof(BufferType) == 1, "BufferType must be a 1 byte type.");
+    OutType val{};
+    std::memcpy(&val, static_cast<void const*>(buffer), sizeof(OutType));
+    buffer += sizeof(OutType);
     return val;
 }
 

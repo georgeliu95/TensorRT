@@ -15,13 +15,13 @@
 # limitations under the License.
 #
 
-ARG CUDA_VERSION=11.8.0
+ARG CUDA_VERSION=12.0.1
 ARG OS_VERSION=22.04
 
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${OS_VERSION}
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.5.1.1
+ENV TRT_VERSION 8.6.0.8
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -68,6 +68,13 @@ RUN apt-get install -y --no-install-recommends \
     cd /usr/local/bin &&\
     ln -s /usr/bin/python3 python &&\
     ln -s /usr/bin/pip3 pip;
+
+# Install cudnn
+RUN wget https://urm.nvidia.com/artifactory/hw-cudnn-generic/CUDNN/v8.8_cuda_12.0/8.8.0.123/cudnn-linux-x86_64-8.8.0.123.tar.gz
+RUN tar -xf cudnn-linux-x86_64-8.8.0.123.tar.gz
+RUN sudo cp cudnn/include/cudnn*.h /usr/include
+RUN sudo cp -P cudnn/lib64/libcudnn* /usr/lib/x86_64-linux-gnu
+RUN sudo chmod a+r /usr/include/cudnn*.h /usr/lib/x86_64-linux-gnu/libcudnn*
 
 # Dependencies needed for Turtle run
 RUN apt-get install -y --no-install-recommends libffi-dev rustc cargo

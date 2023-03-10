@@ -36,9 +36,9 @@ class InstanceNormalizationPlugin : public nvinfer1::IPluginV2DynamicExt
 
 public:
     InstanceNormalizationPlugin(float epsilon, nvinfer1::Weights const& scale, nvinfer1::Weights const& bias,
-        int32_t relu = 0, float alpha = 0.f);
+        int32_t relu = 0, float alpha = 0.F);
     InstanceNormalizationPlugin(float epsilon, std::vector<float> const& scale, std::vector<float> const& bias,
-        int32_t relu = 0, float alpha = 0.f);
+        int32_t relu = 0, float alpha = 0.F);
     InstanceNormalizationPlugin(void const* serialData, size_t serialLength);
 
     InstanceNormalizationPlugin() = delete;
@@ -84,8 +84,8 @@ public:
 
     char const* getPluginNamespace() const noexcept override;
 
-    DataType getOutputDataType(int32_t index, nvinfer1::DataType const* inputTypes, int32_t nbInputs) const
-        noexcept override;
+    DataType getOutputDataType(
+        int32_t index, nvinfer1::DataType const* inputTypes, int32_t nbInputs) const noexcept override;
 
     void attachToContext(
         cudnnContext* cudnn, cublasContext* cublas, nvinfer1::IGpuAllocator* allocator) noexcept override;
@@ -135,14 +135,14 @@ public:
 
     PluginFieldCollection const* getFieldNames() noexcept override;
 
-    IPluginV2DynamicExt* createPlugin(char const* name, const nvinfer1::PluginFieldCollection* fc) noexcept override;
+    IPluginV2DynamicExt* createPlugin(char const* name, nvinfer1::PluginFieldCollection const* fc) noexcept override;
 
     IPluginV2DynamicExt* deserializePlugin(
         char const* name, void const* serialData, size_t serialLength) noexcept override;
 
 protected:
     template <class PluginType>
-    IPluginV2DynamicExt* createPluginBase(char const* name, const nvinfer1::PluginFieldCollection* fc) noexcept;
+    IPluginV2DynamicExt* createPluginBase(char const* name, nvinfer1::PluginFieldCollection const* fc) noexcept;
 
     template <class PluginType>
     IPluginV2DynamicExt* deserializePluginBase(char const* name, void const* serialData, size_t serialLength) noexcept;
@@ -160,12 +160,12 @@ class InstanceNormalizationPluginV2 final : public InstanceNormalizationPlugin
 {
 public:
     InstanceNormalizationPluginV2(float epsilon, nvinfer1::Weights const& scale, nvinfer1::Weights const& bias,
-        int32_t relu = 0, float alpha = 0.f)
+        int32_t relu = 0, float alpha = 0.F)
         : InstanceNormalizationPlugin(epsilon, scale, bias, relu, alpha)
     {
     }
     InstanceNormalizationPluginV2(float epsilon, std::vector<float> const& scale, std::vector<float> const& bias,
-        int32_t relu = 0, float alpha = 0.f)
+        int32_t relu = 0, float alpha = 0.F)
         : InstanceNormalizationPlugin(epsilon, scale, bias, relu, alpha)
     {
     }
@@ -182,7 +182,7 @@ class InstanceNormalizationPluginCreatorV2 final : public InstanceNormalizationP
 {
 public:
     char const* getPluginVersion() const noexcept override;
-    IPluginV2DynamicExt* createPlugin(char const* name, const nvinfer1::PluginFieldCollection* fc) noexcept override;
+    IPluginV2DynamicExt* createPlugin(char const* name, nvinfer1::PluginFieldCollection const* fc) noexcept override;
     IPluginV2DynamicExt* deserializePlugin(
         char const* name, void const* serialData, size_t serialLength) noexcept override;
 };

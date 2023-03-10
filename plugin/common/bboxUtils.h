@@ -18,7 +18,10 @@
 #define TRT_BBOX_UTILS_H
 
 #include "common/plugin.h"
-
+namespace nvinfer1
+{
+namespace plugin
+{
 template <typename T>
 struct Bbox
 {
@@ -51,13 +54,13 @@ struct BboxInfo
 };
 
 template <typename TFloat>
-bool operator<(const Bbox<TFloat>& lhs, const Bbox<TFloat>& rhs)
+bool operator<(Bbox<TFloat> const& lhs, Bbox<TFloat> const& rhs)
 {
     return lhs.x1 < rhs.x1;
 }
 
 template <typename TFloat>
-bool operator==(const Bbox<TFloat>& lhs, const Bbox<TFloat>& rhs)
+bool operator==(Bbox<TFloat> const& lhs, Bbox<TFloat> const& rhs)
 {
     return lhs.x1 == rhs.x1 && lhs.y1 == rhs.y1 && lhs.x2 == rhs.x2 && lhs.y2 == rhs.y2;
 }
@@ -70,5 +73,6 @@ int8_t* nextWorkspacePtr(int8_t* ptr, uintptr_t previousWorkspaceSize);
 size_t dataTypeSize(nvinfer1::DataType dtype);
 
 void setUniformOffsets(cudaStream_t stream, int num_segments, int offset, int* d_offsets);
-
+} // namespace plugin
+} // namespace nvinfer1
 #endif

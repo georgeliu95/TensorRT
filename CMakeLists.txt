@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -173,12 +173,10 @@ else()
   message(STATUS "GPU_ARCHS is not defined. Generating CUDA code for default SMs: ${GPU_ARCHS}")
 endif()
 set(BERT_GENCODES)
-set(STABLE_DIFFUSION_GENCODES)
 # Generate SASS for each architecture
 foreach(arch ${GPU_ARCHS})
     if (${arch} GREATER_EQUAL 70)
         set(BERT_GENCODES "${BERT_GENCODES} -gencode arch=compute_${arch},code=sm_${arch}")
-        set(STABLE_DIFFUSION_GENCODES "${STABLE_DIFFUSION_GENCODES} -gencode arch=compute_${arch},code=sm_${arch}")
     endif()
     set(GENCODES "${GENCODES} -gencode arch=compute_${arch},code=sm_${arch}")
 endforeach()
@@ -188,7 +186,6 @@ list(GET GPU_ARCHS -1 LATEST_SM)
 set(GENCODES "${GENCODES} -gencode arch=compute_${LATEST_SM},code=compute_${LATEST_SM}")
 if (${LATEST_SM} GREATER_EQUAL 70)
     set(BERT_GENCODES "${BERT_GENCODES} -gencode arch=compute_${LATEST_SM},code=compute_${LATEST_SM}")
-    set(STABLE_DIFFUSION_GENCODES "${STABLE_DIFFUSION_GENCODES} -gencode arch=compute_${LATEST_SM},code=compute_${LATEST_SM}")
 endif()
 
 if(NOT MSVC)

@@ -289,6 +289,7 @@ class DET2GraphSurgeon:
                 'score_threshold': max(0.01, score_threshold),
                 'iou_threshold': iou_threshold,
                 'score_activation': score_activation,
+                'class_agnostic': False,
                 'box_coding': 1,
             }
         )
@@ -355,10 +356,11 @@ class DET2GraphSurgeon:
             Updates the graph to replace all ResizeNearest ops with ResizeNearest plugins in backbone.
             """
             # Get final backbone outputs.
-            p2 = self.graph.find_node_by_op_name("Conv", "Conv_279")
-            p3 = self.graph.find_node_by_op_name("Conv", "Conv_274")
-            p4 = self.graph.find_node_by_op_name("Conv", "Conv_269")
-            p5 = self.graph.find_node_by_op_name("Conv", "Conv_264")
+            p2 = self.graph.find_node_by_op_name("Conv", "/backbone/fpn_output2/Conv")
+            p3 = self.graph.find_node_by_op_name("Conv", "/backbone/fpn_output3/Conv")
+            p4 = self.graph.find_node_by_op_name("Conv", "/backbone/fpn_output4/Conv")
+            p5 = self.graph.find_node_by_op_name("Conv", "/backbone/fpn_output5/Conv")
+
 
             return p2.outputs[0], p3.outputs[0], p4.outputs[0], p5.outputs[0]
 
@@ -370,18 +372,18 @@ class DET2GraphSurgeon:
             :param first_nms_threshold: Override the 1st NMS score threshold value. If set to None, use the value in the graph.
             """
             # Get nodes containing final objectness logits.
-            p2_logits = self.graph.find_node_by_op_name("Flatten", "Flatten_527")
-            p3_logits = self.graph.find_node_by_op_name("Flatten", "Flatten_529")
-            p4_logits = self.graph.find_node_by_op_name("Flatten", "Flatten_531")
-            p5_logits = self.graph.find_node_by_op_name("Flatten", "Flatten_533")
-            p6_logits = self.graph.find_node_by_op_name("Flatten", "Flatten_535")
+            p2_logits = self.graph.find_node_by_op_name("Flatten", "/proposal_generator/Flatten")
+            p3_logits = self.graph.find_node_by_op_name("Flatten", "/proposal_generator/Flatten_1")
+            p4_logits = self.graph.find_node_by_op_name("Flatten", "/proposal_generator/Flatten_2")
+            p5_logits = self.graph.find_node_by_op_name("Flatten", "/proposal_generator/Flatten_3")
+            p6_logits = self.graph.find_node_by_op_name("Flatten", "/proposal_generator/Flatten_4")
 
             # Get nodes containing final anchor_deltas.
-            p2_anchors = self.graph.find_node_by_op_name("Reshape", "Reshape_562")
-            p3_anchors = self.graph.find_node_by_op_name("Reshape", "Reshape_589")
-            p4_anchors = self.graph.find_node_by_op_name("Reshape", "Reshape_616")
-            p5_anchors = self.graph.find_node_by_op_name("Reshape", "Reshape_643")
-            p6_anchors = self.graph.find_node_by_op_name("Reshape", "Reshape_670")
+            p2_anchors = self.graph.find_node_by_op_name("Reshape", "/proposal_generator/Reshape_1")
+            p3_anchors = self.graph.find_node_by_op_name("Reshape", "/proposal_generator/Reshape_3")
+            p4_anchors = self.graph.find_node_by_op_name("Reshape", "/proposal_generator/Reshape_5")
+            p5_anchors = self.graph.find_node_by_op_name("Reshape", "/proposal_generator/Reshape_7")
+            p6_anchors = self.graph.find_node_by_op_name("Reshape", "/proposal_generator/Reshape_9")
 
             # Concatenate all objectness logits/scores data.
             scores_inputs = [p2_logits.outputs[0], p3_logits.outputs[0], p4_logits.outputs[0], p5_logits.outputs[0], p6_logits.outputs[0]]
@@ -427,12 +429,12 @@ class DET2GraphSurgeon:
             box_pooler_reshape = self.graph.op_with_const("Reshape", "box_pooler/reshape", box_pooler_output, box_pooler_shape)
 
             # Get first Gemm op of box head and connect box pooler to it.
-            first_box_head_gemm = self.graph.find_node_by_op_name("Gemm", "Gemm_1685")
+            first_box_head_gemm = self.graph.find_node_by_op_name("Gemm", "/roi_heads/box_head/fc1/Gemm")
             first_box_head_gemm.inputs[0] = box_pooler_reshape[0]
 
             # Get final two nodes of box predictor. Softmax op for cls_score, Gemm op for bbox_pred.
-            cls_score = self.graph.find_node_by_op_name("Softmax", "Softmax_1796")
-            bbox_pred = self.graph.find_node_by_op_name("Gemm", "Gemm_1690")
+            cls_score = self.graph.find_node_by_op_name("Softmax", "/roi_heads/Softmax")
+            bbox_pred = self.graph.find_node_by_op_name("Gemm", "/roi_heads/box_predictor/bbox_pred/Gemm")
 
             # Linear transformation to convert box coordinates from (TopLeft, BottomRight) Corner encoding
             # to CenterSize encoding. 1st NMS boxes are multiplied by transformation matrix in order to
@@ -466,7 +468,7 @@ class DET2GraphSurgeon:
             mask_pooler_reshape_node = self.graph.op_with_const("Reshape", "mask_pooler/reshape", mask_pooler_output, mask_pooler_shape)
 
             # Get first Conv op in mask head and connect ROIAlign's squeezed output to it.
-            mask_head_conv = self.graph.find_node_by_op_name("Conv", "Conv_2084")
+            mask_head_conv = self.graph.find_node_by_op_name("Conv", "/roi_heads/mask_head/mask_fcn1/Conv")
             mask_head_conv.inputs[0] = mask_pooler_reshape_node[0]
 
             # Reshape node that is preparing 2nd NMS class outputs for Add node that comes next.
@@ -489,7 +491,7 @@ class DET2GraphSurgeon:
             classes_add_node = self.graph.op_with_const("Add", "box_outputs/add", classes_reshape_node[0], add_array)
 
             # Get the last Conv op in mask head and reshape it to correctly gather class of interest's masks.
-            last_conv = self.graph.find_node_by_op_name("Conv", "Conv_2094")
+            last_conv = self.graph.find_node_by_op_name("Conv", "/roi_heads/mask_head/predictor/Conv")
             last_conv_reshape_shape = np.asarray([self.second_NMS_max_proposals*self.num_classes*self.batch_size, self.mask_out_res, self.mask_out_res], dtype=np.int64)
             last_conv_reshape_node = self.graph.op_with_const("Reshape", "mask_head/reshape_all_masks", last_conv.outputs[0], last_conv_reshape_shape)
 
@@ -497,7 +499,7 @@ class DET2GraphSurgeon:
             final_gather = self.graph.gather("mask_head/final_gather", last_conv_reshape_node[0], classes_add_node[0], 0)
 
             # Get last Sigmoid node and connect Gather node to it.
-            mask_head_sigmoid = self.graph.find_node_by_op_name("Sigmoid", "Sigmoid_2120")
+            mask_head_sigmoid = self.graph.find_node_by_op_name("Sigmoid", "/roi_heads/mask_head/Sigmoid")
             mask_head_sigmoid.inputs[0] = final_gather[0]
 
             # Final Reshape node, reshapes output of Sigmoid, important for various batch_size support (not tested yet).

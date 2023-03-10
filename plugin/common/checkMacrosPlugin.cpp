@@ -16,6 +16,7 @@
  */
 
 #include "common/checkMacrosPlugin.h"
+#include "common/vfcCommon.h"
 #include <cstdlib>
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
@@ -52,15 +53,16 @@ LogStream<ILogger::Severity::kINFO> gLogInfo;
 LogStream<ILogger::Severity::kVERBOSE> gLogVerbose;
 
 // break-pointable
-void throwCudaError(const char* file, const char* function, int line, int status, const char* msg)
+void throwCudaError(char const* file, char const* function, int line, int status, char const* msg)
 {
     CudaError error(file, function, line, status, msg);
     error.log(gLogError);
+    // NOLINTNEXTLINE(misc-throw-by-value-catch-by-reference)
     throw error;
 }
 
 // break-pointable
-void throwCublasError(const char* file, const char* function, int line, int status, const char* msg)
+void throwCublasError(char const* file, char const* function, int line, int status, char const* msg)
 {
     if (msg == nullptr)
     {
@@ -81,14 +83,16 @@ void throwCublasError(const char* file, const char* function, int line, int stat
     }
     CublasError error(file, function, line, status, msg);
     error.log(gLogError);
+    // NOLINTNEXTLINE(misc-throw-by-value-catch-by-reference)
     throw error;
 }
 
 // break-pointable
-void throwCudnnError(const char* file, const char* function, int line, int status, const char* msg)
+void throwCudnnError(char const* file, char const* function, int line, int status, char const* msg)
 {
     CudnnError error(file, function, line, status, msg);
     error.log(gLogError);
+    // NOLINTNEXTLINE(misc-throw-by-value-catch-by-reference)
     throw error;
 }
 
@@ -97,10 +101,11 @@ void throwPluginError(char const* file, char const* function, int line, int stat
 {
     PluginError error(file, function, line, status, msg);
     reportValidationFailure(msg, file, line);
+    // NOLINTNEXTLINE(misc-throw-by-value-catch-by-reference)
     throw error;
 }
 
-void logError(const char* msg, const char* file, const char* fn, int line)
+void logError(char const* msg, char const* file, char const* fn, int line)
 {
     gLogError << "Parameter check failed at: " << file << "::" << fn << "::" << line;
     gLogError << ", condition: " << msg << std::endl;
@@ -109,19 +114,35 @@ void logError(const char* msg, const char* file, const char* fn, int line)
 void reportValidationFailure(char const* msg, char const* file, int line)
 {
     std::ostringstream stream;
-    stream << "Validation failed: " << msg << std::endl
-           << file << ':' << line << std::endl;
+    stream << "Validation failed: " << msg << "\n" << file << ':' << line << "\n";
+#ifdef COMPILE_VFC_PLUGIN
+    ILogger* logger = getPluginLogger();
+    if (logger != nullptr)
+    {
+        logger->log(nvinfer1::ILogger::Severity::kINTERNAL_ERROR, stream.str().c_str());
+    }
+#else
     getLogger()->log(nvinfer1::ILogger::Severity::kINTERNAL_ERROR, stream.str().c_str());
+#endif
 }
 
 // break-pointable
-void reportAssertion(const char* msg, const char* file, int line)
+void reportAssertion(char const* msg, char const* file, int line)
 {
     std::ostringstream stream;
-    stream << "Assertion failed: " << msg << std::endl
-           << file << ':' << line << std::endl
-           << "Aborting..." << std::endl;
+    stream << "Assertion failed: " << msg << "\n"
+           << file << ':' << line << "\n"
+           << "Aborting..."
+           << "\n";
+#ifdef COMPILE_VFC_PLUGIN
+    ILogger* logger = getPluginLogger();
+    if (logger != nullptr)
+    {
+        logger->log(nvinfer1::ILogger::Severity::kINTERNAL_ERROR, stream.str().c_str());
+    }
+#else
     getLogger()->log(nvinfer1::ILogger::Severity::kINTERNAL_ERROR, stream.str().c_str());
+#endif
     PLUGIN_CUASSERT(cudaDeviceReset());
     abort();
 }

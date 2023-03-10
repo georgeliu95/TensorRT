@@ -968,7 +968,7 @@ class BARTTRT(TRTInferenceCommand):
         if num_beams > 1:
             engine_tag += "-beam{}".format(num_beams)
 
-        preview_features = []
+        preview_features = [PreviewFeature.DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805]
         if disable_preview_dynamic_shapes:
             engine_tag += "-noPreviewFasterDynamicShapes"
         else:

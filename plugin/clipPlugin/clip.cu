@@ -103,6 +103,11 @@ int clipInference(
         PLUGIN_FAIL("unsupported datatype");
         break;
     }
+    case nvinfer1::DataType::kFP8:
+    {
+        PLUGIN_FAIL("unsupported datatype");
+        break;
+    }
     }
 
     return 0;

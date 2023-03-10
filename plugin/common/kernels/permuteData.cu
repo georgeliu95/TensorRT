@@ -14,10 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "common/kernel.h"
+#include "common/kernels/kernel.h"
 #include <array>
 
-using namespace nvinfer1;
+namespace nvinfer1
+{
+namespace plugin
+{
 
 template <typename Dtype, unsigned nthds_per_cta>
 __launch_bounds__(nthds_per_cta) __global__ void permuteData_kernel(const int nthreads, const int num_classes,
@@ -107,3 +110,5 @@ pluginStatus_t permuteData(cudaStream_t stream, const int nthreads, const int nu
     }
     return STATUS_BAD_PARAM;
 }
+} // namespace plugin
+} // namespace nvinfer1

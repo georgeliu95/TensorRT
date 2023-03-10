@@ -24,7 +24,6 @@
 using namespace nvinfer1;
 using namespace nvinfer1::plugin;
 using nvinfer1::plugin::EfficientNMSExplicitTFTRTPlugin;
-using nvinfer1::plugin::EfficientNMSParameters;
 using nvinfer1::plugin::EfficientNMSExplicitTFTRTPluginCreator;
 
 namespace
@@ -34,7 +33,7 @@ const char* EFFICIENT_NMS_EXPLICIT_TFTRT_PLUGIN_NAME{"EfficientNMS_Explicit_TF_T
 } // namespace
 
 EfficientNMSExplicitTFTRTPlugin::EfficientNMSExplicitTFTRTPlugin(EfficientNMSParameters param)
-    : EfficientNMSPlugin(param)
+    : EfficientNMSPlugin(std::move(param))
 {
 }
 

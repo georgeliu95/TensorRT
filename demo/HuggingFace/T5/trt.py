@@ -365,7 +365,7 @@ class T5TRTDecoder(TRTHFRunner):
         # If encoder hidden states have not been copied yet, copy the hidden states to the input buffer.
         if not self.persist_encoder_hidden_states:
             self.set_encoder_hidden_states_for_inference_cycle(encoder_hidden_states)
-        
+
         self.trt_context.set_binding_shape(1, self.encoder_hidden_states.shape)
 
         if self.config.use_cache:
@@ -393,7 +393,7 @@ class T5TRTDecoder(TRTHFRunner):
         logits = self.hidden_states.flatten()[:logits_length].view(bs, input_length, self.config.vocab_size)
         if is_cpu_mode:
             logits = logits.cpu()
-                
+
         present_key_values = None
         if self.config.use_cache:
             present_key_values = ()
@@ -780,7 +780,7 @@ class T5TRT(TRTInferenceCommand):
         if num_beams > 1:
             engine_tag += "-beam{}".format(num_beams)
 
-        preview_features = []
+        preview_features = [PreviewFeature.DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805]
         if disable_preview_dynamic_shapes:
             engine_tag += "-noPreviewFasterDynamicShapes"
         else:

@@ -16,14 +16,17 @@
  */
 
 #include "common/bboxUtils.h"
-#include "common/kernel.h"
+#include "common/kernels/kernel.h"
 #include "cublas_v2.h"
 #include "cuda.h"
 #include <cub/cub.cuh>
 #include <stdint.h>
 
 #define CUDA_MEM_ALIGN 256
-
+namespace nvinfer1
+{
+namespace plugin
+{
 // HASH
 unsigned int hash(const void* array_, size_t size)
 {
@@ -183,3 +186,5 @@ const char* cublasGetErrorString(cublasStatus_t error)
     }
     return "Unknown cublas status";
 }
+} // namespace plugin
+} // namespace nvinfer1
