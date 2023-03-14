@@ -922,6 +922,26 @@ bool inferenceLoop(std::vector<std::unique_ptr<Iteration<ContextType>>>& iStream
     float durationMs = 0;
     int32_t skip = 0;
 
+    if (maxDurationMs == -1.F)
+    {
+        sample::gLogWarning << "--duration=-1 is specified, inference will run in an endless loop until"
+                            << " aborted with CTRL-C (SIGINT)" << std::endl;
+        while (true)
+        {
+            for (auto& s : iStreams)
+            {
+                if (!s->query(skipTransfers))
+                {
+                    return false;
+                }
+            }
+            for (auto& s : iStreams)
+            {
+                s->sync(cpuStart, gpuStart, trace, skipTransfers);
+            }
+        }
+    }
+
     for (int32_t i = 0; i < iterations + skip || durationMs < maxDurationMs; ++i)
     {
         for (auto& s : iStreams)
@@ -959,8 +979,14 @@ template <class ContextType>
 void inferenceExecution(InferenceOptions const& inference, InferenceEnvironment& iEnv, SyncStruct& sync,
     int32_t const threadIdx, int32_t const streamsPerThread, int32_t device, std::vector<InferenceTrace>& trace)
 {
-    float warmupMs = inference.warmup;
-    float durationMs = inference.duration * 1000.F + warmupMs;
+    try
+    {
+        float warmupMs = inference.warmup;
+        float durationMs = -1.F;
+        if (inference.duration != -1.F)
+        {
+            durationMs = inference.duration * 1000.F + warmupMs;
+        }
 
     cudaCheck(cudaSetDevice(device));
 

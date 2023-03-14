@@ -2204,6 +2204,7 @@ void InferenceOptions::help(std::ostream& os)
                                                                                                             << defaultWarmUp << ")"  << std::endl <<
           "  --duration=N                Run performance measurements for at least N seconds wallclock time (default = "
                                                                                                           << defaultDuration << ")"  << std::endl <<
+          "                              If -1 is specified, inference will keep running unless stopped manually"                    << std::endl <<
           "  --sleepTime=N               Delay inference start with a gap of N milliseconds between launch and compute "
                                                                                                "(default = " << defaultSleep << ")"  << std::endl <<
           "  --idleTime=N                Sleep N milliseconds between two continuous iterations"
