@@ -1145,7 +1145,12 @@ void BuildOptions::parse(Arguments& arguments)
     {
         timingCacheMode = TimingCacheMode::kLOCAL;
     }
-    getAndDelOption(arguments, "--heuristic", heuristic);
+    if (getAndDelOption(arguments, "--heuristic", heuristic))
+    {
+        sample::gLogWarning << "--heuristic flag has been deprecated, use --builderOptimizationLevel=<N> flag instead "
+                               "(N <= 2 enables heuristic)."
+                            << std::endl;
+    }
     getAndDelOption(arguments, "--builderOptimizationLevel", builderOptimizationLevel);
 
     std::string hardwareCompatibleArgs;
