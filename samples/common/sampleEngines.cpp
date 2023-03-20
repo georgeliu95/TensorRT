@@ -1090,9 +1090,9 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
         setLayerDeviceTypes(network, config, build.layerDeviceTypes);
     }
 
-    if (build.safe)
+    if (build.safe && sys.DLACore == -1)
     {
-        config.setEngineCapability(sys.DLACore != -1 ? EngineCapability::kDLA_STANDALONE : EngineCapability::kSAFETY);
+        config.setEngineCapability(EngineCapability::kSAFETY);
     }
 
     if (build.restricted)
@@ -1107,8 +1107,11 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
             config.setDefaultDeviceType(DeviceType::kDLA);
             config.setDLACore(sys.DLACore);
             config.setFlag(BuilderFlag::kPREFER_PRECISION_CONSTRAINTS);
-
-            if (sys.fallback)
+            if (build.buildDLAStandalone)
+            {
+                config.setEngineCapability(EngineCapability::kDLA_STANDALONE);
+            }
+            if (build.allowGPUFallback)
             {
                 config.setFlag(BuilderFlag::kGPU_FALLBACK);
             }

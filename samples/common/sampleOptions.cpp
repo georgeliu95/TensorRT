@@ -957,6 +957,8 @@ void BuildOptions::parse(Arguments& arguments)
         throw std::invalid_argument("Invalid usage, fp8 and int8 aren't allowed to be enabled together.");
     }
     getAndDelOption(arguments, "--safe", safe);
+    getAndDelOption(arguments, "--buildDLAStandalone", buildDLAStandalone);
+    getAndDelOption(arguments, "--allowGPUFallback", allowGPUFallback);
     getAndDelOption(arguments, "--consistency", consistency);
     getAndDelOption(arguments, "--restricted", restricted);
     if (getAndDelOption(arguments, "--buildOnly", skipInference))
@@ -1250,7 +1252,6 @@ void SystemOptions::parse(Arguments& arguments)
 {
     getAndDelOption(arguments, "--device", device);
     getAndDelOption(arguments, "--useDLACore", DLACore);
-    getAndDelOption(arguments, "--allowGPUFallback", fallback);
     std::string pluginName;
     while (getAndDelOption(arguments, "--plugins", pluginName))
     {
@@ -1436,6 +1437,11 @@ void AllOptions::parse(Arguments& arguments)
         }
         if (build.safe && system.DLACore >= 0)
         {
+            build.buildDLAStandalone = true;
+        }
+        if (build.buildDLAStandalone)
+        {
+            build.skipInference = true;
             auto checkSafeDLAFormats = [](std::vector<IOFormat> const& fmt, bool isInput) {
                 return fmt.empty() ? false : std::all_of(fmt.begin(), fmt.end(), [&](IOFormat const& pair) {
                     bool supported{false};
@@ -1459,9 +1465,9 @@ void AllOptions::parse(Arguments& arguments)
                     "fp16:chw16 or "
                     "int8:chw32");
             }
-            if (system.fallback)
+            if (build.allowGPUFallback)
             {
-                throw std::invalid_argument("GPU fallback (--allowGPUFallback) not allowed for safe DLA capability");
+                throw std::invalid_argument("GPU fallback (--allowGPUFallback) not allowed for DLA standalone mode");
             }
         }
     }
@@ -1786,7 +1792,6 @@ std::ostream& operator<<(std::ostream& os, const BuildOptions& options)
 {
     // clang-format off
     os << "=== Build Options ==="                                                                                       << std::endl <<
-
           "Max batch: ";        printBatch(os, options.maxBatch)                                                        << std::endl <<
           "Memory Pools: ";     printMemoryPools(os, options)                                                           << std::endl <<
           "minTiming: "      << options.minTiming                                                                       << std::endl <<
@@ -1797,12 +1802,14 @@ std::ostream& operator<<(std::ostream& os, const BuildOptions& options)
           "Calibration: "    << (options.int8 && options.calibration.empty() ? "Dynamic" : options.calibration.c_str()) << std::endl <<
           "Refit: "          << boolToEnabled(options.refittable)                                                       << std::endl <<
           "Version Compatible: " << boolToEnabled(options.versionCompatible)                                            << std::endl <<
-          "TensorRT runtime: " << options.useRuntime << std::endl <<
-          "Lean DLL Path: " << options.leanDLLPath << std::endl <<
+          "TensorRT runtime: " << options.useRuntime                                                                    << std::endl <<
+          "Lean DLL Path: " << options.leanDLLPath                                                                      << std::endl <<
           "Tempfile Controls: "; printTempfileControls(os, options.tempfileControls)                                    << std::endl <<
           "Exclude Lean Runtime: " << boolToEnabled(options.excludeLeanRuntime)                                         << std::endl <<
           "Sparsity: ";         printSparsity(os, options)                                                              << std::endl <<
           "Safe mode: "      << boolToEnabled(options.safe)                                                             << std::endl <<
+          "Build DLA standalone loadable: " << boolToEnabled(options.buildDLAStandalone)                                << std::endl <<
+          "Allow GPU fallback for DLA: " << boolToEnabled(options.allowGPUFallback)                                     << std::endl <<
           "DirectIO mode: "  << boolToEnabled(options.directIO)                                                         << std::endl <<
           "Restricted mode: " << boolToEnabled(options.restricted)                                                      << std::endl <<
           "Skip inference: "     << boolToEnabled(options.skipInference)                                                << std::endl <<
@@ -1846,8 +1853,7 @@ std::ostream& operator<<(std::ostream& os, const SystemOptions& options)
     os << "=== System Options ==="                                                                << std::endl <<
 
           "Device: "  << options.device                                                           << std::endl <<
-          "DLACore: " << (options.DLACore != -1 ? std::to_string(options.DLACore) : "")           <<
-                         (options.DLACore != -1 && options.fallback ? "(With GPU fallback)" : "") << std::endl;
+          "DLACore: " << (options.DLACore != -1 ? std::to_string(options.DLACore) : "")           << std::endl;
     os << "Plugins:";
 
     for (const auto& p : options.plugins)
@@ -2125,7 +2131,13 @@ void BuildOptions::help(std::ostream& os)
           R"(                                                         layerDeviceTypePair ::= layerName":"deviceType)"                              "\n"
           R"(                                                           deviceType ::= "GPU"|"DLA")"                                                "\n"
           "  --calib=<file>                     Read INT8 calibration cache file"                                                                   "\n"
-          "  --safe                             Enable build safety certified engine"                                                               "\n"
+          "  --safe                             Enable build safety certified engine, if DLA is enable, --buildDLAStandalone will be specified"     "\n"
+          "                                     automatically (default = disabled)"                                                                 "\n"
+          "  --buildDLAStandalone               Enable build DLA standalone loadable which can be loaded by cuDLA, when this option is enabled, "   "\n"
+          "                                     --allowGPUFallback is disallowed and --skipInference is enabled by default. Additionally, "         "\n"
+          "                                     specifying --inputIOFormats and --outputIOFormats restricts I/O data type and memory layout"        "\n"
+          "                                     (default = disabled)"        "\n"
+          "  --allowGPUFallback                 When DLA is enabled, allow GPU fallback for unsupported layers (default = disabled)"                "\n"
           "  --consistency                      Perform consistency checking on safety certified engine"                                            "\n"
           "  --restricted                       Enable safety scope checking with kSAFETY_SCOPE build flag"                                         "\n"
           "  --saveEngine=<file>                Save the serialized engine"                                                                         "\n"
@@ -2179,8 +2191,6 @@ void SystemOptions::help(std::ostream& os)
     os << "=== System Options ==="                                                                         << std::endl <<
           "  --device=N                  Select cuda device N (default = "         << defaultDevice << ")" << std::endl <<
           "  --useDLACore=N              Select DLA core N for layers that support DLA (default = none)"   << std::endl <<
-          "  --allowGPUFallback          When DLA is enabled, allow GPU fallback for unsupported layers "
-                                                                                    "(default = disabled)" << std::endl <<
           "  --staticPlugins             Plugin library (.so) to load statically (can be specified multiple times)" << std::endl <<
           "  --dynamicPlugins            Plugin library (.so) to load dynamically and may be serialized with the engine if they are included in --setPluginsToSerialize (can be specified multiple times)" << std::endl <<
           "  --setPluginsToSerialize     Plugin library (.so) to be serialized with the engine (can be specified multiple times)" << std::endl <<

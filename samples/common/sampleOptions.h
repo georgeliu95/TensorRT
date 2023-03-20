@@ -206,6 +206,8 @@ public:
     LayerOutputTypes layerOutputTypes;
     LayerDeviceTypes layerDeviceTypes;
     bool safe{false};
+    bool buildDLAStandalone{false};
+    bool allowGPUFallback{false};
     bool consistency{false};
     bool restricted{false};
     bool skipInference{false};
@@ -249,7 +251,6 @@ class SystemOptions : public Options
 public:
     int32_t device{defaultDevice};
     int32_t DLACore{-1};
-    bool fallback{false};
     bool ignoreParsedPluginLibs{false};
     std::vector<std::string> plugins;
     std::vector<std::string> setPluginsToSerialize;
