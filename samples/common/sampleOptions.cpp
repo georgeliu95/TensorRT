@@ -2068,6 +2068,7 @@ void BuildOptions::help(std::ostream& os)
           "  --workspace=N                      Set workspace size in MiB."                                                                         "\n"
           "  --memPoolSize=poolspec             Specify the size constraints of the designated memory pool(s) in MiB."                              "\n"
           "                                     Note: Also accepts decimal sizes, e.g. 0.25MiB. Will be rounded down to the nearest integer bytes." "\n"
+          "                                     In particular, for dlaSRAM the bytes will be rounded down to the nearest power of 2."               "\n"
           R"(                                   Pool constraint: poolspec ::= poolfmt[","poolspec])"                                                "\n"
           "                                                      poolfmt ::= pool:sizeInMiB"                                                        "\n"
           R"(                                                    pool ::= "workspace"|"dlaSRAM"|"dlaLocalDRAM"|"dlaGlobalDRAM")"                    "\n"

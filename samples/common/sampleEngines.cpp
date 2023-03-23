@@ -648,7 +648,20 @@ void setMemoryPoolLimits(IBuilderConfig& config, BuildOptions const& build)
     }
     if (build.dlaSRAM >= 0)
     {
-        config.setMemoryPoolLimit(MemoryPoolType::kDLA_MANAGED_SRAM, roundToBytes(build.dlaSRAM));
+        size_t const sizeInBytes = roundToBytes(build.dlaSRAM);
+        size_t sizeInPowerOf2{1};
+        // Using 2^30 bytes as a loose upper bound to prevent the possibility of overflows and infinite loops.
+        while (sizeInPowerOf2 < 31 && (static_cast<size_t>(1) << sizeInPowerOf2) <= sizeInBytes)
+        {
+            ++sizeInPowerOf2;
+        }
+        --sizeInPowerOf2;
+        if (sizeInPowerOf2 == 30)
+        {
+            sample::gLogWarning << "User-specified DLA managed SRAM size is too large and has been clipped to 2^30 bytes. "
+                << "Please make sure that this is the intended managed SRAM size." << std::endl;
+        }
+        config.setMemoryPoolLimit(MemoryPoolType::kDLA_MANAGED_SRAM, static_cast<size_t>(1) << sizeInPowerOf2);
     }
     if (build.dlaLocalDRAM >= 0)
     {
