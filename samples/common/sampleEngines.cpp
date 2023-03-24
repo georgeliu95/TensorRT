@@ -236,8 +236,8 @@ void setTensorScalesFromCalibration(nvinfer1::INetworkDefinition& network, std::
 //!
 //! \see Parser::operator bool()
 //!
-Parser modelToNetwork(const ModelOptions& model, nvinfer1::INetworkDefinition& network, std::ostream& err,
-    std::vector<std::string>* vcPluginLibrariesUsed)
+Parser modelToNetwork(ModelOptions const& model, BuildOptions const& build, nvinfer1::INetworkDefinition& network,
+    std::ostream& err, std::vector<std::string>* vcPluginLibrariesUsed)
 {
     sample::gLogInfo << "Start parsing network model." << std::endl;
     auto const tBegin = std::chrono::high_resolution_clock::now();
@@ -310,6 +310,14 @@ Parser modelToNetwork(const ModelOptions& model, nvinfer1::INetworkDefinition& n
     {
         using namespace nvonnxparser;
         parser.onnxParser.reset(createONNXParser(network));
+        // For version or hardware compatible engines, we must use TensorRT's native InstanceNorm implementation for
+        // compatibility.
+        if (build.versionCompatible
+            || (build.hardwareCompatibilityLevel != nvinfer1::HardwareCompatibilityLevel::kNONE))
+        {
+            auto parserflags = 1U << static_cast<uint32_t>(OnnxParserFlag::kNATIVE_INSTANCENORM);
+            parser.onnxParser->setFlags(parserflags);
+        }
         if (!parser.onnxParser->parseFromFile(
                 model.baseModel.model.c_str(), static_cast<int>(sample::gLogger.getReportableSeverity())))
         {
@@ -1233,7 +1241,8 @@ bool modelToBuildEnv(
 
     std::vector<std::string> vcPluginLibrariesUsed;
     SMP_RETVAL_IF_FALSE(env.network != nullptr, "Network creation failed", false, err);
-    env.parser = modelToNetwork(model, *env.network, err, build.versionCompatible ? &vcPluginLibrariesUsed : nullptr);
+    env.parser
+        = modelToNetwork(model, build, *env.network, err, build.versionCompatible ? &vcPluginLibrariesUsed : nullptr);
     SMP_RETVAL_IF_FALSE(env.parser.operator bool(), "Parsing model failed", false, err);
 
     if (build.versionCompatible && !sys.ignoreParsedPluginLibs && !vcPluginLibrariesUsed.empty())

@@ -119,7 +119,7 @@ void bindOnnx(py::module& m)
         .def("__del__", &utils::doNothingDel<IParser>);
 
     py::enum_<OnnxParserFlag>(m, "OnnxParserFlag", OnnxParserFlagDoc::descr, py::module_local())
-        .value("VERSION_COMPATIBLE", OnnxParserFlag::kVERSION_COMPATIBLE, OnnxParserFlagDoc::VERSION_COMPATIBLE);
+        .value("NATIVE_INSTANCENORM", OnnxParserFlag::kNATIVE_INSTANCENORM, OnnxParserFlagDoc::NATIVE_INSTANCENORM);
 
     py::enum_<ErrorCode>(m, "ErrorCode", ErrorCodeDoc::descr, py::module_local())
         .value("SUCCESS", ErrorCode::kSUCCESS)
