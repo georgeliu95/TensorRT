@@ -1,0 +1,51 @@
+# Default group
+[Default][2]
+* @asfiyab @isherstyuk @kevinch @rajerao @shuyuel @simengl @skarunaratne @vincenth @yuanyao 
+
+[API][3]
+/include/ @asfiyab @isherstyuk @kevinch @rajerao @shuyuel @simengl @skarunaratne @vincenth @yuanyao
+/contrib/TensorRT-Lite/include/ @asfiyab @isherstyuk @kevinch @rajerao @shuyuel @simengl @skarunaratne @vincenth @yuanyao
+
+[Infra][1]
+/cmake/ @kevinch
+/docker/ @kevinch
+/docker_qa/ @kevinch
+
+[Demo][1]
+/demo/ @rajerao
+
+# Parsers Gatekeeper
+[Parsers PIC][1]
+/parsers/ @kevinch
+
+[Parsers Backup][1]
+/parsers/ @rajerao @yuanyao
+
+# Plugins Gatekeeper
+[Plugins PIC][1]
+/plugin/ @skarunaratne
+
+[Plugins Backup][1]
+/plugin/ @isherstyuk @rajerao @vincenth
+
+[Python][1]
+/python/ @rajerao @skarunaratne
+
+[Quickstart][1]
+/quickstart/ @kevinch @rajerao @shuyuel
+
+# Samples Gatekeeper
+[Samples PIC][1]
+/samples/ @shuyuel
+
+[Samples Backup][1]
+/samples/ @vincenth @yuanyao
+
+[Third Party][1]
+/third_party/ @kevinch
+
+[Scripts][1]
+/scripts/ @rajerao
+
+[Tools][1]
+/tools/ @asfiyab @simengl
