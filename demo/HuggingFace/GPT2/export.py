@@ -143,6 +143,17 @@ class GPT2TRTEngine(TRTEngineFile):
                 l_next.precision = trt.float32
                 l_next.set_output_type(0, trt.float32)
 
+        if self.network_metadata.precision.fp16:
+            for i in range(network_definition[1].num_inputs):
+                t = network_definition[1].get_input(i)
+                if t.dtype == trt.float32:
+                    t.dtype = trt.float16
+
+            for i in range(network_definition[1].num_outputs):
+                t = network_definition[1].get_output(i)
+                if t.dtype == trt.float32:
+                    t.dtype = trt.float16
+
         return network_definition
 
 # Converters

@@ -122,7 +122,7 @@ class GPT2TRTDecoder(TRTHFRunner):
     ):
         super().__init__(trt_engine_file, network_metadata, hf_config, batch_size = batch_size)
         self.network_metadata = network_metadata
-        self.data_type = torch.float32
+        self.data_type = torch.float32 if not network_metadata.precision.fp16 else torch.float16
         # In benchmarking mode, if input_profile_max is provided, should use that as max_sequence_length
         if benchmarking_args is not None:
             if benchmarking_args.input_profile_max_len is not None:

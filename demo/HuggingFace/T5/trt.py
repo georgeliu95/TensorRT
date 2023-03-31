@@ -201,7 +201,7 @@ class T5TRTDecoder(TRTHFRunner):
         benchmarking_args: T5TRTBenchmarkingArgs = None,
     ):
         super().__init__(trt_engine_file, network_metadata, hf_config, batch_size = batch_size)
-        self.data_type = torch.float32
+        self.data_type = torch.float32 if not network_metadata.precision.fp16 else torch.float16
 
         # In benchmarking mode, the max_sequence_length should be the user-provided input_profile_max_len
         if benchmarking_args is not None and benchmarking_args.input_profile_max_len is not None:
@@ -275,6 +275,9 @@ class T5TRTDecoder(TRTHFRunner):
             self.encoder_hidden_states = encoder_hidden_states.cuda()
         else:
             self.encoder_hidden_states = encoder_hidden_states
+        
+        if self.network_metadata.precision.fp16:
+            self.encoder_hidden_states = self.encoder_hidden_states.half()
         
         self.bindings[1] = self.encoder_hidden_states.data_ptr()
         self.persist_encoder_hidden_states = True
@@ -372,7 +375,7 @@ class T5TRTDecoder(TRTHFRunner):
             if (kwargs.get("past_key_values") is None):
                 self.past_decoder_length = 0
             if not self.persist_cross_attention_kv_cache:
-                self.set_cross_attention_kv_cache_for_inference_cycle(encoder_hidden_states)
+                self.set_cross_attention_kv_cache_for_inference_cycle(self.encoder_hidden_states)
                 cross_attention_kv_shape = (bs, self.num_heads, encoder_length, self.embedding_size_per_head)
                 for i in range(self.num_decoder_layers):
                     self.trt_context.set_binding_shape(self.kv_cache_binding_offset+4*i + 2, cross_attention_kv_shape)
