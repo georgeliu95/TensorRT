@@ -44,7 +44,7 @@ from transformers import T5ForConditionalGeneration
 
 # TRT-HuggingFace
 from T5.T5ModelConfig import T5ModelTRTConfig
-from NNDF.tensorrt_utils import clamp_weights_onnx_to_fp16_bounds, move_t5_cast_op
+from NNDF.tensorrt_utils import OnnxProcessOperation, process_onnx
 from NNDF.networks import NetworkMetadata, Precision, Dims
 from NNDF.logger import G_LOGGER
 from NNDF.models import (
@@ -259,6 +259,17 @@ class T5DecoderTRTEngine(TRTEngineFile):
         
 
     def get_network_definition(self, network_definition):
+        if self.network_metadata.precision.fp16:
+            for i in range(network_definition[1].num_inputs):
+                t = network_definition[1].get_input(i)
+                if t.dtype == trt.float32:
+                    t.dtype = trt.float16
+
+            for i in range(network_definition[1].num_outputs):
+                t = network_definition[1].get_output(i)
+                if t.dtype == trt.float32:
+                    t.dtype = trt.float16
+        
         return add_extra_fp32(network_definition)
 
     def use_obey_precision_constraints(self):
@@ -393,11 +404,10 @@ class T5DecoderConverter(ModelFileConverter):
             )
 
             if network_metadata.precision.fp16:
-                clamp_weights_onnx_to_fp16_bounds(output_fpath_kv_generator, output_fpath_kv_generator)
+                process_onnx([OnnxProcessOperation.CLAMP_WEIGHTS], output_fpath_kv_generator, output_fpath_kv_generator)
 
         if network_metadata.precision.fp16:
-            move_t5_cast_op(output_fpath, output_fpath)
-            clamp_weights_onnx_to_fp16_bounds(output_fpath, output_fpath)
+            process_onnx([OnnxProcessOperation.MOVE_CAST_OP, OnnxProcessOperation.CLAMP_WEIGHTS], output_fpath, output_fpath)
 
         return T5DecoderONNXFile(output_fpath, network_metadata)
 
@@ -467,7 +477,6 @@ class T5EncoderConverter(ModelFileConverter):
         )
 
         if network_metadata.precision.fp16:
-            move_t5_cast_op(output_fpath, output_fpath)
-            clamp_weights_onnx_to_fp16_bounds(output_fpath, output_fpath)
+            process_onnx([OnnxProcessOperation.MOVE_CAST_OP, OnnxProcessOperation.CLAMP_WEIGHTS], output_fpath, output_fpath)
 
         return T5EncoderONNXFile(output_fpath, network_metadata)
