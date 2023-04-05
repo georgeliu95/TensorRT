@@ -93,7 +93,7 @@ private:
     void fillOneBinding(TensorInfo const& tensorInfo)
     {
         auto const name = tensorInfo.name;
-        auto const* bindingInOutStr = tensorInfo.isInput ? "input" : "output";
+        auto const* bindingInOutStr = tensorInfo.isInput ? "Input" : "Output";
         for (auto& binding : bindings)
         {
             auto const input = inputs.find(name);
@@ -104,11 +104,23 @@ private:
             }
             else
             {
-                sample::gLogInfo << "Using random values for " << bindingInOutStr << " " << name << std::endl;
+                if (tensorInfo.isInput)
+                {
+                    sample::gLogInfo << "Using random values for input " << name << std::endl;
+                }
                 binding->addBinding(tensorInfo);
             }
-            sample::gLogInfo << "Created " << bindingInOutStr << " binding for " << name << " with dimensions "
-                             << tensorInfo.dims << std::endl;
+            if (tensorInfo.isDynamic)
+            {
+                sample::gLogInfo << bindingInOutStr << " binding for " << name
+                                 << " is dynamic and will be created during execution using OutputAllocator."
+                                 << std::endl;
+            }
+            else
+            {
+                sample::gLogInfo << bindingInOutStr << " binding for " << name << " with dimensions " << tensorInfo.dims
+                                 << " is created." << std::endl;
+            }
         }
     }
 
@@ -505,14 +517,19 @@ public:
 
     bool operator()(TrtCudaStream& stream) const
     {
-        if (mContext.enqueue(mBatch, mBuffers, stream.get(), nullptr))
+        try
         {
+            bool const result = mContext.enqueue(mBatch, mBuffers, stream.get(), nullptr);
             // Collecting layer timing info from current profile index of execution context
             if (mContext.getProfiler() && !mContext.getEnqueueEmitsProfile() && !mContext.reportToProfiler())
             {
                 gLogWarning << "Failed to collect layer timing info from previous enqueue()" << std::endl;
             }
-            return true;
+            return result;
+        }
+        catch (const std::exception&)
+        {
+            return false;
         }
         return false;
     }
@@ -539,14 +556,19 @@ public:
 
     bool operator()(TrtCudaStream& stream) const
     {
-        if (mContext.enqueueV3(stream.get()))
+        try
         {
+            bool const result = mContext.enqueueV3(stream.get());
             // Collecting layer timing info from current profile index of execution context
             if (mContext.getProfiler() && !mContext.getEnqueueEmitsProfile() && !mContext.reportToProfiler())
             {
                 gLogWarning << "Failed to collect layer timing info from previous enqueueV3()" << std::endl;
             }
-            return true;
+            return result;
+        }
+        catch (const std::exception&)
+        {
+            return false;
         }
         return false;
     }
@@ -624,9 +646,13 @@ public:
 
     bool operator()(TrtCudaStream& stream) const
     {
-        if (mContext.enqueueV3(stream.get()))
+        try
         {
-            return true;
+            return mContext.enqueueV3(stream.get());
+        }
+        catch (const std::exception&)
+        {
+            return false;
         }
         return false;
     }
@@ -854,7 +880,10 @@ private:
             // Avoid capturing initialization calls by executing the enqueue function at least
             // once before starting CUDA graph capture.
             auto const ret = mEnqueue(stream);
-            assert(ret);
+            if (!ret)
+            {
+                throw std::runtime_error("Inference enqueue failed.");
+            }
             stream.synchronize();
 
             mGraph.beginCapture(stream);
@@ -977,7 +1006,7 @@ bool inferenceLoop(std::vector<std::unique_ptr<Iteration<ContextType>>>& iStream
 
 template <class ContextType>
 void inferenceExecution(InferenceOptions const& inference, InferenceEnvironment& iEnv, SyncStruct& sync,
-    int32_t const threadIdx, int32_t const streamsPerThread, int32_t device, std::vector<InferenceTrace>& trace)
+    int32_t const threadIdx, int32_t const streamsPerThread, int32_t device, std::vector<InferenceTrace>& trace) noexcept
 {
     try
     {
@@ -988,45 +1017,54 @@ void inferenceExecution(InferenceOptions const& inference, InferenceEnvironment&
             durationMs = inference.duration * 1000.F + warmupMs;
         }
 
-    cudaCheck(cudaSetDevice(device));
+        cudaCheck(cudaSetDevice(device));
 
-    std::vector<std::unique_ptr<Iteration<ContextType>>> iStreams;
+        std::vector<std::unique_ptr<Iteration<ContextType>>> iStreams;
 
-    for (int32_t s = 0; s < streamsPerThread; ++s)
-    {
-        int32_t const streamId{threadIdx * streamsPerThread + s};
-        auto* iteration = new Iteration<ContextType>(
-            streamId, inference, *iEnv.template getContext<ContextType>(streamId), *iEnv.bindings[streamId]);
-        if (inference.skipTransfers)
+        for (int32_t s = 0; s < streamsPerThread; ++s)
         {
-            iteration->setInputData(true);
+            int32_t const streamId{threadIdx * streamsPerThread + s};
+            auto* iteration = new Iteration<ContextType>(
+                streamId, inference, *iEnv.template getContext<ContextType>(streamId), *iEnv.bindings[streamId]);
+            if (inference.skipTransfers)
+            {
+                iteration->setInputData(true);
+            }
+            iStreams.emplace_back(iteration);
         }
-        iStreams.emplace_back(iteration);
-    }
 
-    for (auto& s : iStreams)
-    {
-        s->wait(sync.gpuStart);
-    }
-
-    std::vector<InferenceTrace> localTrace;
-    if (!inferenceLoop(iStreams, sync.cpuStart, sync.gpuStart, inference.iterations, durationMs, warmupMs, localTrace,
-            inference.skipTransfers, inference.idle))
-    {
-        iEnv.error = true;
-    }
-
-    if (inference.skipTransfers)
-    {
         for (auto& s : iStreams)
         {
-            s->fetchOutputData(true);
+            s->wait(sync.gpuStart);
         }
-    }
 
-    sync.mutex.lock();
-    trace.insert(trace.end(), localTrace.begin(), localTrace.end());
-    sync.mutex.unlock();
+        std::vector<InferenceTrace> localTrace;
+        if (!inferenceLoop(iStreams, sync.cpuStart, sync.gpuStart, inference.iterations, durationMs, warmupMs, localTrace,
+                inference.skipTransfers, inference.idle))
+        {
+            sync.mutex.lock();
+            iEnv.error = true;
+            sync.mutex.unlock();
+        }
+
+        if (inference.skipTransfers)
+        {
+            for (auto& s : iStreams)
+            {
+                s->fetchOutputData(true);
+            }
+        }
+
+        sync.mutex.lock();
+        trace.insert(trace.end(), localTrace.begin(), localTrace.end());
+        sync.mutex.unlock();
+    }
+    catch(...)
+    {
+        sync.mutex.lock();
+        iEnv.error = true;
+        sync.mutex.unlock();
+    }
 }
 
 inline std::thread makeThread(InferenceOptions const& inference, InferenceEnvironment& iEnv, SyncStruct& sync,
