@@ -42,7 +42,7 @@ namespace plugin
 __device__ float sigmoid(const float x) { return 1.0f / (1.0f + expf(-x)); }
 
 __global__ void postprocess_kernal(const float *cls_input,
-                                        float *box_input,
+                                        float const* box_input,
                                         const float *dir_cls_input,
                                         float *anchors,
                                         float *anchors_bottom_height,
@@ -96,7 +96,7 @@ __global__ void postprocess_kernal(const float *cls_input,
     float *anchor_ptr = anchors + ith_anchor * 4;
     float z_offset = anchor_ptr[2] / 2 + anchors_bottom_height[ith_anchor / 2];
     float anchor[7] = {x_offset, y_offset, z_offset, anchor_ptr[0], anchor_ptr[1], anchor_ptr[2], anchor_ptr[3]};
-    float *box_encodings = box_input + box_offset;
+    float const* box_encodings = box_input + box_offset;
     float xa = anchor[0];
     float ya = anchor[1];
     float za = anchor[2];
@@ -136,7 +136,7 @@ __global__ void postprocess_kernal(const float *cls_input,
 void  decodeBbox3DLaunch(
   const int batch_size,
   const float *cls_input,
-  float *box_input,
+  const float *box_input,
   const float *dir_cls_input,
   float *anchors,
   float *anchors_bottom_height,
