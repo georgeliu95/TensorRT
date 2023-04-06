@@ -98,7 +98,7 @@ void bindOnnx(py::module& m)
 
     py::class_<IParser>(m, "OnnxParser", OnnxParserDoc::descr, py::module_local())
         .def(py::init(&nvonnxparser::createParser), "network"_a, "logger"_a, OnnxParserDoc::init,
-            py::keep_alive<1, 2>{}, py::keep_alive<1, 3>{}, py::keep_alive<2, 1>{})
+            py::keep_alive<1, 3>{}, py::keep_alive<2, 1>{})
         .def("parse", lambdas::parse, "model"_a, "path"_a = nullptr, OnnxParserDoc::parse,
             py::call_guard<py::gil_scoped_release>{})
         .def("parse_with_weight_descriptors", lambdas::parse_with_weight_descriptors, "model"_a,
