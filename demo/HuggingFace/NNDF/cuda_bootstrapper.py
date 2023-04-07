@@ -74,8 +74,8 @@ def bootstrap_ld_library_path() -> bool:
 
     # Spawn a new child process instead.
     try:
-        # Select a default python. We don't support python2.
-        default_python = "python3" if shutil.which("python3") is not None else "python"
+        # Use the same python exe that invoked this script
+        default_python = sys.executable
 
         # Demo supports both poetry and python3 invocation.
         # Check if poetry works first.
