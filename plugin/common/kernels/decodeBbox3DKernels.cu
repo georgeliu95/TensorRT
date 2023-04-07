@@ -22,8 +22,9 @@ namespace nvinfer1
 {
 namespace plugin
 {
-#define checkCudaErrors(status)                                   \
+#define checkCudaErrors(status_)                                  \
 {                                                                 \
+  auto const status = status_;                                    \
   if (status != 0)                                                \
   {                                                               \
     std::cout << "Cuda failure: " << cudaGetErrorString(status)   \

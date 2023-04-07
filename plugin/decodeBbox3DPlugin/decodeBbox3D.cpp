@@ -99,13 +99,13 @@ DecodeBbox3DPlugin::DecodeBbox3DPlugin(void const* data, size_t length)
     mFeatureH = readFromBuffer<int32_t>(d);
     mFeatureW = readFromBuffer<int32_t>(d);
 
-    mAnchorBottomHeight.reserve(mNumClasses);
+    mAnchorBottomHeight.resize(mNumClasses);
     for (int32_t i = 0; i < mNumClasses; i++)
     {
         mAnchorBottomHeight[i] = readFromBuffer<float>(d);
     }
 
-    mAnchors.reserve(mNumClasses * 2 * 4);
+    mAnchors.resize(mNumClasses * 2 * 4);
     for (int32_t i = 0; i < mNumClasses * 2 * 4; i++)
     {
         mAnchors[i] = readFromBuffer<float>(d);
