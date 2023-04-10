@@ -262,7 +262,8 @@ class T5TRTDecoder(TRTHFRunner):
 
         # Optimization bit
         self.persist_encoder_hidden_states = False
-        self.encoder_hidden_states = None
+        self.encoder_hidden_states = torch.zeros((self.batch_size * num_beams * self.max_input_length * self.encoder_hidden_size), dtype=self.data_type).cuda()
+        self.bindings[1] = self.encoder_hidden_states.data_ptr()
         self.persist_cross_attention_kv_cache = False
 
         self.return_device = "cuda"
@@ -270,24 +271,25 @@ class T5TRTDecoder(TRTHFRunner):
     
     def set_encoder_hidden_states_for_inference_cycle(self, encoder_hidden_states):
         """Used to cache encoder hidden state runs across same encoder sessions"""
-        
-        if encoder_hidden_states.device == torch.device("cpu"):
-            self.encoder_hidden_states = encoder_hidden_states.cuda()
-        else:
-            self.encoder_hidden_states = encoder_hidden_states
-        
-        if self.network_metadata.precision.fp16:
-            self.encoder_hidden_states = self.encoder_hidden_states.half()
-        
-        self.bindings[1] = self.encoder_hidden_states.data_ptr()
+
+        # Use in-place assignment so that the memory location of self.encoder_hidden_states will never change.
+        # PyTorch will handle the FP32->FP16 conversion automatically if that is needed.
+        self.encoder_hidden_states[:encoder_hidden_states.numel()] = encoder_hidden_states.flatten()
         self.persist_encoder_hidden_states = True
-    
+        self.trt_context.set_binding_shape(1, encoder_hidden_states.shape)
+
     def set_cross_attention_kv_cache_engine(self, cross_attention_kv_generator):
         self.cross_attention_kv_generator = cross_attention_kv_generator
         with open(self.cross_attention_kv_generator.fpath, "rb") as f:
             trt_runtime = trt.Runtime(self.trt_logger)
             self.cross_attention_kv_generator_trt_engine = trt_runtime.deserialize_cuda_engine(f.read())
             self.cross_attention_kv_generator_trt_context = self.cross_attention_kv_generator_trt_engine.create_execution_context()
+        self.cross_attention_bindings = [None] * self.cross_attention_kv_generator_trt_engine.num_bindings
+        self.cross_attention_bindings[0] = self.encoder_hidden_states.data_ptr()
+        # Cross attention cache as outputs
+        for i in range(self.num_decoder_layers):
+            self.cross_attention_bindings[2*i+1] = self.cross_attention_cache[f"past_key_values.{i}.encoder.key"].data_ptr()
+            self.cross_attention_bindings[2*i+2] = self.cross_attention_cache[f"past_key_values.{i}.encoder.value"].data_ptr()
 
     def set_cross_attention_kv_cache_for_inference_cycle(self, encoder_hidden_states):
         """
@@ -296,17 +298,8 @@ class T5TRTDecoder(TRTHFRunner):
         Unlike self-attention cache, cross attention is constant during the decoding process, so we only need to set its bindings once at the first decoding step, and skip in all later steps (by self.persist_cross_attention_kv_cache flag)
         """
         self.cross_attention_kv_generator_trt_context.set_binding_shape(0, encoder_hidden_states.shape)
-        bindings = [None] * self.cross_attention_kv_generator_trt_engine.num_bindings
-        bindings[0] = encoder_hidden_states.data_ptr()
         assert self.cross_attention_kv_generator_trt_context.all_binding_shapes_specified
-
-        cross_attention_kv_shape_output = (encoder_hidden_states.shape[0], self.num_heads, self.max_input_length, self.embedding_size_per_head)
-        # Cross attention cache as outputs
-        for i in range(self.num_decoder_layers):
-            bindings[2*i+1] = self.cross_attention_cache[f"past_key_values.{i}.encoder.key"].data_ptr()
-            bindings[2*i+2] = self.cross_attention_cache[f"past_key_values.{i}.encoder.value"].data_ptr()
-        
-        self.cross_attention_kv_generator_trt_context.execute_v2(bindings=bindings)
+        self.cross_attention_kv_generator_trt_context.execute_v2(bindings=self.cross_attention_bindings)
         self.persist_cross_attention_kv_cache = True
 
     def set_return_device(self, return_device):
@@ -369,13 +362,11 @@ class T5TRTDecoder(TRTHFRunner):
         if not self.persist_encoder_hidden_states:
             self.set_encoder_hidden_states_for_inference_cycle(encoder_hidden_states)
 
-        self.trt_context.set_binding_shape(1, self.encoder_hidden_states.shape)
-
         if self.config.use_cache:
             if (kwargs.get("past_key_values") is None):
                 self.past_decoder_length = 0
             if not self.persist_cross_attention_kv_cache:
-                self.set_cross_attention_kv_cache_for_inference_cycle(self.encoder_hidden_states)
+                self.set_cross_attention_kv_cache_for_inference_cycle(encoder_hidden_states)
                 cross_attention_kv_shape = (bs, self.num_heads, encoder_length, self.embedding_size_per_head)
                 for i in range(self.num_decoder_layers):
                     self.trt_context.set_binding_shape(self.kv_cache_binding_offset+4*i + 2, cross_attention_kv_shape)
@@ -390,8 +381,8 @@ class T5TRTDecoder(TRTHFRunner):
         # Launch TRT inference.
         assert self.trt_context.all_binding_shapes_specified
         self.trt_context.execute_v2(bindings=self.bindings)
-        
-        # For bs > 1, this is required, so cannnot avoid this D2D copy
+
+        # For bs > 1, this is required, so cannot avoid this D2D copy
         logits_length = bs * input_length * self.config.vocab_size
         logits = self.hidden_states.flatten()[:logits_length].view(bs, input_length, self.config.vocab_size)
         if is_cpu_mode:
@@ -439,7 +430,7 @@ class T5TRTDecoder(TRTHFRunner):
         You should always call this function after a use case because T5TRTDecoder does not clear the cached encoder_hidden_states or cross_attention itself.
         '''
         self.persist_encoder_hidden_states = False
-        self.encoder_hidden_states = None
+        self.encoder_hidden_states.zero_()
         if self.config.use_cache:
             self.persist_cross_attention_kv_cache = False
 
@@ -874,7 +865,7 @@ class T5TRT(TRTInferenceCommand):
                         )
                     )
                     self.t5_trt_decoder.reset()
-                        
+
                 if perplexity_reference is not None:
                     assert len(network_input) == len(perplexity_reference), "Encoder and decoder inputs must pair up"
                     if metadata.other.kv_cache or (args.num_beams > 1):
