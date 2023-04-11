@@ -25,6 +25,7 @@ set(OPENSOURCE_SAMPLES_LIST
     sampleOnnxMNIST
     sampleIOFormats
     sampleOnnxMnistCoordConvAC
+    sampleNamedDimensions
     trtexec)
 
 foreach(SAMPLE_ITER ${OPENSOURCE_SAMPLES_LIST})
