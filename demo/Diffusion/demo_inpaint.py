@@ -34,7 +34,7 @@ if __name__ == "__main__":
     print("[I] Initializing StableDiffusion inpainting demo using TensorRT")
     args = parseArgs()
 
-    # Inpainting is currently only supported for v1.5 and v2.1
+    # Inpainting is currently only supported for v1.5 and v2.0
     if args.version not in ("1.5", "2.0"):
         raise ValueError(f"Inpainting not supported in version {args.version}. Use v2.0, or v1.5")
 
@@ -55,13 +55,13 @@ if __name__ == "__main__":
     else:
         img_url = "https://raw.githubusercontent.com/CompVis/latent-diffusion/main/data/inpainting_examples/overture-creations-5sI6fQgYIuo.png"
         input_image = download_image(img_url)
-    
+
     if args.mask_image:
         mask_image = Image.open(args.mask_image).convert("RGB")
     else:
         mask_url = "https://raw.githubusercontent.com/CompVis/latent-diffusion/main/data/inpainting_examples/overture-creations-5sI6fQgYIuo_mask.png"
         mask_image = download_image(mask_url)
-    
+
     image_width, image_height = input_image.size
     mask_width, mask_height = mask_image.size
 
@@ -96,7 +96,7 @@ if __name__ == "__main__":
         max_batch_size=max_batch_size)
 
     # Load TensorRT engines and pytorch modules
-    demo.loadEngines(args.engine_dir, args.onnx_dir, args.onnx_opset, 
+    demo.loadEngines(args.engine_dir, args.onnx_dir, args.onnx_opset,
         opt_batch_size=len(prompt), opt_image_height=image_height, opt_image_width=image_width, \
         force_export=args.force_onnx_export, force_optimize=args.force_onnx_optimize, \
         force_build=args.force_engine_build, \
