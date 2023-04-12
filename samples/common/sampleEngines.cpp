@@ -236,8 +236,8 @@ void setTensorScalesFromCalibration(nvinfer1::INetworkDefinition& network, std::
 //!
 //! \see Parser::operator bool()
 //!
-Parser modelToNetwork(const ModelOptions& model, nvinfer1::INetworkDefinition& network, std::ostream& err,
-    std::vector<std::string>* vcPluginLibrariesUsed)
+Parser modelToNetwork(ModelOptions const& model, BuildOptions const& build, nvinfer1::INetworkDefinition& network,
+    std::ostream& err, std::vector<std::string>* vcPluginLibrariesUsed)
 {
     sample::gLogInfo << "Start parsing network model." << std::endl;
     auto const tBegin = std::chrono::high_resolution_clock::now();
@@ -310,6 +310,14 @@ Parser modelToNetwork(const ModelOptions& model, nvinfer1::INetworkDefinition& n
     {
         using namespace nvonnxparser;
         parser.onnxParser.reset(createONNXParser(network));
+        // For version or hardware compatible engines, we must use TensorRT's native InstanceNorm implementation for
+        // compatibility.
+        if (build.versionCompatible
+            || (build.hardwareCompatibilityLevel != nvinfer1::HardwareCompatibilityLevel::kNONE))
+        {
+            auto parserflags = 1U << static_cast<uint32_t>(OnnxParserFlag::kNATIVE_INSTANCENORM);
+            parser.onnxParser->setFlags(parserflags);
+        }
         if (!parser.onnxParser->parseFromFile(
                 model.baseModel.model.c_str(), static_cast<int>(sample::gLogger.getReportableSeverity())))
         {
@@ -648,7 +656,20 @@ void setMemoryPoolLimits(IBuilderConfig& config, BuildOptions const& build)
     }
     if (build.dlaSRAM >= 0)
     {
-        config.setMemoryPoolLimit(MemoryPoolType::kDLA_MANAGED_SRAM, roundToBytes(build.dlaSRAM));
+        size_t const sizeInBytes = roundToBytes(build.dlaSRAM);
+        size_t sizeInPowerOf2{1};
+        // Using 2^30 bytes as a loose upper bound to prevent the possibility of overflows and infinite loops.
+        while (sizeInPowerOf2 < 31 && (static_cast<size_t>(1) << sizeInPowerOf2) <= sizeInBytes)
+        {
+            ++sizeInPowerOf2;
+        }
+        --sizeInPowerOf2;
+        if (sizeInPowerOf2 == 30)
+        {
+            sample::gLogWarning << "User-specified DLA managed SRAM size is too large and has been clipped to 2^30 bytes. "
+                << "Please make sure that this is the intended managed SRAM size." << std::endl;
+        }
+        config.setMemoryPoolLimit(MemoryPoolType::kDLA_MANAGED_SRAM, static_cast<size_t>(1) << sizeInPowerOf2);
     }
     if (build.dlaLocalDRAM >= 0)
     {
@@ -886,7 +907,10 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
         config.setFlag(BuilderFlag::kENABLE_TACTIC_HEURISTIC);
     }
 
-    config.setBuilderOptimizationLevel(build.builderOptimizationLevel);
+    if (build.builderOptimizationLevel != defaultBuilderOptimizationLevel)
+    {
+        config.setBuilderOptimizationLevel(build.builderOptimizationLevel);
+    }
 
     if (build.timingCacheMode == TimingCacheMode::kDISABLE)
     {
@@ -1087,9 +1111,9 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
         setLayerDeviceTypes(network, config, build.layerDeviceTypes);
     }
 
-    if (build.safe)
+    if (build.safe && sys.DLACore == -1)
     {
-        config.setEngineCapability(sys.DLACore != -1 ? EngineCapability::kDLA_STANDALONE : EngineCapability::kSAFETY);
+        config.setEngineCapability(EngineCapability::kSAFETY);
     }
 
     if (build.restricted)
@@ -1104,8 +1128,11 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
             config.setDefaultDeviceType(DeviceType::kDLA);
             config.setDLACore(sys.DLACore);
             config.setFlag(BuilderFlag::kPREFER_PRECISION_CONSTRAINTS);
-
-            if (sys.fallback)
+            if (build.buildDLAStandalone)
+            {
+                config.setEngineCapability(EngineCapability::kDLA_STANDALONE);
+            }
+            if (build.allowGPUFallback)
             {
                 config.setFlag(BuilderFlag::kGPU_FALLBACK);
             }
@@ -1214,7 +1241,8 @@ bool modelToBuildEnv(
 
     std::vector<std::string> vcPluginLibrariesUsed;
     SMP_RETVAL_IF_FALSE(env.network != nullptr, "Network creation failed", false, err);
-    env.parser = modelToNetwork(model, *env.network, err, build.versionCompatible ? &vcPluginLibrariesUsed : nullptr);
+    env.parser
+        = modelToNetwork(model, build, *env.network, err, build.versionCompatible ? &vcPluginLibrariesUsed : nullptr);
     SMP_RETVAL_IF_FALSE(env.parser.operator bool(), "Parsing model failed", false, err);
 
     if (build.versionCompatible && !sys.ignoreParsedPluginLibs && !vcPluginLibrariesUsed.empty())
