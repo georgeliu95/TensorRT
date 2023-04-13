@@ -344,6 +344,33 @@ class GPT2TRT(TRTInferenceCommand):
 
         self.frameworks_cmd.cleanup(workspace, keep_onnx_model, keep_torch_model)
 
+    def generate(
+        self,
+        input_ids,
+        min_length: int = None,
+        max_length: int = None,
+        num_beams: int = 1,
+        use_cache: bool = False,
+        early_stopping: bool = True,
+    ):
+        if max_length is None:
+            max_length = GPT2ModelTRTConfig.MAX_OUTPUT_LENGTH[self.metadata.variant]
+
+        if min_length is None:
+            min_length = GPT2ModelTRTConfig.MIN_OUTPUT_LENGTH[self.metadata.variant]
+
+        output = self.gpt2_trt.generate(
+            input_ids,
+            max_length=max_length,
+            min_length=min_length,
+            num_beams=num_beams,
+            use_cache=use_cache,
+            early_stopping=early_stopping
+        )
+
+        self.gpt2_trt.reset()
+        return output
+
     def execute_inference(
         self,
         metadata: NetworkMetadata,
@@ -607,15 +634,11 @@ class GPT2TRT(TRTInferenceCommand):
         perplexity_reference: List[str] = None,
     ) -> Union[List[NetworkResult], BenchmarkingResult]:
 
-        workspace = NNFolderWorkspace(
-            self.frameworks_cmd.config.network_name, metadata, working_directory
-        )
+        workspace = self._setup_workspace(metadata, working_directory)
 
         # no fpath provided for onnx files, download them
         if len(onnx_fpaths) == 0:
-            onnx_fpaths = self.frameworks_cmd.generate_and_download_framework(
-                metadata, workspace
-            ).onnx
+            onnx_fpaths = self._download_models(workspace, metadata)
         else:
             keep_onnx_model = True
             keep_torch_model = True

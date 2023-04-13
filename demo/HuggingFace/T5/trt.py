@@ -627,21 +627,6 @@ class T5TRT(TRTInferenceCommand):
         )
         return perplexity
 
-    def _setup_workspace(self, metadata: NetworkMetadata, working_directory: str) -> NNFolderWorkspace:
-        return NNFolderWorkspace(
-            self.frameworks_cmd.config.network_name, metadata, working_directory
-        )
-
-    def _download_models(
-        self,
-        workspace: NNFolderWorkspace,
-        metadata: NetworkMetadata,
-    ) -> Tuple[NetworkModel]:
-        # No fpath provided for onnx files, download them from HuggingFace repo.
-        return self.frameworks_cmd.generate_and_download_framework(
-            metadata, workspace
-        ).onnx
-
     def _setup_engines(
         self,
         metadata: NetworkMetadata,
