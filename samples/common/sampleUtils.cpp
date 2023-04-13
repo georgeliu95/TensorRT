@@ -383,6 +383,11 @@ void print(std::ostream& os, int8_t v)
     os << static_cast<int32_t>(v);
 }
 
+void print(std::ostream& os, __half v)
+{
+    os << static_cast<float>(v);
+}
+
 template <typename T>
 void dumpBuffer(void const* buffer, std::string const& separator, std::ostream& os, Dims const& dims,
     Dims const& strides, int32_t vectorDim, int32_t spv)
