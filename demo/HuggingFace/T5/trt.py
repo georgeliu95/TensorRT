@@ -215,6 +215,7 @@ class T5TRTDecoder(TRTHFRunner):
         else: 
             self.max_output_length = hf_config.d_model
         
+        self.device = torch.device('cuda') 
         self.main_input_name = "input_ids"
         self.encoder_hidden_size = hf_config.d_model
         self.num_heads = hf_config.num_heads
@@ -339,7 +340,7 @@ class T5TRTDecoder(TRTHFRunner):
             reordered_decoder_past = reordered_decoder_past + (reordered_layer_past_states,)
         return reordered_decoder_past
 
-    def forward(self, input_ids, encoder_hidden_states, *args, **kwargs):
+    def forward(self, input_ids, encoder_hidden_states, encoder_outputs=None, *args, **kwargs):
         # Get the batch size.
         bs = input_ids.shape[0] # in beam search mode, bs is batch_size * num_beams
 
