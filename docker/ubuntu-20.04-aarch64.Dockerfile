@@ -16,8 +16,12 @@
 #
 
 # Multi-arch container support available in non-cudnn containers.
-FROM nvidia/cuda:12.0.1-devel-ubuntu20.04
 
+ARG CUDA_VERSION=12.0.1
+ARG OS_VERSION=20.04
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}
+
+ARG CUDA_VERSION
 ENV TRT_VERSION 8.6.1.2
 SHELL ["/bin/bash", "-c"]
 

@@ -15,9 +15,13 @@
 # limitations under the License.
 #
 
+ARG CUDA_VERSION=12.0.1
+ARG OS_VERSION=20.04
 # Multi-arch container support available in non-cudnn containers.
-FROM gitlab-master.nvidia.com:5005/dl/dgx/cuda:11.8-devel-ubuntu20.04--5691963
+FROM gitlab-master.nvidia.com:5005/dl/dgx/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}--5691963
 
+ARG CUDA_VERSION
+ARG OS_VERSION
 ENV TRT_VERSION 8.5.1.7
 SHELL ["/bin/bash", "-c"]
 
@@ -68,7 +72,7 @@ RUN apt-get install -y --no-install-recommends \
 
 # Install TensorRT
 COPY docker_qa/downloadInternal.py /tmp/downloadInternal.py
-RUN python3 /tmp/downloadInternal.py --cuda $CUDA_VERSION --os 20.04
+RUN python3 /tmp/downloadInternal.py --cuda $CUDA_VERSION --os $OS_VERSION
 
 # Install Cmake
 RUN cd /tmp && \
