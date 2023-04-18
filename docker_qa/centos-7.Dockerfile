@@ -14,11 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_DOCKER_VERSION=12.0.1
-ARG OS_VERSION=7
+ARG CUDA_VERSION=12.0.1
 
 # TODO: Update - unused in 22.09
-FROM nvidia/cuda:${CUDA_DOCKER_VERSION}-devel-centos${OS_VERSION}
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos7
 LABEL maintainer="NVIDIA CORPORATION"
 
 ENV TRT_VERSION 8.6.1.2
@@ -48,17 +47,9 @@ RUN yum -y install \
 # Install python3
 RUN yum install -y python36 python3-devel
 
-# Install cudnn
-RUN wget https://urm.nvidia.com/artifactory/hw-cudnn-generic/CUDNN/v8.8_cuda_12.0/8.8.0.123/cudnn-linux-x86_64-8.8.0.123.tar.gz
-RUN tar -xvf cudnn-linux-x86_64-8.8.0.123.tar.gz
-RUN sudo cp cudnn/include/cudnn*.h /usr/include
-RUN sudo cp -P cudnn/lib64/libcudnn* /usr/lib64
-RUN sudo chmod a+r /usr/include/cudnn*.h /usr/lib64/libcudnn*
-
 # Install TensorRT
-ENV CUDA_TRT_VERSION=12.0.1
 COPY docker_qa/downloadInternal.py /tmp/downloadInternal.py
-RUN python3 /tmp/downloadInternal.py --cuda $CUDA_TRT_VERSION --os 7
+RUN python3 /tmp/downloadInternal.py --cuda ${CUDA_VERSION} --os 7
 
 # Install dev-toolset-8 for g++ version that supports c++14
 RUN yum -y install centos-release-scl

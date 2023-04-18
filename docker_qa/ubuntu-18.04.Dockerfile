@@ -16,13 +16,12 @@
 #
 
 ARG CUDA_VERSION=11.8.0
-ARG OS_VERSION=18.04
 
 # TODO: Update - unused in 22.09
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu${OS_VERSION}
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu18.04
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.5.1.7
+ENV TRT_VERSION 8.6.1.2
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -64,9 +63,12 @@ RUN apt-get install -y --no-install-recommends \
     ln -s /usr/bin/python3 python &&\
     ln -s /usr/bin/pip3 pip;
 
+# Dependencies needed for Turtle run
+RUN apt-get install -y --no-install-recommends libffi-dev rustc cargo
+
 # Install TensorRT
 COPY docker_qa/downloadInternal.py /tmp/downloadInternal.py
-RUN python3 /tmp/downloadInternal.py --cuda $CUDA_VERSION --os 18.04
+RUN python3 /tmp/downloadInternal.py --cuda ${CUDA_VERSION} --os 18.04
 
 # Install PyPI packages
 RUN pip3 install --upgrade pip

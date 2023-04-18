@@ -15,13 +15,11 @@
 # limitations under the License.
 #
 
-# Multi-arch container support available in non-cudnn containers.
-
 ARG CUDA_VERSION=12.0.1
-ARG OS_VERSION=20.04
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}
 
-ARG CUDA_VERSION
+# Multi-arch container support available in non-cudnn containers.
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu20.04
+
 ENV TRT_VERSION 8.6.1.2
 SHELL ["/bin/bash", "-c"]
 
