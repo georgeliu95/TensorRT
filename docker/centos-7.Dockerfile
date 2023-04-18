@@ -16,9 +16,8 @@
 #
 
 ARG CUDA_VERSION=12.0.1
-ARG OS_VERSION=7
 
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos${OS_VERSION}
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos7
 LABEL maintainer="NVIDIA CORPORATION"
 
 ENV TRT_VERSION 8.6.1.2

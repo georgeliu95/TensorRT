@@ -16,13 +16,11 @@
 #
 
 ARG CUDA_VERSION=12.0.1
-ARG OS_VERSION=20.04
-# Multi-arch container support available in non-cudnn containers.
-FROM gitlab-master.nvidia.com:5005/dl/dgx/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}--5691963
 
-ARG CUDA_VERSION
-ARG OS_VERSION
-ENV TRT_VERSION 8.5.1.7
+# Multi-arch container support available in non-cudnn containers.
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu20.04
+
+ENV TRT_VERSION 8.6.1.2
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -70,9 +68,16 @@ RUN apt-get install -y --no-install-recommends \
     ln -s /usr/bin/python3 python &&\
     ln -s /usr/bin/pip3 pip;
 
+# Install cuDNN
+RUN wget https://urm.nvidia.com/artifactory/hw-cudnn-generic/CUDNN/v8.8_cuda_12.0/8.8.0.123/cudnn-linux-aarch64-8.8.0.123.tar.gz
+RUN tar -xvf cudnn-linux-aarch64-8.8.0.123.tar.gz
+RUN sudo cp cudnn/include/cudnn*.h /usr/local/cuda/include
+RUN sudo cp -P cudnn/lib64/libcudnn* /usr/local/cuda/lib64
+RUN sudo chmod a+r /usr/local/cuda/include/cudnn*.h /usr/local/cuda/lib64/libcudnn*
+
 # Install TensorRT
 COPY docker_qa/downloadInternal.py /tmp/downloadInternal.py
-RUN python3 /tmp/downloadInternal.py --cuda $CUDA_VERSION --os $OS_VERSION
+RUN python3 /tmp/downloadInternal.py --cuda $CUDA_VERSION --os 20.04
 
 # Install Cmake
 RUN cd /tmp && \

@@ -16,9 +16,8 @@
 #
 
 ARG CUDA_VERSION=12.0.1
-ARG OS_VERSION=22.04
 
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu22.04
 LABEL maintainer="NVIDIA CORPORATION"
 
 ENV TRT_VERSION 8.6.1.2
@@ -69,19 +68,12 @@ RUN apt-get install -y --no-install-recommends \
     ln -s /usr/bin/python3 python &&\
     ln -s /usr/bin/pip3 pip;
 
-# Install cudnn
-RUN wget https://urm.nvidia.com/artifactory/hw-cudnn-generic/CUDNN/v8.8_cuda_12.0/8.8.0.123/cudnn-linux-x86_64-8.8.0.123.tar.gz
-RUN tar -xf cudnn-linux-x86_64-8.8.0.123.tar.gz
-RUN sudo cp cudnn/include/cudnn*.h /usr/include
-RUN sudo cp -P cudnn/lib64/libcudnn* /usr/lib/x86_64-linux-gnu
-RUN sudo chmod a+r /usr/include/cudnn*.h /usr/lib/x86_64-linux-gnu/libcudnn*
-
 # Dependencies needed for Turtle run
 RUN apt-get install -y --no-install-recommends libffi-dev rustc cargo
 
 # Install TensorRT
 COPY docker_qa/downloadInternal.py /tmp/downloadInternal.py
-RUN python3 /tmp/downloadInternal.py --cuda $CUDA_VERSION --os 22.04
+RUN python3 /tmp/downloadInternal.py --cuda ${CUDA_VERSION} --os 22.04
 
 # Install PyPI packages
 RUN pip3 install --upgrade pip
