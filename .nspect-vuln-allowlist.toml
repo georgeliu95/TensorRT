@@ -6,5 +6,5 @@ version = "1.0.0"
 [oss.excluded]
  
 [[oss.excluded.directories]]
-paths = ['third_party/protobuf/csharp/src'] 
-comment = 'C# source not used in OSS build. See https://jirasw.nvidia.com/browse/PSIRT-1067 for approval'
+paths = ['third_party/protobuf/csharp/src', 'third_party/protobuf/benchmarks/java/'] 
+comment = 'C# / Java source and tools are not used in OSS build. See https://jirasw.nvidia.com/browse/PSIRT-1067 for approval'
