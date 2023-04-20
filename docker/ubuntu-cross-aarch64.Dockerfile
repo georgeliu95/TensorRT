@@ -15,10 +15,10 @@
 # limitations under the License.
 #
 
-ARG CUDA_VERSION=11.4.1
-ARG OS_VERSION=20.04
+ARG CUDA_VERSION=12.0.1
 
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}
+# Multi-arch container support available in non-cudnn containers.
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu20.04
 LABEL maintainer="NVIDIA CORPORATION"
 
 ENV TRT_VERSION 8.6.1.2

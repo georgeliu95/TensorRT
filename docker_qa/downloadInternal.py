@@ -16,6 +16,9 @@ DEB_PACKAGES_CENTOS=[
 "libnvonnxparsers8-8.6.1.2-1.cuda{ver}.x86_64.rpm",
 "libnvparsers8-8.6.1.2-1.cuda{ver}.x86_64.rpm",
 "libnvinfer-plugin8-8.6.1.2-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-vc-plugin8-8.6.1.2-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-headers-devel-8.6.1.2-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-headers-plugin-devel-8.6.1.2-1.cuda{ver}.x86_64.rpm",
 "libnvinfer-devel-8.6.1.2-1.cuda{ver}.x86_64.rpm",
 "libnvparsers-devel-8.6.1.2-1.cuda{ver}.x86_64.rpm",
 "libnvonnxparsers-devel-8.6.1.2-1.cuda{ver}.x86_64.rpm",
@@ -28,6 +31,9 @@ DEB_PACKAGES_UBUNTU=[
     "libnvonnxparsers8_8.6.1.2-1{ext}",
     "libnvparsers8_8.6.1.2-1{ext}",
     "libnvinfer-plugin8_8.6.1.2-1{ext}",
+    "libnvinfer-vc-plugin8_8.6.1.2-1{ext}",
+    "libnvinfer-headers-dev_8.6.1.2-1{ext}",
+    "libnvinfer-headers-plugin-dev_8.6.1.2-1{ext}",
     "libnvinfer-dev_8.6.1.2-1{ext}",
     "libnvonnxparsers-dev_8.6.1.2-1{ext}",
     "libnvparsers-dev_8.6.1.2-1{ext}",
@@ -37,13 +43,16 @@ DEB_PACKAGES_UBUNTU=[
 
 DEB_PACKAGES_CROSS_SBSA=[
     "libnvinfer8-cross-sbsa_8.6.1.2-1+cuda12.0_all.deb",
+    "libnvinfer-headers-dev-cross-sbsa_8.6.1.2-1+cuda12.0_all.deb",
+    "libnvinfer-headers-plugin-dev-cross-sbsa_8.6.1.2-1+cuda12.0_all.deb",
     "libnvinfer-dev-cross-sbsa_8.6.1.2-1+cuda12.0_all.deb",
-    "libnvinfer-plugin-dev-cross-sbsa_8.6.1.2-1+cuda12.0_all.deb",
     "libnvinfer-plugin8-cross-sbsa_8.6.1.2-1+cuda12.0_all.deb",
-    "libnvonnxparsers-dev-cross-sbsa_8.6.1.2-1+cuda12.0_all.deb",
+    "libnvinfer-vc-plugin8-cross-sbsa_8.6.1.2-1+cuda12.0_all.deb",
+    "libnvinfer-plugin-dev-cross-sbsa_8.6.1.2-1+cuda12.0_all.deb",
     "libnvonnxparsers8-cross-sbsa_8.6.1.2-1+cuda12.0_all.deb",
-    "libnvparsers-dev-cross-sbsa_8.6.1.2-1+cuda12.0_all.deb",
+    "libnvonnxparsers-dev-cross-sbsa_8.6.1.2-1+cuda12.0_all.deb",
     "libnvparsers8-cross-sbsa_8.6.1.2-1+cuda12.0_all.deb",
+    "libnvparsers-dev-cross-sbsa_8.6.1.2-1+cuda12.0_all.deb",
 ]
 
 ROOT_URL = "http://cuda-repo/release-candidates/Libraries/TensorRT/v8.6/8.6.1.2-9f1e69f7/"

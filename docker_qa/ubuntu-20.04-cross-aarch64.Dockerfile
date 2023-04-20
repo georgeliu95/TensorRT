@@ -15,9 +15,9 @@
 # This docker file can compile natively for x86_64 Ubuntu and cross compile for
 # ARM SBSA Ubuntu
 ARG CUDA_VERSION=12.0.1
-ARG OS_VERSION=20.04
 
-FROM gitlab-master.nvidia.com:5005/dl/dgx/cuda:12.0-devel-ubuntu20.04--7342706
+# Multi-arch container support available in non-cudnn containers.
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu20.04
 LABEL maintainer="NVIDIA CORPORATION"
 
 ENV TRT_VERSION 8.6.1.2

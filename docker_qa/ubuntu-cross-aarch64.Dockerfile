@@ -16,13 +16,13 @@
 #
 
 # Cross compilation on Jetpack only supports 11.4
-ARG CUDA_VERSION=11.4.2
+ARG CUDA_VERSION=12.0.1
 ARG OS_VERSION=20.04
 
 FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu${OS_VERSION}
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.5.1.7
+ENV TRT_VERSION 8.6.1.2
 ENV DEBIAN_FRONTEND=noninteractive
 
 ARG uid=1000

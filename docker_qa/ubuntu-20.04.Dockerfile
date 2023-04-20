@@ -15,13 +15,12 @@
 # limitations under the License.
 #
 
-ARG CUDA_VERSION=11.8.0
-ARG OS_VERSION=20.04
+ARG CUDA_VERSION=12.0.1
 
-FROM gitlab-master.nvidia.com:5005/dl/dgx/cuda:11.8-devel-ubuntu20.04--5691963
+FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu20.04
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.5.1.7
+ENV TRT_VERSION 8.6.1.2
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account
@@ -69,9 +68,12 @@ RUN apt-get install -y --no-install-recommends \
     ln -s /usr/bin/python3 python &&\
     ln -s /usr/bin/pip3 pip;
 
+# Dependencies needed for Turtle run
+RUN apt-get install -y --no-install-recommends libffi-dev rustc cargo
+
 # Install TensorRT
 COPY docker_qa/downloadInternal.py /tmp/downloadInternal.py
-RUN python3 /tmp/downloadInternal.py --cuda $CUDA_VERSION --os 20.04
+RUN python3 /tmp/downloadInternal.py --cuda ${CUDA_VERSION} --os 20.04
 
 # Install PyPI packages
 RUN pip3 install --upgrade pip
