@@ -48,7 +48,7 @@ set(CMAKE_SKIP_BUILD_RPATH True)
 project(TensorRT
         LANGUAGES CXX CUDA
         VERSION ${TRT_VERSION}
-        DESCRIPTION "TensorRT is a C++ library that facilitates high performance inference on NVIDIA GPUs and deep learning accelerators."
+        DESCRIPTION "TensorRT is a C++ library that facilitates high-performance inference on NVIDIA GPUs and deep learning accelerators."
         HOMEPAGE_URL "https://github.com/NVIDIA/TensorRT")
 
 if(CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)

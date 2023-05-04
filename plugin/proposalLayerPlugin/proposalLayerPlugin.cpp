@@ -125,7 +125,8 @@ ProposalLayer::ProposalLayer(
     , mImageSize(imageSize)
 {
     mBackgroundLabel = -1;
-    PLUGIN_VALIDATE(mPreNMSTopK > 0 && mPreNMSTopK <= 1024);
+    PLUGIN_VALIDATE(mPreNMSTopK > 0);
+    PLUGIN_VALIDATE(mPreNMSTopK <= 1024);
     PLUGIN_VALIDATE(mKeepTopK > 0);
     PLUGIN_VALIDATE(iou_threshold > 0.0F);
     PLUGIN_VALIDATE(mImageSize.nbDims == 3);

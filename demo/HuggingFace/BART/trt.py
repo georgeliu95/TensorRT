@@ -278,7 +278,7 @@ class BARTTRTDecoder(TRTHFRunner):
         # non kv-cache mode: False. Then in forward(), trt_context and bindings are set to the default ones
         # kv-cache mode: True. By default 1st decoding step starts with non-kv engine's context and binding; then flag gets updated in prepare_inputs_for_generation()
 
-        self.return_device = "cuda"
+        self.return_device = torch.device('cuda')
 
         self.variant = network_metadata.variant # record variant name to later index the vocab_size in forward()
 

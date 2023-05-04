@@ -132,11 +132,6 @@ IPluginV2Ext* PyramidROIAlignPluginCreator::createPlugin(char const* name, Plugi
                 PLUGIN_VALIDATE(fields[i].type == PluginFieldType::kINT32);
                 samplingRatio = *(static_cast<int32_t const*>(fields[i].data));
                 PLUGIN_VALIDATE(samplingRatio >= 0);
-            }            
-            if (!strcmp(attrName, "legacy"))
-            {
-                PLUGIN_ASSERT(fields[i].type == PluginFieldType::kINT32);
-                legacy = *(static_cast<int32_t const*>(fields[i].data));
             }
             if (!strcmp(attrName, "legacy"))
             {
@@ -290,7 +285,6 @@ Dims PyramidROIAlign::getOutputDimensions(int32_t index, Dims const* inputs, int
 
 int32_t PyramidROIAlign::enqueue(
     int32_t batch_size, void const* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) noexcept
-
 {
     void* const pooled = outputs[0];
     cudaError_t status;

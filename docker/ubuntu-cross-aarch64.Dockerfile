@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,13 +15,13 @@
 # limitations under the License.
 #
 
-ARG CUDA_VERSION=12.0.1
+ARG CUDA_VERSION=11.4.1
 
 # Multi-arch container support available in non-cudnn containers.
 FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu20.04
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.6.1.2
+ENV TRT_VERSION 8.6.1.6
 ENV DEBIAN_FRONTEND=noninteractive
 
 ARG uid=1000
@@ -100,8 +100,8 @@ RUN  dpkg -x /pdk_files/cudnn-local-tegra-repo*.deb /pdk_files/cudnn_extract \
     && ln -s /pdk_files/cudnn/usr/include/aarch64-linux-gnu/cudnn_version_v[7-9].h /usr/include/cudnn_version.h
 
 # Unpack libnvinfer
-RUN dpkg -x /pdk_files/nv-tensorrt-local-repo-l4t-8.5.2-cuda-11.4_1.0-1_arm64.deb /pdk_files/tensorrt
-RUN mv /pdk_files/tensorrt/var/nv-tensorrt-local-repo-l4t-8.5.2-cuda-11.4/*.deb /pdk_files
+RUN dpkg -x /pdk_files/nv-tensorrt-local-repo-l4t-[0-8].[0-9].[0-9]-cuda-11.[0-9]_*_arm64.deb /pdk_files/tensorrt
+RUN mv /pdk_files/tensorrt/var/nv-tensorrt-local-repo-l4t-[0-8].[0-9].[0-9]-cuda-11.[0-9]/*.deb /pdk_files
 RUN dpkg -x /pdk_files/libnvinfer[0-8]_*-1+cuda11.[0-9]_arm64.deb /pdk_files/tensorrt \
     && dpkg -x /pdk_files/libnvinfer-dev_*-1+cuda11.[0-9]_arm64.deb /pdk_files/tensorrt \
     && dpkg -x /pdk_files/libnvparsers[6-8]_*-1+cuda11.[0-9]_arm64.deb /pdk_files/tensorrt \

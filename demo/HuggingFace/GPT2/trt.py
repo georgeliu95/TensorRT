@@ -186,8 +186,8 @@ class GPT2TRTDecoder(TRTHFRunner):
             self._set_context_mode_trt_context()
         
         self.context_mode = self.config.use_cache
-        self.return_device = "cuda"
-        self.device = "cuda"
+        self.return_device = torch.device('cuda')
+        self.device = torch.device('cuda')
 
     def reset(self):
         '''

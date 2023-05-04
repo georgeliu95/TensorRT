@@ -207,7 +207,7 @@ private:
     //!
     //! \brief Looks up the embedding tensor for a given char and copies it to input buffer
     //!
-    void copyEmbeddingToInput(samplesCommon::BufferManager& buffers, const char& c);
+    void copyEmbeddingToInput(samplesCommon::BufferManager& buffers, char const& c);
 
     //!
     //! \brief Perform one time step of inference with the TensorRT execution context
@@ -917,14 +917,14 @@ bool SampleCharRNNBase::infer()
 //!
 //! \brief Looks up the embedding tensor for a given char and copies it to input buffer
 //!
-void SampleCharRNNBase::copyEmbeddingToInput(samplesCommon::BufferManager& buffers, const char& c)
+void SampleCharRNNBase::copyEmbeddingToInput(samplesCommon::BufferManager& buffers, char const& c)
 {
     auto embed = mWeightMap[mParams.weightNames.EMBED_NAME];
     float* inputBuffer = static_cast<float*>(buffers.getHostBuffer(mParams.bindingNames.INPUT_BLOB_NAME));
     auto index = mParams.charMaps.charToID.at(c);
+    auto bufSize = buffers.size(mParams.bindingNames.INPUT_BLOB_NAME);
 
-    std::memcpy(inputBuffer, static_cast<const float*>(embed.values) + index * mParams.dataSize,
-        buffers.size(mParams.bindingNames.INPUT_BLOB_NAME));
+    std::memcpy(inputBuffer, static_cast<const float*>(embed.values) + index * mParams.dataSize, bufSize);
 }
 
 //!

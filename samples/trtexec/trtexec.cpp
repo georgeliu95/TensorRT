@@ -116,6 +116,12 @@ bool initLibrary(LibraryPtr& libPtr, std::string const& libName, FetchPtrs fetch
         libPtr.reset(new DynamicLibrary{libName});
         fetchFunc(libPtr.get());
     }
+    catch (std::exception const& e)
+    {
+        libPtr.reset();
+        sample::gLogError << "Could not load library " << libName << ": " << e.what() << std::endl;
+        return false;
+    }
     catch (...)
     {
         libPtr.reset();

@@ -310,6 +310,7 @@ Parser modelToNetwork(ModelOptions const& model, BuildOptions const& build, nvin
     {
         using namespace nvonnxparser;
         parser.onnxParser.reset(createONNXParser(network));
+        ASSERT(parser.onnxParser != nullptr);
         // For version or hardware compatible engines, we must use TensorRT's native InstanceNorm implementation for
         // compatibility.
         if (build.versionCompatible
