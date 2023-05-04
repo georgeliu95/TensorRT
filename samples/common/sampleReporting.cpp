@@ -181,7 +181,7 @@ PerformanceResult getPerformanceResult(std::vector<InferenceTime> const& timings
     PerformanceResult result;
     result.min = metricGetter(newTimings.front());
     result.max = metricGetter(newTimings.back());
-    result.mean = std::accumulate(newTimings.begin(), newTimings.end(), 0.0f, metricAccumulator) / newTimings.size();
+    result.mean = std::accumulate(newTimings.begin(), newTimings.end(), 0.0F, metricAccumulator) / newTimings.size();
     result.median = findMedian(newTimings, metricGetter);
     for (auto percentile : percentiles)
     {

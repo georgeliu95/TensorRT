@@ -20,7 +20,7 @@ ARG CUDA_VERSION=12.0.1
 FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu20.04
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.6.1.2
+ENV TRT_VERSION 8.6.1.6
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account

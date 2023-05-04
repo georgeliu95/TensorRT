@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2022 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,7 +21,7 @@ ARG CUDA_VERSION=11.8.0
 FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu18.04
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.6.1.2
+ENV TRT_VERSION 8.6.1.6
 SHELL ["/bin/bash", "-c"]
 
 # Setup user account

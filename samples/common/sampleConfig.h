@@ -56,9 +56,9 @@ private:
     bool mDebugBuilder{false};
     InputDataFormat mInputDataFormat{InputDataFormat::kASCII};
     uint64_t mTopK{0};
-    float mFailurePercentage{-1.0f};
-    float mTolerance{0.0f};
-    float mAbsTolerance{1e-5f};
+    float mFailurePercentage{-1.0F};
+    float mTolerance{0.0F};
+    float mAbsTolerance{1e-5F};
 
 public:
     SampleConfig()

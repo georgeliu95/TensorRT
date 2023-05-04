@@ -35,7 +35,7 @@ class InstallCommand(install):
                     "install",
                     "{:}==##TENSORRT_PYTHON_VERSION##".format(package_name),
                     "--index-url",
-                    "https://pypi.ngc.nvidia.com",
+                    "https://pypi.nvidia.com",
                 ]
             )
             status.check_returncode()

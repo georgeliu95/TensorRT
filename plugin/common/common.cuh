@@ -353,8 +353,8 @@ __device__ inline void scaledSoftmaxSmall(
 
     if (threadIdx.x < ld)
     {
-        // this will be 0 for threadIdx.x >= lastValid
-        output[idx] = T(threadData * rZ);
+        float const val = (threadIdx.x < lastValid) ? threadData * rZ : 0.F;
+        output[idx] = static_cast<T>(val);
     }
 }
 

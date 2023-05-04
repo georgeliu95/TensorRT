@@ -17,7 +17,7 @@
 
 // Implementation of PyBind11 Binding Code for OnnxParser
 #include "ForwardDeclarations.h"
-#include "onnxOpenSource/NvOnnxParser.h"
+#include "onnx/NvOnnxParser.h"
 #include "parsers/pyOnnxDoc.h"
 #include "utils.h"
 #include <pybind11/stl.h>

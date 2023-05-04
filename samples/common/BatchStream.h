@@ -120,7 +120,7 @@ private:
         file.read(reinterpret_cast<char*>(rawData.data()), numElements * sizeof(uint8_t));
         mData.resize(numElements);
         std::transform(
-            rawData.begin(), rawData.end(), mData.begin(), [](uint8_t val) { return static_cast<float>(val) / 255.f; });
+            rawData.begin(), rawData.end(), mData.begin(), [](uint8_t val) { return static_cast<float>(val) / 255.F; });
     }
 
     void readLabelsFile(const std::string& labelsFilePath)

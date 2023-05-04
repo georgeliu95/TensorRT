@@ -20,7 +20,7 @@
 #include <vector>
 
 #include "common/plugin.h"
-#include "efficientNMSParameters.h"
+#include "efficientNMSPlugin/efficientNMSParameters.h"
 
 namespace nvinfer1
 {

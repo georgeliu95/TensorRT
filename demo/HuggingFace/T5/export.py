@@ -123,7 +123,8 @@ class T5DecoderTorchFile(TorchModelFile):
             self.decoder = decoder
             self.lm_head = lm_head
             self.config = config
-            self.device = "cuda" # HuggingFace's beam search requires to set self.device. Set it to avoid application crash
+            # HuggingFace's beam search requires to set self.device. Set it to avoid application crash
+            self.device = torch.device('cuda')
             # Use hardcoded value to extend compatibility with older HF versions.
             self.main_input_name = "input_ids"
             # trt uses cached and precomputed cross attention vs. framework uses the entire kv cache as output. Need to treat them differently.

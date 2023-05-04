@@ -1523,14 +1523,14 @@ public:
     /// \return incremented half value
     half& operator++()
     {
-        return *this += 1.0f;
+        return *this += 1.0F;
     }
 
     /// Prefix decrement.
     /// \return decremented half value
     half& operator--()
     {
-        return *this -= 1.0f;
+        return *this -= 1.0F;
     }
 
     /// Postfix increment.

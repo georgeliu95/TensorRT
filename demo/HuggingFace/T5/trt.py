@@ -267,7 +267,7 @@ class T5TRTDecoder(TRTHFRunner):
         self.bindings[1] = self.encoder_hidden_states.data_ptr()
         self.persist_cross_attention_kv_cache = False
 
-        self.return_device = "cuda"
+        self.return_device = torch.device('cuda')
         self.variant = network_metadata.variant # record variant name to later index the vocab_size in forward()
     
     def set_encoder_hidden_states_for_inference_cycle(self, encoder_hidden_states):
