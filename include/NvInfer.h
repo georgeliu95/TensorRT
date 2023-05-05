@@ -432,7 +432,7 @@ public:
     //! \brief Whether the tensor is a shape tensor.
     //!
     //! A shape tensor is a tensor that is related to shape calculations.
-    //! It must have type Int32, Bool, or Float, and its shape must be determinable at build time.
+    //! It must have type Int32, Int64, Bool, or Float, and its shape must be determinable at build time.
     //! Furthermore, it must be needed as a shape tensor, either marked as a network shape
     //! output via markOutputForShapes(), or as a layer input that is required to be a shape
     //! tensor, such as the second input to IShuffleLayer. Some layers are "polymorphic" in
@@ -450,7 +450,7 @@ public:
     //!
     //! If a tensor is a shape tensor and becomes an engine input or output,
     //! then ICudaEngine::isShapeBinding will be true for that tensor.
-    //! Such a shape tensor must have type Int32.
+    //! Such a shape tensor must have type Int32 or Int64.
     //!
     //! It is possible for a tensor to be both a shape tensor and an execution tensor.
     //!
@@ -2875,9 +2875,9 @@ protected:
 //!
 //! Operations kAND, kOR, and kXOR must have inputs of DataType::kBOOL.
 //!
-//! Operation kPOW must have inputs of DataType::kFLOAT, DataType::kHALF, or DataType::kINT8.
+//! Operation kPOW must have inputs of floating-point type or DataType::kINT8.
 //!
-//! All other operations must have inputs of DataType::kFLOAT, DataType::kHALF, DataType::kINT8, or DataType::kINT32.
+//! All other operations must have inputs of floating-point type, DataType::kINT8, or DataType::kINT32.
 //!
 //! \see IElementWiseLayer
 //!
@@ -3661,11 +3661,11 @@ protected:
 //!
 //! Operations kNOT must have inputs of DataType::kBOOL.
 //!
-//! Operation kSIGN must have inputs of DataType::kFLOAT, DataType::kHALF, DataType::kINT8, or DataType::kINT32.
+//! Operation kSIGN must have inputs of floating-point type, DataType::kINT8, or DataType::kINT32.
 //!
-//! Operation kISINF must have inputs of DataType::kFLOAT or DataType::kHALF.
+//! Operation kISINF must have inputs of floating-point type.
 //!
-//! All other operations must have inputs of DataType::kFLOAT, DataType::kHALF, or DataType::kINT8.
+//! All other operations must have inputs of floating-point type.
 //!
 //! Operations kSIGN and kROUND are not supported in implicit batch mode.
 //!
@@ -6198,9 +6198,9 @@ protected:
 //! means that those axes will be multiplied. Omitting a label from the output means values along those axes will be
 //! summed. In implicit mode, the indices which appear once in the expression will be part of the output in increasing
 //! alphabetical order. In explicit mode, the output can be controlled by specifying output subscript labels by adding
-//! an arrow (‘->’) followed by subscripts for the output.
-//! For example, “ij,jk->ik” is equivalent to “ij,jk”.
-//! Ellipsis (‘...’) can be used in place of subscripts to broadcast the dimensions.
+//! an arrow ('->') followed by subscripts for the output.
+//! For example, "ij,jk->ik" is equivalent to "ij,jk".
+//! Ellipsis ('...') can be used in place of subscripts to broadcast the dimensions.
 //! See the TensorRT Developer Guide for more details on equation syntax.
 //!
 //! Many common operations can be expressed using the Einsum equation.
@@ -7711,6 +7711,28 @@ public:
     }
 
     //!
+    //! \brief Get the network definition creation flags for this network definition object. Defaults to 0.
+    //!
+    //! \return The network definition creation options as a bitmask.
+    //!
+    NetworkDefinitionCreationFlags getFlags() const noexcept
+    {
+        return mImpl->getFlags();
+    }
+
+    //!
+    //! \brief Returns true if the network definition creation flag is set
+    //!
+    //! \see getFlags()
+    //!
+    //! \return True if flag is set, false if unset.
+    //!
+    bool getFlag(NetworkDefinitionCreationFlag networkDefinitionCreationFlag) const noexcept
+    {
+        return mImpl->getFlag(networkDefinitionCreationFlag);
+    }
+
+    //!
     //! \brief Enable tensor's value to be computed by IExecutionContext::getShapeBinding.
     //!
     //! \return True if successful, false if tensor is already marked as an output.
@@ -8848,8 +8870,14 @@ enum class BuilderFlag : int32_t
     kEXCLUDE_LEAN_RUNTIME = 16,
 
     //! Enable FP8 layer selection, with FP32 fallback.
-    //! \warning kFP8 is not supported yet and will result in an error or undefined behavior.
-    kFP8 = 17
+    kFP8 = 17,
+
+    //! Emit error when a tactic being timed is not present in the timing cache.
+    //! This flag has an effect only when IBuilderConfig has an associated ITimingCache.
+    kERROR_ON_TIMING_CACHE_MISS = 18,
+
+    //! Enable DataType::kBF16 layer selection, with FP32 fallback.
+    kBF16 = 19,
 };
 
 //!
@@ -8860,7 +8888,7 @@ enum class BuilderFlag : int32_t
 template <>
 constexpr inline int32_t EnumMax<BuilderFlag>() noexcept
 {
-    return 18;
+    return 20;
 }
 
 //!
@@ -9295,7 +9323,7 @@ public:
     //! If DeviceType is not set or is reset, TensorRT will use the default DeviceType set in the builder.
     //!
     //! \note The device type for a layer must be compatible with the safety flow (if specified).
-    //! For example a layer cannot be marked for DLA execution while the builder is configured for kSAFE_GPU.
+    //! For example a layer cannot be marked for DLA execution while the builder is configured for kSAFETY.
     //!
     //! \see getDeviceType()
     //!
@@ -9935,6 +9963,12 @@ enum class NetworkDefinitionCreationFlag : int32_t
     //! Deprecated. This flag has no effect now, but is only kept for backward compatability.
     //!
     kEXPLICIT_PRECISION TRT_DEPRECATED_ENUM = 1,
+
+    //! Mark the network to be strongly typed.
+    //! Every tensor in the network has a data type defined in the network following only type inference rules and the
+    //! inputs/operator annotations. Setting layer precision and layer output types is not allowed, and the network
+    //! output types will be inferred based on the input types and the type inference rules.
+    kSTRONGLY_TYPED = 2,
 };
 
 //!
@@ -9945,7 +9979,7 @@ enum class NetworkDefinitionCreationFlag : int32_t
 template <>
 constexpr inline int32_t EnumMax<NetworkDefinitionCreationFlag>() noexcept
 {
-    return 2;
+    return 3;
 }
 
 //!

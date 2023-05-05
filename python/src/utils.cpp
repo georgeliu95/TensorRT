@@ -42,6 +42,8 @@ size_t size(nvinfer1::DataType type)
     case nvinfer1::DataType::kBOOL: return 1;
     case nvinfer1::DataType::kUINT8: return 1;
     case nvinfer1::DataType::kFP8: return 1;
+    case nvinfer1::DataType::kBF16:
+    case nvinfer1::DataType::kINT64: throw std::runtime_error("Unsupported data type");
     }
     return -1;
 }
@@ -58,6 +60,8 @@ py::dtype nptype(nvinfer1::DataType type)
     case nvinfer1::DataType::kBOOL: return py::dtype("b1");
     case nvinfer1::DataType::kUINT8: return py::dtype("u1");
     case nvinfer1::DataType::kFP8: return py::dtype("f1");
+    case nvinfer1::DataType::kBF16:
+    case nvinfer1::DataType::kINT64: throw std::runtime_error("Unsupported data type");
     }
     return py::dtype("unknown");
 }

@@ -47,6 +47,7 @@ constexpr int32_t defaultBatch{1};
 constexpr int32_t batchNotProvided{0};
 constexpr int32_t defaultStreams{1};
 constexpr int32_t defaultIterations{10};
+constexpr int32_t defaultOptProfileIndex{0};
 constexpr float defaultWarmUp{200.F};
 constexpr float defaultDuration{3.F};
 constexpr float defaultSleep{};
@@ -127,7 +128,7 @@ inline std::ostream& operator<<(std::ostream& os, RuntimeMode const mode)
     return os;
 }
 
-using Arguments = std::unordered_multimap<std::string, std::string>;
+using Arguments = std::unordered_multimap<std::string, std::pair<std::string, int32_t>>;
 
 using IOFormat = std::pair<nvinfer1::DataType, nvinfer1::TensorFormats>;
 
@@ -196,8 +197,10 @@ public:
     double dlaGlobalDRAM{-1.0};
     int32_t minTiming{defaultMinTiming};
     int32_t avgTiming{defaultAvgTiming};
+    size_t calibProfile{defaultOptProfileIndex};
     bool tf32{true};
     bool fp16{false};
+    bool bf16{false};
     bool int8{false};
     bool fp8{false};
     bool directIO{false};
@@ -223,7 +226,7 @@ public:
     std::string engine;
     std::string calibration;
     using ShapeProfile = std::unordered_map<std::string, ShapeRange>;
-    ShapeProfile shapes;
+    std::vector<ShapeProfile> optProfiles;
     ShapeProfile shapesCalib;
     std::vector<IOFormat> inputFormats;
     std::vector<IOFormat> outputFormats;
@@ -231,6 +234,7 @@ public:
     nvinfer1::TacticSources disabledTactics{0};
     TimingCacheMode timingCacheMode{TimingCacheMode::kLOCAL};
     std::string timingCacheFile{};
+    bool errorOnTimingCacheMiss{false};
     // C++11 does not automatically generate hash function for enum class.
     // Use int32_t to support C++11 compilers.
     std::unordered_map<int32_t, bool> previewFeatures;
@@ -267,6 +271,7 @@ public:
     int32_t batch{batchNotProvided};
     int32_t iterations{defaultIterations};
     int32_t infStreams{defaultStreams};
+    int32_t optProfileIndex{defaultOptProfileIndex};
     float warmup{defaultWarmUp};
     float duration{defaultDuration};
     float sleep{defaultSleep};
@@ -281,6 +286,7 @@ public:
     bool rerun{false};
     bool timeDeserialize{false};
     bool timeRefit{false};
+    bool setOptProfile{false};
     std::unordered_map<std::string, std::string> inputs;
     using ShapeProfile = std::unordered_map<std::string, std::vector<int32_t>>;
     ShapeProfile shapes;
@@ -302,6 +308,7 @@ public:
     bool dumpRawBindings{false};
     bool profile{false};
     bool layerInfo{false};
+    bool optProfileInfo{false};
     std::string exportTimes;
     std::string exportOutput;
     std::string exportProfile;

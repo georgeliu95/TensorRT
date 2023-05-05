@@ -15,10 +15,10 @@
 # limitations under the License.
 #
 
+############################# GENERATE C++ PROTO FILES ###################################
 add_custom_target(parsers DEPENDS
     nvcaffeparserlibs
-    nvonnxparser
-)
+    nvonnxparser)
 
 add_subdirectory(caffe)
 

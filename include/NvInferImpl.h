@@ -1055,6 +1055,9 @@ public:
         ITensor& input, ITensor& scale, ITensor& bias, uint32_t axesMask) noexcept = 0;
     virtual ICastLayer* addCast(ITensor& input, DataType toType) noexcept = 0;
     virtual IBuilder& getBuilder() const noexcept = 0;
+    virtual NetworkDefinitionCreationFlags getFlags() const noexcept = 0;
+    virtual bool getFlag(NetworkDefinitionCreationFlag networkDefinitionCreationFlag) const noexcept = 0;
+    virtual bool usingStronglyTyped() const noexcept = 0;
 };
 
 class VAlgorithmIOInfo : public VRoot

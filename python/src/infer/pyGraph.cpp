@@ -24,6 +24,9 @@
 #include "NvInferSerialize.h"
 #endif
 
+#if ENABLE_MDTRT
+#include "api/internal.h"
+#endif
 #include "infer/pyGraphDoc.h"
 
 // clang-format off
@@ -316,6 +319,11 @@ namespace tensorrt
             .def("reset_dynamic_range", &ITensor::resetDynamicRange, ITensorDoc::reset_dynamic_range)
             .def("set_dimension_name", &ITensor::setDimensionName, "index"_a, "name"_a, ITensorDoc::set_dimension_name)
             .def("get_dimension_name", &ITensor::getDimensionName, "index"_a, ITensorDoc::get_dimension_name)
+#if ENABLE_MDTRT
+            .def("add_instance_id", &nvinfer1AddInstanceID, "id"_a, ITensorDoc::add_instance_id)
+            .def("has_instance_id", &nvinfer1HasInstanceID, "id"_a, ITensorDoc::has_instance_id)
+            .def("del_instance_id", &nvinfer1DelInstanceID, "id"_a, ITensorDoc::del_instance_id)
+#endif // ENABLE_MDTRT
         ;
 
         py::class_<ILayer, std::unique_ptr<ILayer, py::nodelete>>(m, "ILayer", ILayerDoc::descr, py::module_local())

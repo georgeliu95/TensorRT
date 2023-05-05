@@ -308,7 +308,7 @@ int main(int argc, char** argv)
                 {
                     for (auto const& arg : args)
                     {
-                        sample::gLogError << "Unknown option: " << arg.first << " " << arg.second << std::endl;
+                        sample::gLogError << "Unknown option: " << arg.first << " " << arg.second.first << std::endl;
                     }
                     failed = true;
                 }
@@ -446,6 +446,7 @@ int main(int argc, char** argv)
             if (!options.build.safe)
             {
                 printLayerInfo(options.reporting, bEnv->engine.get(), nullptr);
+                printOptimizationProfileInfo(options.reporting, bEnv->engine.get());
             }
             sample::gLogInfo << "Skipped inference phase since --skipInference is added." << std::endl;
             return sample::gLogger.reportPass(sampleTest);
@@ -507,6 +508,7 @@ int main(int argc, char** argv)
         if (!options.build.safe)
         {
             printLayerInfo(options.reporting, iEnv->engine.get(), iEnv->contexts.front().get());
+            printOptimizationProfileInfo(options.reporting, iEnv->engine.get());
         }
 
         std::vector<InferenceTrace> trace;

@@ -49,6 +49,12 @@ int32_t stringToValue<int32_t>(const std::string& option)
 }
 
 template <>
+size_t stringToValue<size_t>(const std::string& option)
+{
+    return std::stoi(option);
+}
+
+template <>
 float stringToValue<float>(const std::string& option)
 {
     return std::stof(option);
@@ -82,8 +88,8 @@ template <>
 nvinfer1::DataType stringToValue<nvinfer1::DataType>(const std::string& option)
 {
     const std::unordered_map<std::string, nvinfer1::DataType> strToDT{{"fp32", nvinfer1::DataType::kFLOAT},
-        {"fp16", nvinfer1::DataType::kHALF}, {"int8", nvinfer1::DataType::kINT8}, {"fp8", nvinfer1::DataType::kFP8},
-        {"int32", nvinfer1::DataType::kINT32}};
+        {"fp16", nvinfer1::DataType::kHALF}, {"bf16", nvinfer1::DataType::kBF16}, {"int8", nvinfer1::DataType::kINT8},
+        {"fp8", nvinfer1::DataType::kFP8}, {"int32", nvinfer1::DataType::kINT32}};
     const auto& dt = strToDT.find(option);
     if (dt == strToDT.end())
     {
@@ -244,11 +250,52 @@ bool getAndDelOption(Arguments& arguments, const std::string& option, T& value)
     const auto match = arguments.find(option);
     if (match != arguments.end())
     {
-        value = stringToValue<T>(match->second);
+        value = stringToValue<T>(match->second.first);
         arguments.erase(match);
         return true;
     }
 
+    return false;
+}
+
+//! Check if input option exists in input arguments.
+//! If it does: return its value and position, erase the argument and return true.
+//! If it does not: return false.
+template <typename T_>
+bool getAndDelOptionWithPosition(Arguments& arguments, std::string const& option, T_& value, int32_t& pos)
+{
+    auto const match = arguments.find(option);
+    if (match != arguments.end())
+    {
+        value = stringToValue<T_>(match->second.first);
+        pos = match->second.second;
+        arguments.erase(match);
+        return true;
+    }
+
+    return false;
+}
+
+//! Check if input option exists in input arguments behind the position spcecified by pos.
+//! If it does: return its value, erase the argument and return true.
+//! If it does not: return false.
+template <typename T_>
+bool getAndDelOptionBehind(Arguments& arguments, std::string const& option, int32_t pos, T_& value)
+{
+    auto const match = arguments.equal_range(option);
+    if (match.first == match.second)
+    {
+        return false;
+    }
+    for (auto i = match.first; i != match.second; ++i)
+    {
+        if (i->second.second - pos == 1)
+        {
+            value = stringToValue<T_>(i->second.first);
+            arguments.erase(i);
+            return true;
+        }
+    }
     return false;
 }
 
@@ -279,7 +326,7 @@ bool getAndDelRepeatedOption(Arguments& arguments, const std::string& option, st
     }
 
     auto addToValues
-        = [&values](Arguments::value_type& argValue) { values.emplace_back(stringToValue<T>(argValue.second)); };
+        = [&values](Arguments::value_type& argValue) { values.emplace_back(stringToValue<T>(argValue.second.first)); };
     std::for_each(match.first, match.second, addToValues);
     arguments.erase(match.first, match.second);
 
@@ -494,8 +541,81 @@ void processShapes(BuildOptions::ShapeProfile& shapes, bool minShapes, bool optS
     shapes = newShapes;
 }
 
+bool getOptimizationProfiles(
+    Arguments& arguments, std::vector<BuildOptions::ShapeProfile>& optProfiles, char const* argument)
+{
+    bool retValue{false};
+    int32_t pos{};
+    size_t profileIndex{};
+
+    auto getShapes
+        = [](BuildOptions::ShapeProfile& shapes, std::string const& list, nvinfer1::OptProfileSelector selector) {
+              std::vector<std::string> shapeList{splitToStringVec(list, ',')};
+              for (auto const& s : shapeList)
+              {
+                  auto nameDimsPair = splitNameAndValue<std::vector<int32_t>>(s);
+                  auto tensorName = removeSingleQuotationMarks(nameDimsPair.first);
+                  auto dims = nameDimsPair.second;
+                  insertShapesBuild(shapes, selector, tensorName, dims);
+              }
+          };
+
+    while (getAndDelOptionWithPosition(arguments, argument, profileIndex, pos))
+    {
+        BuildOptions::ShapeProfile optProfile{};
+        bool minShapes{false}, maxShapes{false}, optShapes{false};
+        for (int32_t i = 0; i < nvinfer1::EnumMax<nvinfer1::OptProfileSelector>(); i++, pos++)
+        {
+            std::string value;
+
+            if (!minShapes && getAndDelOptionBehind(arguments, "--minShapes", pos, value))
+            {
+                minShapes = true;
+                getShapes(optProfile, value, nvinfer1::OptProfileSelector::kMIN);
+            }
+            else if (!maxShapes && getAndDelOptionBehind(arguments, "--maxShapes", pos, value))
+            {
+                maxShapes = true;
+                getShapes(optProfile, value, nvinfer1::OptProfileSelector::kMAX);
+            }
+            else if (!optShapes && getAndDelOptionBehind(arguments, "--optShapes", pos, value))
+            {
+                optShapes = true;
+                getShapes(optProfile, value, nvinfer1::OptProfileSelector::kOPT);
+            }
+            else
+            {
+                break;
+            }
+        }
+        processShapes(optProfile, minShapes, optShapes, maxShapes, false);
+        if (profileIndex >= optProfiles.size())
+        {
+            optProfiles.resize(profileIndex + 1);
+        }
+        if (!optProfiles[profileIndex].empty())
+        {
+            throw std::invalid_argument("Optimization profile index cannot be the same.");
+        }
+        optProfiles[profileIndex] = optProfile;
+        retValue = true;
+    }
+
+    profileIndex = 0;
+    for (auto const& optProfile : optProfiles)
+    {
+        if (optProfile.empty())
+        {
+            throw std::invalid_argument(std::string("Found invalid or missing shape spec at profile index ")
+                + std::to_string(profileIndex) + std::string(". "));
+        }
+        ++profileIndex;
+    }
+    return retValue;
+}
+
 template <typename T>
-void printShapes(std::ostream& os, const char* phase, const T& shapes)
+void printShapes(std::ostream& os, char const* phase, T const& shapes, int32_t profileIndex)
 {
     if (shapes.empty())
     {
@@ -503,9 +623,12 @@ void printShapes(std::ostream& os, const char* phase, const T& shapes)
     }
     else
     {
-        for (const auto& s : shapes)
+        std::string profileString = (profileIndex != -1 && strcmp(phase, "build") == 0)
+            ? "(profile " + std::to_string(profileIndex) + ")"
+            : "";
+        for (auto const& s : shapes)
         {
-            os << "Input " << phase << " shape: " << s.first << "=" << s.second << std::endl;
+            os << "Input " << phase << " shape " << profileString << ": " << s.first << "=" << s.second << std::endl;
         }
     }
 }
@@ -558,6 +681,10 @@ std::ostream& printPrecision(std::ostream& os, BuildOptions const& options)
     if (options.fp16)
     {
         os << "+FP16";
+    }
+    if (options.bf16)
+    {
+        os << "+BF16";
     }
     if (options.int8)
     {
@@ -688,11 +815,11 @@ Arguments argsToArgumentsMap(int32_t argc, char* argv[])
         if (valuePtr)
         {
             std::string value{valuePtr + 1};
-            arguments.emplace(std::string(argv[i], valuePtr - argv[i]), value);
+            arguments.emplace(std::string(argv[i], valuePtr - argv[i]), std::make_pair(value, i));
         }
         else
         {
-            arguments.emplace(argv[i], "");
+            arguments.emplace(argv[i], std::make_pair(std::string(""), i));
         }
     }
     return arguments;
@@ -867,10 +994,33 @@ void BuildOptions::parse(Arguments& arguments)
                             << "shapes are provided when the engine is built." << std::endl;
     }
 
-    bool minShapes = getShapesBuild(arguments, shapes, "--minShapes", nvinfer1::OptProfileSelector::kMIN);
-    bool optShapes = getShapesBuild(arguments, shapes, "--optShapes", nvinfer1::OptProfileSelector::kOPT);
-    bool maxShapes = getShapesBuild(arguments, shapes, "--maxShapes", nvinfer1::OptProfileSelector::kMAX);
-    processShapes(shapes, minShapes, optShapes, maxShapes, false);
+    bool getCalibProfile = getAndDelOption(arguments, "--calibProfile", calibProfile);
+    if (!getOptimizationProfiles(arguments, optProfiles, "--profile"))
+    {
+        ShapeProfile shapes;
+        bool minShapes = getShapesBuild(arguments, shapes, "--minShapes", nvinfer1::OptProfileSelector::kMIN);
+        bool optShapes = getShapesBuild(arguments, shapes, "--optShapes", nvinfer1::OptProfileSelector::kOPT);
+        bool maxShapes = getShapesBuild(arguments, shapes, "--maxShapes", nvinfer1::OptProfileSelector::kMAX);
+        processShapes(shapes, minShapes, optShapes, maxShapes, false);
+        optProfiles.emplace_back(shapes);
+    }
+
+    if (calibProfile >= optProfiles.size())
+    {
+        throw std::invalid_argument(
+            std::string("--calibProfile shouldn't greater than the size of optimization profile."));
+    }
+
+    BuildOptions::ShapeProfile dummyShapes;
+
+    bool remainingMinShapes = getShapesBuild(arguments, dummyShapes, "--minShapes", nvinfer1::OptProfileSelector::kMIN);
+    bool remainingOptShapes = getShapesBuild(arguments, dummyShapes, "--optShapes", nvinfer1::OptProfileSelector::kOPT);
+    bool remainingMaxShapes = getShapesBuild(arguments, dummyShapes, "--maxShapes", nvinfer1::OptProfileSelector::kMAX);
+    if (remainingMinShapes || remainingOptShapes || remainingMaxShapes)
+    {
+        throw std::invalid_argument("Multiple --minShapes/--optShapes/--maxShapes without --profile are not allowed. ");
+    }
+
     bool minShapesCalib
         = getShapesBuild(arguments, shapesCalib, "--minShapesCalib", nvinfer1::OptProfileSelector::kMIN);
     bool optShapesCalib
@@ -935,6 +1085,7 @@ void BuildOptions::parse(Arguments& arguments)
     {
         int8 = true;
         fp16 = true;
+        bf16 = true;
     }
 
     getAndDelOption(arguments, "--refit", refittable);
@@ -950,6 +1101,7 @@ void BuildOptions::parse(Arguments& arguments)
 
     getAndDelNegOption(arguments, "--noTF32", tf32);
     getAndDelOption(arguments, "--fp16", fp16);
+    getAndDelOption(arguments, "--bf16", bf16);
     getAndDelOption(arguments, "--int8", int8);
     getAndDelOption(arguments, "--fp8", fp8);
     if (fp8 && int8)
@@ -1007,9 +1159,15 @@ void BuildOptions::parse(Arguments& arguments)
     getAndDelOption(arguments, "--sparsity", sparsity);
 
     bool calibCheck = getAndDelOption(arguments, "--calib", calibration);
-    if (int8 && calibCheck && !shapes.empty() && shapesCalib.empty())
+    if (int8 && calibCheck && !optProfiles[calibProfile].empty() && shapesCalib.empty())
     {
-        shapesCalib = shapes;
+        shapesCalib = optProfiles[calibProfile];
+    }
+    else if (!shapesCalib.empty() && getCalibProfile)
+    {
+        sample::gLogWarning
+            << "--calibProfile have no effect when --minShapesCalib/--optShapesCalib/--maxShapesCalib is set."
+            << std::endl;
     }
 
     std::string profilingVerbosityString;
@@ -1147,6 +1305,7 @@ void BuildOptions::parse(Arguments& arguments)
     {
         timingCacheMode = TimingCacheMode::kLOCAL;
     }
+    getAndDelOption(arguments, "--errorOnTimingCacheMiss", errorOnTimingCacheMiss);
     if (getAndDelOption(arguments, "--heuristic", heuristic))
     {
         sample::gLogWarning << "--heuristic flag has been deprecated, use --builderOptimizationLevel=<N> flag instead "
@@ -1309,6 +1468,7 @@ void InferenceOptions::parse(Arguments& arguments)
 
     getShapesInference(arguments, shapes, "--shapes");
     getAndDelOption(arguments, "--batch", batch);
+    setOptProfile = getAndDelOption(arguments, "--useProfile", optProfileIndex);
 }
 
 void ReportingOptions::parse(Arguments& arguments)
@@ -1320,6 +1480,7 @@ void ReportingOptions::parse(Arguments& arguments)
     getAndDelOption(arguments, "--dumpRawBindingsToFile", dumpRawBindings);
     getAndDelOption(arguments, "--dumpProfile", profile);
     getAndDelOption(arguments, "--dumpLayerInfo", layerInfo);
+    getAndDelOption(arguments, "--dumpOptimizationProfile", optProfileInfo);
     getAndDelOption(arguments, "--exportTimes", exportTimes);
     getAndDelOption(arguments, "--exportOutput", exportOutput);
     getAndDelOption(arguments, "--exportProfile", exportProfile);
@@ -1364,7 +1525,8 @@ void AllOptions::parse(Arguments& arguments)
 
     // Use explicitBatch when input model is ONNX or when dynamic shapes are used.
     const bool isOnnx{model.baseModel.format == ModelFormat::kONNX};
-    const bool hasDynamicShapes{!build.shapes.empty() || !inference.shapes.empty()};
+    const bool hasDynamicShapes{
+        (!build.optProfiles.empty() && !build.optProfiles[0].empty()) || !inference.shapes.empty()};
     const bool detectedExplicitBatch = isOnnx || hasDynamicShapes;
 
     // Throw an error if user tries to use --batch or --maxBatch when the engine has explicit batch dim.
@@ -1403,23 +1565,30 @@ void AllOptions::parse(Arguments& arguments)
         }
     }
 
-    // Propagate shape profile between builder and inference
-    for (auto const& s : build.shapes)
+    if (inference.optProfileIndex < static_cast<int32_t>(build.optProfiles.size()))
     {
-        if (inference.shapes.find(s.first) == inference.shapes.end())
+        // Propagate shape profile between builder and inference
+        for (auto const& s : build.optProfiles[inference.optProfileIndex])
         {
-            insertShapesInference(
-                inference.shapes, s.first, s.second[static_cast<size_t>(nvinfer1::OptProfileSelector::kOPT)]);
+            if (inference.shapes.find(s.first) == inference.shapes.end())
+            {
+                insertShapesInference(
+                    inference.shapes, s.first, s.second[static_cast<size_t>(nvinfer1::OptProfileSelector::kOPT)]);
+            }
         }
-    }
-    for (auto const& s : inference.shapes)
-    {
-        if (build.shapes.find(s.first) == build.shapes.end())
+        for (auto const& s : inference.shapes)
         {
-            // assume min/opt/max all the same
-            insertShapesBuild(build.shapes, nvinfer1::OptProfileSelector::kMIN, s.first, s.second);
-            insertShapesBuild(build.shapes, nvinfer1::OptProfileSelector::kOPT, s.first, s.second);
-            insertShapesBuild(build.shapes, nvinfer1::OptProfileSelector::kMAX, s.first, s.second);
+            if (build.optProfiles[inference.optProfileIndex].find(s.first)
+                == build.optProfiles[inference.optProfileIndex].end())
+            {
+                // assume min/opt/max all the same
+                insertShapesBuild(build.optProfiles[inference.optProfileIndex], nvinfer1::OptProfileSelector::kMIN,
+                    s.first, s.second);
+                insertShapesBuild(build.optProfiles[inference.optProfileIndex], nvinfer1::OptProfileSelector::kOPT,
+                    s.first, s.second);
+                insertShapesBuild(build.optProfiles[inference.optProfileIndex], nvinfer1::OptProfileSelector::kMAX,
+                    s.first, s.second);
+            }
         }
     }
 
@@ -1620,6 +1789,11 @@ std::ostream& operator<<(std::ostream& os, nvinfer1::DataType dtype)
         os << "fp16";
         break;
     }
+    case nvinfer1::DataType::kBF16:
+    {
+        os << "bf16";
+        break;
+    }
     case nvinfer1::DataType::kINT8:
     {
         os << "int8";
@@ -1645,6 +1819,7 @@ std::ostream& operator<<(std::ostream& os, nvinfer1::DataType dtype)
         os << "fp8";
         break;
     }
+    case nvinfer1::DataType::kINT64: ASSERT(false && "Unsupported data type");
     }
     return os;
 }
@@ -1819,10 +1994,12 @@ std::ostream& operator<<(std::ostream& os, const BuildOptions& options)
           "Tactic sources: ";   printTacticSources(os, options.enabledTactics, options.disabledTactics)                 << std::endl <<
           "timingCacheMode: ";  printTimingCache(os, options.timingCacheMode)                                           << std::endl <<
           "timingCacheFile: " << options.timingCacheFile                                                                << std::endl <<
+          "errorOnTimingCacheMiss: "  << boolToEnabled(options.errorOnTimingCacheMiss)                                  << std::endl <<
           "Heuristic: "       << boolToEnabled(options.heuristic)                                                       << std::endl <<
           "Preview Features: "; printPreviewFlags(os, options)                                                          << std::endl <<
           "MaxAuxStreams: "   << options.maxAuxStreams                                                                  << std::endl <<
-          "BuilderOptimizationLevel: " << options.builderOptimizationLevel                                              << std::endl;
+          "BuilderOptimizationLevel: " << options.builderOptimizationLevel                                              << std::endl <<
+          "Calibration Profile Index: "<< options.calibProfile                                                  << std::endl;
     // clang-format on
 
     auto printIOFormats = [](std::ostream& os, const char* direction, const std::vector<IOFormat> formats) {
@@ -1841,8 +2018,11 @@ std::ostream& operator<<(std::ostream& os, const BuildOptions& options)
 
     printIOFormats(os, "Input(s)", options.inputFormats);
     printIOFormats(os, "Output(s)", options.outputFormats);
-    printShapes(os, "build", options.shapes);
-    printShapes(os, "calibration", options.shapesCalib);
+    for (size_t i = 0; i < options.optProfiles.size(); i++)
+    {
+        printShapes(os, "build", options.optProfiles[i], i);
+    }
+    printShapes(os, "calibration", options.shapesCalib, -1);
 
     return os;
 }
@@ -1899,7 +2079,7 @@ std::ostream& operator<<(std::ostream& os, const InferenceOptions& options)
     {
                           os << "Explicit"                                << std::endl;
     }
-    printShapes(os, "inference", options.shapes);
+    printShapes(os, "inference", options.shapes, options.optProfileIndex);
     os << "Iterations: "                << options.iterations                                   << std::endl <<
           "Duration: "                  << options.duration   << "s (+ "
                                         << options.warmup     << "ms warm up)"                  << std::endl <<
@@ -1915,7 +2095,8 @@ std::ostream& operator<<(std::ostream& os, const InferenceOptions& options)
           "Time Deserialize: "          << boolToEnabled(options.timeDeserialize)               << std::endl <<
           "Time Refit: "                << boolToEnabled(options.timeRefit)                     << std::endl <<
           "NVTX verbosity: "            << static_cast<int32_t>(options.nvtxVerbosity)          << std::endl <<
-          "Persistent Cache Ratio: "    << static_cast<float>(options.persistentCacheRatio)   << std::endl;
+          "Persistent Cache Ratio: "    << static_cast<float>(options.persistentCacheRatio)     << std::endl <<
+          "Optimization Profile Index: "<< options.optProfileIndex                     << std::endl;
     // clang-format on
 
     os << "Inputs:" << std::endl;
@@ -2062,7 +2243,7 @@ void BuildOptions::help(std::ostream& os)
           "                                           needs specifying IO format) or set the type and format once for broadcasting."                "\n"
           R"(                                     IO Formats: spec  ::= IOfmt[","spec])"                                                            "\n"
           "                                                 IOfmt ::= type:fmt"                                                                     "\n"
-          R"(                                               type  ::= "fp32"|"fp16"|"int32"|"int8")"                                                "\n"
+          R"(                                               type  ::= "fp32"|"fp16"|"bf16"|"int32"|"int8")"                                                "\n"
           R"(                                               fmt   ::= ("chw"|"chw2"|"chw4"|"hwc8"|"chw16"|"chw32"|"dhwc8"|)"                        "\n"
           R"(                                                          "cdhw32"|"hwc"|"dla_linear"|"dla_hwc4")["+"fmt])"                            "\n"
           "  --workspace=N                      Set workspace size in MiB."                                                                         "\n"
@@ -2100,6 +2281,7 @@ void BuildOptions::help(std::ostream& os)
           "                                                     a sparsity pattern (even if you loaded a model yourself)"                           "\n"
           "  --noTF32                           Disable tf32 precision (default is to enable tf32, in addition to fp32)"                            "\n"
           "  --fp16                             Enable fp16 precision, in addition to fp32 (default = disabled)"                                    "\n"
+          "  --bf16                             Enable bf16 precision, in addition to fp32 (default = disabled)"                                    "\n"
           "  --int8                             Enable int8 precision, in addition to fp32 (default = disabled)"                                    "\n"
           "  --fp8                              Enable fp8 precision, in addition to fp32 (default = disabled)"                                     "\n"
           "  --best                             Enable all precisions to achieve the best performance (default = disabled)"                         "\n"
@@ -2116,7 +2298,7 @@ void BuildOptions::help(std::ostream& os)
           "                                     layerName to specify the default precision for all the unspecified layers."                         "\n"
           R"(                                   Per-layer precision spec ::= layerPrecision[","spec])"                                              "\n"
           R"(                                                       layerPrecision ::= layerName":"precision)"                                      "\n"
-          R"(                                                       precision ::= "fp32"|"fp16"|"int32"|"int8")"                                    "\n"
+          R"(                                                       precision ::= "fp32"|"fp16"|"bf16"|"int32"|"int8")"                                    "\n"
           "  --layerOutputTypes=spec            Control per-layer output type constraints. Effective only when precisionConstraints is set to"      "\n"
           R"(                                   "obey" or "prefer". (default = none)"                                                               "\n"
           R"(                                   The specs are read left-to-right, and later ones override earlier ones. "*" can be used as a)"      "\n"
@@ -2124,7 +2306,7 @@ void BuildOptions::help(std::ostream& os)
           R"(                                   one output, then multiple types separated by "+" can be provided for this layer.)"                  "\n"
           R"(                                   Per-layer output type spec ::= layerOutputTypes[","spec])"                                          "\n"
           R"(                                                         layerOutputTypes ::= layerName":"type)"                                       "\n"
-          R"(                                                         type ::= "fp32"|"fp16"|"int32"|"int8"["+"type])"                              "\n"
+          R"(                                                         type ::= "fp32"|"fp16"|"bf16"|"int32"|"int8"["+"type])"                              "\n"
           "  --layerDeviceTypes=spec            Specify layer-specific device type."                                                                "\n"
           "                                     The specs are read left-to-right, and later ones override earlier ones. If a layer does not have"   "\n"
           "                                     a device type specified, the layer will opt for the default device type."                           "\n"
@@ -2153,6 +2335,7 @@ void BuildOptions::help(std::ostream& os)
           R"(                                                               |"JIT_CONVOLUTIONS")"                                                   "\n"
           "                                     For example, to disable cudnn and enable cublas: --tacticSources=-CUDNN,+CUBLAS"                    "\n"
           "  --noBuilderCache                   Disable timing cache in builder (default is to enable timing cache)"                                "\n"
+          "  --errorOnTimingCacheMiss           Emit error when a tactic being timed is not present in the timing cache (default = false)"          "\n"
           "  --heuristic                        Enable tactic selection heuristic in builder (default is to disable the heuristic)"                 "\n"
           "  --timingCacheFile=<file>           Save/load the serialized global timing cache"                                                       "\n"
           "  --preview=features                 Specify preview feature to be used by adding (+) or removing (-) preview features from the default" "\n"
@@ -2177,10 +2360,15 @@ void BuildOptions::help(std::ostream& os)
           "                                                filesystem (in the directory given by --tempdir)."                                       "\n"
           "                                     For example, to allow in-memory files and disallow temporary files:"                                "\n"
           "                                         --tempfileControls=in_memory:allow,temporary:deny"                                              "\n"
-          R"(                                   If a flag is unspecified, the default behavior is "allow".)"                                        "\n"
+          R"(                                     If a flag is unspecified, the default behavior is "allow".)"                                      "\n"
           "  --maxAuxStreams=N                  Set maximum number of auxiliary streams per inference stream that TRT is allowed to use to run "    "\n"
           "                                     kernels in parallel if the network contains ops that can run in parallel, with the cost of more "   "\n"
           "                                     memory usage. Set this to 0 for optimal memory usage. (default = using heuristics)"                 "\n"
+          "  --profile                          Build with dynamic shapes using a profile with the min/max/opt shapes provided. Can be specified"   "\n"
+          "                                         multiple times to create multiple profiles with contiguous index."                              "\n"
+          "                                     (ex: --profile=0 --minShapes=<spec> --optShapes=<spec> --maxShapes=<spec> --profile=1 ...)"         "\n"
+          "  --calibProfile                     Select the optimization profile to calibrate by index. (default = "
+                                                                                                                << defaultOptProfileIndex << ")"    "\n"
           ;
     // clang-format on
     os << std::flush;
@@ -2229,7 +2417,8 @@ void InferenceOptions::help(std::ostream& os)
                                                                                                "(default = " << defaultSleep << ")"  << std::endl <<
           "  --idleTime=N                Sleep N milliseconds between two continuous iterations"
                                                                                                "(default = " << defaultIdle << ")"   << std::endl <<
-          "  --infStreams=N              Instantiate N engines to run inference concurrently (default = "  << defaultStreams << ")"  << std::endl <<
+          "  --infStreams=N              Instantiate N execution contexts to run inference concurrently "
+                                                                                             "(default = " << defaultStreams << ")"  << std::endl <<
           "  --exposeDMA                 Serialize DMA transfers to and from device (default = disabled)."                           << std::endl <<
           "  --noDataTransfers           Disable DMA transfers to and from device (default = enabled)."                              << std::endl <<
           "  --useManagedMemory          Use managed memory instead of separate host and device allocations (default = disabled)."   << std::endl <<
@@ -2246,7 +2435,9 @@ void InferenceOptions::help(std::ostream& os)
           "  --skipInference             Exit after the engine has been built and skip inference perf measurement "
                                                                                                              "(default = disabled)"  << std::endl <<
           "  --persistentCacheRatio      Set the persistentCacheLimit in ratio, 0.5 represent half of max persistent L2 size "
-                                                                                                                    "(default = 0)"  << std::endl;
+                                                                                                                    "(default = 0)"  << std::endl <<
+          "  --useProfile                Set the optimization profile for the inference context "
+                                                                          "(default = " << defaultOptProfileIndex << " )."  << std::endl;
     // clang-format on
 }
 
@@ -2268,6 +2459,8 @@ void ReportingOptions::help(std::ostream& os)
                                                                                   "(default = disabled)" << std::endl <<
           "  --dumpProfile               Print profile information per layer (default = disabled)"       << std::endl <<
           "  --dumpLayerInfo             Print layer information of the engine to console "
+                                                                                "(default = disabled)"   << std::endl <<
+          "  --dumpOptimizationProfile   Print the optimization profile(s) information "
                                                                                 "(default = disabled)"   << std::endl <<
           "  --exportTimes=<file>        Write the timing results in a json file (default = disabled)"   << std::endl <<
           "  --exportOutput=<file>       Write the output tensors to a json file (default = disabled)"   << std::endl <<

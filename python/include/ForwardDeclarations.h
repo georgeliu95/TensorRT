@@ -54,7 +54,7 @@ using namespace pybind11::literals;
 struct FallbackString
 {
     FallbackString() = default;
-    FallbackString(std::string other)
+    FallbackString(std::string const& other)
         : mData{other}
     {
     }

@@ -110,6 +110,8 @@ public:
     SampleINT8APIParams mParams; //!< Stores Sample Parameter
 
 private:
+    SampleUniquePtr<IRuntime> mRuntime{}; //!< The TensorRT Runtime used to deserialize the engine.
+
     std::shared_ptr<nvinfer1::ICudaEngine> mEngine{nullptr}; //!< The TensorRT engine used to run the network
 
     std::map<std::string, std::string> mInOut; //!< Input and output mapping of the network
@@ -259,9 +261,10 @@ void SampleINT8API::setLayerPrecision(SampleUniquePtr<nvinfer1::INetworkDefiniti
 void SampleINT8API::writeNetworkTensorNames(const SampleUniquePtr<nvinfer1::INetworkDefinition>& network)
 {
     sample::gLogInfo << "Sample requires to run with per-tensor dynamic range." << std::endl;
-    sample::gLogInfo << "In order to run Int8 inference without calibration, user will need to provide dynamic range for all "
-                "the network tensors."
-             << std::endl;
+    sample::gLogInfo
+        << "In order to run Int8 inference without calibration, user will need to provide dynamic range for all "
+           "the network tensors."
+        << std::endl;
 
     std::ofstream tensorsFile{mParams.networkTensorsFileName};
 
@@ -313,12 +316,14 @@ bool SampleINT8API::setDynamicRange(SampleUniquePtr<nvinfer1::INetworkDefinition
     sample::gLogInfo << "Setting Per Tensor Dynamic Range" << std::endl;
     if (mParams.verbose)
     {
-        sample::gLogInfo << "If dynamic range for a tensor is missing, TensorRT will run inference assuming dynamic range for "
-                    "the tensor as optional."
-                 << std::endl;
-        sample::gLogInfo << "If dynamic range for a tensor is required then inference will fail. Follow README.md to generate "
-                    "missing per-tensor dynamic range."
-                 << std::endl;
+        sample::gLogInfo
+            << "If dynamic range for a tensor is missing, TensorRT will run inference assuming dynamic range for "
+               "the tensor as optional."
+            << std::endl;
+        sample::gLogInfo
+            << "If dynamic range for a tensor is required then inference will fail. Follow README.md to generate "
+               "missing per-tensor dynamic range."
+            << std::endl;
     }
     // set dynamic range for network input tensors
     for (int i = 0; i < network->getNbInputs(); ++i)
@@ -379,6 +384,8 @@ bool SampleINT8API::setDynamicRange(SampleUniquePtr<nvinfer1::INetworkDefinition
                     case DataType::kINT32: val = static_cast<const int32_t*>(wts.values)[wb]; break;
                     case DataType::kUINT8: val = static_cast<uint8_t const*>(wts.values)[wb]; break;
                     case DataType::kFP8: ASSERT(!"FP8 is not supported"); break;
+                    case DataType::kBF16:
+                    case DataType::kINT64: ASSERT(false && "Unsupported data type");
                     }
                     max = std::max(max, std::abs(val));
                 }
@@ -504,7 +511,8 @@ sample::Logger::TestResult SampleINT8API::build()
 
     if (!builder->platformHasFastInt8())
     {
-        sample::gLogError << "Platform does not support INT8 inference. sampleINT8API can only run in INT8 Mode." << std::endl;
+        sample::gLogError << "Platform does not support INT8 inference. sampleINT8API can only run in INT8 Mode."
+                          << std::endl;
         return sample::Logger::TestResult::kWAIVED;
     }
 
@@ -578,8 +586,12 @@ sample::Logger::TestResult SampleINT8API::build()
         return sample::Logger::TestResult::kFAILED;
     }
 
-    SampleUniquePtr<IRuntime> runtime{createInferRuntime(sample::gLogger.getTRTLogger())};
-    if (!runtime)
+    if (!mRuntime)
+    {
+        mRuntime = SampleUniquePtr<IRuntime>(createInferRuntime(sample::gLogger.getTRTLogger()));
+    }
+
+    if (!mRuntime)
     {
         sample::gLogError << "Unable to create runtime." << std::endl;
         return sample::Logger::TestResult::kFAILED;
@@ -587,7 +599,7 @@ sample::Logger::TestResult SampleINT8API::build()
 
     // build TRT engine
     mEngine = std::shared_ptr<nvinfer1::ICudaEngine>(
-        runtime->deserializeCudaEngine(plan->data(), plan->size()), samplesCommon::InferDeleter());
+        mRuntime->deserializeCudaEngine(plan->data(), plan->size()), samplesCommon::InferDeleter());
     if (!mEngine)
     {
         sample::gLogError << "Unable to build cuda engine." << std::endl;
@@ -624,6 +636,12 @@ sample::Logger::TestResult SampleINT8API::infer()
         return sample::Logger::TestResult::kFAILED;
     }
 
+    for (int32_t i = 0; i < mEngine->getNbIOTensors(); i++)
+    {
+        auto const name = mEngine->getIOTensorName(i);
+        context->setTensorAddress(name, buffers.getDeviceBuffer(name));
+    }
+
     // Read the input data into the managed buffers
     // There should be just 1 input tensor
 
@@ -640,7 +658,7 @@ sample::Logger::TestResult SampleINT8API::infer()
     buffers.copyInputToDeviceAsync(stream);
 
     // Asynchronously enqueue the inference work
-    if (!context->enqueueV2(buffers.getDeviceBindings().data(), stream, nullptr))
+    if (!context->enqueueV3(stream))
     {
         return sample::Logger::TestResult::kFAILED;
     }

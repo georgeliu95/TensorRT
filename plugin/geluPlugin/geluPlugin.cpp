@@ -203,6 +203,8 @@ int32_t GeluPluginDynamic::enqueue(nvinfer1::PluginTensorDesc const* inputDesc,
     {
     case DataType::kFLOAT: return enqueueTyped<float>(inputs[0], outputs[0], inputVolume, stream);
     case DataType::kHALF: return enqueueTyped<half>(inputs[0], outputs[0], inputVolume, stream);
+    case DataType::kBF16:
+    case DataType::kINT64: PLUGIN_FAIL("Unsupported data type");
     default: return STATUS_FAILURE;
     }
 }

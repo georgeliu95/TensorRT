@@ -16,7 +16,6 @@
 #
 
 import ctypes
-import glob
 import os
 import sys
 import warnings
@@ -167,7 +166,7 @@ def nptype(trt_type):
         int32: np.int32,
         bool: np.bool_,
         uint8: np.uint8,
-        # Note: fp8 has no equivalent numpy type
+        # Note: fp8 and bfloat16 have no equivalent numpy type
     }
     if trt_type in mapping:
         return mapping[trt_type]
@@ -186,6 +185,7 @@ def _itemsize(trt_type):
     mapping = {
         float32: 4,
         float16: 2,
+        bfloat16: 2,
         int8: 1,
         int32: 4,
         bool: 1,

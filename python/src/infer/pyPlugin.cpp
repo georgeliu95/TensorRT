@@ -200,7 +200,9 @@ void bindPlugin(py::module& m)
         .value("INT32", PluginFieldType::kINT32)
         .value("CHAR", PluginFieldType::kCHAR)
         .value("DIMS", PluginFieldType::kDIMS)
-        .value("UNKNOWN", PluginFieldType::kUNKNOWN);
+        .value("UNKNOWN", PluginFieldType::kUNKNOWN)
+        .value("BF16", PluginFieldType::kBF16)
+        .value("INT64", PluginFieldType::kINT64);
 
     py::class_<PluginField>(m, "PluginField", PluginFieldDoc::descr, py::module_local())
         .def(py::init(lambdas::plugin_field_default_constructor), "name"_a = "", py::keep_alive<1, 2>{})

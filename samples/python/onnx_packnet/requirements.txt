@@ -1,5 +1,6 @@
 onnx==1.10.2; python_version<"3.8"
-onnx==1.12.0; python_version>="3.8"
+onnx==1.12.0; python_version>="3.8" and python_version<"3.11"
+onnx==1.13.0; python_version>="3.11"
 --extra-index-url https://pypi.ngc.nvidia.com
 onnx-graphsurgeon
 -f https://download.pytorch.org/whl/torch_stable.html

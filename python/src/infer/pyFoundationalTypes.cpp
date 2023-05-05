@@ -175,6 +175,7 @@ void bindFoundationalTypes(py::module& m)
     py::enum_<DataType>(m, "DataType", DataTypeDoc::descr, py::module_local())
         .value("FLOAT", DataType::kFLOAT, DataTypeDoc::float32)
         .value("HALF", DataType::kHALF, DataTypeDoc::float16)
+        .value("BF16", DataType::kBF16, DataTypeDoc::bfloat16)
         .value("INT8", DataType::kINT8, DataTypeDoc::int8)
         .value("INT32", DataType::kINT32, DataTypeDoc::int32)
         .value("BOOL", DataType::kBOOL, DataTypeDoc::boolean)
@@ -184,6 +185,7 @@ void bindFoundationalTypes(py::module& m)
     // Also create direct mappings (so we can call trt.float32, for example).
     m.attr("float32") = DataType::kFLOAT;
     m.attr("float16") = DataType::kHALF;
+    m.attr("bfloat16") = DataType::kBF16;
     m.attr("int8") = DataType::kINT8;
     m.attr("int32") = DataType::kINT32;
     m.attr("bool") = DataType::kBOOL;

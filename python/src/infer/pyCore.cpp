@@ -18,6 +18,10 @@
 // This contains the core elements of the API, i.e. builder, logger, engine, runtime, context.
 #include "ForwardDeclarations.h"
 #include "utils.h"
+#if ENABLE_MDTRT
+#include "api/internal.h"
+#include "common/internalEngineAPI.h"
+#endif // ENABLE_MDTRT
 #include <chrono>
 #include <iomanip>
 #include <pybind11/stl.h>
@@ -178,6 +182,12 @@ static const auto runtime_deserialize_cuda_engine = [](IRuntime& self, py::buffe
     py::buffer_info info = serializedEngine.request();
     return self.deserializeCudaEngine(info.ptr, info.size * info.itemsize);
 };
+#if ENABLE_MDTRT
+static auto const runtime_deserialize_engine = [](IRuntime& self, py::buffer& serializedEngine, int64_t instance) {
+    py::buffer_info info = serializedEngine.request();
+    return nvinfer1DeserializeEngine(self, info.ptr, info.size * info.itemsize, instance);
+};
+#endif // ENABLE_MDTRT
 
 // For ICudaEngine
 bool engine_binding_is_input(ICudaEngine& self, std::string const& name)
@@ -211,9 +221,10 @@ static const auto engine_getitem = [](ICudaEngine& self, int32_t pyIndex) {
 std::vector<Dims> engine_get_profile_shape(ICudaEngine& self, int32_t profileIndex, int32_t bindingIndex)
 {
     std::vector<Dims> shapes{};
-    shapes.emplace_back(self.getProfileDimensions(bindingIndex, profileIndex, OptProfileSelector::kMIN));
-    shapes.emplace_back(self.getProfileDimensions(bindingIndex, profileIndex, OptProfileSelector::kOPT));
-    shapes.emplace_back(self.getProfileDimensions(bindingIndex, profileIndex, OptProfileSelector::kMAX));
+    auto const tensorName = self.getIOTensorName(bindingIndex);
+    shapes.emplace_back(self.getProfileShape(tensorName, profileIndex, OptProfileSelector::kMIN));
+    shapes.emplace_back(self.getProfileShape(tensorName, profileIndex, OptProfileSelector::kOPT));
+    shapes.emplace_back(self.getProfileShape(tensorName, profileIndex, OptProfileSelector::kMAX));
     return shapes;
 };
 // Overload to allow using binding names instead of indices.
@@ -885,7 +896,14 @@ void bindCore(py::module& m)
             &IExecutionContext::setPersistentCacheLimit)
         .def_property("nvtx_verbosity", &IExecutionContext::getNvtxVerbosity, &IExecutionContext::setNvtxVerbosity)
         .def("set_aux_streams", lambdas::set_aux_streams, "aux_streams"_a, IExecutionContextDoc::set_aux_streams)
-        .def("__del__", &utils::doNothingDel<IExecutionContext>);
+        .def("__del__", &utils::doNothingDel<IExecutionContext>)
+#if ENABLE_MDTRT
+        .def("set_communicator", &nvinfer1SetCommunicator, "communicator"_a, "type"_a,
+            IExecutionContextDoc::set_communicator)
+        .def("get_communicator", &nvinfer1GetCommunicator, IExecutionContextDoc::get_communicator)
+        .def("get_communicator_type", &nvinfer1GetCommunicatorType, IExecutionContextDoc::get_communicator_type)
+#endif // ENABLE_MDTRT
+        ;
 
     py::class_<ICudaEngine>(m, "ICudaEngine", ICudaEngineDoc::descr, py::module_local())
         .def_property_readonly("num_bindings", &ICudaEngine::getNbBindings)
@@ -1044,6 +1062,11 @@ void bindCore(py::module& m)
             py::keep_alive<0, 1>{})
         .def_property_readonly("hardware_compatibility_level", &ICudaEngine::getHardwareCompatibilityLevel)
         .def_property_readonly("num_aux_streams", &ICudaEngine::getNbAuxStreams)
+#if ENABLE_MDTRT
+        .def_property_readonly("instance_id", &nvinfer1GetInstanceID)
+        .def_property_readonly("num_instances", &nvinfer1GetNbInstances)
+        .def_property_readonly("local_enqueue_input", &nvinfer1IsEnqueueInputLocal)
+#endif // ENABLE_MDTRT
         .def("__del__", &utils::doNothingDel<ICudaEngine>);
 
     py::enum_<AllocatorFlag>(m, "AllocatorFlag", py::arithmetic{}, AllocatorFlagDoc::descr, py::module_local())
@@ -1068,6 +1091,7 @@ void bindCore(py::module& m)
 
     py::enum_<BuilderFlag>(m, "BuilderFlag", py::arithmetic{}, BuilderFlagDoc::descr, py::module_local())
         .value("FP16", BuilderFlag::kFP16, BuilderFlagDoc::FP16)
+        .value("BF16", BuilderFlag::kBF16, BuilderFlagDoc::BF16)
         .value("INT8", BuilderFlag::kINT8, BuilderFlagDoc::INT8)
         .value("DEBUG", BuilderFlag::kDEBUG, BuilderFlagDoc::DEBUG)
         .value("GPU_FALLBACK", BuilderFlag::kGPU_FALLBACK, BuilderFlagDoc::GPU_FALLBACK)
@@ -1088,7 +1112,9 @@ void bindCore(py::module& m)
             "ENABLE_TACTIC_HEURISTIC", BuilderFlag::kENABLE_TACTIC_HEURISTIC, BuilderFlagDoc::ENABLE_TACTIC_HEURISTIC)
         .value("VERSION_COMPATIBLE", BuilderFlag::kVERSION_COMPATIBLE, BuilderFlagDoc::VERSION_COMPATIBLE)
         .value("EXCLUDE_LEAN_RUNTIME", BuilderFlag::kEXCLUDE_LEAN_RUNTIME, BuilderFlagDoc::EXCLUDE_LEAN_RUNTIME)
-        .value("FP8", BuilderFlag::kFP8, BuilderFlagDoc::FP8);
+        .value("FP8", BuilderFlag::kFP8, BuilderFlagDoc::FP8)
+        .value("ERROR_ON_TIMING_CACHE_MISS", BuilderFlag::kERROR_ON_TIMING_CACHE_MISS,
+            BuilderFlagDoc::ERROR_ON_TIMING_CACHE_MISS);
 
     py::enum_<MemoryPoolType>(m, "MemoryPoolType", MemoryPoolTypeDoc::descr, py::module_local())
         .value("WORKSPACE", MemoryPoolType::kWORKSPACE, MemoryPoolTypeDoc::WORKSPACE)
@@ -1230,6 +1256,18 @@ void bindCore(py::module& m)
             &IBuilderConfig::setHardwareCompatibilityLevel)
         .def_property("plugins_to_serialize", lambdas::get_plugins_to_serialize, lambdas::set_plugins_to_serialize)
         .def_property("max_aux_streams", &IBuilderConfig::getMaxAuxStreams, &IBuilderConfig::setMaxAuxStreams)
+#if ENABLE_MDTRT
+        // This gets flipped to the C++ API's with TRT-17558
+        .def_property("num_instances", &nvinfer1GetNbInstances, &nvinfer1SetNbInstances)
+        .def("insert_instance_group", &nvinfer1InsertInstanceGroup, "instance"_a, "group"_a,
+            IBuilderConfigDoc::insert_instance_group)
+        .def("remove_instance_group", &nvinfer1RemoveInstanceGroup, "instance"_a, "group"_a,
+            IBuilderConfigDoc::remove_instance_group)
+        .def("get_num_instance_groups", &nvinfer1GetNbInstanceGroups, "instance"_a,
+            IBuilderConfigDoc::get_num_instance_groups)
+        .def("get_instance_group", &nvinfer1GetInstanceGroup, "instance"_a, "num"_a,
+            IBuilderConfigDoc::get_instance_group)
+#endif // ENABLE_MDTRT
         .def("__del__", &utils::doNothingDel<IBuilderConfig>);
 
     py::enum_<NetworkDefinitionCreationFlag>(m, "NetworkDefinitionCreationFlag", py::arithmetic{},
@@ -1237,7 +1275,9 @@ void bindCore(py::module& m)
         .value("EXPLICIT_BATCH", NetworkDefinitionCreationFlag::kEXPLICIT_BATCH,
             NetworkDefinitionCreationFlagDoc::EXPLICIT_BATCH)
         .value("EXPLICIT_PRECISION", NetworkDefinitionCreationFlag::kEXPLICIT_PRECISION,
-            NetworkDefinitionCreationFlagDoc::EXPLICIT_PRECISION);
+            NetworkDefinitionCreationFlagDoc::EXPLICIT_PRECISION)
+        .value("kSTRONGLY_TYPED", NetworkDefinitionCreationFlag::kSTRONGLY_TYPED,
+            NetworkDefinitionCreationFlagDoc::STRONGLY_TYPED);
 
     // Builder
     py::class_<IBuilder>(m, "Builder", BuilderDoc::descr, py::module_local())

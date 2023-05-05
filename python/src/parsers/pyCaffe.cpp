@@ -33,7 +33,7 @@ static const auto parse_binary_proto = [](ICaffeParser& self, const std::string&
 
     // Type-erasure allows us to properly destroy the IBinaryProtoBlob in the bindings.
     nvcaffeparser1::IBinaryProtoBlob* proto = self.parseBinaryProto(filename.c_str());
-    VoidFunc freeFunc = [](void* p) { static_cast<IBinaryProtoBlob*>(p)->destroy(); };
+    VoidFunc freeFunc = [](void* p) { delete static_cast<IBinaryProtoBlob*>(p); };
     py::capsule freeBlob{static_cast<void*>(proto), freeFunc};
 
     // Explicitly check for narrowing dimensions
