@@ -98,8 +98,9 @@ nvinfer1::ICudaEngine* LazilyDeserializedEngine::get()
 
     if (mEngine == nullptr)
     {
+        auto const& engineBlob = getBlob();
         SMP_RETVAL_IF_FALSE(
-            !mEngineBlob.empty(), "Engine blob is empty. Nothing to deserialize!", nullptr, sample::gLogError);
+            !engineBlob.empty(), "Engine blob is empty. Nothing to deserialize!", nullptr, sample::gLogError);
 
         using time_point = std::chrono::time_point<std::chrono::high_resolution_clock>;
         using duration = std::chrono::duration<float>;
@@ -141,12 +142,12 @@ nvinfer1::ICudaEngine* LazilyDeserializedEngine::get()
         {
             mRuntime->getPluginRegistry().loadLibrary(pluginPath.c_str());
         }
-        mEngine.reset(mRuntime->deserializeCudaEngine(mEngineBlob.data(), mEngineBlob.size()));
+        mEngine.reset(mRuntime->deserializeCudaEngine(engineBlob.data, engineBlob.size));
         SMP_RETVAL_IF_FALSE(mEngine != nullptr, "Engine deserialization failed", nullptr, sample::gLogError);
 
         time_point const deserializeEndTime{std::chrono::high_resolution_clock::now()};
-        sample::gLogInfo << "Engine deserialized in "
-                            << duration(deserializeEndTime - deserializeStartTime).count() << " sec." << std::endl;
+        sample::gLogInfo << "Engine deserialized in " << duration(deserializeEndTime - deserializeStartTime).count()
+                         << " sec." << std::endl;
     }
 
     return mEngine.get();
@@ -163,13 +164,14 @@ nvinfer1::safe::ICudaEngine* LazilyDeserializedEngine::getSafe()
         mIsSafe, "Safe mode is not enabled, but trying to get safe engine!", nullptr, sample::gLogError);
 
     ASSERT(sample::hasSafeRuntime());
+    auto engineBlob = getBlob();
     if (mSafeEngine == nullptr)
     {
         SMP_RETVAL_IF_FALSE(
-            !mEngineBlob.empty(), "Engine blob is empty. Nothing to deserialize!", nullptr, sample::gLogError);
+            !engineBlob.empty(), "Engine blob is empty. Nothing to deserialize!", nullptr, sample::gLogError);
 
-        SMP_RETVAL_IF_FALSE(
-            mDLACore == -1, "Safe DLA engine built with kDLA_STANDALONE should not be deserialized in TRT!", nullptr,
+        SMP_RETVAL_IF_FALSE(mDLACore == -1,
+            "Safe DLA engine built with kDLA_STANDALONE should not be deserialized in TRT!", nullptr,
             sample::gLogError);
 
         using time_point = std::chrono::time_point<std::chrono::high_resolution_clock>;
@@ -179,13 +181,12 @@ nvinfer1::safe::ICudaEngine* LazilyDeserializedEngine::getSafe()
         std::unique_ptr<safe::IRuntime> safeRuntime{sample::createSafeInferRuntime(sample::gLogger.getTRTLogger())};
         SMP_RETVAL_IF_FALSE(safeRuntime != nullptr, "SafeRuntime creation failed", nullptr, sample::gLogError);
         safeRuntime->setErrorRecorder(&gRecorder);
-        mSafeEngine.reset(
-            safeRuntime->deserializeCudaEngine(mEngineBlob.data(), mEngineBlob.size()));
+        mSafeEngine.reset(safeRuntime->deserializeCudaEngine(engineBlob.data, engineBlob.size));
         SMP_RETVAL_IF_FALSE(mSafeEngine != nullptr, "SafeEngine deserialization failed", nullptr, sample::gLogError);
 
         time_point const deserializeEndTime{std::chrono::high_resolution_clock::now()};
-        sample::gLogInfo << "SafeEngine deserialized in "
-                            << duration(deserializeEndTime - deserializeStartTime).count() << " sec." << std::endl;
+        sample::gLogInfo << "SafeEngine deserialized in " << duration(deserializeEndTime - deserializeStartTime).count()
+                         << " sec." << std::endl;
     }
 
     return mSafeEngine.get();
@@ -667,7 +668,8 @@ void setMemoryPoolLimits(IBuilderConfig& config, BuildOptions const& build)
         --sizeInPowerOf2;
         if (sizeInPowerOf2 == 30)
         {
-            sample::gLogWarning << "User-specified DLA managed SRAM size is too large and has been clipped to 2^30 bytes. "
+            sample::gLogWarning
+                << "User-specified DLA managed SRAM size is too large and has been clipped to 2^30 bytes. "
                 << "Please make sure that this is the intended managed SRAM size." << std::endl;
         }
         config.setMemoryPoolLimit(MemoryPoolType::kDLA_MANAGED_SRAM, static_cast<size_t>(1) << sizeInPowerOf2);
@@ -702,40 +704,49 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
     INetworkDefinition& network, IBuilderConfig& config, std::unique_ptr<nvinfer1::IInt8Calibrator>& calibrator,
     std::ostream& err, std::vector<std::vector<int8_t>>& sparseWeights)
 {
-    IOptimizationProfile* profile{nullptr};
+    bool shouldCreateOptimizationProfile{false};
+    std::vector<IOptimizationProfile*> profiles{};
     if (build.maxBatch)
     {
         builder.setMaxBatchSize(build.maxBatch);
     }
     else
     {
-        profile = builder.createOptimizationProfile();
+        shouldCreateOptimizationProfile = true;
+        profiles.resize(build.optProfiles.size());
+        for (auto& profile : profiles)
+        {
+            profile = builder.createOptimizationProfile();
+        }
     }
 
     bool hasDynamicShapes{false};
 
     bool broadcastInputFormats = broadcastIOFormats(build.inputFormats, network.getNbInputs());
 
-    if (profile)
+    if (shouldCreateOptimizationProfile)
     {
         // Check if the provided input tensor names match the input tensors of the engine.
         // Throw an error if the provided input tensor names cannot be found because it implies a potential typo.
-        for (auto const& shape : build.shapes)
+        for (auto const& shapes : build.optProfiles)
         {
-            bool tensorNameFound{false};
-            for (int32_t i = 0; i < network.getNbInputs(); ++i)
+            for (auto const& shape : shapes)
             {
-                if (network.getInput(i)->getName() == shape.first)
+                bool tensorNameFound{false};
+                for (int32_t i = 0; i < network.getNbInputs(); ++i)
                 {
-                    tensorNameFound = true;
-                    break;
+                    if (network.getInput(i)->getName() == shape.first)
+                    {
+                        tensorNameFound = true;
+                        break;
+                    }
                 }
-            }
-            if (!tensorNameFound)
-            {
-                sample::gLogError << "Cannot find input tensor with name \"" << shape.first << "\" in the network "
-                                  << "inputs! Please make sure the input tensor names are correct." << std::endl;
-                return false;
+                if (!tensorNameFound)
+                {
+                    sample::gLogError << "Cannot find input tensor with name \"" << shape.first << "\" in the network "
+                                      << "inputs! Please make sure the input tensor names are correct." << std::endl;
+                    return false;
+                }
             }
         }
     }
@@ -758,6 +769,7 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
             case DataType::kBOOL:
             case DataType::kHALF:
             case DataType::kUINT8:
+            case DataType::kBF16:
                 // Leave these as is.
                 break;
             case DataType::kFLOAT:
@@ -766,11 +778,12 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
                 input->setType(DataType::kFLOAT);
                 break;
             case DataType::kFP8: ASSERT(!"FP8 is not supported"); break;
+            case DataType::kINT64: ASSERT(false && "Unsupported data type");
             }
             input->setAllowedFormats(1U << static_cast<int>(TensorFormat::kLINEAR));
         }
 
-        if (profile)
+        if (shouldCreateOptimizationProfile)
         {
             auto const dims = input->getDimensions();
             auto const isScalar = dims.nbDims == 0;
@@ -779,72 +792,78 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
             if (isDynamicInput)
             {
                 hasDynamicShapes = true;
-                auto shape = build.shapes.find(input->getName());
-                ShapeRange shapes{};
-
-                // If no shape is provided, set dynamic dimensions to 1.
-                if (shape == build.shapes.end())
+                for (size_t i = 0; i < build.optProfiles.size(); i++)
                 {
-                    constexpr int DEFAULT_DIMENSION = 1;
-                    std::vector<int> staticDims;
-                    if (input->isShapeTensor())
+                    auto const& optShapes = build.optProfiles[i];
+                    auto profile = profiles[i];
+                    auto shape = optShapes.find(input->getName());
+                    ShapeRange shapes{};
+
+                    // If no shape is provided, set dynamic dimensions to 1.
+                    if (shape == optShapes.end())
                     {
-                        if (isScalar)
+                        constexpr int kDEFAULT_DIMENSION = 1;
+                        std::vector<int> staticDims;
+                        if (input->isShapeTensor())
                         {
-                            staticDims.push_back(1);
+                            if (isScalar)
+                            {
+                                staticDims.push_back(1);
+                            }
+                            else
+                            {
+                                staticDims.resize(dims.d[0]);
+                                std::fill(staticDims.begin(), staticDims.end(), kDEFAULT_DIMENSION);
+                            }
                         }
                         else
                         {
-                            staticDims.resize(dims.d[0]);
-                            std::fill(staticDims.begin(), staticDims.end(), DEFAULT_DIMENSION);
+                            staticDims.resize(dims.nbDims);
+                            std::transform(dims.d, dims.d + dims.nbDims, staticDims.begin(),
+                                [&](int dimension) { return dimension > 0 ? dimension : kDEFAULT_DIMENSION; });
                         }
+                        sample::gLogWarning
+                            << "Dynamic dimensions required for input: " << input->getName()
+                            << ", but no shapes were provided. Automatically overriding shape to: " << staticDims
+                            << std::endl;
+                        std::fill(shapes.begin(), shapes.end(), staticDims);
                     }
                     else
                     {
-                        staticDims.resize(dims.nbDims);
-                        std::transform(dims.d, dims.d + dims.nbDims, staticDims.begin(),
-                            [&](int dimension) { return dimension > 0 ? dimension : DEFAULT_DIMENSION; });
+                        shapes = shape->second;
                     }
-                    sample::gLogWarning << "Dynamic dimensions required for input: " << input->getName()
-                                        << ", but no shapes were provided. Automatically overriding shape to: "
-                                        << staticDims << std::endl;
-                    std::fill(shapes.begin(), shapes.end(), staticDims);
-                }
-                else
-                {
-                    shapes = shape->second;
-                }
 
-                std::vector<int> profileDims{};
-                if (input->isShapeTensor())
-                {
-                    profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMIN)];
-                    SMP_RETVAL_IF_FALSE(profile->setShapeValues(input->getName(), OptProfileSelector::kMIN,
-                                            profileDims.data(), static_cast<int>(profileDims.size())),
-                        "Error in set shape values MIN", false, err);
-                    profileDims = shapes[static_cast<size_t>(OptProfileSelector::kOPT)];
-                    SMP_RETVAL_IF_FALSE(profile->setShapeValues(input->getName(), OptProfileSelector::kOPT,
-                                            profileDims.data(), static_cast<int>(profileDims.size())),
-                        "Error in set shape values OPT", false, err);
-                    profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMAX)];
-                    SMP_RETVAL_IF_FALSE(profile->setShapeValues(input->getName(), OptProfileSelector::kMAX,
-                                            profileDims.data(), static_cast<int>(profileDims.size())),
-                        "Error in set shape values MAX", false, err);
-                }
-                else
-                {
-                    profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMIN)];
-                    SMP_RETVAL_IF_FALSE(
-                        profile->setDimensions(input->getName(), OptProfileSelector::kMIN, toDims(profileDims)),
-                        "Error in set dimensions to profile MIN", false, err);
-                    profileDims = shapes[static_cast<size_t>(OptProfileSelector::kOPT)];
-                    SMP_RETVAL_IF_FALSE(
-                        profile->setDimensions(input->getName(), OptProfileSelector::kOPT, toDims(profileDims)),
-                        "Error in set dimensions to profile OPT", false, err);
-                    profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMAX)];
-                    SMP_RETVAL_IF_FALSE(
-                        profile->setDimensions(input->getName(), OptProfileSelector::kMAX, toDims(profileDims)),
-                        "Error in set dimensions to profile MAX", false, err);
+                    std::vector<int> profileDims{};
+                    if (input->isShapeTensor())
+                    {
+                        profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMIN)];
+                        SMP_RETVAL_IF_FALSE(profile->setShapeValues(input->getName(), OptProfileSelector::kMIN,
+                                                profileDims.data(), static_cast<int>(profileDims.size())),
+                            "Error in set shape values MIN", false, err);
+                        profileDims = shapes[static_cast<size_t>(OptProfileSelector::kOPT)];
+                        SMP_RETVAL_IF_FALSE(profile->setShapeValues(input->getName(), OptProfileSelector::kOPT,
+                                                profileDims.data(), static_cast<int>(profileDims.size())),
+                            "Error in set shape values OPT", false, err);
+                        profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMAX)];
+                        SMP_RETVAL_IF_FALSE(profile->setShapeValues(input->getName(), OptProfileSelector::kMAX,
+                                                profileDims.data(), static_cast<int>(profileDims.size())),
+                            "Error in set shape values MAX", false, err);
+                    }
+                    else
+                    {
+                        profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMIN)];
+                        SMP_RETVAL_IF_FALSE(
+                            profile->setDimensions(input->getName(), OptProfileSelector::kMIN, toDims(profileDims)),
+                            "Error in set dimensions to profile MIN", false, err);
+                        profileDims = shapes[static_cast<size_t>(OptProfileSelector::kOPT)];
+                        SMP_RETVAL_IF_FALSE(
+                            profile->setDimensions(input->getName(), OptProfileSelector::kOPT, toDims(profileDims)),
+                            "Error in set dimensions to profile OPT", false, err);
+                        profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMAX)];
+                        SMP_RETVAL_IF_FALSE(
+                            profile->setDimensions(input->getName(), OptProfileSelector::kMAX, toDims(profileDims)),
+                            "Error in set dimensions to profile MAX", false, err);
+                    }
                 }
             }
         }
@@ -853,11 +872,12 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
     for (uint32_t i = 0, n = network.getNbOutputs(); i < n; i++)
     {
         auto* output = network.getOutput(i);
-        if (profile)
+        if (shouldCreateOptimizationProfile)
         {
             auto const dims = output->getDimensions();
             // A shape tensor output with known static dimensions may have dynamic shape values inside it.
-            auto const isDynamicOutput = std::any_of(dims.d, dims.d + dims.nbDims, [](int32_t dim) { return dim == -1; })
+            auto const isDynamicOutput
+                = std::any_of(dims.d, dims.d + dims.nbDims, [](int32_t dim) { return dim == -1; })
                 || output->isShapeTensor();
             if (isDynamicOutput)
             {
@@ -866,7 +886,7 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
         }
     }
 
-    if (!hasDynamicShapes && !build.shapes.empty())
+    if (!hasDynamicShapes && !build.optProfiles[0].empty())
     {
         sample::gLogError << "Static model does not take explicit shapes since the shape of inference tensors will be "
                              "determined by the model itself"
@@ -874,11 +894,14 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
         return false;
     }
 
-    if (profile && hasDynamicShapes)
+    if (shouldCreateOptimizationProfile && hasDynamicShapes)
     {
-        SMP_RETVAL_IF_FALSE(profile->isValid(), "Required optimization profile is invalid", false, err);
-        SMP_RETVAL_IF_FALSE(
-            config.addOptimizationProfile(profile) != -1, "Error in add optimization profile", false, err);
+        for (auto profile : profiles)
+        {
+            SMP_RETVAL_IF_FALSE(profile->isValid(), "Required optimization profile is invalid", false, err);
+            SMP_RETVAL_IF_FALSE(
+                config.addOptimizationProfile(profile) != -1, "Error in add optimization profile", false, err);
+        }
     }
 
     bool broadcastOutputFormats = broadcastIOFormats(build.outputFormats, network.getNbOutputs(), false);
@@ -916,6 +939,11 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
     if (build.timingCacheMode == TimingCacheMode::kDISABLE)
     {
         config.setFlag(BuilderFlag::kDISABLE_TIMING_CACHE);
+    }
+
+    if (build.errorOnTimingCacheMiss)
+    {
+        config.setFlag(BuilderFlag::kERROR_ON_TIMING_CACHE_MISS);
     }
 
     if (!build.tf32)
@@ -971,9 +999,12 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
     {
         config.setFlag(BuilderFlag::kINT8);
     }
+    if (build.bf16)
+    {
+        config.setFlag(BuilderFlag::kBF16);
+    }
 
-    SMP_RETVAL_IF_FALSE(!(build.int8 && build.fp8),
-        "FP8 and INT8 precisions have been specified", false, err);
+    SMP_RETVAL_IF_FALSE(!(build.int8 && build.fp8), "FP8 and INT8 precisions have been specified", false, err);
 
     if (build.fp8)
     {
@@ -1067,9 +1098,10 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
             {
                 elemCount.push_back(volume(profileCalib->getDimensions(input->getName(), OptProfileSelector::kOPT)));
             }
-            else if (profile && isDynamicInput)
+            else if (!profiles.empty() && isDynamicInput)
             {
-                elemCount.push_back(volume(profile->getDimensions(input->getName(), OptProfileSelector::kOPT)));
+                elemCount.push_back(
+                    volume(profiles[build.calibProfile]->getDimensions(input->getName(), OptProfileSelector::kOPT)));
             }
             else
             {
@@ -1091,9 +1123,7 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
     case PrecisionConstraints::kNONE:
         // It's the default for TensorRT.
         break;
-    case PrecisionConstraints::kOBEY:
-        config.setFlag(BuilderFlag::kOBEY_PRECISION_CONSTRAINTS);
-        break;
+    case PrecisionConstraints::kOBEY: config.setFlag(BuilderFlag::kOBEY_PRECISION_CONSTRAINTS); break;
     case PrecisionConstraints::kPREFER: config.setFlag(BuilderFlag::kPREFER_PRECISION_CONSTRAINTS); break;
     }
 
@@ -1192,7 +1222,7 @@ bool networkToSerializedEngine(
     // Try to load cache from file. Create a fresh cache if the file doesn't exist
     if (build.timingCacheMode == TimingCacheMode::kGLOBAL)
     {
-        std::vector<char> loadedCache = samplesCommon::loadTimingCacheFile(build.timingCacheFile);
+        std::vector<char> loadedCache = samplesCommon::loadTimingCacheFile(gLogger, build.timingCacheFile);
         timingCache.reset(config->createTimingCache(static_cast<const void*>(loadedCache.data()), loadedCache.size()));
         SMP_RETVAL_IF_FALSE(timingCache != nullptr, "TimingCache creation failed", false, err);
         config->setTimingCache(*timingCache, false);
@@ -1206,17 +1236,17 @@ bool networkToSerializedEngine(
     std::unique_ptr<IHostMemory> serializedEngine{builder.buildSerializedNetwork(*env.network, *config)};
     SMP_RETVAL_IF_FALSE(serializedEngine != nullptr, "Engine could not be created from network", false, err);
 
-    env.engine.setBlob(serializedEngine->data(), serializedEngine->size());
-
     if (build.safe && build.consistency)
     {
         checkSafeEngine(serializedEngine->data(), serializedEngine->size());
     }
 
+    env.engine.setBlob(serializedEngine);
+
     if (build.timingCacheMode == TimingCacheMode::kGLOBAL)
     {
         auto timingCache = config->getTimingCache();
-        samplesCommon::updateTimingCacheFile(build.timingCacheFile, timingCache);
+        samplesCommon::updateTimingCacheFile(gLogger, build.timingCacheFile, timingCache, builder);
     }
 
     return true;
@@ -1338,7 +1368,7 @@ bool loadEngineToBuildEnv(std::string const& engine, bool enableConsistency, Bui
         checkSafeEngine(engineBlob.data(), fsize);
     }
 
-    env.engine.setBlob(engineBlob.data(), engineBlob.size());
+    env.engine.setBlob(std::move(engineBlob));
 
     return true;
 }
@@ -1407,7 +1437,8 @@ bool getEngineBuildEnv(
     if (build.save)
     {
         std::ofstream engineFile(build.engine, std::ios::binary);
-        engineFile.write(reinterpret_cast<char const*>(env.engine.getBlob().data()), env.engine.getBlob().size());
+        auto& engineBlob = env.engine.getBlob();
+        engineFile.write(static_cast<char const*>(engineBlob.data), engineBlob.size);
         SMP_RETVAL_IF_FALSE(!engineFile.fail(), "Saving engine to file failed.", false, err);
     }
 
@@ -1434,6 +1465,8 @@ std::vector<std::pair<WeightsRole, Weights>> getAllRefitWeightsForLayer(const IL
         case DataType::kFP8:
             // Refit not supported for these types.
             break;
+        case DataType::kBF16:
+        case DataType::kINT64: ASSERT(false && "Unsupported data type");
         }
         break;
     }
@@ -1590,7 +1623,7 @@ bool timeRefit(INetworkDefinition const& network, nvinfer1::ICudaEngine& engine,
     time_point const refitEndTime{std::chrono::steady_clock::now()};
 
     sample::gLogInfo << "Engine refitted"
-        << " in " << durationMs(refitEndTime - refitStartTime).count() / loop << " ms." << std::endl;
+                     << " in " << durationMs(refitEndTime - refitStartTime).count() / loop << " ms." << std::endl;
     return true;
 }
 

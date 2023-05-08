@@ -33,6 +33,8 @@ set_ifndef(CUDA_INSTALL_DIR /usr/local/cuda)
 # SAMPLES_COMMON_SOURCES
 set(SAMPLES_COMMON_SOURCES
     ${SAMPLES_DIR}/common/logger.cpp
+    ${SAMPLES_DIR}/utils/timingCache.cpp
+    ${SAMPLES_DIR}/utils/fileLock.cpp
 )
 
 # add underscores (snake) to camelCase cases
@@ -76,6 +78,7 @@ target_include_directories(${TARGET_NAME}
     PUBLIC ${ONNX_INCLUDE_DIR}
     PUBLIC ${CUDA_INSTALL_DIR}/include
     PRIVATE ${SAMPLES_DIR}/common
+    PRIVATE ${SAMPLES_DIR}/
     PRIVATE ${TARGET_DIR}
 )
 

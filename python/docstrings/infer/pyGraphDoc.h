@@ -210,6 +210,33 @@ constexpr const char* descr = R"trtdoc(
     :ivar allowed_formats: :class:`int32` The allowed set of TensorFormat candidates. This should be an integer consisting of one or more :class:`TensorFormat` s, combined via bitwise OR after bit shifting. For example, ``1 << int(TensorFormat.CHW4) | 1 << int(TensorFormat.CHW32)``.
 )trtdoc";
 
+#if ENABLE_MDTRT
+constexpr char const* add_instance_id = R"trtdoc(
+    Set that this tensor's data exists on the instance ID.
+
+    In multi-device TensorRT, tensors can exist on different instances. To specify the instances
+    a tensor exists on, use this method. When an input tensor to a layer exists on different
+    instances than its corresponding output tensor, TensorRT will insert data transfers to move
+    the data from its current instances to the correct locations.
+    By default the instance ID is set to -1. The -1 instance id corresponds to a wildcard that
+    will be inferred by TensorRT based on the graph structure.
+
+    :arg id: The instance ID to add to this Tensor.
+    :returns: true if adding the id to the tensors set succeeds, false otherwise.
+)trtdoc";
+constexpr char const* has_instance_id = R"trtdoc(
+    Check if the tensor contains the instance id.
+
+    :arg id: the instance id to check if the tensor is assigned to it.
+    :returns: true if the tensor contains the instance id, false otherwise.
+)trtdoc";
+constexpr char const* del_instance_id = R"trtdoc(
+    Remove the instance id from the tensor
+    :arg id: the instance id to remove from the tensor.
+    :returns: true if the id was removed from the tensor, false otherwise.
+)trtdoc";
+#endif // ENABLE_MDTRT
+
 constexpr const char* set_dynamic_range = R"trtdoc(
     Set dynamic range for the tensor.
     NOTE: It is suggested to use ``tensor.dynamic_range = (min, max)`` instead.

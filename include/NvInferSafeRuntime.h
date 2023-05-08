@@ -583,17 +583,26 @@ public:
 };
 
 //!
-//! \brief Space to record information about floating point runtime errors
+//! \brief Space to record information about runtime errors
 //!
-//! NAN errors occur when NAN values are stored in an INT8 quantized datatype.
-//! INF errors occur when +-INF values are stored in an INT8 quantized datatype.
+//! kNAN_CONSUMED errors occur when NAN values are stored in an INT8 quantized datatype.
+//! kINF_CONSUMED errors occur when +-INF values are stored in an INT8 quantized datatype.
+//! kGATHER_OOB errors occur when gather index tensor contains value is out side of data tensor
+//! kSCATTER_OOB and kSCATTER_RACE are reserved for future use
 //!
-struct FloatingPointErrorInformation
+//! Mark RuntimeErrorType that occur during asynchronous kernel execution
+struct RuntimeErrorInformation
 {
-    //! Total count of errors relating to NAN values (0 if none)
-    int32_t nbNanErrors;
-    //! Total count of errors relating to INF values (0 if none)
-    int32_t nbInfErrors;
+    uint64_t bitMask; //!< Each bit represent a RuntimeErrorType has occured during kernel execution
+};
+
+enum class RuntimeErrorType : uint64_t
+{
+    kNAN_CONSUMED = 1ULL << 0, //!< NaN floating-point value was silently consumed
+    kINF_CONSUMED = 1ULL << 1, //!< Inf floating-point value was silently consumed
+    kGATHER_OOB = 1ULL << 2,   //!< Out-of-bounds access in gather operation
+    kSCATTER_OOB = 1ULL << 3,  //!< Out-of-bounds access in scatter operation
+    kSCATTER_RACE = 1ULL << 4, //!< Race condition in scatter operation
 };
 
 //!
@@ -752,7 +761,7 @@ public:
     //!
     //! The error buffer output must be allocated in device memory and will be used for subsequent
     //! calls to enqueueV2. Checking the contents of the error buffer after inference is the responsibility
-    //! of the application. The pointer passed here must have alignment adequate for the FloatingPointErrorInformation
+    //! of the application. The pointer passed here must have alignment adequate for the RuntimeErrorInformation
     //! struct.
     //!
     //! \warning Do not release or use the contents of the error buffer for any other purpose before synchronizing
@@ -766,7 +775,7 @@ public:
     //! - Allowed context for the API call
     //!   - Thread-safe: No
     //!
-    virtual void setErrorBuffer(FloatingPointErrorInformation* const buffer) noexcept = 0;
+    virtual void setErrorBuffer(RuntimeErrorInformation* const buffer) noexcept = 0;
 
     //!
     //! \brief Get error buffer output for floating point errors.
@@ -779,7 +788,7 @@ public:
     //! - Allowed context for the API call
     //!   - Thread-safe: Yes
     //!
-    virtual FloatingPointErrorInformation* getErrorBuffer() const noexcept = 0;
+    virtual RuntimeErrorInformation* getErrorBuffer() const noexcept = 0;
 
     //!
     //! \brief Return the strides of the buffer for the given tensor name.

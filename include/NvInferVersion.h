@@ -19,9 +19,9 @@
 #define NV_INFER_VERSION_H
 
 #define NV_TENSORRT_MAJOR 8 //!< TensorRT major version.
-#define NV_TENSORRT_MINOR 6 //!< TensorRT minor version.
-#define NV_TENSORRT_PATCH 1 //!< TensorRT patch version.
-#define NV_TENSORRT_BUILD 5 //!< TensorRT build number.
+#define NV_TENSORRT_MINOR 7 //!< TensorRT minor version.
+#define NV_TENSORRT_PATCH 0 //!< TensorRT patch version.
+#define NV_TENSORRT_BUILD 0 //!< TensorRT build number.
 
 #define NV_TENSORRT_LWS_MAJOR 0 //!< TensorRT LWS major version.
 #define NV_TENSORRT_LWS_MINOR 0 //!< TensorRT LWS minor version.
@@ -30,9 +30,9 @@
 // This #define is deprecated in TensorRT 8.6 and will be removed in 10.0. Use NV_TENSORRT_MAJOR.
 #define NV_TENSORRT_SONAME_MAJOR 8 //!< Shared object library major version number.
 // This #define is deprecated in TensorRT 8.6 and will be removed in 10.0. Use NV_TENSORRT_MINOR.
-#define NV_TENSORRT_SONAME_MINOR 6 //!< Shared object library minor version number.
+#define NV_TENSORRT_SONAME_MINOR 7 //!< Shared object library minor version number.
 // This #define is deprecated in TensorRT 8.6 and will be removed in 10.0. Use NV_TENSORRT_PATCH.
-#define NV_TENSORRT_SONAME_PATCH 1 //!< Shared object library patch version number.
+#define NV_TENSORRT_SONAME_PATCH 0 //!< Shared object library patch version number.
 
 #define NV_TENSORRT_RELEASE_TYPE_EARLY_ACCESS 0         //!< An early access release
 #define NV_TENSORRT_RELEASE_TYPE_RELEASE_CANDIDATE 1    //!< A release candidate
