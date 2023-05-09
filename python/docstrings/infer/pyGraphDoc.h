@@ -2690,6 +2690,7 @@ constexpr const char* add_quantize = R"trtdoc(
 
     :arg input: A tensor to quantize.
     :arg scale: A tensor with the scale coefficients.
+    :arg output_type: The datatype of the output tensor. Specifying output_type is optional (default value tensorrt.int8).
 
     :returns: The new quantization layer, or :class:`None` if it could not be created.
 )trtdoc";
@@ -2700,6 +2701,7 @@ constexpr const char* add_dequantize = R"trtdoc(
 
     :arg input: A tensor to quantize.
     :arg scale: A tensor with the scale coefficients.
+    :arg output_type: The datatype of the output tensor. Specifying output_type is optional (default value tensorrt.float32).
 
     :returns: The new dequantization layer, or :class:`None` if it could not be created.
 )trtdoc";

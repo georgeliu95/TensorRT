@@ -244,6 +244,7 @@ public:
     RuntimeMode useRuntime{RuntimeMode::kFULL};
     std::string leanDLLPath{};
     int32_t maxAuxStreams{defaultMaxAuxStreams};
+    bool getPlanVersionOnly{false};
 
     void parse(Arguments& arguments) override;
 

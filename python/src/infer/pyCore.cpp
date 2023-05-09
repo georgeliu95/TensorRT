@@ -245,7 +245,8 @@ std::vector<Dims> get_tensor_profile_shape(ICudaEngine& self, std::string const&
 std::vector<std::vector<int32_t>> engine_get_profile_shape_input(
     ICudaEngine& self, int32_t profileIndex, int32_t bindingIndex)
 {
-    bool const isShapeInput{self.isShapeBinding(bindingIndex) && self.bindingIsInput(bindingIndex)};
+    auto const tensorName = self.getIOTensorName(bindingIndex);
+    bool const isShapeInput{self.isShapeInferenceIO(tensorName) && self.bindingIsInput(bindingIndex)};
     PY_ASSERT_RUNTIME_ERROR(isShapeInput, "Binding index does not correspond to an input shape tensor.");
 
     std::vector<std::vector<int32_t>> shapes{};

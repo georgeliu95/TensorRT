@@ -1211,6 +1211,8 @@ void BuildOptions::parse(Arguments& arguments)
     {
         load = true;
     }
+    getAndDelOption(arguments, "--getPlanVersionOnly", getPlanVersionOnly);
+
     if (getAndDelOption(arguments, "--saveEngine", engine))
     {
         save = true;
@@ -2325,6 +2327,8 @@ void BuildOptions::help(std::ostream& os)
           "  --restricted                       Enable safety scope checking with kSAFETY_SCOPE build flag"                                         "\n"
           "  --saveEngine=<file>                Save the serialized engine"                                                                         "\n"
           "  --loadEngine=<file>                Load a serialized engine"                                                                           "\n"
+          "  --getPlanVersionOnly               Print TensorRT version when loaded plan was created. Works without deserialization of the plan."    "\n"
+          "                                     Use together with --loadEngine. Supportted only for engines created with 8.6 and forward."          "\n"
           "  --tacticSources=tactics            Specify the tactics to be used by adding (+) or removing (-) tactics from the default "             "\n"
           "                                     tactic sources (default = all available tactics)."                                                  "\n"
           "                                     Note: Currently only cuDNN, cuBLAS, cuBLAS-LT, and edge mask convolutions are listed as optional"   "\n"
