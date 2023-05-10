@@ -966,9 +966,13 @@ namespace tensorrt
             .def("add_nms", &INetworkDefinition::addNMS, "boxes"_a,
                 "scores"_a, "max_output_boxes_per_class"_a, INetworkDefinitionDoc::add_nms, py::return_value_policy::reference_internal)
             .def("add_fill", &INetworkDefinition::addFill, "shape"_a, "op"_a, INetworkDefinitionDoc::add_fill)
-            .def("add_quantize",  &INetworkDefinition::addQuantize, "input"_a, "scale"_a,
+            .def("add_quantize",  static_cast<IQuantizeLayer* (INetworkDefinition::*)(ITensor&, ITensor&)>(&INetworkDefinition::addQuantize), "input"_a, "scale"_a,
                 INetworkDefinitionDoc::add_quantize, py::return_value_policy::reference_internal)
-            .def("add_dequantize", &INetworkDefinition::addDequantize, "input"_a, "scale"_a,
+            .def("add_dequantize", static_cast<IDequantizeLayer* (INetworkDefinition::*)(ITensor&, ITensor&)>(&INetworkDefinition::addDequantize), "input"_a, "scale"_a,
+                INetworkDefinitionDoc::add_dequantize, py::return_value_policy::reference_internal)
+            .def("add_quantize",  static_cast<IQuantizeLayer* (INetworkDefinition::*)(ITensor&, ITensor&, DataType)>(&INetworkDefinition::addQuantize), "input"_a, "scale"_a, "output_type"_a,
+                INetworkDefinitionDoc::add_quantize, py::return_value_policy::reference_internal)
+            .def("add_dequantize", static_cast<IDequantizeLayer* (INetworkDefinition::*)(ITensor&, ITensor&, DataType)>(&INetworkDefinition::addDequantize), "input"_a, "scale"_a, "output_type"_a,
                 INetworkDefinitionDoc::add_dequantize, py::return_value_policy::reference_internal)
             .def("add_if_conditional", &INetworkDefinition::addIfConditional, INetworkDefinitionDoc::add_if_conditional,
                 py::return_value_policy::reference_internal)

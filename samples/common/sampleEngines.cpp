@@ -1373,6 +1373,30 @@ bool loadEngineToBuildEnv(std::string const& engine, bool enableConsistency, Bui
     return true;
 }
 
+bool printPlanVersion(BuildEnvironment& env, std::ostream& err)
+{
+    SMP_RETVAL_IF_FALSE(env.engine.getBlob().data != nullptr, "Plan file is empty", false, err);
+    SMP_RETVAL_IF_FALSE(env.engine.getBlob().size >= 28, "Plan file is incorrect", false, err);
+    auto const blob = static_cast<uint8_t*>(env.engine.getBlob().data);
+    auto const blob32 = static_cast<uint32_t*>(env.engine.getBlob().data);
+    //! Correct TensorRT plan file starts with this tag
+    constexpr uint32_t kPLAN_FILE_TAG{0x74727466U};
+    SMP_RETVAL_IF_FALSE(blob32[0] == kPLAN_FILE_TAG, "Failed to verify a plan tag.", false, err);
+    switch (blob32[1])
+    {
+    case 0U:
+    {
+        // Blob index to store the plan version may depend on the serialization version.
+        sample::gLogInfo << "Plan was created with TensorRT version " << static_cast<int32_t>(blob[24])
+        << "." << static_cast<int32_t>(blob[25]) << "." << static_cast<int32_t>(blob[26])
+        << "." << static_cast<int32_t>(blob[27]) << std::endl;
+        return true;
+    }
+    }
+    sample::gLogError << "Serialization version is not supported." << std::endl;
+    return false;
+}
+
 void dumpRefittable(nvinfer1::ICudaEngine& engine)
 {
     std::unique_ptr<IRefitter> refitter{createRefitter(engine)};
@@ -1433,6 +1457,12 @@ bool getEngineBuildEnv(
     }
 
     SMP_RETVAL_IF_FALSE(createEngineSuccess, "Failed to create engine from model or file.", false, err);
+
+    if (build.getPlanVersionOnly && build.load)
+    {
+        SMP_RETVAL_IF_FALSE(printPlanVersion(env, err), "Failed to get plan file version.", false, err);
+        return true;
+    }
 
     if (build.save)
     {

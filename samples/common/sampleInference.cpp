@@ -170,7 +170,7 @@ void FillBindingClosure<nvinfer1::ICudaEngine, nvinfer1::IExecutionContext>::get
     if (engine->hasImplicitBatchDimension())
     {
         tensorInfo.dims = context->getBindingDimensions(b);
-        tensorInfo.comps = engine->getBindingComponentsPerElement(b);
+        tensorInfo.comps = engine->getTensorComponentsPerElement(name);
         tensorInfo.strides = context->getStrides(b);
         tensorInfo.vectorDimIndex = engine->getTensorVectorizedDim(name);
         tensorInfo.isInput = engine->bindingIsInput(b);
@@ -349,14 +349,7 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
         {
             Dims const dims = iEnv.contexts.front()->getTensorShape(name);
             bool isShapeInferenceIO{false};
-            if (useEnqueueV3)
-            {
-                isShapeInferenceIO = engine->isShapeInferenceIO(name);
-            }
-            else
-            {
-                isShapeInferenceIO = engine->isShapeBinding(b);
-            }
+            isShapeInferenceIO = engine->isShapeInferenceIO(name);
             bool const hasRuntimeDim = std::any_of(dims.d, dims.d + dims.nbDims, [](int32_t dim) { return dim == -1; });
             auto const shape = inference.shapes.find(name);
             if (hasRuntimeDim || isShapeInferenceIO)
@@ -1517,7 +1510,7 @@ void Bindings::dumpBindingValues<nvinfer1::IExecutionContext>(nvinfer1::IExecuti
     Dims strides = context.getStrides(binding);
     auto const tensorName = context.getEngine().getIOTensorName(binding);
     int32_t vectorDim = context.getEngine().getTensorVectorizedDim(tensorName);
-    int32_t const spv = context.getEngine().getBindingComponentsPerElement(binding);
+    int32_t const spv = context.getEngine().getTensorComponentsPerElement(tensorName);
 
     if (context.getEngine().hasImplicitBatchDimension())
     {
@@ -1672,7 +1665,7 @@ void Bindings::dumpBindingValues<nvinfer1::safe::IExecutionContext>(nvinfer1::sa
     Dims const strides = context.getStrides(binding);
     auto const tensorName = context.getEngine().getIOTensorName(binding);
     int32_t const vectorDim = context.getEngine().getTensorVectorizedDim(tensorName);
-    int32_t const spv = context.getEngine().getBindingComponentsPerElement(binding);
+    int32_t const spv = context.getEngine().getTensorComponentsPerElement(tensorName);
 
     mBindings[binding].dump(os, dims, strides, vectorDim, spv, separator);
 }

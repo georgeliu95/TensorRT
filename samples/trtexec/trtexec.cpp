@@ -410,6 +410,12 @@ int main(int argc, char** argv)
             return sample::gLogger.reportFail(sampleTest);
         }
 
+        // Exit as version is already printed during getEngineBuildEnv
+        if (options.build.getPlanVersionOnly)
+        {
+            return sample::gLogger.reportPass(sampleTest);
+        }
+
         // dynamicPlugins may have been updated by getEngineBuildEnv above
         bEnv->engine.setDynamicPlugins(options.system.dynamicPlugins);
 

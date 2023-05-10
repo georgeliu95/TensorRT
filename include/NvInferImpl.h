@@ -891,6 +891,8 @@ class VQuantizeLayer : public VRoot
 public:
     virtual int32_t getAxis() const noexcept = 0;
     virtual void setAxis(int32_t axis) noexcept = 0;
+    virtual DataType getToType() const noexcept = 0;
+    virtual void setToType(DataType toType) noexcept = 0;
 };
 
 class VDequantizeLayer : public VRoot
@@ -898,6 +900,8 @@ class VDequantizeLayer : public VRoot
 public:
     virtual int32_t getAxis() const noexcept = 0;
     virtual void setAxis(int32_t axis) noexcept = 0;
+    virtual DataType getToType() const noexcept = 0;
+    virtual void setToType(DataType toType) noexcept = 0;
 };
 
 class VScatterLayer : public VRoot
@@ -1058,6 +1062,8 @@ public:
     virtual NetworkDefinitionCreationFlags getFlags() const noexcept = 0;
     virtual bool getFlag(NetworkDefinitionCreationFlag networkDefinitionCreationFlag) const noexcept = 0;
     virtual bool usingStronglyTyped() const noexcept = 0;
+    virtual IQuantizeLayer* addQuantizeV2(ITensor& input, ITensor& scale, DataType outputType) noexcept = 0;
+    virtual IDequantizeLayer* addDequantizeV2(ITensor& input, ITensor& scale, DataType outputType) noexcept = 0;
 };
 
 class VAlgorithmIOInfo : public VRoot

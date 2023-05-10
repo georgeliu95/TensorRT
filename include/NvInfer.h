@@ -4713,6 +4713,8 @@ public:
     //!
     //! \brief Set cast layer output type.
     //!
+    //! Set the output type of the cast layer.
+    //!
     void setToType(DataType toType) noexcept
     {
         mImpl->setToType(toType);
@@ -4720,6 +4722,9 @@ public:
 
     //!
     //! \brief Return cast layer output type.
+    //!
+    //! \return toType parameter set during layer creation or by setToType().
+    //! The return value is the output type of the cast layer.
     //!
     DataType getToType() const noexcept
     {
@@ -6091,6 +6096,31 @@ public:
         mImpl->setAxis(axis);
     }
 
+    //!
+    //! \brief Set the Quantize layer output type.
+    //!
+    //! Set the output type of the quantize layer. Valid values are DataType::kINT8 and DataType::kFP8.
+    //! This is equivalent to using setOutputType on the layer outside of strongly typed mode.
+    //! In strongly typed mode, setOutputType cannot be used and users must use setToType instead.
+    //! The toType value must be consistent with the value set by any prior setOutputType calls.
+    //!
+    void setToType(DataType toType) noexcept
+    {
+        mImpl->setToType(toType);
+    }
+
+    //!
+    //! \brief Get the Quantize layer output type.
+    //!
+    //! \return toType parameter set during layer creation or by setToType().
+    //! The return value is the output type of the quantize layer.
+    //! The default value is DataType::kINT8.
+    //!
+    DataType getToType() const noexcept
+    {
+        return mImpl->getToType();
+    }
+
 protected:
     virtual ~IQuantizeLayer() noexcept = default;
     apiv::VQuantizeLayer* mImpl;
@@ -6175,6 +6205,31 @@ public:
     void setAxis(int32_t axis) noexcept
     {
         mImpl->setAxis(axis);
+    }
+
+    //!
+    //! \brief Set the Dequantize layer output type.
+    //!
+    //! Set the output type of the dequantize layer. Valid values are DataType::kFLOAT and DataType::kHALF.
+    //! This is equivalent to using setOutputType on the layer outside of strongly typed mode.
+    //! In strongly typed mode, setOutputType cannot be used and users must use setToType instead.
+    //! The toType value must be consistent with the value set by any prior setOutputType calls.
+    //!
+    void setToType(DataType toType) noexcept
+    {
+        mImpl->setToType(toType);
+    }
+
+    //!
+    //! \brief Return Dequantize layer output type.
+    //!
+    //! \return toType parameter set during layer creation or by setToType().
+    //! The return value is the output type of the quantize layer.
+    //! The default value is DataType::kFLOAT.
+    //!
+    DataType getToType() const noexcept
+    {
+        return mImpl->getToType();
     }
 
 protected:
@@ -8089,15 +8144,38 @@ public:
     //!
     //! \see IDequantizeLayer
     //!
-    //! \p input tensor data type must be DataType::kFLOAT.
+    //! \p input tensor data type must be DataType::kINT8/DataType::kFP8.
     //! \p scale tensor data type must be DataType::kFLOAT. The subgraph which terminates with the \p scale tensor must
     //! be a build-time constant.
     //!
     //! \return The new quantization layer, or nullptr if it could not be created.
     //!
-    IDequantizeLayer* addDequantize(ITensor& input, ITensor& scale) noexcept
+    //! \deprecated Deprecated in TensorRT 8.7. Superceded by addDequantizeV2.
+    //!
+    TRT_DEPRECATED IDequantizeLayer* addDequantize(ITensor& input, ITensor& scale) noexcept
     {
         return mImpl->addDequantize(input, scale);
+    }
+
+    //!
+    //! \brief Add a dequantization layer to the network.
+    //!
+    //! \param input The input tensor to be dequantized.
+    //! \param scale A tensor with the scale value.
+    //!
+    //! \see IDequantizeLayer
+    //!
+    //! \p input tensor data type must be DataType::kINT8/DataType::kFP8.
+    //! \p scale tensor data type must be DataType::kFLOAT. The subgraph which terminates with the \p scale tensor must
+    //! be a build-time constant.
+    //! \p outputType output tensor data type, default value is DataType::kFLOAT. Future calls to set output type using
+    //! setToType or setOutputType must be consistent.
+    //!
+    //! \return The new quantization layer, or nullptr if it could not be created.
+    //!
+    IDequantizeLayer* addDequantize(ITensor& input, ITensor& scale, DataType outputType) noexcept
+    {
+        return mImpl->addDequantizeV2(input, scale, outputType);
     }
 
     //!
@@ -8128,15 +8206,37 @@ public:
     //!
     //! \see IQuantizeLayer
     //!
-    //! \p input tensor data type must be DataType::kFLOAT.
+    //! \p input tensor data type must be DataType::kFLOAT/DataType::kHALF.
     //! \p scale tensor data type must be DataType::kFLOAT. The subgraph which terminates with the \p scale tensor must
     //! be a build-time constant.
     //!
     //! \return The new quantization layer, or nullptr if it could not be created.
     //!
-    IQuantizeLayer* addQuantize(ITensor& input, ITensor& scale) noexcept
+    //! \deprecated Deprecated in TensorRT 8.7. Superceded by addQuantizeV2.
+    //!
+    TRT_DEPRECATED IQuantizeLayer* addQuantize(ITensor& input, ITensor& scale) noexcept
     {
         return mImpl->addQuantize(input, scale);
+    }
+    //!
+    //! \brief Add a quantization layer to the network.
+    //!
+    //! \param input The input tensor to be quantized.
+    //! \param scale A tensor with the scale value.
+    //!
+    //! \see IQuantizeLayer
+    //!
+    //! \p input tensor data type must be DataType::kFLOAT/DataType::kHALF.
+    //! \p scale tensor data type must be DataType::kFLOAT. The subgraph which terminates with the \p scale tensor must
+    //! be a build-time constant.
+    //! \p outputType output tensor data type, must be DataType::kINT8 (default) or DataType::kFP8. Future calls to set
+    //! output type using setToType or setOutputType must be consistent.
+    //!
+    //! \return The new quantization layer, or nullptr if it could not be created.
+    //!
+    IQuantizeLayer* addQuantize(ITensor& input, ITensor& scale, DataType outputType) noexcept
+    {
+        return mImpl->addQuantizeV2(input, scale, outputType);
     }
 
     //!
