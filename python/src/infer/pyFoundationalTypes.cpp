@@ -178,6 +178,7 @@ void bindFoundationalTypes(py::module& m)
         .value("BF16", DataType::kBF16, DataTypeDoc::bfloat16)
         .value("INT8", DataType::kINT8, DataTypeDoc::int8)
         .value("INT32", DataType::kINT32, DataTypeDoc::int32)
+        .value("INT64", DataType::kINT64, DataTypeDoc::int64)
         .value("BOOL", DataType::kBOOL, DataTypeDoc::boolean)
         .value("UINT8", DataType::kUINT8, DataTypeDoc::uint8)
         .value("FP8", DataType::kFP8, DataTypeDoc::fp8); // DataType
@@ -188,6 +189,7 @@ void bindFoundationalTypes(py::module& m)
     m.attr("bfloat16") = DataType::kBF16;
     m.attr("int8") = DataType::kINT8;
     m.attr("int32") = DataType::kINT32;
+    m.attr("int64") = DataType::kINT64;
     m.attr("bool") = DataType::kBOOL;
     m.attr("uint8") = DataType::kUINT8;
     m.attr("fp8") = DataType::kFP8;

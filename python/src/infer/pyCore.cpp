@@ -520,6 +520,7 @@ public:
     {
         try
         {
+            py::gil_scoped_acquire gil{};
             PYBIND11_OVERLOAD_PURE_NAME(void, IOutputAllocator, "notify_shape", notifyShape, tensorName, dims);
         }
         catch (std::exception const& e)
@@ -542,6 +543,7 @@ void bindCore(py::module& m)
         {
             try
             {
+                py::gil_scoped_acquire gil{};
                 PYBIND11_OVERLOAD_PURE_NAME(void, ILogger, "log", log, severity, msg);
             }
             catch (std::exception const& e)
@@ -935,15 +937,16 @@ void bindCore(py::module& m)
             utils::deprecateMember(&ICudaEngine::getMaxBatchSize,
                 "network created with NetworkDefinitionCreationFlag::EXPLICIT_BATCH flag"))
         .def_property_readonly("num_layers", &ICudaEngine::getNbLayers)
-        .def("serialize", &ICudaEngine::serialize, ICudaEngineDoc::serialize)
+        .def("serialize", &ICudaEngine::serialize, ICudaEngineDoc::serialize, py::call_guard<py::gil_scoped_release>{})
         .def("create_execution_context", &ICudaEngine::createExecutionContext, ICudaEngineDoc::create_execution_context,
-            py::keep_alive<0, 1>{})
+            py::keep_alive<0, 1>{}, py::call_guard<py::gil_scoped_release>{})
         .def("get_location", utils::deprecateMember(&ICudaEngine::getLocation, "get_tensor_location"), "index"_a,
             ICudaEngineDoc::get_location)
         .def("get_location", utils::deprecate(lambdas::engine_get_location, "get_tensor_location"), "name"_a,
             ICudaEngineDoc::get_location_str)
         .def("create_execution_context_without_device_memory", &ICudaEngine::createExecutionContextWithoutDeviceMemory,
-            ICudaEngineDoc::create_execution_context_without_device_memory, py::keep_alive<0, 1>{})
+            ICudaEngineDoc::create_execution_context_without_device_memory, py::keep_alive<0, 1>{},
+            py::call_guard<py::gil_scoped_release>{})
         .def_property_readonly("device_memory_size", &ICudaEngine::getDeviceMemorySize)
         .def_property_readonly("refittable", &ICudaEngine::isRefittable)
         .def_property_readonly("name", &ICudaEngine::getName)
@@ -1358,7 +1361,8 @@ void bindCore(py::module& m)
             RefitterDoc::set_weights)
         .def("set_named_weights", &IRefitter::setNamedWeights, "name"_a, "weights"_a, py::keep_alive<1, 3>{},
             RefitterDoc::set_named_weights)
-        .def("refit_cuda_engine", &IRefitter::refitCudaEngine, RefitterDoc::refit_cuda_engine)
+        .def("refit_cuda_engine", &IRefitter::refitCudaEngine, RefitterDoc::refit_cuda_engine,
+            py::call_guard<py::gil_scoped_release>{})
         .def("get_missing", lambdas::refitter_get_missing, RefitterDoc::get_missing)
         .def("get_missing_weights", lambdas::refitter_get_missing_weights, RefitterDoc::get_missing_weights)
         .def("get_all", lambdas::refitter_get_all, RefitterDoc::get_all)

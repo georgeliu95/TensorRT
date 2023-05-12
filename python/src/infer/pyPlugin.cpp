@@ -202,7 +202,8 @@ void bindPlugin(py::module& m)
         .value("DIMS", PluginFieldType::kDIMS)
         .value("UNKNOWN", PluginFieldType::kUNKNOWN)
         .value("BF16", PluginFieldType::kBF16)
-        .value("INT64", PluginFieldType::kINT64);
+        .value("INT64", PluginFieldType::kINT64)
+        .value("FP8", PluginFieldType::kFP8);
 
     py::class_<PluginField>(m, "PluginField", PluginFieldDoc::descr, py::module_local())
         .def(py::init(lambdas::plugin_field_default_constructor), "name"_a = "", py::keep_alive<1, 2>{})

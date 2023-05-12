@@ -38,6 +38,7 @@
 #include "NvInfer.h"
 
 #include "ErrorRecorder.h"
+#include "bfloat16.h"
 #include "logger.h"
 #include "sampleDevice.h"
 #include "sampleEngines.h"
@@ -1341,13 +1342,17 @@ void Binding::fill()
         fillBuffer<__half>(buffer->getHostBuffer(), volume, -1.0F, 1.0F);
         break;
     }
+    case nvinfer1::DataType::kBF16:
+    {
+        fillBuffer<BFloat16>(buffer->getHostBuffer(), volume, -1.0F, 1.0F);
+        break;
+    }
     case nvinfer1::DataType::kUINT8:
     {
         fillBuffer<uint8_t>(buffer->getHostBuffer(), volume, 0, 255);
         break;
     }
     case nvinfer1::DataType::kFP8: ASSERT(!"FP8 is not supported");
-    case nvinfer1::DataType::kBF16:
     case nvinfer1::DataType::kINT64: ASSERT(false && "Unsupported data type");
     }
 }
@@ -1391,13 +1396,17 @@ void Binding::dump(std::ostream& os, Dims dims, Dims strides, int32_t vectorDim,
         dumpBuffer<__half>(outputBuffer, separator, os, dims, strides, vectorDim, spv);
         break;
     }
+    case nvinfer1::DataType::kBF16:
+    {
+        dumpBuffer<BFloat16>(outputBuffer, separator, os, dims, strides, vectorDim, spv);
+        break;
+    }
     case nvinfer1::DataType::kUINT8:
     {
         dumpBuffer<uint8_t>(outputBuffer, separator, os, dims, strides, vectorDim, spv);
         break;
     }
     case nvinfer1::DataType::kFP8: ASSERT(!"FP8 is not supported");
-    case nvinfer1::DataType::kBF16:
     case nvinfer1::DataType::kINT64: ASSERT(false && "Unsupported data type");
     }
 }
@@ -1583,7 +1592,7 @@ inline std::ostream& operator<<(std::ostream& o, nvinfer1::DataType dt)
     case DataType::kUINT8: o << "UInt8"; break;
     case DataType::kBOOL: o << "Bool"; break;
     case DataType::kFP8: o << "Float8"; break;
-    case DataType::kBF16:
+    case DataType::kBF16: o << "BFloat16"; break;
     case DataType::kINT64: ASSERT(false && "Unsupported data type");
     }
     return o;

@@ -33,6 +33,7 @@ constexpr char const* float16 = R"trtdoc(IEEE 16-bit floating-point format.)trtd
 constexpr char const* bfloat16 = R"trtdoc(Brain float -- has an 8 bit exponent and 8 bit significand)trtdoc";
 constexpr char const* int8 = R"trtdoc(Signed 8-bit integer representing a quantized floating-point value.)trtdoc";
 constexpr char const* int32 = R"trtdoc(Signed 32-bit integer format.)trtdoc";
+constexpr char const* int64 = R"trtdoc(Signed 64-bit integer format.)trtdoc";
 constexpr char const* boolean = R"trtdoc(8-bit boolean. 0 = false, 1 = true, other values undefined.)trtdoc";
 constexpr char const* uint8 = R"trtdoc(
     Unsigned 8-bit integer format.
