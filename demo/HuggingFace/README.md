@@ -52,9 +52,9 @@ python run.py <args> # execute program
 │   ├── frameworks.py      # PyTorch inference script
 │   ├── onnxrt.py          # OnnxRT inference script
 │   ├── trt.py             # TensorRT inference script
-│   ├── hf.py              # HuggingFace inference script
 │   └── measurements.py    # Performance measurement script
 ├── NNDF      # common high-level abstraction of classes and utilities
+├── Seq2Seq   # common concrete abstraction of classes and utilities
 ├── notebooks # Jupyter notebooks for GPT2 and T5
 └── run.py    # main entry script
 ```
@@ -66,7 +66,7 @@ python run.py <args> # execute program
 The `compare` action will by default compare all implemented frameworks, e.g., PyTorch frameworks & TRT (for GPT2), PyTorch framework & TRT & OnnxRT (for T5 and BART).
 
 ```python
-python3 run.py compare GPT2 --variant [gpt2 | gpt2-medium | gpt2-large | gpt2-xl | EleutherAI/gpt-j-6B] --working-dir temp
+python3 run.py compare GPT2 --variant [gpt2 | gpt2-medium | gpt2-large | gpt2-xl | EleutherAI/gpt-j-6b] --working-dir temp
 ```
 
 The above script compares the performance of PyTorch framework inference and TensorRT inference for GPT2:
@@ -83,7 +83,7 @@ Notes: `--variant` designates the pre-trained model for testing. `--working-dir`
 The `run` action will run the specific script under the model directory.
 
 ```python
-python3 run.py run GPT2 [frameworks | trt] --variant [gpt2 | gpt2-medium | gpt2-large | gpt2-xl | EleutherAI/gpt-j-6B] --working-dir temp
+python3 run.py run GPT2 [frameworks | onnxrt | trt] --variant [gpt2 | gpt2-medium | gpt2-large | gpt2-xl | EleutherAI/gpt-j-6b | etc.] --working-dir temp
 ```
 
 Expected output:
@@ -100,7 +100,7 @@ trt=[NetworkModel(name='gpt2_decoder', fpath='temp/GPT2/GPT2-gpt2-fp16.onnx.engi
 
 ## How to run with different precisions in TensorRT
 
-Frameworks (PyTorch) by default run TF32 on Ampere devices and degrade to FP32 on pre-Ampere devices. Accordingly, in TensorRT run, TF32 is also set as the default precision. To experiment with different precisions, use `--fp16` for FP16:
+Frameworks (PyTorch) by default run TF32 on Ampere devices and degrade to FP32 on pre-Ampere devices. Accordingly, in TensorRT run, TF32 is also set as the default precision. To experiment with different precisions, use `--fp16` for FP16. FP16 has longer engine building time, but would speed up decoding.
 
 ```python
 python3 run.py run BART trt --variant facebook/bart-base --working-dir temp [--fp16]
@@ -122,29 +122,28 @@ Notes:
 
 ## How to run with K-V cache
 
-For all the models (GPT2/BART/T5), use `--enable-kv-cache` option to get the same effect of HuggingFace's `use_cache` option. For encoder-decoder models, this option will use key & value cache in decoder for uni-directional self-attention and encoder-decoder cross-attention. KV cache could reduce the size of `input_ids` and improve runtime performance when `input_ids` is long. Current benchmarking result shows that at `input_seq_len = 1024` and `output_seq_len = 1024`, t5-large model with kv cache could achieve 3x faster than without kv cache in single NVIDIA A100 GPU.
+For all the models (GPT2/BART/T5), use `--use-cache` option to get the same effect of HuggingFace's `use_cache` option. The old `--enable-kv-cache` flag has been deprecated for simplicity. For encoder-decoder models, this option will use key & value cache in decoder for uni-directional self-attention and encoder-decoder cross-attention. KV cache could reduce the size of `input_ids` and improve runtime performance when `input_ids` is long. Current benchmarking result shows that at `input_seq_len = 1024` and `output_seq_len = 1024`, t5-large model with kv cache could achieve 3x faster than without kv cache in single NVIDIA A100 GPU.
 
 ```python
-python3 run.py run BART [frameworks | trt] --variant facebook/bart-base --working-dir temp --enable-kv-cache
+python3 run.py run BART [frameworks | trt] --variant facebook/bart-base --working-dir temp --use-cache
 ```
 
 Notes:
-* For T5, the code has been optimized according to the latest TensorRT features. (1) Cross attention kv does not change throughout decoding session, so it is only calculated once at the first decoding session. `onnx.export` cannot handle this logic properly for HuggingFace, so we create a "cross attention kv generator" using only `encoder_hidden_states`. (2) TensorRT's "zero tensor" feature is used for self attention kv cache growth starting at empty. (3) Self attention input and output are the same location to avoid D2D copy for kv cache. A similar optimization will be ported to BART.
+* A cross_attn_cache_generator will be exported and is required as part of any encoder_decoder models like BART/T5 under this option. This is because cross attention cache is only related to `encoder_hidden_states`. Throughout a single decoding session, cross attention kv cache does not change. For framework PyTorch model, it still output cross attention for each decoding session, which is a memory waste if TRT does the same. 
 
-* For BART, we will be porting similar optimization from T5, but currently, K-V cache decoder with TensorRT requires exporting 2 onnx files and building separate engines respectively, called "non-kv" and "kv". For the first decoder run, KV Cache needs to be generated with only `input_ids` and `encoder_hidden_states`(if encoder_decoder), which is named "non-kv". For the other decoder iterations, previous KV Cache and other inputs are passed into the model to generate the updated KV Cache and decoder_hidden_states, which is named "kv". Because current onnx export cannot handle dynamic number of inputs, 2 onnx files with slightly different configurations are used together.
-
-* For GPT2, since it is decoder only, only self attention kv is needed, and it has 2 mode, corresonding to 2 optimization profiles for a single TensorRT engine: context mode which takes in `input_ids` with various length only and outputs `hidden_states` and self attention cache; generation mode, which takes in `input_ids` with seq_len = 1 and entire self attention kv cache, and outputs `hidden_states` with seq_len = 1 and kv cache with cum_seq_len (`past_decoder_length`) + 1. It has some memory concurrency issue that cannot let self attention input and output point to the same memory location, so it requires dual cache.
 
 ## How to run with beam search
 
-In addition to greedy search, beam search is another widely used decoding method. For all the models, use `--num-beams <N>` to enable beam search during decoding.
+In addition to greedy search, beam search is another widely-used decoding method to achieve better results. For all the models, use `--num-beams <N>` to enable beam search during decoding.
 
 ```python
 python3 run.py run BART [frameworks | trt] --variant facebook/bart-base --working-dir temp --num-beams 3
 ```
 
-Notes:
-* K-V cache with beam search have memory concurrency issues with TensorRT Optimization. We are currently working on this issue.
+Beam search can now be combined with kv cache. You may run:
+```
+python3 run.py run BART [frameworks | trt] --variant facebook/bart-base --working-dir temp --num-beams 3 --use-cache
+```
 
 
 ## How to run without the TensorRT `FASTER_DYNAMIC_SHAPES_0805` preview feature
@@ -163,16 +162,26 @@ Notes:
 The `benchmark` action will benchmark the specific script under the model directory using random input data with specified input/output sequence lengths. Note that since the input data is random, the accuracy is not guaranteed, but the benchmarking mode is useful for performance measurement since it allows arbitrary and controllable input/output sequence lengths with early stopping being disabled and allows apples-to-apples performance comparisons across different frameworks.
 
 ```python
-python3 run.py benchmark GPT2 [frameworks | trt] --variant [gpt2 | gpt2-medium | gpt2-large | gpt2-xl | EleutherAI/gpt-j-6B] --working-dir temp --input-seq-len 128 --output-seq-len 256
+python3 run.py benchmark GPT2 [frameworks | trt] --variant [gpt2 | gpt2-medium | gpt2-large | gpt2-xl | EleutherAI/gpt-j-6b] --working-dir temp --input-seq-len 128 --output-seq-len 256
 ```
 
-## How to run in performance benchmarking mode
+## How to run model with only TRT engine
 
-The `benchmark` action will benchmark the specific script under the model directory using random input data with specified input/output sequence lengths. Note that since the input data is random, the accuracy is not guaranteed, but the benchmarking mode is useful for performance measurement since it allows arbitrary and controllable input/output sequence lengths with early stopping being disabled and allows apples-to-apples performance comparisons across different frameworks.
+If you already have TRT engines, you can run TRT with the following extra flags:
+python3 run.py run [GPT2 | T5 | BART] [frameworks | TRT] --variant $variant_name --working-dir temp [--use-cache] [ --num_beams <N>] --decoder-engine $decoder_engine_path [--encoder-engine $encoder_engine_path --cache-generator-engine $cross_attn_cache_generator_path]. Note that for encoder/decoder models, encoder engine is required. For encoder/decoder model with kv cache, cross attention cache generator is required.
 
-```python
-python3 run.py benchmark GPT2 [frameworks | trt] --variant [gpt2 | gpt2-large] --working-dir temp --input-seq-len 128 --output-seq-len 256
-```
+
+## How to run your own model
+**Please note that thie demo does not support any customized model not registered in HuggingFace, because we will be using HuggingFace config to understand the model paramegters.**
+
+Currently, we only support a limited number of models with accuracy checks. However, this demo has the potential to run more HuggingFace models without accuracy checkpoints. If you have a T5/GPT2/BART model variant from HuggingFace, you can run:
+
+python3 run.py run [GPT2 | T5 | BART] [frameworks | TRT] --variant your_model --working-dir temp [--use-cache] [ --num_beams <N>].
+
+If your model does not fit into GPT2/T5/BART, it is recommended not to run in --use-cache mode. Please refer to BART or T5 folder for an implementation of cross attn generator if your model is encoder_decoder.
+
+python3 run.py run Seq2Seq [frameworks | TRT] --variant your_model --working-dir temp [--num_beams <N>].
+
 
 ## Testing
 

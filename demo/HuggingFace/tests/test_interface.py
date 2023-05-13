@@ -58,5 +58,10 @@ def test_precision(inetwork):
 
 def test_network_metadata(inetwork):
     inetwork.NetworkMetadata(
-        variant="gpt2", precision=inetwork.Precision(fp16=True), other=None
+        variant="gpt2",
+        precision=inetwork.Precision(fp16=True),
+        use_cache=True,
+        num_beams=1,
+        batch_size=1,
+        other=inetwork.DeprecatedCache(kv_cache=True),
     )

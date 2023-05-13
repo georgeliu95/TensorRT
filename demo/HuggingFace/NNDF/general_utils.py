@@ -34,7 +34,7 @@ from statistics import mean, median
 from glob import glob
 
 # NNDF
-from NNDF.networks import NNConfig, NetworkResult, NetworkMetadata, TimingProfile
+from NNDF.networks import NNConfig, NetworkResult, TimingProfile
 from NNDF.logger import G_LOGGER
 
 # Used for HuggingFace setting random seed
@@ -128,7 +128,7 @@ def confirm_folder_delete(
 def remove_if_empty(
     fpath: str,
     success_msg: str = "Folder successfully removed.",
-    error_msg: str = "Folder cannot be removed, there are files.",
+    error_msg: str = "Folder cannot be removed.",
 ) -> None:
     """
     Removes an entire folder if folder is empty. Provides print info statements.
@@ -141,11 +141,14 @@ def remove_if_empty(
     Returns:
         None
     """
+    if fpath is None or not os.path.isdir(fpath):
+        G_LOGGER.info(error_msg + " {} is not a valid folder.".format(fpath))
+
     if len(os.listdir(fpath)) == 0:
         os.rmdir(fpath)
         G_LOGGER.info(success_msg + " {}".format(fpath))
     else:
-        G_LOGGER.info(error_msg + " {}".format(fpath))
+        G_LOGGER.info(error_msg + " There are files in {}.".format(fpath))
 
 
 def measure_python_inference_code(
@@ -212,75 +215,97 @@ class NNFolderWorkspace:
     """
 
     def __init__(
-        self, network_name: str, metadata: NetworkMetadata, working_directory: str
+        self, config: NNConfig, working_directory: str
     ):
         self.rootdir = working_directory
-        self.metadata = metadata
-        self.network_name = network_name
-        self.dpath = os.path.join(self.rootdir, self.network_name, metadata.variant)
+        self.config = config
+        self.metadata = config.metadata
+        self.network_name = config.network_name
+        if "/" in self.metadata.variant:
+            self.metadata = self.metadata._replace(variant = self.metadata.variant.split("/")[-1])
+        self.metadata_serialized = self.config.get_metadata_string(self.metadata)
+        self.variant = self.metadata.variant
+        
+        self.dpath = os.path.join(self.rootdir, self.variant, self.metadata_serialized)
         os.makedirs(self.dpath, exist_ok=True)
 
-    def set_model_path(self, metadata_serialized, is_encoder_decoder: bool) -> str:
+        self.torch_path = None
+
+        self.encoder_folder = None
+        self.decoder_folder = None
+        self.cross_attn_generator_folder = None
+
+        self.encoder_onnx_path = None
+        self.decoder_onnx_path = None
+        self.cross_attn_generator_onnx_path = None
+
+        self.encoder_engine_path = None
+        self.decoder_engine_path = None
+        self.cross_attn_generator_engine_path = None
+
+    def create_pytorch_folder(self, torch_path=None) -> str:
+        self.torch_path = os.path.join(self.dpath, "pytorch") if torch_path is None else torch_path
+        os.makedirs(self.torch_path, exist_ok=True)
+        return self.torch_path
+
+    def create_onnx_folders(self) -> None:
         '''
-        Create subdirectory for models with different config(e.g. kv cache)
+        Create subdirectory for encoder/decoder/cross_attention_generator
         '''
-        self.model_path = os.path.join(self.dpath, metadata_serialized)
-        self.decoder_path = os.path.join(self.model_path, "decoder")
-        os.makedirs(self.decoder_path, exist_ok=True)
-        if is_encoder_decoder:
-            self.encoder_path = os.path.join(self.model_path, "encoder")
-            os.makedirs(self.encoder_path, exist_ok=True)
-        # For decoder only models, there is no encoder
-        else:
-            self.encoder_path = None
+        self.decoder_folder = os.path.join(self.dpath, "decoder")
+        os.makedirs(self.decoder_folder, exist_ok=True)
+        self.decoder_onnx_path = os.path.join(self.decoder_folder, self.metadata_serialized + "-decoder-with-lm-head.onnx")
 
-        # If is kv cache mode, need to separate non kv mode and kv mode for decoder
-        if self.metadata.other.kv_cache:
-            self.decoder_non_kv_path = os.path.join(self.decoder_path, "non-kv")
-            self.decoder_kv_path = os.path.join(self.decoder_path, "kv")
-            os.makedirs(self.decoder_non_kv_path, exist_ok=True)
-            os.makedirs(self.decoder_kv_path, exist_ok=True)
+        if self.config.is_encoder_decoder:
+            self.encoder_folder = os.path.join(self.dpath, "encoder")
+            os.makedirs(self.encoder_folder, exist_ok=True)
+            self.encoder_onnx_path = os.path.join(self.encoder_folder, self.metadata_serialized + "-encoder.onnx")
 
-        return self.model_path, self.encoder_path, self.decoder_path
+            if self.metadata.use_cache:
+                self.cross_attn_generator_folder = os.path.join(self.dpath, "cross_attn_generator")
+                os.makedirs(self.cross_attn_generator_folder, exist_ok=True)
+                self.cross_attn_generator_onnx_path = os.path.join(self.cross_attn_generator_folder, self.metadata_serialized + "-cross-attn-cache-generator.onnx")
+    
+    def get_engine_fpath_from_onnx(self, onnx_path, engine_tag):
+        return os.path.splitext(onnx_path)[0] + "-{}.engine".format(engine_tag)
+    
+    def get_timing_cache(self):
+        # Timing cache is shared per builder
+        return os.path.join(self.rootdir, "timingcache.cache")
 
-    def get_path(self) -> str:
-        return self.dpath
+    # For customized torch path
+    def set_torch_path(self, torch_path: str):
+        self.torch_path = torch_path
 
-    def get_model_path(self) -> str:
-        return self.model_path
+    # For customized onnx path
+    def set_encoder_onnx_path(self, encoder_onnx_path: str):
+        self.encoder_onnx_path = encoder_onnx_path
 
-    def get_encoder_path(self) -> str:
-        return self.encoder_path
+    def set_decoder_onnx_path(self, decoder_onnx_path: str):
+        self.decoder_onnx_path = decoder_onnx_path
 
-    def get_decoder_path(self) -> str:
-        return self.decoder_path
+    def set_cross_attn_generator_onnx_path(self, cross_attn_generator_onnx_path: str):
+        self.cross_attn_generator_onnx_path = cross_attn_generator_onnx_path
 
-    def get_decoder_path_kv(self) -> (str, str):
-        if not self.metadata.other.kv_cache:
-            raise RuntimeError("Trying to access kv specific folder in non kv mode")
-        else:
-            return self.decoder_kv_path, self.decoder_non_kv_path
+    # For customized TRT Engine path
+    def set_encoder_engine_path(self, encoder_engine_path: str):
+        self.encoder_engine_path = encoder_engine_path
+
+    def set_decoder_engine_path(self, decoder_engine_path: str):
+        self.decoder_engine_path = decoder_engine_path
+
+    def set_cross_attn_generator_engine_path(self, cross_attn_generator_engine_path: str):
+        self.cross_attn_generator_engine_path = cross_attn_generator_engine_path
+    
+    def cleanup_onnx_and_engine(self) -> None:
+        remove_if_empty(self.decoder_folder)
+        if self.config.is_encoder_decoder:
+            remove_if_empty(self.cross_attn_generator_folder)
+            remove_if_empty(self.encoder_folder)
 
     def cleanup(self, force_remove: bool = False) -> None:
-        '''
-        Cleanup would remove all the contents in the workspace.
-        '''
         if force_remove:
             return shutil.rmtree(self.dpath)
-
-        if self.is_encoder_decoder_path_set:
-            if self.encoder_path is not None:
-                remove_if_empty(self.encoder_path)
-            if self.metadata.other.kv_cache:
-                remove_if_empty(
-                    self.decoder_kv_path
-                )
-                remove_if_empty(
-                    self.decoder_non_kv_path
-                )
-            remove_if_empty(
-                self.decoder_path
-            )
-
-        remove_if_empty(self.model_path)
-        remove_if_empty(self.dpath)
+        else:
+            self.cleanup_onnx_and_engine()
+            remove_if_empty(self.dpath)
