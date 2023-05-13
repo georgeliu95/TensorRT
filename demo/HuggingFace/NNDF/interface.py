@@ -22,23 +22,40 @@ Interface classes required for each registered network script.
 import argparse
 
 from abc import ABCMeta, abstractmethod
-from typing import List, Tuple, Union
+from typing import List, Union
+# For time purpose
+import time
 
 # NNDF
 from NNDF.networks import (
     BenchmarkingResult,
     NetworkResult,
+    Precision,
     NetworkMetadata,
+    DeprecatedCache,
     NetworkCheckpointResult,
     NNConfig,
-    NetworkModel,
+    NetworkModels,
     TimingProfile,
+    NetworkRuntime,
 )
 from NNDF.logger import G_LOGGER
-from NNDF.general_utils import NNFolderWorkspace
+from NNDF.general_utils import NNFolderWorkspace, confirm_folder_delete, measure_python_inference_code
+from NNDF.torch_utils import use_cuda
+from NNDF.tensorrt_utils import TRTNativeRunner
 
-# externals
-# None, there should be no external dependencies for testing purposes.
+# From HuggingFace
+from transformers import (
+    AutoModelForCausalLM, # For GPT
+    AutoModelForSeq2SeqLM, # For T5 and BART
+    AutoTokenizer,
+    AutoConfig,
+    GenerationConfig,
+    GenerationMixin,
+)
+
+import os
+import torch
 
 # Program-wide constants for passing in valid frameworks.
 FRAMEWORK_NATIVE = "native"
@@ -49,37 +66,6 @@ VALID_FRAMEWORKS = [
     FRAMEWORK_ONNXRT,
     FRAMEWORK_TENSORRT
 ]
-
-class MetadataArgparseInteropMixin:
-    """Add argparse support where the class can add new arguments to an argparse object."""
-
-    @staticmethod
-    @abstractmethod
-    def add_args(parser):
-        pass
-
-    @staticmethod
-    @abstractmethod
-    def from_args(args):
-        pass
-
-    @staticmethod
-    @abstractmethod
-    def add_inference_args(parser):
-        pass
-
-    @staticmethod
-    @abstractmethod
-    def from_inference_args(args):
-        pass
-
-    @staticmethod
-    @abstractmethod
-    def add_benchmarking_args(parser):
-        """
-        Add args needed for perf benchmarking mode.
-        """
-        pass
 
 class NetworkCommand(metaclass=ABCMeta):
     """Base class that each network script's command module should inherit."""
@@ -92,43 +78,157 @@ class NetworkCommand(metaclass=ABCMeta):
     DEFAULT_DURATION = 0.0
     DEFAULT_PERCENTILE = 50
 
-    def __init__(self, network_config: NNConfig, description: str):
-        self.config = network_config()
+    def __init__(
+        self,
+        config_class: NNConfig,
+        description: str,
+        model_classes,
+        variant: str = None,
+        **model_args
+    ):
+        self.config_class = config_class
         self.description = description
         self.framework_name = None
+        self.model_classes = model_classes
         self._parser = argparse.ArgumentParser(description=description, conflict_handler="resolve")
+        self._args = None
 
-    def __call__(self):
-        self.add_args(self._parser)
-        self.config.MetadataClass.add_args(self._parser)
-        self._args = self._parser.parse_args()
+        # These parameters need to be set by `setup_tokenizer_and_models`
+        self.encoder = None
+        self.decoder = None
+        self.torch_model = None
+        self.tokenizer = None
+        self.models = None
 
-        if self._args.verbose:
-            G_LOGGER.setLevel(level=G_LOGGER.DEBUG)
-        elif self._args.info:
-            G_LOGGER.setLevel(level=G_LOGGER.INFO)
+        if variant is not None:
+            self.setup_environment(variant=variant, **model_args)
 
-        self.metadata = self.args_to_network_metadata(self._args)
-        self.check_network_metadata_is_supported(self.metadata)
-
-    @abstractmethod
-    def run_benchmark(self):
-        """
-        Run inference in performance benchmarking mode for apples-to-apples perf comparisons across platforms.
-        Differences with normal run mode include (but are not limited to):
-
-        - Use random input data and disable accuracy checking.
-        - Use fixed input/output sequence lengths and disable early stopping.
-        - Provide better controls on the number of warm-ups and the number/duration of inference iterations.
-
-        The derived class should override this method for the benchmarking implementation for the specific framework.
-        """
+    def process_framework_specific_arguments(self, **kwargs):
         pass
 
-    def add_args(self, parser) -> None:
-        general_group = parser.add_argument_group("general")
+    def setup_environment(
+        self,
+        variant: str,
+        working_dir: str = "temp",
+        batch_size: int = 1,
+        num_beams: int = 1,
+        use_cache: bool = True,
+        enable_kv_cache: bool = False,
+        fp16: bool = True,
+        verbose: bool = False,
+        info: bool = False,
+        iterations: int = DEFAULT_ITERATIONS,
+        number: int = DEFAULT_NUMBER,
+        warmup: int = DEFAULT_WARMUP,
+        duration: int = DEFAULT_DURATION,
+        percentile: int = DEFAULT_PERCENTILE,
+        benchmarking_mode: bool = False,
+        cleanup: bool = False,
+        torch_dir: str = None,
+        encoder_onnx: str = None,
+        decoder_onnx: str = None,
+        cache_generator_onnx: str = None,
+        **kwargs,
+    ) -> None:
+        """
+        Uses Arguments from command line or user specified to setup config for the model.
+        """
+
+        if verbose:
+            G_LOGGER.setLevel(level=G_LOGGER.DEBUG)
+        elif info:
+            G_LOGGER.setLevel(level=G_LOGGER.INFO)
+
+        if variant is None:
+            G_LOGGER.error("You should specify --variant to run HuggingFace demo")
+            return
+
+        if enable_kv_cache:
+            G_LOGGER.warning("--enable-kv-cache has been deprecated to --use-cache to fit HuggingFace config.")
+            use_cache = True
+
+        if self._args is not None:
+            G_LOGGER.info("Setting up environment with arguments: {}".format(self._args))
+        else:
+            G_LOGGER.info("User-customized API is called")
+
+        self.metadata = NetworkMetadata(
+            variant=variant,
+            precision=Precision(fp16=fp16),
+            use_cache=use_cache,
+            num_beams=num_beams,
+            batch_size=batch_size,
+            other=DeprecatedCache(kv_cache=use_cache)
+        )
+
+        self.config = self.config_class(
+            metadata = self.metadata
+        )
+
+        # If users have different config, could overwrite this part.
+        hf_config = AutoConfig.from_pretrained(variant, use_cache=use_cache)
+        self.config.from_hf_config(hf_config)
+        self.benchmarking_mode = benchmarking_mode
+        # Not able to set it inside config class. Therefore needs to be set up here.
+        self.config.precision = torch.float16 if self.config.fp16 else torch.float32
+
+        # Not able to specify model classes in config and therefore needs to set up here.
+        self.config.set_model_classes(self.model_classes)
+
+        if benchmarking_mode:
+            self.checkpoint = None
+            output_seq_len = kwargs.get("output_seq_len")
+            if output_seq_len is not None:
+                # Overwrite some fields for generation
+                self.config.min_output_length = output_seq_len
+                self.config.max_output_length = output_seq_len
+                self.config.max_decoder_length = 1 if (use_cache and self.config.is_encoder_decoder) else self.config.max_output_length
+        elif self._args is not None:
+            self.checkpoint = self.load_nn_semantic_checkpoint()
+
+        # User defined variables for generation
+        generation_config = GenerationConfig.from_model_config(hf_config)
+        generation_config.max_length = self.config.max_output_length
+        generation_config.min_length = self.config.min_output_length
+        generation_config.num_beams = num_beams
+        generation_config.use_cache = use_cache
+
+        self.config.set_generation_config(generation_config)
+
+        self.workspace = NNFolderWorkspace(
+            self.config, working_dir
+        )
+
+        self.timing_profile = TimingProfile(
+            iterations=iterations,
+            number=number,
+            warmup=warmup,
+            duration=duration,
+            percentile=percentile,
+        )
+
+        self.keep_torch_model = not cleanup
+        self.keep_onnx_model = not cleanup
+        self.keep_trt_engine = not cleanup
+
+        # If user specifies location, uses user-specified paths
+        if torch_dir is not None:
+            self.workspace.set_torch_path(torch_dir)
+        if encoder_onnx is not None:
+            self.workspace.set_encoder_onnx_path(encoder_onnx)
+        if decoder_onnx is not None:
+            self.workspace.set_decoder_onnx_path(decoder_onnx)
+        if cache_generator_onnx is not None:
+            self.workspace.set_cross_attn_generator_onnx_path(cache_generator_onnx)
+
+        self.model_path_args = self.process_framework_specific_arguments(**kwargs)
+
+    def add_args(self) -> None:
+        general_group = self._parser.add_argument_group("general")
         general_group.add_argument(
-            "--verbose", help="Display verbose logs.", action="store_true"
+            "--verbose", "-v",
+            help="Display verbose logs.",
+            action="store_true"
         )
         general_group.add_argument(
             "--info", help="Display info logs.", action="store_true"
@@ -136,14 +236,16 @@ class NetworkCommand(metaclass=ABCMeta):
         general_group.add_argument(
             "--cleanup",
             help="Cleans up user-specified workspace. Can not be cleaned if external files exist in workspace.",
-            action="store_false",
+            action="store_true",
         )
         general_group.add_argument(
-            "--working-dir",
+            "--working-dir", "-wd",
             help="Location of where to save the model and other downloaded files.",
             required=True,
         )
-        general_group.add_argument(
+
+        model_config_group = self._parser.add_argument_group("model")
+        model_config_group.add_argument(
             "--batch-size", "-b",
             help="Chosen batch size for given network",
             required=False,
@@ -151,7 +253,40 @@ class NetworkCommand(metaclass=ABCMeta):
             default=1
         )
 
-        timing_group = parser.add_argument_group("inference measurement")
+        model_config_group.add_argument(
+            "--variant", "-m",
+            help="model to generate",
+            required=True,
+        )
+        model_config_group.add_argument(
+            "--use-cache",
+            "-kv",
+            help="Enable KV cache",
+            action="store_true",
+            default=False,
+        )
+        model_config_group.add_argument(
+            "--enable-kv-cache",
+            help="Deprecated: Please use --use-cache.",
+            action="store_true",
+            default=False,
+        )
+        model_config_group.add_argument(
+            "--num-beams",
+            "-nb",
+            type=int,
+            default=1,
+            help="Enables beam search during decoding."
+        )
+
+        model_config_group.add_argument(
+            "--fp16",
+            action="store_true",
+            help="Uses fp16 tactics.",
+            default=False
+        )
+
+        timing_group = self._parser.add_argument_group("inference measurement")
         timing_group.add_argument(
             "--iterations",
             type=int,
@@ -183,27 +318,195 @@ class NetworkCommand(metaclass=ABCMeta):
             default=self.DEFAULT_PERCENTILE,
         )
 
-    def check_network_metadata_is_supported(self, metadata: NetworkMetadata) -> None:
-        """
-        Checks if current command supports the given metadata as defined by the NNConfig.
-        Args:
-            metadata (NetworkMetadata): NetworkMetadata to check if input is supported.
+        torch_group = self._parser.add_argument_group("torch model path")
+        torch_group.add_argument(
+            "--torch-dir",
+            default=None,
+            help="Path to PyTorch model. If None is supplied, will attempt to pull from HuggingFace",
+        )
 
-        Throws:
-            NotImplementedError: If the given metadata is not a valid configuration for this network.
+        onnx_group = self._parser.add_argument_group("onnx models path")
+        onnx_group.add_argument(
+            "--encoder-onnx",
+            default=None,
+            help="Path to ONNX encoder. Only use for encoder-decoder models. If None is supplied, scripts will generate them from HuggingFace.",
+        )
+
+        onnx_group.add_argument(
+            "--decoder-onnx",
+            default=None,
+            help="Path to ONNX decoder. If None is supplied, scripts will generate them from HuggingFace.",
+        )
+
+        onnx_group.add_argument(
+            "--cache-generator-onnx",
+            default=None,
+            help="Path to ONNX cross-attention cache generator. Only use with use-cache mode. If None is supplied, scripts will generate them from HuggingFace.",
+        )
+
+    @abstractmethod
+    def setup_tokenizer_and_model(self) -> NetworkModels:
+        """
+        This function is required for every subclass to setup proper tokenizer and models to execute inference.
+        """
+        raise NotImplementedError(
+            f"Make sure that a `setup_tokenizer_and_model` function is correctly implemented in {self.__class__.__module__} to"
+            f" enable accuracy check for {self.__class__}"
+        )
+
+    def download_tokenizer(self):
+        """
+        This function is a helper function to download tokenizer from HuggingFace
 
         Returns:
-            None
+            tokenizer (transformers.AutoTokenizer): tokenizer for the model.
         """
-        if metadata not in self.config.variants:
-            raise NotImplementedError(
-                "The following network config is not yet supported by our scripts: {}".format(
-                    metadata
-                )
-            )
+        if self.tokenizer:
+            return self.tokenizer
 
-    def args_to_network_metadata(self, args) -> NetworkMetadata:
-        return self.config.MetadataClass.from_args(args)
+        tokenizer = AutoTokenizer.from_pretrained(self.config.variant)
+        if tokenizer.pad_token is None:
+            tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+
+        return tokenizer
+
+    def load_torch_model(self):
+        """
+        This function load the PyTorch model from HuggingFace.
+
+        Returns:
+            model(torch.Module): PyTorch model downloaded from HuggingFace
+
+        """
+        if self.torch_model:
+            return self.torch_model
+
+        t0 = time.time()
+        torch_dir = self.workspace.torch_path
+        if torch_dir is None or not os.path.isdir(torch_dir):
+            torch_dir = self.workspace.create_pytorch_folder()
+
+        torch_model = None
+        if not os.path.exists(os.path.join(torch_dir, "config.json")):
+
+            try:
+                if self.config.is_encoder_decoder:
+                    torch_model = AutoModelForSeq2SeqLM.from_pretrained(
+                        self.config.variant,
+                        use_cache=self.config.use_cache
+                    )
+                else:
+                    torch_model = AutoModelForCausalLM.from_pretrained(
+                        self.config.variant,
+                        use_cache=self.config.use_cache
+                    )
+            except:
+                raise RuntimeError("This model variant is not recognized by HuggingFace.")
+
+            torch_model.save_pretrained(torch_dir)
+            G_LOGGER.info("Pytorch Model saved to {}".format(torch_dir))
+
+        else:
+            G_LOGGER.info(
+                "Frameworks file already exists, skipping generation and loading from file instead."
+            )
+            try:
+                if self.config.is_encoder_decoder:
+                    torch_model = AutoModelForSeq2SeqLM.from_pretrained(
+                        torch_dir,
+                        use_cache=self.config.use_cache
+                    )
+                else:
+                    torch_model = AutoModelForCausalLM.from_pretrained(
+                        torch_dir,
+                        use_cache=self.config.use_cache
+                    )
+            except Exception as e:
+                raise RuntimeError("Fails to load model from {}. Reason: {}".format(torch_model, str(e)))
+
+        G_LOGGER.info("PyTorch model loading time is {:.4f}s".format(time.time() - t0))
+        return torch_model
+
+    def load_onnx_model(self):
+        """
+        Load ONNX model.
+        First attempt to load models from user-provided arguments;
+        If does not exist, attempt to look for ONNX files in workspace;
+        If could not find ONNX files, attempt to convert from PyTorch.
+
+        Returns:
+            True
+
+        Sets:
+            self.onnx_decoder: DecoderONNXFile
+            self.onnx_encoder: EncoderONNXFile if encoder_decoder, None otherwise
+            self.onnx_cross_attn_cache_generator: CrossAttnCacheGeneratorONNXFile if encoder_decoder and use_cache, None otherwise
+        """
+        t0 = time.time()
+        G_LOGGER.info("Attempt to load ONNX models from arguments...")
+        if self.check_onnx_inputs_valid():
+            self.load_onnx_model_from_workspace()
+            G_LOGGER.info("ONNX models found from arguments.")
+            return True
+
+        G_LOGGER.info("ONNX models not found from arguments. Attempt to search load ONNX models from existing workspace...")
+
+        self.workspace.create_onnx_folders()
+        if self.check_onnx_inputs_valid():
+            self.load_onnx_model_from_workspace()
+            G_LOGGER.info("ONNX models found from workspace.")
+            return True
+
+        G_LOGGER.info("ONNX model not in existing workspace. Attempt to export ONNX models from PyTorch...")
+        torch_model = self.load_torch_model()
+        # For TRT, we try to always use CPU models to export to onnx as fp32.
+        torch_model = torch_model.cpu()
+        torch_decoder = self.config.decoder_classes["torch"](torch_model, network_metadata = self.metadata)
+        self.onnx_decoder = torch_decoder.as_onnx_model(
+            self.workspace.decoder_onnx_path, force_overwrite=False, config=self.config
+        )
+
+        if self.config.is_encoder_decoder:
+            torch_encoder = self.config.encoder_classes["torch"](torch_model, network_metadata = self.metadata)
+            self.onnx_encoder = torch_encoder.as_onnx_model(
+                self.workspace.encoder_onnx_path, force_overwrite=False, config=self.config
+            )
+        if self.use_generator:
+            torch_cross_attn_cache_generator = self.config.cross_attn_cache_generator_classes["torch"](torch_model, network_metadata = self.metadata)
+            self.onnx_cross_attn_cache_generator = torch_cross_attn_cache_generator.as_onnx_model(
+                self.workspace.cross_attn_generator_onnx_path, force_overwrite=False, config=self.config
+            )
+        G_LOGGER.info("ONNX models successfully exported from PyTorch. Total time: {:.4f}s".format(time.time() - t0))
+        return True
+
+    def check_onnx_inputs_valid(self):
+        """
+        Helper method for load_onnx_model. Checks whether onnx inputs are valid paths to onnx files.
+        """
+        encoder_onnx_fpath = self.workspace.encoder_onnx_path
+        decoder_onnx_fpath = self.workspace.decoder_onnx_path
+        cache_generator_onnx_fpath = self.workspace.cross_attn_generator_onnx_path
+        is_encoder_valid = encoder_onnx_fpath is not None and os.path.exists(encoder_onnx_fpath)
+        is_decoder_valid = decoder_onnx_fpath is not None and  os.path.exists(decoder_onnx_fpath)
+        is_generator_valid = cache_generator_onnx_fpath is not None and os.path.exists(cache_generator_onnx_fpath)
+        if self.config.is_encoder_decoder:
+            if self.config.use_cache:
+                return is_encoder_valid and is_decoder_valid and is_generator_valid
+            else:
+                return is_encoder_valid and is_decoder_valid
+
+        return is_decoder_valid
+
+    def load_onnx_model_from_workspace(self):
+        """
+        Helper method for load_onnx_model. Loads onnx model from workspace, assuming ONNX model is already there.
+        """
+        self.onnx_decoder = self.config.decoder_classes["onnx"](self.workspace.decoder_onnx_path, self.metadata)
+        if self.config.is_encoder_decoder:
+            self.onnx_encoder = self.config.encoder_classes["onnx"](self.workspace.encoder_onnx_path, self.metadata)
+        if self.use_generator:
+            self.onnx_cross_attn_cache_generator = self.config.cross_attn_cache_generator_classes["onnx"](self.workspace.cross_attn_generator_onnx_path, self.metadata)
+
 
     def load_nn_semantic_checkpoint(self) -> object:
         """
@@ -220,94 +523,326 @@ class NetworkCommand(metaclass=ABCMeta):
         )
         return checkpoint
 
-    def get_timing_profile(self) -> TimingProfile:
-        """
-        Get TimingProfile settings given current args.
-        """
-        return TimingProfile(
-                iterations=int(self._args.iterations),
-                number=int(self._args.number),
-                warmup=int(self._args.warmup),
-                duration=int(self._args.duration),
-                percentile=int(self._args.percentile),
+    @use_cuda
+    def decoder_inference(
+        self,
+        input_ids,
+        encoder_outputs = None,
+        use_cuda = True
+    ):
+
+        if isinstance(self.decoder, TRTNativeRunner) and self.config.is_encoder_decoder:
+            self.decoder.set_encoder_hidden_states(encoder_outputs.last_hidden_state)
+
+        decoder_stmt = lambda: self.decoder(input_ids = input_ids, encoder_outputs = encoder_outputs)
+
+        decoder_e2e_time = measure_python_inference_code(decoder_stmt, self.timing_profile)
+        decoder_output = decoder_stmt()
+
+        return (decoder_output, decoder_e2e_time)
+
+    @use_cuda
+    def encoder_inference(
+        self,
+        input_ids,
+        use_cuda = True
+    ):
+
+        encoder_stmt = lambda: self.encoder(input_ids=input_ids)
+        encoder_e2e_time = measure_python_inference_code(encoder_stmt, self.timing_profile)
+        encoder_output = encoder_stmt()
+        return (encoder_output, encoder_e2e_time)
+
+    @use_cuda
+    def full_inference(
+        self,
+        input_ids,
+        early_stopping=True,
+        use_cuda = True
+    ):
+
+        G_LOGGER.info(f"Running full inference...")
+
+        def _e2e():
+            with torch.no_grad():
+                encoder_outputs = self.encoder(input_ids=input_ids) if self.encoder is not None else None
+
+                if self.decoder is not None:
+                    decoder_output = self.decoder.generate(
+                        input_ids,
+                        num_beams=self.config.num_beams,
+                        early_stopping=early_stopping,
+                        eos_token_id=self.config.eos_token_id,
+                        pad_token_id=self.config.pad_token_id,
+                        use_cache=self.config.use_cache,
+                        encoder_outputs=encoder_outputs,
+                        min_length=self.config.min_output_length,
+                        max_length=self.config.max_output_length,
+                    )
+
+                    return decoder_output
+
+                return encoder_outputs
+
+        measurement_function = _e2e
+
+        full_e2e_time = measure_python_inference_code(measurement_function, self.timing_profile)
+        model_outputs = _e2e()
+
+        return (model_outputs, full_e2e_time)
+
+    @use_cuda
+    def generate(
+        self,
+        input_str: str = None,
+        input_ids: torch.Tensor = None,
+        use_cuda: bool = True,
+    ):
+        # If models are not set, need to setup tokenizer and models to run inference
+        if self.models is None:
+            self.models = self.setup_tokenizer_and_model()
+
+        if input_str is None and input_ids is None:
+            raise RuntimeError("Please provide either input_str or input_ids for generate")
+        if input_ids is None:
+            input_ids = self.tokenizer([input_str] * self.config.batch_size, padding=True, return_tensors="pt").input_ids
+
+        if use_cuda:
+            input_ids = input_ids.to("cuda")
+
+        encoder_outputs = None
+        if self.config.is_encoder_decoder:
+            encoder_outputs = self.encoder(input_ids)
+
+        decoder_outputs = self.decoder.generate(
+            input_ids,
+            max_length=self.config.max_length,
+            min_length=self.config.min_length,
+            num_beams=self.config.num_beams,
+            early_stopping=self.config.early_stopping,
+            eos_token_id=self.config.eos_token_id,
+            pad_token_id=self.config.pad_token_id,
+            use_cache=self.config.use_cache,
+            encoder_outputs=encoder_outputs
+        )
+
+        semantic_outputs = self.tokenizer.decode(
+            decoder_outputs[-1, :], skip_special_tokens=True
+        )
+
+        return decoder_outputs, semantic_outputs
+
+    @use_cuda
+    def execute_inference(
+        self,
+        inference_input: str,
+        use_cuda: bool = True
+    ) -> Union[NetworkResult, BenchmarkingResult]:
+
+        if self.models is None:
+            self.models = self.setup_tokenizer_and_model()
+
+        # Prepare the input tokens and find out output sequence length.
+        if not self.benchmarking_mode:
+            input_ids = self.tokenizer([inference_input] * self.config.batch_size, padding=True, return_tensors="pt").input_ids
+        else:
+            input_ids = torch.randint(0, self.config.vocab_size, (self.config.batch_size, self._args.input_seq_len))
+
+        if self.config.is_encoder_decoder:
+            encoder_outputs, encoder_e2e_time = self.encoder_inference(
+                input_ids=input_ids,
+                use_cuda=use_cuda,
             )
 
+        # Run decoder once at a reasonable seq length
+        if self.config.use_cache:
+            decoder_input_ids = input_ids[:,-1:]
+        else:
+            decoder_input_ids = input_ids
+
+        # Expand decoder_inputs if using beam search
+        decoder_input_ids, model_kwargs = GenerationMixin._expand_inputs_for_generation(
+            expand_size=self.config.num_beams,
+            input_ids=decoder_input_ids,
+            is_encoder_decoder=self.config.is_encoder_decoder,
+            encoder_outputs=encoder_outputs if self.config.is_encoder_decoder else None,
+        )
+
+        expanded_encoder_outputs = model_kwargs["encoder_outputs"]
+
+        _, decoder_e2e_time = self.decoder_inference(
+            input_ids=decoder_input_ids,
+            encoder_outputs=expanded_encoder_outputs,
+            use_cuda=use_cuda,
+        )
+
+        decoder_output, full_e2e_runtime = self.full_inference(
+            input_ids=input_ids,
+            use_cuda=use_cuda,
+        )
+
+        # Prepare runtime results.
+        runtime = [
+            NetworkRuntime(
+                name=self.config_class.NETWORK_FULL_NAME,
+                runtime=full_e2e_runtime,
+            ),
+            NetworkRuntime(
+                name=self.config_class.NETWORK_DECODER_SEGMENT_NAME,
+                runtime=decoder_e2e_time,
+            ),
+        ]
+
+        if self.config.is_encoder_decoder:
+            runtime.append(
+                NetworkRuntime(
+                    name=self.config_class.NETWORK_ENCODER_SEGMENT_NAME,
+                    runtime=encoder_e2e_time,
+                )
+            )
+
+        # Skip result checking in benchmarking mode since the input data is random.
+        if self.benchmarking_mode:
+            return BenchmarkingResult(median_runtime=runtime, models=self.workspace.torch_path)
+
+        # Remove the padding and end tokens.
+        semantic_outputs = self.tokenizer.decode(
+            decoder_output[-1, :], skip_special_tokens=True
+        )
+
+        if isinstance(semantic_outputs, list):
+            semantic_outputs = " ".join(semantic_outputs).strip()
+
+        return NetworkResult(
+            input=inference_input,
+            output_tensor=decoder_output,
+            semantic_output=semantic_outputs,
+            median_runtime=runtime,
+            models=self.models,
+        )
+
+    @use_cuda
+    def calculate_perplexity(
+        self,
+        input_str: str,
+        reference_str: str,
+        use_cuda: bool = True,
+    ):
+        """
+        Each child class should have a `calculate_perplexity` that takes in the result str and reference str for perplexity calculation.
+
+        """
+        G_LOGGER.warning(
+            f"Make sure that a `calculate_perplexity` function is correctly implemented in {self.__class__.__module__} to"
+            f" enable accuracy check for {self.__class__}. Default=None"
+        )
+
+        return None
+
+
+    def run(self) -> Union[List[NetworkResult], BenchmarkingResult]:
+        """
+        Main entry point of our function which compiles and generates our model data for command-line mode.
+        The general process for the commands are all the same:
+        (1) Download the model
+        (2) Run either checkpoint or benchmark
+        (3) Returns the result
+        """
+        t0 = time.time()
+        self.models = self.setup_tokenizer_and_model()
+        t1 = time.time()
+        G_LOGGER.info("setup_tokenizer_and_model() takes {:.4f}s in total.".format(t1 - t0))
+
+        if self.checkpoint is None:
+            perplexity_reference = None
+        else:
+            network_input = list(self.checkpoint.inputs())
+            perplexity_reference = list(self.checkpoint.labels())
+
+        inference_results = []
+        ppl_results = []
+
+        try:
+            if not self.benchmarking_mode:
+                for ninput in network_input:
+                    inference_results.append(
+                        self.execute_inference(ninput, use_cuda=self.use_cuda)
+                    )
+                if perplexity_reference is not None:
+                    assert len(network_input) == len(perplexity_reference), "Encoder and decoder inputs must pair up"
+                    for ei, di in zip(network_input, perplexity_reference):
+                        ppl_results.append(
+                            self.calculate_perplexity(ei, di, use_cuda=self.use_cuda)
+                        )
+            else:
+                inference_results = self.execute_inference(inference_input = None)
+
+        finally:
+            self.cleanup()
+
+        t2 = time.time()
+        G_LOGGER.info("Inference session is {:.4f}s in total.".format(t2 - t1))
+
+        return inference_results, ppl_results
+
+    def __call__(self):
+        t0 = time.time()
+        self.add_args()
+        self._args = self._parser.parse_args()
+
+        self.setup_environment(
+            **vars(self._args),
+            benchmarking_mode=(self._args.action == "benchmark")
+        )
+        t1 = time.time()
+        G_LOGGER.info("Set up environment takes {:.4f}s.".format(t1 - t0))
+
+        if self.benchmarking_mode:
+            network_results = self.run()
+            return network_results
+        else:
+            network_results, ppl_results = self.run()
+            return NetworkCheckpointResult(
+                network_results=network_results,
+                accuracy=self.checkpoint.accuracy(network_results),
+                perplexity=(sum(ppl_results) / len(ppl_results) if not (None in ppl_results) else None),
+            )
 
 class FrameworkCommand(NetworkCommand):
     """Base class that is associated with Frameworks related scripts."""
 
-    def __init__(self, network_config: NNConfig, description: str):
-        super().__init__(network_config, description)
+    def __init__(self, network_config: NNConfig, description: str, model_classes, **kwargs):
+        super().__init__(network_config, description, model_classes, **kwargs)
         self.framework_name = FRAMEWORK_NATIVE
 
-    @abstractmethod
-    def run_framework(
-        self,
-        metadata: NetworkMetadata,
-        network_input: List[str],
-        working_directory: str,
-        keep_onnx_model: bool,
-        keep_pytorch_model: bool,
-        timing_profile: TimingProfile,
-        batch_size: int,
-        args: object = None,
-        benchmarking_mode: bool = False,
-        perplexity_reference: List[str] = None,
-    ) -> Union[List[NetworkResult], BenchmarkingResult]:
-        pass
-
     def __call__(self):
-        super().__call__()
+        return super().__call__()
 
-        checkpoint = self.load_nn_semantic_checkpoint()
-
-        network_results, ppl_results = self.run_framework(
-            metadata=self.metadata,
-            network_input=list(checkpoint.inputs()),
-            working_directory=self._args.working_dir,
-            keep_onnx_model=self._args.cleanup,
-            keep_pytorch_model=self._args.cleanup,
-            timing_profile=self.get_timing_profile(),
-            use_cpu=self._args.cpu,
-            batch_size=self._args.batch_size,
-            args=self._args,
-            benchmarking_mode=False,
-            perplexity_reference=list(checkpoint.labels()),
-        )
-
-        return NetworkCheckpointResult(
-            network_results=network_results,
-            accuracy=checkpoint.accuracy(network_results),
-            perplexity=(sum(ppl_results) / len(ppl_results) if ppl_results else None),
-        )
-
-    def run_benchmark(self):
-        self.config.MetadataClass.add_benchmarking_args(self._parser)
-        super().__call__()
-
-        network_results = self.run_framework(
-            metadata=self.metadata,
-            network_input=None,
-            working_directory=self._args.working_dir,
-            keep_onnx_model=self._args.cleanup,
-            keep_pytorch_model=self._args.cleanup,
-            timing_profile=self.get_timing_profile(),
-            use_cpu=self._args.cpu,
-            batch_size=self._args.batch_size,
-            args=self._args,
-            benchmarking_mode=True,
-        )
-
-        return network_results
-
-    def add_args(self, parser) -> argparse.ArgumentParser:
-        super().add_args(parser)
-        device_group = parser.add_argument_group("device")
+    def add_args(self):
+        super().add_args()
+        device_group = self._parser.add_argument_group("device")
         device_group.add_argument(
             "--cpu",
             help="Run inference using CPU for frameworks.",
             action="store_true",
         )
+
+    def cleanup(self) -> None:
+        """
+        Cleans up the working directory and leaves models if available.
+        Should not assume any functions from the framework class has been called.
+        Return:
+            None
+        """
+
+        if not self.keep_torch_model:
+            # Using rmtree can be dangerous, have user confirm before deleting.
+            confirm_folder_delete(
+                self.workspace.torch_path,
+                prompt="Confirm you want to delete downloaded pytorch model folder?",
+            )
+
+            self.workspace.cleanup(force_remove=False)
 
 class TRTInferenceCommand(NetworkCommand):
     """Base class that is associated with Polygraphy related scripts."""
@@ -316,131 +851,59 @@ class TRTInferenceCommand(NetworkCommand):
         self,
         network_config: NNConfig,
         description: str,
-        frameworks_cmd: FrameworkCommand,
+        model_classes,
+        **kwargs,
     ):
-        super().__init__(network_config, description)
+        super().__init__(network_config, description, model_classes, **kwargs)
         self.framework_name = FRAMEWORK_TENSORRT
-        # Should be set by
-        self.frameworks_cmd = frameworks_cmd()
-
-    def _setup_workspace(self, metadata: NetworkMetadata, working_directory: str) -> NNFolderWorkspace:
-        return NNFolderWorkspace(
-            self.frameworks_cmd.config.network_name, metadata, working_directory
-        )
-
-    def _download_models(
-        self,
-        workspace: NNFolderWorkspace,
-        metadata: NetworkMetadata,
-    ) -> Tuple[NetworkModel]:
-        # No fpath provided for onnx files, download them from HuggingFace repo.
-        return self.frameworks_cmd.generate_and_download_framework(
-            metadata, workspace
-        ).onnx
-
-    @abstractmethod
-    def run_trt(
-        self,
-        metadata: NetworkMetadata,
-        onnx_fpaths: Tuple[NetworkModel],
-        network_input: List[str],
-        working_directory: str,
-        keep_trt_engine: bool,
-        keep_onnx_model: bool,
-        keep_torch_model: bool,
-        timing_profile: TimingProfile,
-        batch_size: int = 1,
-        args: object = None,
-        benchmarking_mode: bool = False,
-        disable_preview_dynamic_shapes: bool = False,
-        perplexity_reference: List[str] = None,
-    ) -> Union[List[NetworkResult], BenchmarkingResult]:
-        pass
+        # TRT always use GPU
+        self.use_cuda = True
 
     def __call__(self):
-        self.config.MetadataClass.add_inference_args(self._parser)
-        super().__call__()
-        onnx_fpaths = self.args_to_network_models(self._args)
+        return super().__call__()
 
-        checkpoint = self.load_nn_semantic_checkpoint()
-
-        network_results, ppl_results = self.run_trt(
-            metadata=self.metadata,
-            onnx_fpaths=onnx_fpaths,
-            network_input=list(checkpoint.inputs()),
-            working_directory=self._args.working_dir,
-            keep_trt_engine=self._args.cleanup,
-            keep_onnx_model=self._args.cleanup,
-            keep_torch_model=self._args.cleanup,
-            timing_profile=self.get_timing_profile(),
-            batch_size=self._args.batch_size,
-            args=self._args,
-            benchmarking_mode=False,
-            disable_preview_dynamic_shapes=self._args.disable_preview_dynamic_shapes,
-            perplexity_reference=list(checkpoint.labels()),
-        )
-
-        return NetworkCheckpointResult(
-            network_results=network_results,
-            accuracy=checkpoint.accuracy(network_results),
-            perplexity=(sum(ppl_results) / len(ppl_results) if ppl_results else None),
-        )
-
-    def run_benchmark(self):
-        self.config.MetadataClass.add_inference_args(self._parser)
-        self.config.MetadataClass.add_benchmarking_args(self._parser)
-        super().__call__()
-        onnx_fpaths = self.args_to_network_models(self._args)
-
-        network_results = self.run_trt(
-            metadata=self.metadata,
-            onnx_fpaths=onnx_fpaths,
-            network_input=None,
-            working_directory=self._args.working_dir,
-            keep_trt_engine=self._args.cleanup,
-            keep_onnx_model=self._args.cleanup,
-            keep_torch_model=self._args.cleanup,
-            timing_profile=self.get_timing_profile(),
-            batch_size=self._args.batch_size,
-            args=self._args,
-            benchmarking_mode=True,
-            disable_preview_dynamic_shapes=self._args.disable_preview_dynamic_shapes
-        )
-
-        return network_results
-
-    def add_args(self, parser) -> argparse.ArgumentParser:
-        super().add_args(parser)
-        trt_group = parser.add_argument_group("trt")
+    def add_args(self):
+        super().add_args()
+        trt_group = self._parser.add_argument_group("trt")
         trt_group.add_argument(
             "--disable-preview-dynamic-shapes",
             help="Disable the FASTER_DYNAMIC_SHAPES_0805 preview feature when building the TensorRT engine",
             action="store_true",
+            default=False,
         )
 
-        trt_benchmarking_group = parser.add_argument_group("trt benchmarking group")
-        trt_benchmarking_group.add_argument(
-            "--input-profile-max-len",
-            type=int,
-            help="Specify max input sequence length in TRT engine profile. (default: max supported sequence length)",
-        )
-        trt_benchmarking_group.add_argument(
-            "--output-profile-max-len",
-            type=int,
-            help="Specify max output sequence length in TRT engine profile. (default: max supported sequence length)",
+        engine_group = self._parser.add_argument_group("trt engine")
+        engine_group.add_argument(
+            "--encoder-engine",
+            default=None,
+            help="Path to encoder TRT engine. Only use for encoder-decoder models. If None is supplied, scripts will generate from TensorRT.",
         )
 
-    def args_to_network_metadata(self, args) -> NetworkMetadata:
-        return self.config.MetadataClass.from_inference_args(args)
+        engine_group.add_argument(
+            "--decoder-engine",
+            default=None,
+            help="Path to decoder TRT engine. If None is supplied, scripts will generate from TensorRT.",
+        )
 
-    @abstractmethod
-    def args_to_network_models(self, args) -> Tuple[NetworkModel]:
-        """
-        Converts argparse arguments into a list of valid NetworkModel fpaths. Specifically for ONNX.
-        Invokes conversion scripts if not.
-        Return:
-            List[NetworkModel]: List of network model names.
-        """
+        engine_group.add_argument(
+            "--cache-generator-engine",
+            default=None,
+            help="Path to cross-attention cache generator TRT engine. Only use with use-cache mode. If None is supplied, scripts will generate from TensorRT.",
+        )
+
+        engine_group.add_argument(
+            "--use-timing-cache",
+            default=False,
+            help="Use Timing Cache could speed up engine building",
+            action="store_true",
+        )
+
+        engine_group.add_argument(
+            "--nvtx-verbose",
+            default=False,
+            help="nvtx verbosity in inference stage.",
+            action="store_true",
+        )
 
 class OnnxRTCommand(NetworkCommand):
     """ONNX Runtime command."""
@@ -449,83 +912,12 @@ class OnnxRTCommand(NetworkCommand):
         self,
         network_config: NNConfig,
         description: str,
-        frameworks_cmd: FrameworkCommand,
+        model_classes,
+        **kwargs
     ):
-        super().__init__(network_config, description)
+        super().__init__(network_config, description, model_classes, **kwargs)
         self.framework_name = FRAMEWORK_ONNXRT
-        # Should be set by
-        self.frameworks_cmd = frameworks_cmd()
-
-    @abstractmethod
-    def run_onnxrt(
-        self,
-        metadata: NetworkMetadata,
-        onnx_fpaths: Tuple[NetworkModel],
-        network_input: List[str],
-        working_directory: str,
-        keep_onnx_model: bool,
-        keep_torch_model: bool,
-        timing_profile: TimingProfile,
-        args: object = None,
-        benchmarking_mode: bool = False,
-    ) -> Union[List[NetworkResult], BenchmarkingResult]:
-        pass
+        self.use_cuda = False
 
     def __call__(self):
-        self.config.MetadataClass.add_inference_args(self._parser)
-        super().__call__()
-        onnx_fpaths = self.args_to_network_models(self._args)
-
-        checkpoint = self.load_nn_semantic_checkpoint()
-
-        network_results = self.run_onnxrt(
-            metadata=self.metadata,
-            onnx_fpaths=onnx_fpaths,
-            network_input=list(checkpoint.inputs()),
-            working_directory=self._args.working_dir,
-            keep_onnx_model=self._args.cleanup,
-            keep_torch_model=self._args.cleanup,
-            timing_profile=self.get_timing_profile(),
-            batch_size=self._args.batch_size,
-            args=self._args,
-            benchmarking_mode=False,
-        )
-
-        return NetworkCheckpointResult(
-            network_results=network_results,
-            accuracy=checkpoint.accuracy(network_results),
-            perplexity=None,
-        )
-
-    def run_benchmark(self):
-        self.config.MetadataClass.add_inference_args(self._parser)
-        self.config.MetadataClass.add_benchmarking_args(self._parser)
-        super().__call__()
-        onnx_fpaths = self.args_to_network_models(self._args)
-
-        network_results = self.run_onnxrt(
-            metadata=self.metadata,
-            onnx_fpaths=onnx_fpaths,
-            network_input=None,
-            working_directory=self._args.working_dir,
-            keep_onnx_model=self._args.cleanup,
-            keep_torch_model=self._args.cleanup,
-            timing_profile=self.get_timing_profile(),
-            batch_size=self._args.batch_size,
-            args=self._args,
-            benchmarking_mode=True,
-        )
-
-        return network_results
-
-    def args_to_network_metadata(self, args) -> NetworkMetadata:
-        return self.config.MetadataClass.from_inference_args(args)
-
-    @abstractmethod
-    def args_to_network_models(self, args) -> Tuple[NetworkModel]:
-        """
-        Converts argparse arguments into a list of valid NetworkModel fpaths. Specifically for ONNX.
-        Invokes conversion scripts if not.
-        Return:
-            List[NetworkModel]: List of network model names.
-        """
+        return super().__call__()

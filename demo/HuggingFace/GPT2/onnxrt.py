@@ -25,20 +25,21 @@ if __name__ == "__main__":
     sys.path.append(project_root)
 
 from Seq2Seq.onnxrt import Seq2SeqOnnxRT
-from BART.BARTModelConfig import BARTModelTRTConfig
-from BART.export import BARTModelClass
+from GPT2.GPT2ModelConfig import GPT2ModelTRTConfig
+from Seq2Seq.export import Seq2SeqModelClass
 
-class BARTOnnxRT(Seq2SeqOnnxRT):
+
+class GPT2OnnxRT(Seq2SeqOnnxRT):
     def __init__(
         self,
-        config_class=BARTModelTRTConfig,
-        description="Runs OnnxRT results for BART model.",
+        config_class=GPT2ModelTRTConfig,
+        description="Runs OnnxRT results for GPT2 model.",
         **kwargs
     ):
-        super().__init__(config_class, description=description, model_classes=BARTModelClass, **kwargs)
+        super().__init__(config_class, description=description, model_classes=Seq2SeqModelClass, **kwargs)
 
 # Entry point
-RUN_CMD = BARTOnnxRT()
+RUN_CMD = GPT2OnnxRT()
 
 if __name__ == "__main__":
     result = RUN_CMD()

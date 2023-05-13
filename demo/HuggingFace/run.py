@@ -132,7 +132,7 @@ class BenchmarkAction(NetworkScriptAction):
         # Execute script in each relevant folder
         try:
             os.chdir(args.network)
-            results = module.RUN_CMD.run_benchmark()
+            results = module.RUN_CMD()
         finally:
             os.chdir(old_path)
 
@@ -143,8 +143,32 @@ class BenchmarkAction(NetworkScriptAction):
 
     def add_args(self, parser: argparse.ArgumentParser):
         super().add_args(parser)
-        run_group = parser.add_argument_group("benchmark args")
-        run_group.add_argument("script", choices=self.PER_NETWORK_SCRIPTS)
+        benchmarking_group = parser.add_argument_group("benchmark args")
+        benchmarking_group.add_argument("script", choices=self.PER_NETWORK_SCRIPTS)
+        benchmarking_group.add_argument(
+            "--input-seq-len",
+            type=int,
+            help="Specify fixed input sequence length for perf benchmarking. Required for benchmark except when both input_profile_max and output_profile_max are provided for trt",
+        )
+        benchmarking_group.add_argument(
+            "--output-seq-len",
+            type=int,
+            help="Specify fixed output sequence length for perf benchmarking. Required for benchmark except when both input_profile_max and output_profile_max are provided for trt",
+        )
+
+        trt_benchmarking_group = parser.add_argument_group("trt benchmarking group")
+        trt_benchmarking_group.add_argument(
+            "--input-profile-max-len",
+            type=int,
+            help="Specify max input sequence length in TRT engine profile. (default: max supported sequence length)",
+            default=None,
+        )
+        trt_benchmarking_group.add_argument(
+            "--output-profile-max-len",
+            type=int,
+            help="Specify max output sequence length in TRT engine profile. (default: max supported sequence length)",
+            default=None,
+        )
 
 
 class CompareAction(NetworkScriptAction):
