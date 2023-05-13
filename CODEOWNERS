@@ -12,7 +12,7 @@
 /docker_qa/ @kevinch @vincenth @svc_tensorrt
 
 [Demo][1]
-/demo/ @rajerao @svc_tensorrt
+/demo/ @vincenth @rajerao @svc_tensorrt
 
 # Parsers Gatekeeper
 [Parsers PIC][1]
@@ -45,7 +45,7 @@
 /third_party/ @kevinch @vincenth @svc_tensorrt
 
 [Scripts][1]
-/scripts/ @rajerao @svc_tensorrt
+/scripts/ @vincenth @rajerao @svc_tensorrt
 
 [Tools][1]
 /tools/ @asfiyab @simengl @svc_tensorrt
