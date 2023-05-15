@@ -8977,6 +8977,7 @@ enum class BuilderFlag : int32_t
     kERROR_ON_TIMING_CACHE_MISS = 18,
 
     //! Enable DataType::kBF16 layer selection, with FP32 fallback.
+    //! This flag is only supported by NVIDIA Ampere and later GPUs.
     kBF16 = 19,
 };
 

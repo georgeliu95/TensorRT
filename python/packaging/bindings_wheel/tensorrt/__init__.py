@@ -164,6 +164,7 @@ def nptype(trt_type):
         float16: np.float16,
         int8: np.int8,
         int32: np.int32,
+        int64: np.int64,
         bool: np.bool_,
         uint8: np.uint8,
         # Note: fp8 and bfloat16 have no equivalent numpy type
@@ -188,6 +189,7 @@ def _itemsize(trt_type):
         bfloat16: 2,
         int8: 1,
         int32: 4,
+        int64: 8,
         bool: 1,
         uint8: 1,
         fp8: 1,

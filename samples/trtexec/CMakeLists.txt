@@ -20,6 +20,7 @@ SET(SAMPLE_SOURCES
     ../common/sampleOptions.cpp
     ../common/sampleReporting.cpp
     ../common/sampleUtils.cpp
+    ../common/bfloat16.cpp
     trtexec.cpp
 )
 

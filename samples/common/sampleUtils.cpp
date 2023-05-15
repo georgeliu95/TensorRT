@@ -16,6 +16,7 @@
  */
 
 #include "sampleUtils.h"
+#include "bfloat16.h"
 #include "half.h"
 
 using namespace nvinfer1;
@@ -29,12 +30,12 @@ size_t dataTypeSize(nvinfer1::DataType dataType)
     {
     case nvinfer1::DataType::kINT32:
     case nvinfer1::DataType::kFLOAT: return 4U;
+    case nvinfer1::DataType::kBF16:
     case nvinfer1::DataType::kHALF: return 2U;
     case nvinfer1::DataType::kBOOL:
     case nvinfer1::DataType::kUINT8:
     case nvinfer1::DataType::kINT8:
     case nvinfer1::DataType::kFP8: return 1U;
-    case nvinfer1::DataType::kBF16:
     case nvinfer1::DataType::kINT64: ASSERT(false && "Unsupported data type");
     }
     return 0;
@@ -366,12 +367,12 @@ void sparsify(Weights const& weights, int32_t k, int32_t trs, std::vector<int8_t
     case DataType::kHALF:
         sparsify(static_cast<half_float::half const*>(weights.values), weights.count, k, trs, sparseWeights);
         break;
+    case DataType::kBF16:
     case DataType::kINT8:
     case DataType::kINT32:
     case DataType::kUINT8:
     case DataType::kBOOL:
     case DataType::kFP8: break;
-    case DataType::kBF16:
     case DataType::kINT64: ASSERT(false && "Unsupported data type");
     }
 }
@@ -434,6 +435,8 @@ template void dumpBuffer<int8_t>(void const* buffer, std::string const& separato
 template void dumpBuffer<float>(void const* buffer, std::string const& separator, std::ostream& os, Dims const& dims,
     Dims const& strides, int32_t vectorDim, int32_t spv);
 template void dumpBuffer<__half>(void const* buffer, std::string const& separator, std::ostream& os, Dims const& dims,
+    Dims const& strides, int32_t vectorDim, int32_t spv);
+template void dumpBuffer<BFloat16>(void const* buffer, std::string const& separator, std::ostream& os, Dims const& dims,
     Dims const& strides, int32_t vectorDim, int32_t spv);
 template void dumpBuffer<uint8_t>(void const* buffer, std::string const& separator, std::ostream& os, Dims const& dims,
     Dims const& strides, int32_t vectorDim, int32_t spv);
@@ -532,6 +535,7 @@ template void fillBuffer<float>(void* buffer, int64_t volume, float min, float m
 template void fillBuffer<int32_t>(void* buffer, int64_t volume, int32_t min, int32_t max);
 template void fillBuffer<int8_t>(void* buffer, int64_t volume, int8_t min, int8_t max);
 template void fillBuffer<__half>(void* buffer, int64_t volume, __half min, __half max);
+template void fillBuffer<BFloat16>(void* buffer, int64_t volume, BFloat16 min, BFloat16 max);
 template void fillBuffer<uint8_t>(void* buffer, int64_t volume, uint8_t min, uint8_t max);
 
 } // namespace sample
