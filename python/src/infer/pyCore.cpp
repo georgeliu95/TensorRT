@@ -1069,7 +1069,6 @@ void bindCore(py::module& m)
 #if ENABLE_MDTRT
         .def_property_readonly("instance_id", &nvinfer1GetInstanceID)
         .def_property_readonly("num_instances", &nvinfer1GetNbInstances)
-        .def_property_readonly("local_enqueue_input", &nvinfer1IsEnqueueInputLocal)
 #endif // ENABLE_MDTRT
         .def("__del__", &utils::doNothingDel<ICudaEngine>);
 

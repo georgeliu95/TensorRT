@@ -9210,6 +9210,78 @@ struct EnumMaxImpl<HardwareCompatibilityLevel>
 } // namespace impl
 
 //!
+//! \class IProgressMonitor
+//!
+//! \brief Application-implemented progress reporting interface for TensorRT.
+//!
+//! The IProgressMonitor is a user-defined object that TensorRT uses to report back when an internal algorithm has
+//! started or finished a phase to help provide feedback on the progress of the optimizer.
+//!
+//! The IProgressMonitor will trigger its start function when a phase is entered and will trigger its finish function
+//! when that phase is exited. Each phase consists of one or more steps. When each step is completed, the stepComplete
+//! function is triggered. This will allow an application using the builder to communicate progress relative to when the
+//! optimization step is expected to complete.
+//!
+//! The implementation of IProgressMonitor must be thread-safe so that it can be called from multiple internal threads.
+//! The lifetime of the IProgressMonitor must exceed the lifetime of all TensorRT objects that use it.
+//!
+class IProgressMonitor
+{
+public:
+    IProgressMonitor() = default;
+    virtual ~IProgressMonitor() noexcept = default;
+
+    //!
+    //! \brief Signal that a phase of the optimizer has started.
+    //!
+    //! \param phaseName The name of this phase for tracking purposes.
+    //! \param parentPhase The parent phase that this phase belongs to, or nullptr if there is no parent.
+    //! \param nbSteps The number of steps that are involved in this phase.
+    //!
+    //! The phaseStart function signals to the application that the current phase is beginning, and that it has a
+    //! certain number of steps to perform. If \p phaseParent is nullptr, then the phaseStart is beginning an
+    //! independent phase, and if \p phaseParent is specified, then the current phase, specified by \p phaseName, is
+    //! within the scope of the parent phase. \p nbSteps will always be a positive number. The phaseStart function
+    //! implies that the first step is being executed. TensorRT will signal when each step is complete.
+    //!
+    //! Phase names are human readable English strings which are unique within a single phase hierarchy but which can be
+    //! reused once the previous instance has completed. Phase names and their hierarchies may change between versions
+    //! of TensorRT.
+    //!
+    //! \see phaseFinish
+    //!
+    virtual void phaseStart(char const* phaseName, char const* parentPhase, int32_t nbSteps) noexcept = 0;
+
+    //!
+    //! \brief Signal that a step of an optimizer phase has finished.
+    //!
+    //! \param phaseName The name of the innermost phase being executed.
+    //! \param step The step number that was completed.
+    //!
+    //! The stepComplete function signals to the application that TensorRT has finished the current \p step for the
+    //! phase \p phaseName, and will move onto the next step if there is one. The application can return false for
+    //! TensorRT to exit the build early. The step value will increase on subsequent calls in the range [0, nbSteps).
+    //!
+    //! \return true to continue to the next step or false to stop the build.
+    //!
+    virtual bool stepComplete(char const* phaseName, int32_t step) noexcept = 0;
+
+    //!
+    //! \brief Signal that a phase of the optimizer has finished.
+    //!
+    //! \param phaseName The name of the phase that has finished.
+    //!
+    //! The phaseFinish function signals to the application that the phase is complete. This function may be called
+    //! before all steps in the range [0, nbSteps) have been reported to stepComplete. This scenario can be triggered by
+    //! error handling, internal optimizations, or when stepComplete returns false to request cancellation of the build.
+    //!
+    //! \see phaseStart
+    //!
+    virtual void phaseFinish(char const* phaseName) noexcept = 0;
+
+}; // class IProgressMonitor
+
+//!
 //! \class IBuilderConfig
 //!
 //! \brief Holds properties for configuring a builder to produce an engine.
@@ -10030,6 +10102,32 @@ public:
     int32_t getMaxAuxStreams() const noexcept
     {
         return mImpl->getMaxAuxStreams();
+    }
+
+    //!
+    //! \brief Sets the progress monitor for building a network.
+    //!
+    //! \param monitor The progress monitor to assign to the IBuilderConfig.
+    //!
+    //! The progress monitor signals to the application when different phases of
+    //! the compiler are being executed. Setting to nullptr unsets the monitor so
+    //! that the application is not signaled.
+    //!
+    //! \see IBuilderConfig::getProgressMonitor
+    //!
+    void setProgressMonitor(IProgressMonitor* monitor) noexcept
+    {
+        return mImpl->setProgressMonitor(monitor);
+    }
+
+    //!
+    //! \return The progress monitor set by the application or nullptr.
+    //!
+    //! \see IBuilderConfig::setProgressMonitor
+    //!
+    IProgressMonitor* getProgressMonitor() const noexcept
+    {
+        return mImpl->getProgressMonitor();
     }
 
 protected:

@@ -76,6 +76,7 @@ class IPluginRegistry;
 class IPluginV2Layer;
 class IPoolingLayer;
 class IProfiler;
+class IProgressMonitor;
 class IQuantizeLayer;
 class IRaggedSoftMaxLayer;
 class IRecurrenceLayer;
@@ -1171,6 +1172,8 @@ public:
     virtual int32_t getNbPluginsToSerialize() const noexcept = 0;
     virtual void setMaxAuxStreams(int32_t nbStreams) noexcept = 0;
     virtual int32_t getMaxAuxStreams() const noexcept = 0;
+    virtual void setProgressMonitor(IProgressMonitor* monitor) noexcept = 0;
+    virtual IProgressMonitor* getProgressMonitor() const noexcept = 0;
 };
 
 class VBuilder : public VRoot
