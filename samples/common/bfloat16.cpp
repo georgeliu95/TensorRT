@@ -27,16 +27,16 @@ BFloat16::BFloat16(float x)
     // BF16 format: 1 sign bit, 8 bit exponent, 7 bit mantissa
 
     // Mask for exponent
-    constexpr uint32_t exponent = 0xFF << 23;
+    constexpr uint32_t exponent = 0xFFU << 23;
 
     // Check if exponent is all 1s (NaN or infinite)
     if ((bits & exponent) != exponent)
     {
         // x is finite - round to even
-        bits += 0x7FFF + (bits >> 16 & 1);
+        bits += 0x7FFFU + (bits >> 16 & 1);
     }
 
-    mRep = static_cast<int16_t>(bits >> 16);
+    mRep = static_cast<uint16_t>(bits >> 16);
 }
 
 BFloat16 operator+(BFloat16 x, BFloat16 y)

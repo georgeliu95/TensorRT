@@ -26,9 +26,8 @@ public:
 
 private:
     //! Value stored in BFloat16 representation.
-    int16_t mRep;
+    uint16_t mRep;
 };
-
 BFloat16 operator+(BFloat16 x, BFloat16 y);
 
 } // namespace sample

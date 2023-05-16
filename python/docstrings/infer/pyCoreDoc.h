@@ -1184,7 +1184,7 @@ constexpr char const* DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805 = R"trtdoc(
     plugins via IPluginV2::attachToContext() if the appropriate tactic sources are set.
     This allows users to experiment with disabling external library tactics without having to modify their
     application's plugins to support None handles.
-    The default value for this flag is off.
+    The default value for this flag is on.
 )trtdoc";
 constexpr char const* PROFILE_SHARING_0806 = R"trtdoc(
     Allows optimization profiles to be shared across execution contexts. This will become the default behavior in TensorRT 9.0 and the flag defaults to false.
@@ -1281,13 +1281,16 @@ constexpr char const* descr = R"trtdoc(Tactic sources that can provide tactics f
 
 constexpr char const* CUBLAS = R"trtdoc(
         Enables cuBLAS tactics. Enabled by default.
-        **NOTE:** Disabling this value will cause the cublas handle passed to plugins in attachToContext to be null.
+        **NOTE:** Disabling CUBLAS tactic source will cause the cuBLAS handle passed to plugins in attachToContext to be null.
+        **NOTE:** Setting CUBLAS tactic source takes no effect for core library.
     )trtdoc";
 constexpr char const* CUBLAS_LT = R"trtdoc(
-        Enables cuBLAS LT tactics. Enabled for x86 platforms and only enabled for non-x86 platforms when CUDA >= 11.0 by default
+        [DEPRECATED] Deprecated in TensorRT 8.7. Setting CUBLAS_LT takes no effect.
     )trtdoc";
 constexpr char const* CUDNN = R"trtdoc(
         Enables cuDNN tactics. Enabled by default.
+        **NOTE:** Disabling CUDNN tactic source will cause the cuDNN handle passed to plugins in attachToContext to be null.
+        **NOTE:** Setting CUDNN tactic source takes no effect for core library if PreviewFeature.DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805 is on.
     )trtdoc";
 constexpr char const* EDGE_MASK_CONVOLUTIONS = R"trtdoc(
         Enables convolution tactics implemented with edge mask tables. These tactics tradeoff memory for performance

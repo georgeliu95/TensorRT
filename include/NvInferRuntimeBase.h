@@ -616,8 +616,8 @@ enum class ErrorCode : int32_t
     kFAILED_INITIALIZATION = 6,
 
     //!
-    //! An error occurred during execution that caused TensorRT to end prematurely, either an asynchronous error or
-    //! other execution errors reported by CUDA/DLA. In a dynamic system, the
+    //! An error occurred during execution that caused TensorRT to end prematurely, either an asynchronous error,
+    //! user cancellation, or other execution errors reported by CUDA/DLA. In a dynamic system, the
     //! data can be thrown away and the next frame can be processed or execution can be retried.
     //! This is either an execution error or a memory error.
     //!
