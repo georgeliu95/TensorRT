@@ -828,6 +828,70 @@ void bindCore(py::module& m)
         .def("clear", &IErrorRecorder::clear, IErrorRecorderDoc::clear)
         .def("report_error", &IErrorRecorder::reportError, IErrorRecorderDoc::report_error);
 
+    // Provide a base implementation of IProgressMonitor.
+    // Trampoline class is required as this class needs to be implemented by the user.
+    class PyProgressMonitor : public IProgressMonitor
+    {
+    public:
+        void phaseStart(char const* phaseName, char const* parentPhase, int32_t nbSteps) noexcept override
+        {
+            try
+            {
+                PYBIND11_OVERLOAD_PURE_NAME(
+                    void, IProgressMonitor, "phase_start", phaseStart, phaseName, parentPhase, nbSteps);
+            }
+            catch (std::exception const& e)
+            {
+                std::cerr << "[ERROR] Exception caught in phase_start(): " << e.what() << std::endl;
+            }
+            catch (...)
+            {
+                std::cerr << "[ERROR] Exception caught in phase_start()" << std::endl;
+            }
+        }
+
+        bool stepComplete(char const* phaseName, int32_t step) noexcept override
+        {
+            try
+            {
+                PYBIND11_OVERLOAD_PURE_NAME(bool, IProgressMonitor, "step_complete", stepComplete, phaseName, step);
+            }
+            catch (std::exception const& e)
+            {
+                std::cerr << "[ERROR] Exception caught in step_complete(): " << e.what() << std::endl;
+            }
+            catch (...)
+            {
+                std::cerr << "[ERROR] Exception caught in step_complete()" << std::endl;
+            }
+            // Use the exception as an indicator that we should cancel the build
+            return false;
+        }
+
+        void phaseFinish(char const* phaseName) noexcept override
+        {
+            try
+            {
+                PYBIND11_OVERLOAD_PURE_NAME(void, IProgressMonitor, "phase_finish", phaseFinish, phaseName);
+            }
+            catch (std::exception const& e)
+            {
+                std::cerr << "[ERROR] Exception caught in phase_finish(): " << e.what() << std::endl;
+            }
+            catch (...)
+            {
+                std::cerr << "[ERROR] Exception caught in phase_finish()" << std::endl;
+            }
+        }
+    };
+
+    py::class_<IProgressMonitor, PyProgressMonitor>(
+        m, "IProgressMonitor", IProgressMonitorDoc::descr, py::module_local())
+        .def(py::init<>())
+        .def("phase_start", &IProgressMonitor::phaseStart, IProgressMonitorDoc::phase_start, "phase_name"_a, "parent_phase"_a, "num_steps"_a)
+        .def("step_complete", &IProgressMonitor::stepComplete, IProgressMonitorDoc::step_complete, "phase_name"_a, "step"_a)
+        .def("phase_finish", &IProgressMonitor::phaseFinish, IProgressMonitorDoc::phase_finish, "phase_name"_a);
+
     py::class_<IExecutionContext>(m, "IExecutionContext", IExecutionContextDoc::descr, py::module_local())
         .def("execute", utils::deprecate(lambdas::execute, "execute_v2"), "batch_size"_a = 1, "bindings"_a,
             IExecutionContextDoc::execute, py::call_guard<py::gil_scoped_release>{})
@@ -1259,6 +1323,8 @@ void bindCore(py::module& m)
             &IBuilderConfig::setHardwareCompatibilityLevel)
         .def_property("plugins_to_serialize", lambdas::get_plugins_to_serialize, lambdas::set_plugins_to_serialize)
         .def_property("max_aux_streams", &IBuilderConfig::getMaxAuxStreams, &IBuilderConfig::setMaxAuxStreams)
+        .def_property("progress_monitor", &IBuilderConfig::getProgressMonitor,
+            py::cpp_function(&IBuilderConfig::setProgressMonitor, py::keep_alive<1, 2>{}))
 #if ENABLE_MDTRT
         // This gets flipped to the C++ API's with TRT-17558
         .def_property("num_instances", &nvinfer1GetNbInstances, &nvinfer1SetNbInstances)
