@@ -1472,10 +1472,13 @@ enum class TacticSource : int32_t
 {
     //! cuBLAS tactics. Enabled by default.
     //! \note Disabling kCUBLAS will cause the cuBLAS handle passed to plugins in attachToContext to be null.
-    //! \note Setting kCUBLAS tactic source takes no effect for core library.
+    //! \note Setting kCUBLAS tactic source takes no effect for core library if
+    //! PreviewFeature::kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805 is on.
     kCUBLAS = 0,
-    //! cuBLAS LT tactics.
-    //! \deprecated Deprecated in TensorRT 8.7. Setting kCUBLAS_LT takes no effect.
+    //! cuBLAS LT tactics. Enabled by default.
+    //! \note Setting kCUBLAS_LT tactic source takes no effect for core library if
+    //! PreviewFeature::kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805 is on.
+    //! \deprecated Deprecated in TensorRT 8.7.
     kCUBLAS_LT = 1,
     //! cuDNN tactics. Enabled by default.
     //! \note Disabling kCUDNN will cause the cuDNN handle passed to plugins in attachToContext to be null.

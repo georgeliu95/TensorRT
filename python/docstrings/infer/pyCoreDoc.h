@@ -261,8 +261,8 @@ constexpr char const* FAILED_INITIALIZATION = R"trtdoc(
 )trtdoc";
 
 constexpr char const* FAILED_EXECUTION = R"trtdoc(
-    An error occurred during execution that caused TensorRT to end prematurely, either an asynchronous error or
-    other execution errors reported by CUDA/DLA. In a dynamic system, the
+    An error occurred during execution that caused TensorRT to end prematurely, either an asynchronous error,
+    user cancellation, or other execution errors reported by CUDA/DLA. In a dynamic system, the
     data can be thrown away and the next frame can be processed or execution can be retried.
     This is either an execution error or a memory error.
 )trtdoc";
@@ -704,6 +704,65 @@ constexpr char const* get_communicator_type = R"trtdoc(
 )trtdoc";
 #endif // ENABLE_MDTRT
 } // namespace IExecutionContextDoc
+
+namespace IProgressMonitorDoc
+{
+constexpr char const* descr = R"trtdoc(
+    Application-implemented progress reporting interface for TensorRT.
+
+    The IProgressMonitor is a user-defined object that TensorRT uses to report back when an internal algorithm has
+    started or finished a phase to help provide feedback on the progress of the optimizer.
+
+    The IProgressMonitor will trigger its start function when a phase is entered and will trigger its finish function
+    when that phase is exited. Each phase consists of one or more steps. When each step is completed, the step_complete
+    function is triggered. This will allow an application using the builder to communicate progress relative to when the
+    optimization step is expected to complete.
+
+    The implementation of IProgressMonitor must be thread-safe so that it can be called from multiple internal threads.
+    The lifetime of the IProgressMonitor must exceed the lifetime of all TensorRT objects that use it.
+)trtdoc";
+
+constexpr char const* phase_start = R"trtdoc(
+    Signal that a phase of the optimizer has started.
+
+    :arg phase_name: The name of this phase for tracking purposes.
+    :arg parent_phase: The parent phase that this phase belongs to, None if there is no parent.
+    :arg num_steps: The number of steps that are involved in this phase.
+
+    The phase_start function signals to the application that the current phase is beginning, and that it has a
+    certain number of steps to perform. If phase_parent is None, then the phase_start is beginning an
+    independent phase, and if phase_parent is specified, then the current phase, specified by phase_name, is
+    within the scope of the parent phase. num_steps will always be a positive number. The phase_start function
+    implies that the first step is being executed. TensorRT will signal when each step is complete.
+
+    Phase names are human readable English strings which are unique within a single phase hierarchy but which can be
+    reused once the previous instance has completed. Phase names and their hierarchies may change between versions
+    of TensorRT.
+)trtdoc";
+
+constexpr char const* step_complete = R"trtdoc(
+    Signal that a step of an optimizer phase has finished.
+
+    :arg phase_name: The name of the innermost phase being executed.
+    :arg step: The step number that was completed.
+
+    The step_complete function signals to the application that TensorRT has finished the current step for the phase
+    ``phase_name`` , and will move on to the next step if there is one. The application can return False for TensorRT to exit
+    the build early. The step value will increase on subsequent calls in the range [0, num_steps).
+
+    :returns: True to continue to the next step or False to stop the build.
+)trtdoc";
+
+constexpr char const* phase_finish = R"trtdoc(
+    Signal that a phase of the optimizer has finished.
+
+    :arg phase_name: The name of the phase that has finished.
+
+    The phase_finish function signals to the application that the phase is complete. This function may be called before
+    all steps in the range [0, num_steps) have been reported to step_complete. This scenario can be triggered by error
+    handling, internal optimizations, or when step_complete returns False to request cancellation of the build.
+)trtdoc";
+} // namespace IProgressMonitorDoc
 
 namespace ICudaEngineDoc
 {
@@ -1282,10 +1341,13 @@ constexpr char const* descr = R"trtdoc(Tactic sources that can provide tactics f
 constexpr char const* CUBLAS = R"trtdoc(
         Enables cuBLAS tactics. Enabled by default.
         **NOTE:** Disabling CUBLAS tactic source will cause the cuBLAS handle passed to plugins in attachToContext to be null.
-        **NOTE:** Setting CUBLAS tactic source takes no effect for core library.
+        **NOTE:** Setting CUBLAS tactic source takes no effect for core library if PreviewFeature.DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805 is on.
     )trtdoc";
 constexpr char const* CUBLAS_LT = R"trtdoc(
-        [DEPRECATED] Deprecated in TensorRT 8.7. Setting CUBLAS_LT takes no effect.
+        Enables CUBLAS_LT tactics. Enabled by default.
+        **NOTE:** Setting CUBLAS_LT tactic source takes no effect for core library if PreviewFeature.DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805 is on.
+        [DEPRECATED] Deprecated in TensorRT 8.7.
+
     )trtdoc";
 constexpr char const* CUDNN = R"trtdoc(
         Enables cuDNN tactics. Enabled by default.
@@ -1395,6 +1457,7 @@ constexpr char const* descr = R"trtdoc(
         :ivar hardware_compatibility_level: Hardware compatibility allows an engine compatible with GPU architectures other than that of the GPU on which the engine was built.
         :ivar plugins_to_serialize: The plugin libraries to be serialized with forward-compatible engines.
         :ivar max_aux_streams: The maximum number of auxiliary streams that TRT is allowed to use. If the network contains operators that can run in parallel, TRT can execute them using auxiliary streams in addition to the one provided to the IExecutionContext::enqueueV3() call. The default maximum number of auxiliary streams is determined by the heuristics in TensorRT on whether enabling multi-stream would improve the performance. This behavior can be overridden by calling this API to set the maximum number of auxiliary streams explicitly. Set this to 0 to enforce single-stream inference. The resulting engine may use fewer auxiliary streams than the maximum if the network does not contain enough parallelism or if TensorRT determines that using more auxiliary streams does not help improve the performance. Allowing more auxiliary streams does not always give better performance since there will be synchronizations overhead between streams. Using CUDA graphs at runtime can help reduce the overhead caused by cross-stream synchronizations. Using more auxiliary leads to more memory usage at runtime since some activation memory blocks will not be able to be reused.
+        :ivar progress_monitor: The :class:`IProgressMonitor` to use.
     )trtdoc";
 
 constexpr char const* set_memory_pool_limit = R"trtdoc(

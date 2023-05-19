@@ -650,7 +650,7 @@ bool process(SampleIOFormats& sample, sample::Logger::TestAtom const& sampleTest
     sample::gLogInfo << "Building and running a GPU inference engine with specified I/O formats." << std::endl;
 
     inputBuf = SampleBuffer(sample.mInputDims, sizeof(T), sample.mTensorFormat, true);
-    outputBuf = SampleBuffer(sample.mOutputDims, sizeof(float), TensorFormat::kLINEAR, false);
+    outputBuf = SampleBuffer(sample.mOutputDims, sizeof(T), TensorFormat::kLINEAR, false);
     if (!sample.build(sizeof(T)))
     {
         return false;

@@ -992,8 +992,8 @@ inline int32_t getSMVersion()
 inline bool isSMSafe()
 {
     const int32_t smVersion = getSMVersion();
-    return smVersion == 0x0700 || smVersion == 0x0702 || smVersion == 0x0705 || smVersion == 0x0800
-        || smVersion == 0x0806 || smVersion == 0x0807;
+    return smVersion == 0x0700 || smVersion == 0x0705 || smVersion == 0x0800 || smVersion == 0x0806
+        || smVersion == 0x0807;
 }
 
 inline int32_t getMaxPersistentCacheSize()
