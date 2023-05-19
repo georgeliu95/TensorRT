@@ -27,6 +27,7 @@ class GPT2ModelTRTConfig(Seq2SeqModelTRTConfig):
         "gpt2-xl",
         "EleutherAI/gpt-neo-125m",
         "EleutherAI/gpt-neo-1.3B",
+        "EleutherAI/gpt-neo-2.7B",
         "EleutherAI/gpt-j-6b",
         "EleutherAI/gpt-neox-20b",
         "cerebras/Cerebras-GPT-111M",
