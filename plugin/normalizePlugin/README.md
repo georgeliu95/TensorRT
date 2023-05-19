@@ -1,4 +1,4 @@
-# normalizePlugin
+# normalizePlugin [DEPRECATED]
 
 **Table Of Contents**
 - [Description](#description)
@@ -10,6 +10,8 @@
 - [Known issues](#known-issues)
 
 ## Description
+
+> NOTE: This plugin is deprecated. Its functionality has been superseded by the `INormalizationLayer`.
 
 The `normalizePlugin`  is used for the L2 normalization layer, which is generally used in deep learning models such as ParseNet and SSD during TensorRT inference. This plugin is included in TensorRT.
 
@@ -48,6 +50,9 @@ documentation.
 
 
 ## Changelog
+
+May 2023
+Add deprecation note.
 
 May 2019
 This is the first release of this `README.md` file.

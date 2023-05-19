@@ -217,6 +217,9 @@ IPluginV2* ClipPluginCreator::createPlugin(char const* name, PluginFieldCollecti
 {
     try
     {
+        gLogWarning << "ClipPlugin is deprecated. Use INetworkDefinition::addActivation() to add an IActivationLayer "
+                       "with ActivationType::kCLIP."
+                    << std::endl;
         float clipMin = 0.0, clipMax = 0.0;
         PluginField const* fields = fc->fields;
 
@@ -250,6 +253,9 @@ IPluginV2* ClipPluginCreator::deserializePlugin(char const* name, void const* se
 {
     try
     {
+        gLogWarning << "ClipPlugin is deprecated. Use INetworkDefinition::addActivation() to add an IActivationLayer "
+                       "with ActivationType::kCLIP."
+                    << std::endl;
         // This object will be deleted when the network is destroyed, which will
         // call ClipPlugin::destroy()
         return new ClipPlugin(name, serialData, serialLength);

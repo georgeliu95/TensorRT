@@ -8,7 +8,7 @@
 | [batchedNMSPlugin](batchedNMSPlugin) | BatchedNMS_TRT | 1 |
 | [batchedNMSDynamicPlugin](batchedNMSPlugin) | BatchedNMSDynamic_TRT | 1 |
 | [bertQKVToContextPlugin](bertQKVToContextPlugin) | CustomQKVToContextPluginDynamic | 1, 2, 3 |
-| [clipPlugin](clipPlugin) | Clip_TRT | 1 |
+| [clipPlugin](clipPlugin) [DEPRECATED] | Clip_TRT | 1 |
 | [coordConvACPlugin](coordConvACPlugin) | CoordConvAC | 1 |
 | [cropAndResizePlugin](cropAndResizePlugin) | CropAndResize | 1 |
 | [decodeBbox3DPlugin](decodeBbox3DPlugin) | DecodeBbox3DPlugin | 1 |
@@ -25,13 +25,13 @@
 | [gridAnchorRectPlugin](gridAnchorPlugin) | GridAnchorRect_TRT | 1 |
 | [groupNormalizationPlugin](groupNormalizationPlugin) | GroupNormalizationPlugin | 1 |
 | [instanceNormalizationPlugin](instanceNormalizationPlugin) | InstanceNormalization_TRT | 1 |
-| [leakyReluPlugin](leakyReluPlugin) | LReLU_TRT | 1 |
+| [leakyReluPlugin](leakyReluPlugin) [DEPRECATED] | LReLU_TRT | 1 |
 | [modulatedDeformConvPlugin](modulatedDeformConvPlugin) | ModulatedDeformConv2d | 1 |
 | [multilevelCropAndResizePlugin](multilevelCropAndResizePlugin) | MultilevelCropAndResize_TRT | 1 |
 | [multilevelProposeROI](multilevelProposeROI) | MultilevelProposeROI_TRT | 1 |
 | [multiscaleDeformableAttnPlugin](multiscaleDeformableAttnPlugin) | MultiscaleDeformableAttnPlugin_TRT | 1 |
 | [nmsPlugin](nmsPlugin) | NMS_TRT | 1 |
-| [normalizePlugin](normalizePlugin) | Normalize_TRT | 1 |
+| [normalizePlugin](normalizePlugin) [DEPRECATED] | Normalize_TRT | 1 |
 | [nvFasterRCNN](nvFasterRCNN) | RPROI_TRT | 1 |
 | [pillarScatterPlugin](pillarScatterPlugin) | PillarScatterPlugin | 1 |
 | [priorBoxPlugin](priorBoxPlugin) | PriorBox_TRT | 1 |
@@ -45,7 +45,7 @@
 | [scatterPlugin](scatterPlugin) | ScatterND | 1 |
 | [skipLayerNormPlugin](skipLayerNormPlugin) | CustomSkipLayerNormPluginDynamic | 1, 2, 3 |
 | [specialSlicePlugin](specialSlicePlugin) | SpecialSlice_TRT | 1 |
-| [splitPlugin](splitPlugin) | Split | 1 |
+| [splitPlugin](splitPlugin) [DEPRECATED] | Split | 1 |
 | [voxelGeneratorPlugin](voxelGeneratorPlugin) | VoxelGeneratorPlugin | 1 |
 
 ## Known Limitations
