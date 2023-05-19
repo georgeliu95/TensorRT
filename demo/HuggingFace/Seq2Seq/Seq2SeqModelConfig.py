@@ -35,7 +35,7 @@ class Seq2SeqModelTRTConfig(NNConfig):
 
     attribute_map = {
         "num_heads": ['n_head', 'num_heads', 'decoder_attention_heads', 'num_attention_heads'],
-        "num_decoder_layers": ['n_layer', 'num_layers', 'decoder_layers'],
+        "num_decoder_layers": ['n_layer', 'num_layers', 'decoder_layers', 'num_hidden_layers'],
         "hidden_size": ['hidden_size', 'n_embd', 'd_model', 'n_embed'],
         "n_positions": ['n_positions', "max_position_embeddings"],
     }
@@ -100,7 +100,7 @@ class Seq2SeqModelTRTConfig(NNConfig):
             if k not in user_define_variables:
                 self.__setattr__(k, hf_config_dict[k])
 
-        # Process required config to run TRT, but thry may have different names in HuggingFace
+        # Process required config to run TRT, but they may have different names in HuggingFace
         for variable in Seq2SeqModelTRTConfig.attribute_map:
             for name in Seq2SeqModelTRTConfig.attribute_map[variable]:
                 if hasattr(self.hf_config, name):
@@ -110,7 +110,7 @@ class Seq2SeqModelTRTConfig(NNConfig):
                 if variable == "n_positions":
                     self.n_positions = self.hidden_size
                 else:
-                    raise "{} is not found in hf_config. Please ensure your model config has one of: {}".format(variable,", ".join(Seq2SeqModelTRTConfig.attribute_map[variable]))
+                    raise ValueError("{} is not found in hf_config. Please ensure your model config has one of: {}".format(variable,", ".join(Seq2SeqModelTRTConfig.attribute_map[variable])))
 
         # Parse min and max length from task_specific_params
         self.min_length = 65536

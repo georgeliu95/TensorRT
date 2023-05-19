@@ -32,6 +32,30 @@ label = '''
 TensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a deep learning compiler that enables you to run deep learning models on NVIDIA GPUs.\n\nTensorRT is a deep learning compiler that enables you to run
 '''
 
+[GPT2.all."EleutherAI/gpt-neo-125m".all.generate]
+
+label = '''
+TensorRT is a Deep Learning compiler used for deep learning.\n\nThe following code is a sample of the code used in the previous section.\n\n#include <cmath>\n#include <cstdlib>\n#include <cstring>\n#include <cstdio>\n#include <cstring>\n#include <cstdio>\n#include <cstdlib>\n#include <cstdlib>\n#include <cstdlib>
+'''
+
+[GPT2.all."EleutherAI/gpt-neo-1.3B".all.generate]
+
+label = '''
+TensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a deep learning compiler used for deep learning.\n\nTensorRT is a deep learning compiler used for deep learning.\n\nTensorRT is a
+'''
+
+[GPT2.all."EleutherAI/gpt-neo-2.7B".all.generate]
+
+label = '''
+TensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\n−\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\n+\n
+'''
+
+[GPT2.all."EleutherAI/gpt-neox-20b".all.generate]
+
+label = '''
+TensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a deep learning compiler used for deep learning.\n\nTensorRT is a deep learning compiler used for deep learning.\n\nTensorRT is a deep learning compiler used for deep learning.\n\nTensorRT is a deep learning compiler used for deep learning.\n\nTensorRT is a deep learning compiler used for deep learning.\n\nTensorRT is a deep learning compiler used for deep learning.\n\nTensorRT
+'''
+
 [GPT2.all.default.fp16.generate]
 
 label = '''
@@ -72,6 +96,30 @@ label = '''
 GPT-2 is a transformer based model pretrained on a large corpus.\n\n-   **GPT-2-PT**: The same as GPT-2 but with the pretrained model.\n\n-   **
 '''
 
+[GPT2.all."EleutherAI/gpt-neo-125m".all.generate_b]
+
+label = '''
+GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe model is trained on the corpus of the same size as the corpus of the same size as the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of
+'''
+
+[GPT2.all."EleutherAI/gpt-neo-1.3B".all.generate_b]
+
+label = '''
+GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe model is trained on the GPT-2 dataset [@radford2019language] and is pretrained on the English Wikipedia. The model is trained on
+'''
+
+[GPT2.all."EleutherAI/gpt-neo-2.7B".all.generate_b]
+
+label = '''
+GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe model is trained on the following corpora:\n\n-   **GPT-2**: The GPT-2 model is trained on the
+'''
+
+[GPT2.all."EleutherAI/gpt-neox-20b".all.generate_b]
+
+label = '''
+GPT-2 is a transformer based model pretrained on a large corpus.\n\n-   **BERT** [@devlin2018bert] is a deep bidirectional transformer model pretrained on a large corpus.\n\n-   **RoBERTa** [@liu2019roberta] is a deep bidirectional transformer model pretrained on a large corpus.\n\n-   **XLNet** [@yang2019xlnet] is a deep bidirectional transformer model pretrained on
+'''
+
 [GPT2.all.default.all.generate_c]
 
 input = '''
@@ -104,5 +152,29 @@ If I fall asleep then I am going to wake up in 8 hours.\n\nI am going to wake up
 
 label = '''
 If I fall asleep then I am going to wake up in 8 hours.\n\nI am going to be in the same place.\n\nI am going to be in the same place.\n\nI am going to be in the same place
+'''
+
+[GPT2.all."EleutherAI/gpt-neo-125m".all.generate_c]
+
+label = '''
+If I fall asleep then I am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n
+'''
+
+[GPT2.all."EleutherAI/gpt-neo-1.3B".all.generate_c]
+
+label = '''
+If I fall asleep then I am going to wake up in 8 hours.\n\nI am not going to fall asleep.\n\nI am going to wake up in 8 hours.\n\nI am not going to fall asleep.\n\nI
+'''
+
+[GPT2.all."EleutherAI/gpt-neo-2.7B".all.generate_c]
+
+label = '''
+If I fall asleep then I am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours
+'''
+
+[GPT2.all."EleutherAI/gpt-neox-20b".all.generate_c]
+
+label = '''
+If I fall asleep then I am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n
 '''
 

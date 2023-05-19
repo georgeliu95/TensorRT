@@ -173,12 +173,21 @@ class DecoderTorchFile(TorchModelFile):
             if self.is_encoder_decoder:
                 self.decoder = model.get_decoder()
             else:
-                self.decoder = model.transformer
+                if hasattr(model, "transformer"):
+                    self.decoder = model.transformer
+                elif hasattr(model, "model"):
+                    self.decoder = model.model
+                elif hasattr(model, "gpt_neox"): # For gpt-neox-20b
+                    self.decoder = model.gpt_neox
+                else:
+                    raise RuntimeError("Model does not have either transformer or model attr.")
 
             if hasattr(model, "lm_head"):
                 self.lm_head = model.lm_head
+            elif hasattr(model, "embed_out"):
+                self.lm_head = model.embed_out
             else:
-                self.lm_head = None
+                raise RuntimeError("Model does not have a lm_head attr")
 
             self.config = model.config
 
