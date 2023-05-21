@@ -6441,8 +6441,7 @@ protected:
 //!   The depth tensor must be a build-time constant, and its value should be positive.
 //! * Output is a tensor with rank = rank(indices)+1, where the added dimension contains the one-hot encoding.
 //!   The data types of Output is equal to the Values data type.
-//! * Axis is a scaler specifying to which dimension of the output one-hot encoding is added.
-//!   Axis defaults to -1, that is the new dimension in the output is its final dimension.
+//! * Axis is a scalar specifying to which dimension of the output one-hot encoding is added.
 //!   Valid range for axis is -rank(indices)-1 <= axis <= rank(indices).
 //!
 //! The output is computed by copying off_values to all output elements, then setting on_value on the indices
@@ -7245,7 +7244,7 @@ public:
     //!
     //! \param indices - tensor containing indices where on_value should be set.
     //! \param values - a 2-element tensor, consisting of [off_value, on_value].
-    //! \param depth - tensor containing the width of the added one-hot dimension.
+    //! \param depth - a shape tensor containing the width of the added one-hot dimension.
     //! \param axis - the axis to add the one-hot encoding to.
     //!
     //! \see IOneHotLayer
