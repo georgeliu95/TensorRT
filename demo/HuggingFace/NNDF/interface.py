@@ -42,7 +42,7 @@ from NNDF.networks import (
 from NNDF.logger import G_LOGGER
 from NNDF.general_utils import NNFolderWorkspace, confirm_folder_delete, measure_python_inference_code
 from NNDF.torch_utils import use_cuda
-from NNDF.tensorrt_utils import TRTNativeRunner
+from NNDF.tensorrt_utils import TRTNativeRunner, setup_benchmark_arg
 
 # From HuggingFace
 from transformers import (
@@ -177,12 +177,14 @@ class NetworkCommand(metaclass=ABCMeta):
 
         if benchmarking_mode:
             self.checkpoint = None
-            output_seq_len = kwargs.get("output_seq_len")
-            if output_seq_len is not None:
-                # Overwrite some fields for generation
-                self.config.min_output_length = output_seq_len
-                self.config.max_output_length = output_seq_len
-                self.config.max_decoder_length = 1 if (use_cache and self.config.is_encoder_decoder) else self.config.max_output_length
+            # Overwrite some fields for generation
+            self.process_benchmarking_args(
+                kwargs.get("input_seq_len"),
+                kwargs.get("output_seq_len"),
+                kwargs.get("input_profile_max_len"),
+                kwargs.get("output_profile_max_len"),
+            )
+
         elif self._args is not None:
             self.checkpoint = self.load_nn_semantic_checkpoint()
 
@@ -222,6 +224,43 @@ class NetworkCommand(metaclass=ABCMeta):
             self.workspace.set_cross_attn_generator_onnx_path(cache_generator_onnx)
 
         self.model_path_args = self.process_framework_specific_arguments(**kwargs)
+    
+    def process_benchmarking_args(
+        self,
+        input_seq_len,
+        output_seq_len,
+        # For TRT only
+        input_profile_max_len = None,
+        output_profile_max_len = None,                       
+    ):
+        # This is the largest seq len that the model could ever been used
+        n_positions = self.config.n_positions
+        # User must provide either a pair of profile_max_len or a profile of seq_len for input/output
+        if input_profile_max_len is None or output_profile_max_len is None:
+            if input_seq_len is None or output_seq_len is None:
+                raise RuntimeError("Please provide [input/output]_seq_len or provide [input/output]_profile_max_len for TRT")
+
+        input_profile_max_len = setup_benchmark_arg(input_profile_max_len, "input_profile_max_len", n_positions)
+        output_profile_max_len = setup_benchmark_arg(output_profile_max_len, "output_profile_max_len", n_positions)
+        input_seq_len = setup_benchmark_arg(input_seq_len, "input_seq_len", input_profile_max_len // 2)
+        output_seq_len = setup_benchmark_arg(output_seq_len, "output_seq_len", output_profile_max_len // 2)
+
+        # Assert to ensure the validity of benchmarking arguments
+        assert input_seq_len <= input_profile_max_len, "input_seq_len should <= input_profile_max_len = {} for benchmarking mode".format(input_profile_max_len)
+        assert output_seq_len <= output_profile_max_len, "output_seq_len should <= output_profile_max_len = {} for benchmarking mode".format(output_profile_max_len)
+        assert input_profile_max_len <= n_positions, "Model n_positions restrict input_profile_max_len <= {} for benchmark mode".format(n_positions)
+        assert output_profile_max_len <= n_positions, "Model n_positions restrict output_profile_max_len <= {} for benchmark mode".format(n_positions)
+
+        self.config.max_input_length = input_seq_len
+        self.config.opt_input_length = input_seq_len
+        self.config.max_input_profile_length = input_profile_max_len
+        
+        self.config.min_output_length = output_seq_len
+        self.config.max_output_length = output_seq_len
+        self.config.max_decoder_length = 1 if (self.config.use_cache and self.config.is_encoder_decoder) else self.config.max_output_length
+        self.config.opt_output_length = output_seq_len
+        self.config.max_output_profile_length = output_profile_max_len
+
 
     def add_args(self) -> None:
         general_group = self._parser.add_argument_group("general")
@@ -703,7 +742,7 @@ class NetworkCommand(metaclass=ABCMeta):
 
         # Skip result checking in benchmarking mode since the input data is random.
         if self.benchmarking_mode:
-            return BenchmarkingResult(median_runtime=runtime, models=self.workspace.torch_path)
+            return BenchmarkingResult(median_runtime=runtime, models=self.models)
 
         # Remove the padding and end tokens.
         semantic_outputs = self.tokenizer.decode(

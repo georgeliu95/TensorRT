@@ -196,8 +196,6 @@ class CompareAction(NetworkScriptAction):
             print("Unable to do comparison. TRT script not yet supported.")
             exit(1)
 
-        nconfig = module.RUN_CMD.config
-        nconfig.MetadataClass.add_inference_args(self.parser)
         self.parser.parse_known_args()
 
         results = []
@@ -225,7 +223,7 @@ class CompareAction(NetworkScriptAction):
         flattened_rows = [r for input_row in rows.values() for r in input_row]
         print()
         print(tabulate(flattened_rows, headers=headers))
-
+        nconfig = module.RUN_CMD.config
         headers, rows = process_results(modified_compare_group, results, nconfig)
         print()
         print(tabulate(rows, headers=headers))
