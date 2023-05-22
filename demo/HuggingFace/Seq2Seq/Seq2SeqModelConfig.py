@@ -133,11 +133,20 @@ class Seq2SeqModelTRTConfig(NNConfig):
         if self.min_length == 65536:
             self.min_length = 0
 
+        # These variables are used to control generation.
+        self.min_output_length = self.min_length
+        self.max_output_length = self.max_length
+
         # HuggingFace assume that max_length is for both input and output.
         # However, for benchmarking mode, they may have a difference.
+        # These variables are used to control generated binding shapes
         self.max_input_length = self.max_length
-        self.max_output_length = self.max_length
-        self.min_output_length = self.min_length
+        self.opt_input_length = self.max_input_length // 2
+        self.opt_output_length = self.max_output_length // 2
+
+        # These variables are only used to build TRT engines
+        self.max_input_profile_length = self.max_input_length
+        self.max_output_profile_length = self.max_output_length
 
         self.d_kv = hf_config_dict.pop("d_kv", self.hidden_size // self.num_heads)
 
@@ -146,7 +155,7 @@ class Seq2SeqModelTRTConfig(NNConfig):
         self.decoder_dims = 1 if (self.use_cache and self.is_encoder_decoder) else Dims.SEQUENCE
         self.max_decoder_length = 1 if (self.use_cache and self.is_encoder_decoder) else self.max_output_length
         self.expand_size = self.batch_size * self.num_beams
-        
+
     def set_model_classes(self, model_classes):
         """
         Different frameworks may use different Torch/ONNX/TRT Engine model classes.
@@ -187,11 +196,13 @@ class Seq2SeqModelTRTConfig(NNConfig):
         Used in the case where a single network needs to
         be exported into multiple parts.
         """
-        self.network_segments = [self.NETWORK_DECODER_SEGMENT_NAME]
-        if self.is_encoder_decoder:
-            self.network_segments.append(self.NETWORK_ENCODER_SEGMENT_NAME)
-            if self.use_cache:
-                self.network_segments.append(self.NETWORK_CROSS_ATTENTION_CACHE_GENERATOR_NAME)
+
+        # TODO: Currently just measure decoder performance and full inference only.
+        # In current framework, it is hard to add encoder inference in a non-redundant way.
+        self.network_segments = [
+            self.NETWORK_DECODER_SEGMENT_NAME,
+            self.NETWORK_FULL_NAME,
+        ]
 
         return self.network_segments
 

@@ -578,15 +578,15 @@ class Seq2SeqTRT(TRTInferenceCommand):
 
         # Generate optimization profiles.
         # non-benchmarking mode: opt profile length is by default half of the max profile
-        # benchmarking mode: user can specify opt and max profile by flags. If no additional benchmarking flags are provided, it will just use the non-benchmarking mode defaults
-        max_input_length = self.config.max_length
-        max_output_length = self.config.max_length
-        opt_input_seq_len = max_input_length // 2
-        opt_output_seq_len = max_output_length // 2
+        # benchmarking mode: user can specify opt and max profile by flags. If no additional benchmarking flags are provided, it will just use n_positions for max coverage
+        opt_input_seq_len = self.config.opt_input_length
+        opt_output_seq_len = self.config.opt_output_length
+        max_input_profile_length = self.config.max_input_profile_length
+        max_output_profile_length = self.config.max_output_profile_length
 
         # benchmarking flags
         if self.benchmarking_mode:
-            opt_input_seq_len, opt_output_seq_len, max_input_length, max_output_length, seq_tag = self.process_benchmarking_args()
+            seq_tag = self.get_seq_tag()
 
         encoder_hidden_size = self.config.hidden_size
         batch_size = self.config.batch_size
@@ -603,7 +603,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
             engine_tag = "bs{}-inseq{}-outseq{}".format(batch_size, opt_input_seq_len, opt_output_seq_len)
         # When user input profile_max_len, reuse the engine for future use with different seq_len
         else:
-            engine_tag = "bs{}-inmax{}-outmax{}".format(batch_size, max_input_length, max_output_length)
+            engine_tag = "bs{}-inmax{}-outmax{}".format(batch_size, max_input_profile_length, max_output_profile_length)
 
         if num_beams > 1:
             engine_tag += "-beam{}".format(num_beams)
@@ -621,14 +621,14 @@ class Seq2SeqTRT(TRTInferenceCommand):
                 "input_ids",
                 min=(expand_size, 1),
                 opt=(expand_size, opt_output_seq_len),
-                max=(expand_size, max_output_length),
+                max=(expand_size, max_output_profile_length),
             )
             if is_encoder_decoder:
                 decoder_profile.add(
                     "encoder_hidden_states",
                     min=(expand_size, 1, encoder_hidden_size),
                     opt=(expand_size, opt_input_seq_len, encoder_hidden_size),
-                    max=(expand_size, max_input_length, encoder_hidden_size),
+                    max=(expand_size, max_input_profile_length, encoder_hidden_size),
                 )
 
             decoder_profiles = [decoder_profile]
@@ -640,13 +640,13 @@ class Seq2SeqTRT(TRTInferenceCommand):
             self_attn_profile = {
                 "min": (expand_size, num_heads, 0, embedding_size_per_head),
                 "opt": (expand_size, num_heads, opt_output_seq_len - 1, embedding_size_per_head),
-                "max": (expand_size, num_heads, max_output_length - 1, embedding_size_per_head),
+                "max": (expand_size, num_heads, max_output_profile_length - 1, embedding_size_per_head),
             }
 
             cross_attn_profile = {
                 "min": (expand_size, num_heads, 1, embedding_size_per_head),
                 "opt": (expand_size, num_heads, opt_input_seq_len, embedding_size_per_head),
-                "max": (expand_size, num_heads, max_input_length, embedding_size_per_head),
+                "max": (expand_size, num_heads, max_input_profile_length, embedding_size_per_head),
             }
 
             decoder_profile_generation = Profile().add(
@@ -661,7 +661,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
                     "encoder_hidden_states",
                     min=(expand_size, 1, encoder_hidden_size),
                     opt=(expand_size, opt_input_seq_len, encoder_hidden_size),
-                    max=(expand_size, max_input_length, encoder_hidden_size),
+                    max=(expand_size, max_input_profile_length, encoder_hidden_size),
                 )
 
 
@@ -691,7 +691,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
                     "input_ids",
                     min=(expand_size, 1),
                     opt=(expand_size, opt_input_seq_len),
-                    max=(expand_size, max_input_length),
+                    max=(expand_size, max_input_profile_length),
                 )
 
                 self_attn_profile_context = {
@@ -734,7 +734,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
                     "input_ids",
                     min=(batch_size, 1),
                     opt=(batch_size, opt_input_seq_len),
-                    max=(batch_size, max_input_length),
+                    max=(batch_size, max_input_profile_length),
                 )
             ]
             encoder_engine_path = self.workspace.get_engine_fpath_from_onnx(self.onnx_encoder.fpath, engine_tag).replace(f"-beam{num_beams}", "")
@@ -765,7 +765,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
                 "encoder_hidden_states",
                 min=(expand_size, 1, encoder_hidden_size),
                 opt=(expand_size, opt_input_seq_len, encoder_hidden_size),
-                max=(expand_size, max_input_length, encoder_hidden_size),
+                max=(expand_size, max_input_profile_length, encoder_hidden_size),
             )]
 
             cross_attn_cache_generator_engine_path = self.workspace.get_engine_fpath_from_onnx(self.onnx_cross_attn_cache_generator.fpath, engine_tag)
@@ -780,29 +780,9 @@ class Seq2SeqTRT(TRTInferenceCommand):
             )
             self.decoder.set_cross_attn_cache_generator_engine(self.cross_attn_cache_generator_engine)
             self.workspace.set_cross_attn_generator_engine_path(cross_attn_cache_generator_engine_path)
-
-    def process_benchmarking_args(self):
-        # For benchmarking mode, need to set max length large.
-        max_input_seq_len = self.config.n_positions
-        max_output_seq_len = self.config.n_positions
-        seq_tag = self._args.input_profile_max_len is None and self._args.output_profile_max_len is None
-        # User must provide either a pair of profile_max_len or a profile of seq_len for input/output
-        if self._args.input_profile_max_len is None or self._args.output_profile_max_len is None:
-            if self._args.input_seq_len is None or self._args.output_seq_len is None:
-                raise RuntimeError("Please provide at least one pair of inputs: [input/output]_seq_len or [input/output]_profile_max_len")
-
-        input_profile_max_len = setup_benchmark_arg(self._args.input_profile_max_len, "input_profile_max_len", max_input_seq_len)
-        output_profile_max_len = setup_benchmark_arg(self._args.output_profile_max_len, "output_profile_max_len", max_output_seq_len)
-        input_seq_len = setup_benchmark_arg(self._args.input_seq_len, "input_seq_len", input_profile_max_len // 2)
-        output_seq_len = setup_benchmark_arg(self._args.output_seq_len, "output_seq_len", output_profile_max_len // 2)
-
-        # Assert to ensure the validity of benchmarking arguments
-        assert input_seq_len <= input_profile_max_len, "input_seq_len should <= input_profile_max_len = {} for benchmarking mode".format(input_profile_max_len)
-        assert output_seq_len <= output_profile_max_len, "output_seq_len should <= output_profile_max_len = {} for benchmarking mode".format(output_profile_max_len)
-        assert input_profile_max_len <= max_input_seq_len, "Model config restrict input_profile_max_len <= {} for benchmark mode".format(max_input_seq_len)
-        assert output_profile_max_len <= max_output_seq_len, "Model config restrict output_profile_max_len <= {} for benchmark mode".format(max_output_seq_len)
-
-        return input_seq_len, output_seq_len, input_profile_max_len, output_profile_max_len, seq_tag
+    
+    def get_seq_tag(self):
+        return self._args.input_profile_max_len is None and self._args.output_profile_max_len is None
 
     def calculate_perplexity(self, input_str: str, reference_str: str, use_cuda: bool = True):
 

@@ -56,9 +56,7 @@ def process_results(category: List[str], results: List[NetworkResult], nconfig: 
     Calculate and process results across multiple runs.
     """
     general_stats = ["script", "accuracy"]
-    runtime_result_row_names = list(nconfig.NETWORK_SEGMENTS)
-    if nconfig.NETWORK_FULL_NAME not in nconfig.NETWORK_SEGMENTS:
-        runtime_result_row_names.append(nconfig.NETWORK_FULL_NAME)
+    runtime_result_row_names = list(nconfig.get_network_segments())
 
     rows = []
     row_entry = []
@@ -225,7 +223,7 @@ class NNFolderWorkspace:
             self.metadata = self.metadata._replace(variant = self.metadata.variant.split("/")[-1])
         self.metadata_serialized = self.config.get_metadata_string(self.metadata)
         self.variant = self.metadata.variant
-        
+
         self.dpath = os.path.join(self.rootdir, self.variant, self.metadata_serialized)
         os.makedirs(self.dpath, exist_ok=True)
 
@@ -265,10 +263,10 @@ class NNFolderWorkspace:
                 self.cross_attn_generator_folder = os.path.join(self.dpath, "cross_attn_generator")
                 os.makedirs(self.cross_attn_generator_folder, exist_ok=True)
                 self.cross_attn_generator_onnx_path = os.path.join(self.cross_attn_generator_folder, self.metadata_serialized + "-cross-attn-cache-generator.onnx")
-    
+
     def get_engine_fpath_from_onnx(self, onnx_path, engine_tag):
         return os.path.splitext(onnx_path)[0] + "-{}.engine".format(engine_tag)
-    
+
     def get_timing_cache(self):
         # Timing cache is shared per builder
         return os.path.join(self.rootdir, "timingcache.cache")
@@ -296,7 +294,7 @@ class NNFolderWorkspace:
 
     def set_cross_attn_generator_engine_path(self, cross_attn_generator_engine_path: str):
         self.cross_attn_generator_engine_path = cross_attn_generator_engine_path
-    
+
     def cleanup_onnx_and_engine(self) -> None:
         remove_if_empty(self.decoder_folder)
         if self.config.is_encoder_decoder:
