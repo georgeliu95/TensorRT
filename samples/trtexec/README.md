@@ -11,6 +11,7 @@
     - [Example 4: Running an ONNX model with full dimensions and dynamic shapes](#example-4-running-an-onnx-model-with-full-dimensions-and-dynamic-shapes)
     - [Example 5: Collecting and printing a timing trace](#example-5-collecting-and-printing-a-timing-trace)
     - [Example 6: Tune throughput with multi-streaming](#example-6-tune-throughput-with-multi-streaming)
+    - [Example 7: Create a strongly typed plan file](#example-7-create-a-strongly-typed-plan-file)
   - [Tool command line arguments](#tool-command-line-arguments)
   - [Additional resources](#additional-resources)
 - [License](#license)
@@ -126,6 +127,14 @@ trtexec --loadEngine=g1.trt --batch=1 --streams=3
 trtexec --loadEngine=g1.trt --batch=1 --streams=4
 trtexec --loadEngine=g2.trt --batch=2 --streams=2
 ```
+
+### Example 7: Create a strongly typed plan file
+This flag will create a network with the `NetworkDefinitionCreationFlag::kSTRONGLY_TYPED` flag where tensor data types are inferred from network input types
+and operator type specification.  Use of specific builder precision flags such as `--int8` or `--best` with this option is not allowed.
+```
+./trtexec --onnx=model.onnx --stronglyTyped
+```
+
 ## Tool command line arguments
 
 To see the full list of available options and their descriptions, issue the `./trtexec --help` command.

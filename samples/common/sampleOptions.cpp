@@ -1104,6 +1104,31 @@ void BuildOptions::parse(Arguments& arguments)
     getAndDelOption(arguments, "--bf16", bf16);
     getAndDelOption(arguments, "--int8", int8);
     getAndDelOption(arguments, "--fp8", fp8);
+    getAndDelOption(arguments, "--stronglyTyped", stronglyTyped);
+    if (stronglyTyped)
+    {
+        if (fp16)
+        {
+            throw std::invalid_argument(
+                "Invalid usage, setting fp16 mode is not allowed when strongly typed mode is enabled.");
+        }
+        if (int8)
+        {
+            throw std::invalid_argument(
+                "Invalid usage, setting int8 mode is not allowed when strongly typed mode is enabled.");
+        }
+        if (bf16)
+        {
+            throw std::invalid_argument(
+                "Invalid usage, setting bf16 mode is not allowed when strongly typed mode is enabled.");
+        }
+        if (fp8)
+        {
+            throw std::invalid_argument(
+                "Invalid usage, setting fp8 mode is not allowed when strongly typed mode is enabled.");
+        }
+    }
+
     if (fp8 && int8)
     {
         throw std::invalid_argument("Invalid usage, fp8 and int8 aren't allowed to be enabled together.");
@@ -2287,6 +2312,7 @@ void BuildOptions::help(std::ostream& os)
           "  --int8                             Enable int8 precision, in addition to fp32 (default = disabled)"                                    "\n"
           "  --fp8                              Enable fp8 precision, in addition to fp32 (default = disabled)"                                     "\n"
           "  --best                             Enable all precisions to achieve the best performance (default = disabled)"                         "\n"
+          "  --stronglyTyped                    Create network with strongly typed mode (default = disabled)"                                       "\n"
           "  --directIO                         Avoid reformatting at network boundaries. (default = disabled)"                                     "\n"
           "  --precisionConstraints=spec        Control precision constraint setting. (default = none)"                                             "\n"
           R"(                                       Precision Constraints: spec ::= "none" | "obey" | "prefer")"                                    "\n"
@@ -2300,7 +2326,7 @@ void BuildOptions::help(std::ostream& os)
           "                                     layerName to specify the default precision for all the unspecified layers."                         "\n"
           R"(                                   Per-layer precision spec ::= layerPrecision[","spec])"                                              "\n"
           R"(                                                       layerPrecision ::= layerName":"precision)"                                      "\n"
-          R"(                                                       precision ::= "fp32"|"fp16"|"bf16"|"int32"|"int8")"                                    "\n"
+          R"(                                                       precision ::= "fp32"|"fp16"|"bf16"|"int32"|"int8")"                             "\n"
           "  --layerOutputTypes=spec            Control per-layer output type constraints. Effective only when precisionConstraints is set to"      "\n"
           R"(                                   "obey" or "prefer". (default = none)"                                                               "\n"
           R"(                                   The specs are read left-to-right, and later ones override earlier ones. "*" can be used as a)"      "\n"
@@ -2308,7 +2334,7 @@ void BuildOptions::help(std::ostream& os)
           R"(                                   one output, then multiple types separated by "+" can be provided for this layer.)"                  "\n"
           R"(                                   Per-layer output type spec ::= layerOutputTypes[","spec])"                                          "\n"
           R"(                                                         layerOutputTypes ::= layerName":"type)"                                       "\n"
-          R"(                                                         type ::= "fp32"|"fp16"|"bf16"|"int32"|"int8"["+"type])"                              "\n"
+          R"(                                                         type ::= "fp32"|"fp16"|"bf16"|"int32"|"int8"["+"type])"                       "\n"
           "  --layerDeviceTypes=spec            Specify layer-specific device type."                                                                "\n"
           "                                     The specs are read left-to-right, and later ones override earlier ones. If a layer does not have"   "\n"
           "                                     a device type specified, the layer will opt for the default device type."                           "\n"

@@ -10315,9 +10315,18 @@ public:
     //! \brief Create a network definition object
     //!
     //! Creates a network definition object with immutable properties specified using the flags parameter.
+    //!
+    //! createNetworkV2 supports creating network with properties from NetworkDefinitionCreationFlags.
+    //!
     //! CreateNetworkV2 supports dynamic shapes and explicit batch dimensions when used with
     //! NetworkDefinitionCreationFlag::kEXPLICIT_BATCH flag.
     //! Creating a network without NetworkDefinitionCreationFlag::kEXPLICIT_BATCH flag has been deprecated.
+    //!
+    //! createNetworkV2 without NetworkDefinitionCreationFlag::kEXPLICIT_PRECISION flag has been deprecated.
+    //! Explicit precision property of the network can be detected automatically without requiring an explicit flag.
+    //!
+    //! createNetworkV2 with NetworkDefinitionCreationFlag::kSTRONGLY_TYPED flag supports creating a strongly typed plan
+    //! where tensor data types are inferred from network input types and operator type specification.
     //!
     //! \param flags Bitset of NetworkDefinitionCreationFlags specifying network properties combined with bitwise OR.
     //!             e.g., 1U << NetworkDefinitionCreationFlag::kEXPLICIT_BATCH

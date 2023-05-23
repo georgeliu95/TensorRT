@@ -203,6 +203,7 @@ public:
     bool bf16{false};
     bool int8{false};
     bool fp8{false};
+    bool stronglyTyped{false};
     bool directIO{false};
     PrecisionConstraints precisionConstraints{PrecisionConstraints::kNONE};
     LayerPrecisions layerPrecisions;
