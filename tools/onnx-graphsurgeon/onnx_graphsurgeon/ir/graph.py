@@ -890,6 +890,8 @@ class Graph(object):
         # Otherwise, if all the outputs are foldable, then we can just evaluate the outputs directly.
         # Additionally, if we can determine tensor size, do not evaluate tensors whose sizes exceed the size threshold.
         def should_eval_foldable(tensor):
+            from onnx_graphsurgeon.importers.onnx_importer import get_itemsize
+
             non_const = not isinstance(tensor, Constant)
             is_graph_output = not tensor.outputs
             has_non_foldable_outputs = any(out.name not in graph_constants for out in tensor.outputs)
@@ -898,7 +900,7 @@ class Graph(object):
                 and not misc.is_dynamic_shape(tensor.shape)
                 and tensor.dtype is not None
                 and size_threshold is not None
-            ) and (misc.volume(tensor.shape) * np.dtype(tensor.dtype).itemsize > size_threshold)
+            ) and (misc.volume(tensor.shape) * get_itemsize(tensor.dtype) > size_threshold)
 
             return non_const and (is_graph_output or has_non_foldable_outputs) and not exceeds_size_threshold
 
