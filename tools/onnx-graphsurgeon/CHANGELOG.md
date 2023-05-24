@@ -2,10 +2,18 @@
 
 Dates are in YYYY-MM-DD format.
 
-## v0.3.27 (2023-05-22)
+## v0.3.27 (2023-05-24)
+### Added
+- Added support for `BFLOAT16`. Tensors of `BFLOAT16` type will not have their data types converted to NumPy.
+    Additionally, attempting to access the values of a `BFLOAT16` constant tensor will cause them to be casted
+    to `float32`.
+
 ### Changed
 - Updated the `Graph.layer` API to generate unique names for Tensors and Nodes.
 - Updated the exporter to provide a warning before exporting to ONNX if nodes within a graph have duplicate names.
+- Updated all `dtype` attributes to accept `onnx.TensorProto.DataType` types in addition to NumPy types.
+    This is required since some types, like `BFLOAT16` are not representable in NumPy.
+
 
 ## v0.3.26 (2022-12-09)
 ### Fixed

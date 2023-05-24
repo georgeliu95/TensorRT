@@ -26,8 +26,12 @@ from onnx_graphsurgeon.ir.node import Node
 from onnx_graphsurgeon.ir.tensor import Constant, LazyValues, Tensor, Variable
 from onnx_graphsurgeon.logger.logger import G_LOGGER
 
+from typing import Union
 
-def dtype_to_onnx(dtype: np.dtype) -> int:
+
+def dtype_to_onnx(dtype: Union[np.dtype, "onnx.TensorProto.DataType"]) -> int:
+    if isinstance(dtype, int):
+        return dtype
     return onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[np.dtype(dtype)]
 
 def check_duplicate_node_names(nodes: Sequence[Node], level=G_LOGGER.WARNING):
