@@ -171,12 +171,16 @@ def nested_graph():
 class TestBasic(object):
     def test_generate_name(self):
         graph = Graph()
-        names = set()
+        generated_names = set()
+        existing_names = {"name_{}".format(i) for i in range(50, 150)} # names_50 to names_149
         num_names = 100
-        # This function should not return the same name more than once
         for idx in range(num_names):
-            names.add(graph._generate_name("name"))
-        assert len(names) == 100
+            generated_names.add(graph._generate_name("name", existing_names))
+        assert len(generated_names) == num_names # 100 unique generated_names
+        assert len(generated_names.intersection(existing_names)) == 0 # no generated_names in existing_names
+        expected_names = {"name_{}".format(i) for i in range(0, 50)}
+        expected_names.update({"name_{}".format(i) for i in range(150, 200)})
+        assert generated_names == expected_names # expect 'names_0' to 'names_49', 'names_150' to 'names_199'
 
     def test_equal(self, nested_graph):
         assert nested_graph == nested_graph
@@ -242,6 +246,15 @@ class TestRegister(object):
 
 
 class TestLayer(object):
+    def test_layer_default_naming(self):
+        node1 = Node(name="onnx_graphsurgeon_node_0", op="Identity") # injecting default name
+        node2 = Node(name="onnx_graphsurgeon_node_1", op="Identity") # injecting default name again
+        graph = Graph(nodes=[node1, node2])
+        graph.layer(op="Identity") # new default name should be onnx_graphsurgeon_node_2
+        assert graph.nodes[-1].name == "onnx_graphsurgeon_node_2"
+        graph.layer(op="Identity") # new default name should be onnx_graphsurgeon_node_3
+        assert graph.nodes[-1].name == "onnx_graphsurgeon_node_3"
+
     def test_layer_with_attrs(self):
         graph = Graph()
         outputs = graph.layer(op="Add", name="node", attrs={"fake_attr": 0})
