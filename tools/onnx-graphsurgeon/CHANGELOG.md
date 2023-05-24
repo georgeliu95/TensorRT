@@ -2,6 +2,11 @@
 
 Dates are in YYYY-MM-DD format.
 
+## v0.3.27 (2023-05-22)
+### Changed
+- Updated the `Graph.layer` API to generate unique names for Tensors and Nodes.
+- Updated the exporter to provide a warning before exporting to ONNX if nodes within a graph have duplicate names.
+
 ## v0.3.26 (2022-12-09)
 ### Fixed
 - Fixed a bug where node domain was not preserved.
