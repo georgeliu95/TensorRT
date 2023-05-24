@@ -43,7 +43,9 @@ static const auto parse_binary_proto = [](ICaffeParser& self, const std::string&
 
     // By specifying the py::capsule as a parent here, we tie the lifetime of the data buffer to this array.
     // When this array is eventually destroyed on the Python side, the capsule parent will free(protoPtr).
-    return py::array{utils::nptype(proto->getDataType()), static_cast<int32_t>(volume), proto->getData(), freeBlob};
+    auto const dtype = utils::nptype(proto->getDataType());
+    PY_ASSERT_RUNTIME_ERROR(dtype, "Could not convert data type to NumPy");
+    return py::array{*dtype, static_cast<int32_t>(volume), proto->getData(), freeBlob};
 };
 
 static const auto parse_buffer = [](ICaffeParser& self, py::buffer& deploy, py::buffer& model,

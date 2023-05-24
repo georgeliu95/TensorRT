@@ -92,6 +92,14 @@ constexpr const char* init_type = R"trtdoc(
     :type: A type to initialize the weights with. Default: :class:`tensorrt.float32`
 )trtdoc";
 
+constexpr const char* init_ptr = R"trtdoc(
+    Initializes a Weights object with the specified data.
+
+    :type: A type to initialize the weights with. 
+    :ptr: A pointer to the data. 
+    :count: The number of weights.
+)trtdoc";
+
 // FIXME: Weird bug occurring here. Cannot provide :arg:
 constexpr const char* init_numpy = R"trtdoc(
     :a: A numpy array whose values to use. No deep copies are made.
@@ -99,8 +107,11 @@ constexpr const char* init_numpy = R"trtdoc(
 
 constexpr const char* numpy = R"trtdoc(
     Create a numpy array using the underlying buffer of this weights object.
+    The resulting array is just a view over the existing data, i.e. no deep copy is made.
 
-    :returns: A new numpy array that holds a reference to this weight object's buffer - no deep copy is made.
+    If the weights cannot be converted to NumPy (e.g. due to unsupported data type), the original weights are returned. 
+
+    :returns: The NumPy array or the original weights.
 )trtdoc";
 } // namespace WeightsDoc
 
