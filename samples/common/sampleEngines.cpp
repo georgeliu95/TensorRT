@@ -994,7 +994,6 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
     {
         config.setFlag(BuilderFlag::kFP16);
     }
-
     if (build.int8)
     {
         config.setFlag(BuilderFlag::kINT8);
@@ -1263,7 +1262,9 @@ bool modelToBuildEnv(
     env.builder->setErrorRecorder(&gRecorder);
     auto networkFlags
         = (build.maxBatch) ? 0U : 1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
-
+    networkFlags |= (build.stronglyTyped)
+        ? 1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kSTRONGLY_TYPED)
+        : 0U;
     for (auto const& pluginPath : sys.dynamicPlugins)
     {
         env.builder->getPluginRegistry().loadLibrary(pluginPath.c_str());
