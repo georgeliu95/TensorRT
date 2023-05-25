@@ -38,8 +38,6 @@ export TRT_OSSPATH=/workspace
 cd $TRT_OSSPATH/demo/Diffusion
 pip3 install -r requirements.txt
 
-# Create output directories
-mkdir -p onnx engine output
 ```
 
 > NOTE: demoDiffusion has been tested on systems with NVIDIA A100, RTX3090, and RTX4090 GPUs, and the following software configuration.
@@ -93,8 +91,6 @@ Use `--input-image=<path to image>` to specify your image. Otherwise the example
 ### Generate an inpainted image guided by an image, mask and single text prompt
 
 ```bash
-# Create separate onnx/engine directories when switching versions
-mkdir -p onnx-1.5 engine-1.5
 
 python3 demo_inpaint.py "a mecha robot sitting on a bench" --hf-token=$HF_TOKEN --version=1.5 --onnx-dir=onnx-1.5 --engine-dir=engine-1.5 -v
 ```

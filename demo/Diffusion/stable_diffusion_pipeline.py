@@ -26,6 +26,8 @@ from polygraphy import cuda
 import torch
 from utilities import Engine, save_image
 from utilities import DPMScheduler, DDIMScheduler, EulerAncestralDiscreteScheduler, LMSDiscreteScheduler, PNDMScheduler
+import os
+import pathlib
 
 class StableDiffusionPipeline:
     """
@@ -98,6 +100,10 @@ class StableDiffusionPipeline:
             self.max_workspace_size = 0
 
         self.output_dir = output_dir
+        if not os.path.exists(output_dir):
+            print(f"[I] Create directory: {output_dir}")
+            pathlib.Path(output_dir).mkdir(parents=True)
+
         self.hf_token = hf_token
         self.device = device
         self.verbose = verbose
@@ -238,6 +244,13 @@ class StableDiffusionPipeline:
             onnx_refit_dir (str):
                 Directory containing refit ONNX models.
         """
+
+        # Create directory
+        for directory in [engine_dir, onnx_dir]:
+            if not os.path.exists(directory):
+                print(f"[I] Create directory: {directory}")
+                pathlib.Path(directory).mkdir(parents=True)
+
         # Load text tokenizer
         self.tokenizer = make_tokenizer(self.version, self.hf_token)
 
