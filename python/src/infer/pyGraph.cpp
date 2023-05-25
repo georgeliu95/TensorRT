@@ -941,7 +941,8 @@ namespace tensorrt
                 py::keep_alive<1, 3>{}, INetworkDefinitionDoc::add_constant,
                 py::return_value_policy::reference_internal)
             .def("add_rnn_v2", utils::deprecateMember(&INetworkDefinition::addRNNv2, "addLoop"), "input"_a, "layer_count"_a,
-                "hidden_size"_a, "max_seq_length"_a, "op"_a, INetworkDefinitionDoc::add_rnn_v2)
+                "hidden_size"_a, "max_seq_length"_a, "op"_a, py::keep_alive<1, 0>{}, INetworkDefinitionDoc::add_rnn_v2,
+                py::return_value_policy::reference)
             .def("add_identity", &INetworkDefinition::addIdentity, "input"_a,
                 INetworkDefinitionDoc::add_identity, py::return_value_policy::reference_internal)
             .def("add_cast", &INetworkDefinition::addCast, "input"_a, "to_type"_a,
