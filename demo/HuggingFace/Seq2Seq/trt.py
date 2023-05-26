@@ -132,6 +132,7 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
         self.expand_size = config.expand_size
         self.profile_idx = 0
         self.bindings = [0] * self.trt_engine.num_bindings
+        self.binding_index_cache = dict()
 
         # Construct buffer for logits outputs
         self.logits = torch.zeros(
@@ -187,6 +188,7 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
                     output_idx = self.trt_engine.get_binding_index("present_" + self_attn_name)
                     self.bindings[output_idx] = self_attn_buffer[1].data_ptr()
 
+                    self.binding_index_cache[self_attn_name] = [input_idx, output_idx]
                     if config.is_encoder_decoder:
                         # Allocate cross attention buffer
                         cross_attn_past_name = f"past_key_values.{i}.cross.{code}"
@@ -383,12 +385,9 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
             for i in range(self.num_decoder_layers):
                 for code in ["key", "value"]:
                     self_attention_name = f"key_values.{i}.self.{code}"
-                    input_idx = self.trt_engine.get_binding_index("past_" + self_attention_name)
-                    output_idx = self.trt_engine.get_binding_index("present_" + self_attention_name)
+                    input_idx, output_idx = self.binding_index_cache.get(self_attention_name)
 
-                    temp = self.bindings[output_idx]
-                    self.bindings[output_idx] = self.bindings[input_idx]
-                    self.bindings[input_idx] = temp
+                    self.bindings[input_idx], self.bindings[output_idx] = self.bindings[output_idx], self.bindings[input_idx]
 
             self.cache_id = (self.cache_id + 1) % 2
 
