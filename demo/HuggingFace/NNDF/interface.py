@@ -224,14 +224,14 @@ class NetworkCommand(metaclass=ABCMeta):
             self.workspace.set_cross_attn_generator_onnx_path(cache_generator_onnx)
 
         self.model_path_args = self.process_framework_specific_arguments(**kwargs)
-    
+
     def process_benchmarking_args(
         self,
         input_seq_len,
         output_seq_len,
         # For TRT only
         input_profile_max_len = None,
-        output_profile_max_len = None,                       
+        output_profile_max_len = None,
     ):
         # This is the largest seq len that the model could ever been used
         n_positions = self.config.n_positions
@@ -254,7 +254,7 @@ class NetworkCommand(metaclass=ABCMeta):
         self.config.max_input_length = input_seq_len
         self.config.opt_input_length = input_seq_len
         self.config.max_input_profile_length = input_profile_max_len
-        
+
         self.config.min_output_length = output_seq_len
         self.config.max_output_length = output_seq_len
         self.config.max_decoder_length = 1 if (self.config.use_cache and self.config.is_encoder_decoder) else self.config.max_output_length
@@ -911,6 +911,25 @@ class TRTInferenceCommand(NetworkCommand):
             default=False,
         )
 
+        trt_group.add_argument(
+            "--dynamic-batch",
+            help="Build TensorRT engines with dynamic batch sizes.",
+            default=False,
+            action="store_true",
+        )
+
+        trt_group.add_argument(
+            "--min-dynamic-batch",
+            default=None,
+            help="Minimum batch size for engines built with dynamic batch size.",
+        )
+
+        trt_group.add_argument(
+            "--max-dynamic-batch",
+            default=None,
+            help="Maximum batch size for engines built with dynamic batch size.",
+        )
+
         engine_group = self._parser.add_argument_group("trt engine")
         engine_group.add_argument(
             "--encoder-engine",
@@ -943,6 +962,7 @@ class TRTInferenceCommand(NetworkCommand):
             help="nvtx verbosity in inference stage.",
             action="store_true",
         )
+
 
 class OnnxRTCommand(NetworkCommand):
     """ONNX Runtime command."""

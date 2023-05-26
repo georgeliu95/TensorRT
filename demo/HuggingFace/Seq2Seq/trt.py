@@ -437,6 +437,9 @@ class Seq2SeqTRT(TRTInferenceCommand):
     def process_framework_specific_arguments(
         self,
         disable_preview_dynamic_shapes: bool = False,
+        dynamic_batch: bool = False,
+        min_dynamic_batch: int = None,
+        max_dynamic_batch: int = None,
         encoder_engine: str = None,
         decoder_engine: str = None,
         cache_generator_engine: str = None,
@@ -446,6 +449,20 @@ class Seq2SeqTRT(TRTInferenceCommand):
     ):
 
         self.disable_preview_dynamic_shapes = disable_preview_dynamic_shapes
+        self.dynamic_batch = dynamic_batch
+
+        # Ensure validity of batch size being built
+        if dynamic_batch:
+            bs = self.config.batch_size
+
+            min_dynamic_batch = int(setup_benchmark_arg(min_dynamic_batch, "min_dynamic_batch", 1))
+            assert min_dynamic_batch <= bs, "min_dynamic_batch {} should be <= batch_size {}".format(min_dynamic_batch, bs)
+            self.min_dynamic_batch = min_dynamic_batch
+
+            max_dynamic_batch = int(setup_benchmark_arg(max_dynamic_batch, "max_dynamic_batch", bs))
+            assert bs <= max_dynamic_batch, "max_dynamic_batch {} should be >= batch_size {}".format(max_dynamic_batch, bs)
+            self.max_dynamic_batch = max_dynamic_batch
+
         self.use_generator = self.config.is_encoder_decoder and self.config.use_cache
 
         self.workspace.set_encoder_engine_path(encoder_engine)
@@ -595,15 +612,30 @@ class Seq2SeqTRT(TRTInferenceCommand):
         use_cache = self.config.use_cache
         num_beams = self.config.num_beams
 
+        min_batch_size = self.min_dynamic_batch if self.dynamic_batch else batch_size
+        max_batch_size = self.max_dynamic_batch if self.dynamic_batch else batch_size
+
+        min_expand_size = self.config._compute_expand_size(min_batch_size, self.config.num_beams)
+        opt_expand_size = expand_size
+        max_expand_size = self.config._compute_expand_size(max_batch_size, self.config.num_beams)
+
         # Convert ONNX models to TRT engines.
         if not self.benchmarking_mode:
             engine_tag = "bs{}".format(batch_size)
         # When user does not input any profile_max_len, use seq as tag, both max are config max
         elif seq_tag:
-            engine_tag = "bs{}-inseq{}-outseq{}".format(batch_size, opt_input_seq_len, opt_output_seq_len)
+            # When user inputs dynamic batch, enable engine reuse in future with different batch size.
+            if self.dynamic_batch:
+                engine_tag = "minbs{}-maxbs{}-inseq{}-outseq{}".format(self.min_dynamic_batch, self.max_dynamic_batch, opt_input_seq_len, opt_output_seq_len)
+            else:
+                engine_tag = "bs{}-inseq{}-outseq{}".format(batch_size, opt_input_seq_len, opt_output_seq_len)
         # When user input profile_max_len, reuse the engine for future use with different seq_len
         else:
-            engine_tag = "bs{}-inmax{}-outmax{}".format(batch_size, max_input_profile_length, max_output_profile_length)
+            # When user inputs dynamic batch, enable engine reuse in future with different batch size.
+            if self.dynamic_batch:
+                engine_tag = "minbs{}-maxbs{}-inmax{}-outmax{}".format(self.min_dynamic_batch, self.max_dynamic_batch, max_input_profile_length, max_output_profile_length)
+            else:
+                engine_tag = "bs{}-inmax{}-outmax{}".format(batch_size, max_input_profile_length, max_output_profile_length)
 
         if num_beams > 1:
             engine_tag += "-beam{}".format(num_beams)
@@ -619,16 +651,16 @@ class Seq2SeqTRT(TRTInferenceCommand):
         if not use_cache:
             decoder_profile = Profile().add(
                 "input_ids",
-                min=(expand_size, 1),
-                opt=(expand_size, opt_output_seq_len),
-                max=(expand_size, max_output_profile_length),
+                min=(min_expand_size, 1),
+                opt=(opt_expand_size, opt_output_seq_len),
+                max=(max_expand_size, max_output_profile_length),
             )
             if is_encoder_decoder:
                 decoder_profile.add(
                     "encoder_hidden_states",
-                    min=(expand_size, 1, encoder_hidden_size),
-                    opt=(expand_size, opt_input_seq_len, encoder_hidden_size),
-                    max=(expand_size, max_input_profile_length, encoder_hidden_size),
+                    min=(min_expand_size, 1, encoder_hidden_size),
+                    opt=(opt_expand_size, opt_input_seq_len, encoder_hidden_size),
+                    max=(max_expand_size, max_input_profile_length, encoder_hidden_size),
                 )
 
             decoder_profiles = [decoder_profile]
@@ -638,30 +670,30 @@ class Seq2SeqTRT(TRTInferenceCommand):
             num_decoder_layers = self.config.num_decoder_layers
 
             self_attn_profile = {
-                "min": (expand_size, num_heads, 0, embedding_size_per_head),
-                "opt": (expand_size, num_heads, opt_output_seq_len - 1, embedding_size_per_head),
-                "max": (expand_size, num_heads, max_output_profile_length - 1, embedding_size_per_head),
+                "min": (min_expand_size, num_heads, 0, embedding_size_per_head),
+                "opt": (opt_expand_size, num_heads, opt_output_seq_len - 1, embedding_size_per_head),
+                "max": (max_expand_size, num_heads, max_output_profile_length - 1, embedding_size_per_head),
             }
 
             cross_attn_profile = {
-                "min": (expand_size, num_heads, 1, embedding_size_per_head),
-                "opt": (expand_size, num_heads, opt_input_seq_len, embedding_size_per_head),
-                "max": (expand_size, num_heads, max_input_profile_length, embedding_size_per_head),
+                "min": (min_expand_size, num_heads, 1, embedding_size_per_head),
+                "opt": (opt_expand_size, num_heads, opt_input_seq_len, embedding_size_per_head),
+                "max": (max_expand_size, num_heads, max_input_profile_length, embedding_size_per_head),
             }
 
             decoder_profile_generation = Profile().add(
                 "input_ids",
-                min=(expand_size, 1),
-                opt=(expand_size, 1),
-                max=(expand_size, 1),
+                min=(min_expand_size, 1),
+                opt=(opt_expand_size, 1),
+                max=(max_expand_size, 1),
             )
 
             if is_encoder_decoder:
                 decoder_profile_generation.add(
                     "encoder_hidden_states",
-                    min=(expand_size, 1, encoder_hidden_size),
-                    opt=(expand_size, opt_input_seq_len, encoder_hidden_size),
-                    max=(expand_size, max_input_profile_length, encoder_hidden_size),
+                    min=(min_expand_size, 1, encoder_hidden_size),
+                    opt=(opt_expand_size, opt_input_seq_len, encoder_hidden_size),
+                    max=(max_expand_size, max_input_profile_length, encoder_hidden_size),
                 )
 
 
@@ -689,15 +721,15 @@ class Seq2SeqTRT(TRTInferenceCommand):
                 # Context phase takes various-length input_ids with no kv cache and generates initial cache for subsequent decoding steps.
                 decoder_profile_context = Profile().add(
                     "input_ids",
-                    min=(expand_size, 1),
-                    opt=(expand_size, opt_input_seq_len),
-                    max=(expand_size, max_input_profile_length),
+                    min=(min_expand_size, 1),
+                    opt=(opt_expand_size, opt_input_seq_len),
+                    max=(max_expand_size, max_input_profile_length),
                 )
 
                 self_attn_profile_context = {
-                    "min": (expand_size, num_heads, 0, embedding_size_per_head),
-                    "opt": (expand_size, num_heads, 0, embedding_size_per_head),
-                    "max": (expand_size, num_heads, 0, embedding_size_per_head),
+                    "min": (min_expand_size, num_heads, 0, embedding_size_per_head),
+                    "opt": (opt_expand_size, num_heads, 0, embedding_size_per_head),
+                    "max": (max_expand_size, num_heads, 0, embedding_size_per_head),
                 }
                 for i in range(num_decoder_layers):
                     decoder_profile_context = decoder_profile_context.add(
@@ -732,9 +764,9 @@ class Seq2SeqTRT(TRTInferenceCommand):
             encoder_profiles = [
                 Profile().add(
                     "input_ids",
-                    min=(batch_size, 1),
+                    min=(min_batch_size, 1),
                     opt=(batch_size, opt_input_seq_len),
-                    max=(batch_size, max_input_profile_length),
+                    max=(max_batch_size, max_input_profile_length),
                 )
             ]
             encoder_engine_path = self.workspace.get_engine_fpath_from_onnx(self.onnx_encoder.fpath, engine_tag).replace(f"-beam{num_beams}", "")
@@ -763,9 +795,9 @@ class Seq2SeqTRT(TRTInferenceCommand):
         if self.use_generator:
             generator_profiles = [Profile().add(
                 "encoder_hidden_states",
-                min=(expand_size, 1, encoder_hidden_size),
-                opt=(expand_size, opt_input_seq_len, encoder_hidden_size),
-                max=(expand_size, max_input_profile_length, encoder_hidden_size),
+                min=(min_expand_size, 1, encoder_hidden_size),
+                opt=(opt_expand_size, opt_input_seq_len, encoder_hidden_size),
+                max=(max_expand_size, max_input_profile_length, encoder_hidden_size),
             )]
 
             cross_attn_cache_generator_engine_path = self.workspace.get_engine_fpath_from_onnx(self.onnx_cross_attn_cache_generator.fpath, engine_tag)
@@ -780,7 +812,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
             )
             self.decoder.set_cross_attn_cache_generator_engine(self.cross_attn_cache_generator_engine)
             self.workspace.set_cross_attn_generator_engine_path(cross_attn_cache_generator_engine_path)
-    
+
     def get_seq_tag(self):
         return self._args.input_profile_max_len is None and self._args.output_profile_max_len is None
 
