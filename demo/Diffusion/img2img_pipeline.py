@@ -111,5 +111,5 @@ class Img2ImgPipeline(StableDiffusionPipeline):
             e2e_toc = time.perf_counter()
 
             if not warmup:
-                self.print_summary(self.denoising_steps, e2e_tic, e2e_toc, vae_enc=True)
+                self.print_summary(self.denoising_steps, e2e_tic, e2e_toc, batch_size, vae_enc=True)
                 self.save_image(images, 'img2img', prompt)
