@@ -42,7 +42,7 @@ class InpaintPipeline(StableDiffusionPipeline):
 
         if scheduler != "PNDM":
             raise ValueError(f"Inpainting only supports PNDM scheduler")
-        
+
         super(InpaintPipeline, self).__init__(*args, **kwargs, \
             inpaint=True, scheduler=scheduler, stages=[ 'vae_encoder', 'clip', 'unet', 'vae'])
 
@@ -130,6 +130,6 @@ class InpaintPipeline(StableDiffusionPipeline):
             e2e_toc = time.perf_counter()
 
             if not warmup:
-                self.print_summary(self.denoising_steps, e2e_tic, e2e_toc, vae_enc=True)
+                self.print_summary(self.denoising_steps, e2e_tic, e2e_toc, batch_size, vae_enc=True)
                 self.save_image(images, 'inpaint', prompt)
 

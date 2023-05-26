@@ -464,7 +464,7 @@ class StableDiffusionPipeline:
             nvtx.end_range(nvtx_vae)
         return images
 
-    def print_summary(self, denoising_steps, tic, toc, vae_enc=False):
+    def print_summary(self, denoising_steps, tic, toc, batch_size, vae_enc=False):
             print('|------------|--------------|')
             print('| {:^10} | {:^12} |'.format('Module', 'Latency'))
             print('|------------|--------------|')
@@ -476,6 +476,7 @@ class StableDiffusionPipeline:
             print('|------------|--------------|')
             print('| {:^10} | {:>9.2f} ms |'.format('Pipeline', (toc - tic)*1000.))
             print('|------------|--------------|')
+            print('Throughput: {:.2f} image/s'.format(batch_size/(toc - tic)))
 
     def save_image(self, images, pipeline, prompt):
             # Save image
