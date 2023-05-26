@@ -154,7 +154,13 @@ class Seq2SeqModelTRTConfig(NNConfig):
         # So we need to maintain dynamic shape for onnx export, but we will fix seq len = 1 during TRT engine generation.
         self.decoder_dims = 1 if (self.use_cache and self.is_encoder_decoder) else Dims.SEQUENCE
         self.max_decoder_length = 1 if (self.use_cache and self.is_encoder_decoder) else self.max_output_length
-        self.expand_size = self.batch_size * self.num_beams
+        self.expand_size = self._compute_expand_size(self.batch_size, self.num_beams)
+
+    def _compute_expand_size(self, batch_size, num_beams):
+        """
+        Computes expand size for beam search.
+        """
+        return batch_size * num_beams
 
     def set_model_classes(self, model_classes):
         """
