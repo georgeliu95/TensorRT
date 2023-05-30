@@ -885,6 +885,11 @@ public:
     virtual double getAlpha() const noexcept = 0;
     virtual void setBeta(double beta) noexcept = 0;
     virtual double getBeta() const noexcept = 0;
+    virtual void setAlphaInt64(int64_t alpha) noexcept = 0;
+    virtual int64_t getAlphaInt64() const noexcept = 0;
+    virtual void setBetaInt64(int64_t beta) noexcept = 0;
+    virtual int64_t getBetaInt64() const noexcept = 0;
+    virtual bool isAlphaBetaInt64() const noexcept = 0;
 };
 
 class VQuantizeLayer : public VRoot

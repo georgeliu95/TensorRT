@@ -6007,6 +6007,82 @@ public:
     //!
     using ILayer::setInput;
 
+    //!
+    //! \brief Set the alpha parameter with int64 datatype.
+    //!
+    //! \param alpha has different meanings for each operator:
+    //!
+    //! Operation          | Usage
+    //! kLINSPACE          | the start value, defaults to 0;
+    //! kRANDOM_UNIFORM    | the minimum value, defaults to 0;
+    //! kRANDOM_NORMAL     | the mean of the normal distribution, default is 0;
+    //!
+    //! If a third input had been used to create this layer, that input is reset to null by this method.
+    //!
+    //! \see getAlphaInt64
+    //
+    void setAlphaInt64(int64_t alpha) noexcept
+    {
+        mImpl->setAlphaInt64(alpha);
+    }
+
+    //!
+    //! \brief Get the value of alpha parameter with int64 datatype.
+    //!
+    //! \return A int64 value of alpha.
+    //!
+    //! If the second input is present and non-null,
+    //! this function returns -1.
+    //!
+    //! \see setAlphaInt64
+    //!
+    int64_t getAlphaInt64() const noexcept
+    {
+        return mImpl->getAlphaInt64();
+    }
+
+    //!
+    //! \brief Set the beta parameter with int64 datatype.
+    //!
+    //! \param beta has different meanings for each operator:
+    //!
+    //! Operation          | Usage
+    //! kLINSPACE          | the delta value, defaults to 1;
+    //! kRANDOM_UNIFORM    | the maximal value, defaults to 1;
+    //! kRANDOM_NORMAL     | the standard deviation of the normal distribution, default is 1;
+    //!
+    //! If a third input had been used to create this layer, that input is reset to null by this method.
+    //!
+    //! \see getBetaInt64
+    //!
+    void setBetaInt64(int64_t beta) noexcept
+    {
+        mImpl->setBetaInt64(beta);
+    }
+
+    //!
+    //! \brief Get the value of beta parameter with int64 datatype.
+    //!
+    //! \return A int64 value of beta.
+    //!
+    //! If the third input is present and non-null,
+    //! this function returns -1.0.
+    //!
+    //! \see setBetaInt64
+    //!
+    int64_t getBetaInt64() const noexcept
+    {
+        return mImpl->getBetaInt64();
+    }
+
+    //!
+    //! \brief Return true if alpha/beta have type int64, false if they have type double.
+    //!
+    bool isAlphaBetaInt64() const noexcept
+    {
+        return mImpl->isAlphaBetaInt64();
+    }
+
 protected:
     virtual ~IFillLayer() noexcept = default;
     apiv::VFillLayer* mImpl;
