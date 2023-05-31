@@ -40,7 +40,9 @@ namespace nvcaffeparser1
 //!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
-class IBlobNameToTensor
+//! \deprecated Deprecated in TensorRT 8.0.
+//!
+class TRT_DEPRECATED IBlobNameToTensor
 {
 public:
     //! \brief Given a blob name, returns a pointer to a ITensor object.
@@ -64,7 +66,9 @@ protected:
 //!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
-class IBinaryProtoBlob
+//! \deprecated Deprecated in TensorRT 8.0.
+//!
+class TRT_DEPRECATED IBinaryProtoBlob
 {
 public:
     virtual void const* getData() noexcept = 0;
@@ -84,7 +88,9 @@ public:
 //!
 //! \brief Plugin factory used to configure plugins.
 //!
-class IPluginFactoryV2
+//! \deprecated Deprecated in TensorRT 8.0.
+//!
+class TRT_DEPRECATED IPluginFactoryV2
 {
 public:
     //!
@@ -116,7 +122,9 @@ public:
 //!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
-class ICaffeParser
+//! \deprecated Deprecated in TensorRT 8.0.
+//!
+class TRT_DEPRECATED ICaffeParser
 {
 public:
     //!
@@ -240,19 +248,25 @@ public:
 //! \deprecated ICaffeParser will be removed in TensorRT 9.0. Plan to migrate your workflow to
 //! use nvonnxparser::IParser for deployment.
 //!
-TENSORRTAPI ICaffeParser* createCaffeParser() noexcept;
+//! \deprecated Deprecated in TensorRT 8.0.
+//!
+TRT_DEPRECATED_API ICaffeParser* createCaffeParser() noexcept;
 
 //!
 //! \brief Shuts down protocol buffers library.
 //!
 //! \note No part of the protocol buffers library can be used after this function is called.
 //!
-TENSORRTAPI void shutdownProtobufLibrary() noexcept;
+//! \deprecated Deprecated in TensorRT 8.0.
+//!
+TRT_DEPRECATED_API void shutdownProtobufLibrary() noexcept;
 } // namespace nvcaffeparser1
 
 //!
 //! Internal C entry point for creating ICaffeParser.
 //! @private
 //!
-extern "C" TENSORRTAPI void* createNvCaffeParser_INTERNAL() noexcept;
+//! \deprecated Deprecated in TensorRT 8.0.
+//!
+extern "C" TRT_DEPRECATED_API void* createNvCaffeParser_INTERNAL() noexcept;
 #endif
