@@ -61,9 +61,13 @@ set_target_properties(${SHARED_TARGET}
     RUNTIME_OUTPUT_DIRECTORY "${TRT_OUT_DIR}"
 )
 
+find_library(TENSORRT_LIBRARY_INFER nvinfer
+  HINTS ${TRT_LIB_DIR}
+)
+
 target_link_libraries(${SHARED_TARGET}
     ${Protobuf_LIBRARY}
-    nvinfer
+    ${TENSORRT_LIBRARY_INFER}
 )
 
 # modify google namespace to avoid namespace collision.
