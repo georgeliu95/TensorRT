@@ -37,6 +37,10 @@ set(SAMPLES_COMMON_SOURCES
     ${SAMPLES_DIR}/utils/fileLock.cpp
 )
 
+if (MSVC)
+    list(APPEND SAMPLES_COMMON_SOURCES ${SAMPLES_DIR}/common/getopt.c)
+endif()
+
 # add underscores (snake) to camelCase cases
 string(REGEX REPLACE "(.)([A-Z][a-z]+)" "\\1_\\2" SAMPLE_NAME_SNAKE_MIXED ${SAMPLE_DIR_NAME})
 string(REGEX REPLACE "([a-z0-9])([A-Z])" "\\1_\\2" SAMPLE_NAME_SNAKE_MIXED ${SAMPLE_NAME_SNAKE_MIXED})
@@ -88,7 +92,8 @@ set(SAMPLE_DEP_LIBS
     ${CUDART_LIB}
     ${CUBLAS_LIB}
     ${CUDNN_LIB}
-    nvinfer
+    ${nvinfer_LIB_PATH}
+    ${RT_LIB}
     ${CMAKE_DL_LIBS}
     ${CMAKE_THREAD_LIBS_INIT}
 )
@@ -110,7 +115,7 @@ if("onnx" IN_LIST SAMPLE_PARSERS)
 endif()
 
 if("uff" IN_LIST SAMPLE_PARSERS)
-    list(APPEND SAMPLE_DEP_LIBS nvuffparser)
+    list(APPEND SAMPLE_DEP_LIBS ${nvparsers_LIB_PATH})
 endif()
 
 # Necessary to link nvinfer_plugin library.

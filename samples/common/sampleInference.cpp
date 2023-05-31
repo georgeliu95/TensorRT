@@ -1588,11 +1588,11 @@ inline std::ostream& operator<<(std::ostream& o, nvinfer1::DataType dt)
     case DataType::kINT32: o << "Int32"; break;
     case DataType::kFLOAT: o << "Float"; break;
     case DataType::kHALF: o << "Half"; break;
+    case DataType::kBF16: o << "BF16"; break;
     case DataType::kINT8: o << "Int8"; break;
     case DataType::kUINT8: o << "UInt8"; break;
     case DataType::kBOOL: o << "Bool"; break;
     case DataType::kFP8: o << "Float8"; break;
-    case DataType::kBF16: o << "BFloat16"; break;
     case DataType::kINT64: ASSERT(false && "Unsupported data type");
     }
     return o;

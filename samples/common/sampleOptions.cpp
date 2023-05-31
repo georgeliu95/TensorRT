@@ -1085,7 +1085,12 @@ void BuildOptions::parse(Arguments& arguments)
     {
         int8 = true;
         fp16 = true;
-        bf16 = true;
+
+        // BF16 only supported on Ampere+
+        if (samplesCommon::getSMVersion() >= 0x0800)
+        {
+            bf16 = true;
+        }
     }
 
     getAndDelOption(arguments, "--refit", refittable);

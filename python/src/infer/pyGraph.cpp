@@ -223,6 +223,51 @@ namespace tensorrt
             self.getScales(nbScales, scales.data());
             return scales;
         };
+
+        // For Fill layer
+        static auto set_alpha = [](IFillLayer& self, py::object alpha) {
+            try
+            {
+                double alphaDouble = alpha.cast<double>();
+                self.setAlpha(alphaDouble);
+            }
+            catch (py::cast_error const&) {}
+
+            try
+            {
+                int64_t alphaInt64 = alpha.cast<int64_t>();
+                self.setAlphaInt64(alphaInt64);
+            }
+            catch (py::cast_error const&) {}
+        };
+        static auto get_alpha = [](IFillLayer& self) {
+            if (self.isAlphaBetaInt64())
+                return py::cast(self.getAlphaInt64());
+            else
+                return py::cast(self.getAlpha());
+        };
+        static auto set_beta = [](IFillLayer& self, py::object beta) {
+            try
+            {
+                double betaDouble = beta.cast<double>();
+                self.setBeta(betaDouble);
+            }
+            catch (py::cast_error const&) {}
+
+            try
+            {
+                int64_t betaInt64 = beta.cast<int64_t>();
+                self.setBetaInt64(betaInt64);
+            }
+            catch (py::cast_error const&) {}
+        };
+        static auto get_beta = [](IFillLayer& self) {
+            if (self.isAlphaBetaInt64())
+                return py::cast(self.getBetaInt64());
+            else
+                return py::cast(self.getBeta());
+        };
+
     } /* lambdas */
 
     void bindGraph(py::module& m)
@@ -813,9 +858,10 @@ namespace tensorrt
         py::class_<IFillLayer, ILayer, std::unique_ptr<IFillLayer, py::nodelete>>(m, "IFillLayer", IFillLayerDoc::descr, py::module_local())
             .def_property("shape", &IFillLayer::getDimensions, &IFillLayer::setDimensions)
             .def_property("operation", &IFillLayer::getOperation, &IFillLayer::setOperation)
-            .def_property("alpha", &IFillLayer::getAlpha, &IFillLayer::setAlpha)
-            .def_property("beta", &IFillLayer::getBeta, &IFillLayer::setBeta)
+            .def_property("alpha", lambdas::get_alpha, lambdas::set_alpha)
+            .def_property("beta", lambdas::get_beta, lambdas::set_beta)
             .def("set_input", &IFillLayer::setInput, "index"_a, "tensor"_a, IFillLayerDoc::set_input)
+            .def("is_alpha_beta_int64", &IFillLayer::isAlphaBetaInt64)
         ;
 
         py::class_<IIfConditionalBoundaryLayer, ILayer, std::unique_ptr<IIfConditionalBoundaryLayer, py::nodelete>>(m, "IIfConditionalBoundaryLayer", IIfConditionalBoundaryLayerDoc::descr, py::module_local())

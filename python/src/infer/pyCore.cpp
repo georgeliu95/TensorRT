@@ -1390,6 +1390,10 @@ void bindCore(py::module& m)
         .def(py::init(&nvinfer1::createInferRuntime), "logger"_a, RuntimeDoc::init, py::keep_alive<1, 2>{})
         .def("deserialize_cuda_engine", lambdas::runtime_deserialize_cuda_engine, "serialized_engine"_a,
             RuntimeDoc::deserialize_cuda_engine, py::call_guard<py::gil_scoped_release>{}, py::keep_alive<0, 1>{})
+#if ENABLE_MDTRT
+        .def("deserialize_engine", lambdas::runtime_deserialize_engine, "serialized_engine"_a, "instance"_a,
+            RuntimeDoc::deserialize_engine, py::call_guard<py::gil_scoped_release>{}, py::keep_alive<0, 1>{})
+#endif // ENABLE_MDTRT
         .def_property("DLA_core", &IRuntime::getDLACore, &IRuntime::setDLACore)
         .def_property_readonly("num_DLA_cores", &IRuntime::getNbDLACores)
         .def_property("gpu_allocator", nullptr, py::cpp_function(&IRuntime::setGpuAllocator, py::keep_alive<1, 2>{}))

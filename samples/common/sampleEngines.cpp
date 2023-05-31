@@ -1489,6 +1489,7 @@ std::vector<std::pair<WeightsRole, Weights>> getAllRefitWeightsForLayer(const IL
         {
         case DataType::kFLOAT:
         case DataType::kHALF:
+        case DataType::kBF16:
         case DataType::kINT8:
         case DataType::kINT32: return {std::make_pair(WeightsRole::kCONSTANT, weights)};
         case DataType::kBOOL:
@@ -1496,7 +1497,6 @@ std::vector<std::pair<WeightsRole, Weights>> getAllRefitWeightsForLayer(const IL
         case DataType::kFP8:
             // Refit not supported for these types.
             break;
-        case DataType::kBF16:
         case DataType::kINT64: ASSERT(false && "Unsupported data type");
         }
         break;

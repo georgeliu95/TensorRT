@@ -368,6 +368,8 @@ void sparsify(Weights const& weights, int32_t k, int32_t trs, std::vector<int8_t
         sparsify(static_cast<half_float::half const*>(weights.values), weights.count, k, trs, sparseWeights);
         break;
     case DataType::kBF16:
+        sparsify(static_cast<BFloat16 const*>(weights.values), weights.count, k, trs, sparseWeights);
+        break;
     case DataType::kINT8:
     case DataType::kINT32:
     case DataType::kUINT8:
