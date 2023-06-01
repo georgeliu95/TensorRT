@@ -38,6 +38,8 @@ namespace nvuffparser
 //! \enum UffInputOrder
 //! \brief The different possible supported input order.
 //!
+//! \deprecated Deprecated in TensorRT 8.0.
+//!
 enum class UffInputOrder : int32_t
 {
     kNCHW = 0, //!< NCHW order.
@@ -49,7 +51,8 @@ enum class UffInputOrder : int32_t
 //! \enum FieldType
 //! \brief The possible field types for custom layer.
 //!
-
+//! \deprecated Deprecated in TensorRT 8.0.
+//!
 enum class FieldType : int32_t
 {
     kFLOAT = 0,    //!< FP32 field type.
@@ -69,6 +72,8 @@ enum class FieldType : int32_t
 //! constructor. The implementation of the plugin should parse the contents of
 //! the fieldMap as part of the plugin constructor
 //!
+//! \deprecated Deprecated in TensorRT 8.0.
+//!
 class TENSORRTAPI FieldMap
 {
 public:
@@ -85,7 +90,10 @@ public:
     FieldMap() = default;
 };
 
-struct FieldCollection
+//!
+//! \deprecated Deprecated in TensorRT 8.0.
+//!
+struct TRT_DEPRECATED FieldCollection
 {
     int32_t nbFields;
     FieldMap const* fields;
@@ -98,7 +106,9 @@ struct FieldCollection
 //!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
-class IUffParser
+//! \deprecated Deprecated in TensorRT 8.0.
+//!
+class TRT_DEPRECATED IUffParser
 {
 public:
     //!
@@ -205,14 +215,18 @@ public:
 //! \deprecated IUffParser will be removed in TensorRT 9.0. Plan to migrate your workflow to
 //! use nvonnxparser::IParser for deployment.
 //!
-TENSORRTAPI IUffParser* createUffParser() noexcept;
+//! \deprecated Deprecated in TensorRT 8.0.
+//!
+TRT_DEPRECATED_API IUffParser* createUffParser() noexcept;
 
 //!
 //! \brief Shuts down protocol buffers library.
 //!
 //! \note No part of the protocol buffers library can be used after this function is called.
 //!
-TENSORRTAPI void shutdownProtobufLibrary(void) noexcept;
+//! \deprecated Deprecated in TensorRT 8.0.
+//!
+TRT_DEPRECATED_API void shutdownProtobufLibrary(void) noexcept;
 
 } // namespace nvuffparser
 
@@ -220,6 +234,8 @@ TENSORRTAPI void shutdownProtobufLibrary(void) noexcept;
 //! Internal C entry point for creating IUffParser
 //! @private
 //!
-extern "C" TENSORRTAPI void* createNvUffParser_INTERNAL() noexcept;
+//! \deprecated Deprecated in TensorRT 8.0.
+//!
+extern "C" TRT_DEPRECATED_API void* createNvUffParser_INTERNAL() noexcept;
 
 #endif /* !NV_UFF_PARSER_H */

@@ -8147,9 +8147,7 @@ public:
     //!
     //! \return The new padding layer, or nullptr if it could not be created.
     //!
-    //! \deprecated Deprecated in TensorRT 8.0. Superseded by addSlice().
-    //!
-    TRT_DEPRECATED IPaddingLayer* addPaddingNd(ITensor& input, Dims prePadding, Dims postPadding) noexcept
+    IPaddingLayer* addPaddingNd(ITensor& input, Dims prePadding, Dims postPadding) noexcept
     {
         return mImpl->addPaddingNd(input, prePadding, postPadding);
     }
