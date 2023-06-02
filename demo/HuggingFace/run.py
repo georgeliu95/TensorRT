@@ -155,6 +155,12 @@ class BenchmarkAction(NetworkScriptAction):
             type=int,
             help="Specify fixed output sequence length for perf benchmarking. Required for benchmark except when both input_profile_max and output_profile_max are provided for trt",
         )
+        benchmarking_group.add_argument(
+            "--n-positions",
+            type=int,
+            default=None,
+            help="Number of position embeddings : typically the maximum sequence length that this model might ever be used with."
+        )
 
         trt_benchmarking_group = parser.add_argument_group("trt benchmarking group")
         trt_benchmarking_group.add_argument(

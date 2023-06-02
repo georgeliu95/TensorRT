@@ -165,8 +165,56 @@ class NetworkCommand(metaclass=ABCMeta):
             metadata = self.metadata
         )
 
-        # If users have different config, could overwrite this part.
-        hf_config = AutoConfig.from_pretrained(variant, use_cache=use_cache)
+        def _n_positions_hint():
+            hint_cli_args = (
+                "input_seq_len",
+                "output_seq_len",
+                "input_profile_max_len",
+                "output_profile_max_len",
+            )
+            def consider_if_valid(x):
+                return x if x else -1
+
+            # Return supremum of a max value and valid user input values
+            N_POSITION_EMBEDDINGS_FALLBACK = 1024
+            return max(max(map(lambda x : consider_if_valid(kwargs.get(x)), hint_cli_args)),
+                       N_POSITION_EMBEDDINGS_FALLBACK)
+
+
+        def get_hf_config():
+            """Gets HF config with correct max sequence length limits in benchmarking mode."""
+            if not benchmarking_mode:
+                hf_config = AutoConfig.from_pretrained(variant, use_cache=use_cache)
+            else:
+                n_positions_hints = _n_positions_hint()
+                n_positions = setup_benchmark_arg(kwargs.get("n_positions"),
+                                                  "n_positions",
+                                                  n_positions_hints)
+
+                # Different models have different keyword names for max position embeddings.
+                # Loop over and see if HF consumes keyword.
+                possible_position_kw = ( "n_positions", "max_position_embeddings" )
+                for kw in possible_position_kw:
+                    hf_config, unused_kwargs = AutoConfig.from_pretrained(variant,
+                                                                          use_cache=use_cache,
+                                                                          return_unused_kwargs=True,
+                                                                          **{kw : n_positions})
+
+                    kw_consumed = not unused_kwargs.get(kw)
+                    if kw_consumed:
+                        break
+
+                # If none of the possible keywords are consumed (for models such as bloom-560m)
+                # monkey patch a field `n_positions` which Seq2SeqConfig can then pick up.
+                if not kw_consumed:
+                    G_LOGGER.warning("Unable to set n_positions for the model using {} as hints. "
+                                     "Overriding the field `n_positions` instead, assigning it "
+                                     "to {}".format(", ".join(possible_position_kw), n_positions))
+                    hf_config.n_positions = n_positions
+
+            return hf_config
+
+        hf_config = get_hf_config()
         self.config.from_hf_config(hf_config)
         self.benchmarking_mode = benchmarking_mode
         # Not able to set it inside config class. Therefore needs to be set up here.
@@ -426,18 +474,23 @@ class NetworkCommand(metaclass=ABCMeta):
             torch_dir = self.workspace.create_pytorch_folder()
 
         torch_model = None
+        hf_config = self.config.hf_config
+        assert hf_config.use_cache == self.config.use_cache
+
         if not os.path.exists(os.path.join(torch_dir, "config.json")):
 
             try:
                 if self.config.is_encoder_decoder:
                     torch_model = AutoModelForSeq2SeqLM.from_pretrained(
                         self.config.variant,
-                        use_cache=self.config.use_cache
+                        config=hf_config,
+                        ignore_mismatched_sizes=True,
                     )
                 else:
                     torch_model = AutoModelForCausalLM.from_pretrained(
                         self.config.variant,
-                        use_cache=self.config.use_cache
+                        config=hf_config,
+                        ignore_mismatched_sizes=True,
                     )
             except:
                 raise RuntimeError("This model variant is not recognized by HuggingFace.")
@@ -453,12 +506,14 @@ class NetworkCommand(metaclass=ABCMeta):
                 if self.config.is_encoder_decoder:
                     torch_model = AutoModelForSeq2SeqLM.from_pretrained(
                         torch_dir,
-                        use_cache=self.config.use_cache
+                        config=hf_config,
+                        ignore_mismatched_sizes=True,
                     )
                 else:
                     torch_model = AutoModelForCausalLM.from_pretrained(
                         torch_dir,
-                        use_cache=self.config.use_cache
+                        config=hf_config,
+                        ignore_mismatched_sizes=True,
                     )
             except Exception as e:
                 raise RuntimeError("Fails to load model from {}. Reason: {}".format(torch_model, str(e)))
