@@ -741,7 +741,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
 
                 decoder_profiles.append(decoder_profile_context)
 
-        decoder_engine_path = self.workspace.get_engine_fpath_from_onnx(self.onnx_decoder.fpath, engine_tag)
+        decoder_engine_path = self.workspace.get_engine_fpath_from_onnx(self.onnx_decoder.fpath, engine_tag, self.engine_postfix)
 
         G_LOGGER.info("Setting up decoder engine in {}...".format(decoder_engine_path))
 
@@ -768,7 +768,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
                     max=(max_batch_size, max_input_profile_length),
                 )
             ]
-            encoder_engine_path = self.workspace.get_engine_fpath_from_onnx(self.onnx_encoder.fpath, engine_tag).replace(f"-beam{num_beams}", "")
+            encoder_engine_path = self.workspace.get_engine_fpath_from_onnx(self.onnx_encoder.fpath, engine_tag, self.engine_postfix).replace(f"-beam{num_beams}", "")
 
             G_LOGGER.info("Setting up encoder engine in {}...".format(encoder_engine_path))
 
@@ -799,7 +799,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
                 max=(max_expand_size, max_input_profile_length, encoder_hidden_size),
             )]
 
-            cross_attn_cache_generator_engine_path = self.workspace.get_engine_fpath_from_onnx(self.onnx_cross_attn_cache_generator.fpath, engine_tag)
+            cross_attn_cache_generator_engine_path = self.workspace.get_engine_fpath_from_onnx(self.onnx_cross_attn_cache_generator.fpath, engine_tag, self.engine_postfix)
 
             G_LOGGER.info("use_cache=True. Setting up cross attention kv cache generator in {}...".format(cross_attn_cache_generator_engine_path))
             self.cross_attn_cache_generator_engine = self.onnx_cross_attn_cache_generator.as_trt_engine(

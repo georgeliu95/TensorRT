@@ -25,6 +25,7 @@ import sys
 import pickle
 import argparse
 import importlib
+import time
 
 from abc import abstractmethod
 from typing import List
@@ -40,7 +41,8 @@ WRAPPER_RUN_ACTION = "run"
 WRAPPER_LIST_ACTION = "list"
 WRAPPER_COMPARE_ACTION = "compare"
 WRAPPER_BENCHMARK_ACTION = "benchmark"
-WRAPPER_ACTIONS = [WRAPPER_RUN_ACTION, WRAPPER_LIST_ACTION, WRAPPER_COMPARE_ACTION, WRAPPER_BENCHMARK_ACTION]
+WRAPPER_CHAT_ACTION = "chat"
+WRAPPER_ACTIONS = [WRAPPER_RUN_ACTION, WRAPPER_LIST_ACTION, WRAPPER_COMPARE_ACTION, WRAPPER_BENCHMARK_ACTION, WRAPPER_CHAT_ACTION]
 
 # NNDF
 from NNDF.general_utils import process_per_result_entries, process_results, register_network_folders, RANDOM_SEED
@@ -176,6 +178,67 @@ class BenchmarkAction(NetworkScriptAction):
             default=None,
         )
 
+class ChatAction(NetworkScriptAction):
+    def execute(self, args: argparse.Namespace):
+        print("Welcome to TensorRT HuggingFace Demo Chatbox! \
+            Please type your prompts. \
+            Type 'exit' to quit the chat."
+        )
+
+        module = None
+        try:
+            module = self.load_script(self.TRT_SCRIPT_NAME, args)
+        except ModuleNotFoundError as e:
+            print("Unable to do comparison. TRT script not yet supported.")
+            exit(1)
+
+        compare_group = args.compare
+        commands = {}
+
+        for g in compare_group:
+            cwd = os.getcwd()
+            try:
+                print("Setting up environment for {}".format(g))
+                os.chdir(args.network)
+                module = self.load_script(g, args)
+                command = module.RUN_CMD
+                command._parser = self.parser
+                command.setup_chat()
+                commands[g] = command
+            except ModuleNotFoundError as e:
+                print("{} is not valid, the demo does not support this script yet. Ignoring.".format(g))
+
+            finally:
+                os.chdir(cwd)
+
+        # Deprecate warning while generation
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            while (True):
+                prompt = input("Prompt:")
+                if prompt.lower() == 'exit':
+                    break
+                for g in commands:
+                    t0 = time.time()
+                    _, semantic_outputs = commands[g].generate(input_str=prompt)
+                    t1 = time.time()
+                    print("{}: {}. Time: {:.4f}s".format(g, semantic_outputs, t1 - t0))
+
+        return 0
+
+    def add_args(self, parser: argparse.ArgumentParser):
+        super().add_args(parser)
+        compare_group = parser.add_argument_group("compare args")
+        compare_group.add_argument(
+            "--compare",
+            "-c",
+            nargs="+",
+            default=[self.FRAMEWORKS_SCRIPT_NAME, self.TRT_SCRIPT_NAME],
+            choices=self.PER_NETWORK_SCRIPTS,
+            help="Specific frameworks to chat. If none is specified, frameworks and TRT are compared.",
+        )
+
 
 class CompareAction(NetworkScriptAction):
     GENERAL_HEADERS = ["script", "accuracy"]
@@ -268,6 +331,7 @@ def get_action(
         WRAPPER_LIST_ACTION: ListAction,
         WRAPPER_RUN_ACTION: RunAction,
         WRAPPER_BENCHMARK_ACTION: BenchmarkAction,
+        WRAPPER_CHAT_ACTION: ChatAction,
     }[action_name](networks, parser)
 
 
