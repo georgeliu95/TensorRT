@@ -172,15 +172,11 @@ python3 run.py run [GPT2 | T5 | BART] [frameworks | TRT] --variant $variant_name
 
 
 ## How to run your own model
-**Please note that thie demo does not support any customized model not registered in HuggingFace, because we will be using HuggingFace config to understand the model paramegters.**
+**Please note that thie demo does not support any customized model not registered in HuggingFace, because we will be using HuggingFace config to understand the model parameters.**
 
-Currently, we only support a limited number of models with accuracy checks. However, this demo has the potential to run more HuggingFace models without accuracy checkpoints. If you have a T5/GPT2/BART model variant from HuggingFace, you can run:
+Currently, we only support a limited number of models with accuracy checks. However, this demo has the potential to run more HuggingFace models without accuracy checkpoints. If you have a T5/GPT2/BART model variant or a similar one from HuggingFace, you can run:
 
 python3 run.py run [GPT2 | T5 | BART] [frameworks | TRT] --variant your_model --working-dir temp [--use-cache] [ --num_beams <N>].
-
-If your model does not fit into GPT2/T5/BART, it is recommended not to run in --use-cache mode. Please refer to BART or T5 folder for an implementation of cross attn generator if your model is encoder_decoder.
-
-python3 run.py run Seq2Seq [frameworks | TRT] --variant your_model --working-dir temp [--num_beams <N>].
 
 
 ## Testing

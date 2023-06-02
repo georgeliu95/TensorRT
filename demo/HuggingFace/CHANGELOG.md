@@ -20,6 +20,12 @@ Uses [semantic versioning](https://semver.org/).
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+# [2.0.1] - 2023-05-31
+- Changed PyTorch==2.0.1 to officially support H100
+- Added `chat` command to accept customized inputs
+- Added `--engine-postfix` for differentiating engine name for different platforms
+- Changed `NetworkCheckpointResult` and `NetworkResult` to avoid duplicate long output.
+
 # [2.0.0] - 2023-05-09
 - Added Seq2Seq class to extract common features from Seq2Seq models
 - Changed NNDF.interface to include common workflow for all commands

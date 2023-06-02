@@ -128,6 +128,8 @@ class NetworkCommand(metaclass=ABCMeta):
         encoder_onnx: str = None,
         decoder_onnx: str = None,
         cache_generator_onnx: str = None,
+        skip_checkpoint_load: bool = False,
+        engine_postfix: str = "",
         **kwargs,
     ) -> None:
         """
@@ -233,7 +235,8 @@ class NetworkCommand(metaclass=ABCMeta):
                 kwargs.get("output_profile_max_len"),
             )
 
-        elif self._args is not None:
+        skip_checkpoint_load = skip_checkpoint_load or benchmarking_mode or (self._args is None)
+        if not skip_checkpoint_load:
             self.checkpoint = self.load_nn_semantic_checkpoint()
 
         # User defined variables for generation
@@ -270,6 +273,9 @@ class NetworkCommand(metaclass=ABCMeta):
             self.workspace.set_decoder_onnx_path(decoder_onnx)
         if cache_generator_onnx is not None:
             self.workspace.set_cross_attn_generator_onnx_path(cache_generator_onnx)
+
+        # Some user-defined engine postfix.
+        self.engine_postfix = engine_postfix
 
         self.model_path_args = self.process_framework_specific_arguments(**kwargs)
 
@@ -812,7 +818,6 @@ class NetworkCommand(metaclass=ABCMeta):
             output_tensor=decoder_output,
             semantic_output=semantic_outputs,
             median_runtime=runtime,
-            models=self.models,
         )
 
     @use_cuda
@@ -900,7 +905,20 @@ class NetworkCommand(metaclass=ABCMeta):
                 network_results=network_results,
                 accuracy=self.checkpoint.accuracy(network_results),
                 perplexity=(sum(ppl_results) / len(ppl_results) if not (None in ppl_results) else None),
+                models=self.models
             )
+
+    def setup_chat(self):
+        self.add_args()
+        t0 = time.time()
+        self._args = self._parser.parse_args()
+        self.setup_environment(
+            **vars(self._args),
+            skip_checkpoint_load=True,
+        )
+        self.models = self.setup_tokenizer_and_model()
+        G_LOGGER.info("Total time to setup is: {:.4f}s".format(time.time() - t0))
+
 
 class FrameworkCommand(NetworkCommand):
     """Base class that is associated with Frameworks related scripts."""
@@ -1018,6 +1036,11 @@ class TRTInferenceCommand(NetworkCommand):
             action="store_true",
         )
 
+        engine_group.add_argument(
+            "--engine-postfix",
+            default="",
+            help="Postfix in engine file name to encode customized engine info, e.g. GPU, Platform, cuda, etc.",
+        )
 
 class OnnxRTCommand(NetworkCommand):
     """ONNX Runtime command."""

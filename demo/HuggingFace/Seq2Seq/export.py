@@ -20,17 +20,8 @@ Contains logic that captures HuggingFace models into ONNX models.
 Inspired by https://github.com/onnx/models/blob/master/text/machine_comprehension/t5/dependencies/T5-export.py
 """
 
-from abc import abstractmethod
-from typing import List
-
-import os
-
 # tensorrt
 import tensorrt as trt
-from tensorrt import PreviewFeature
-
-# polygraphy
-from polygraphy.backend.trt import Profile
 
 # torch
 import torch
@@ -50,6 +41,28 @@ from NNDF.models import (
 )
 
 from NNDF.networks import NetworkMetadata
+
+# In gpt-j, torch.repeat_interleave will export SplitToSequence with subgraph. Use transformers==4.27.4 as a patch to avoid it
+# https://github.com/pytorch/pytorch/pull/100575 is merged and is expected to fix this issue in the next PyTorch release.
+from transformers.models.gptj.modeling_gptj import rotate_every_two
+import unittest.mock as mock
+
+def duplicate_interleave(m):
+    """
+    A simple version of `torch.repeat_interleave` for duplicating a matrix while interleaving the copy.
+    """
+    dim0 = m.shape[0]
+    m = m.view(-1, 1)  # flatten the matrix
+    m = m.repeat(1, 2)  # repeat all elements into the 2nd dimension
+    m = m.view(dim0, -1)  # reshape into a matrix, interleaving the copy
+    return m
+
+
+def apply_rotary_pos_emb(x, sin, cos):
+    sin = duplicate_interleave(sin)[None, :x.shape[1], None, :]
+    cos = duplicate_interleave(cos)[None, :x.shape[1], None, :]
+    # einsum notation for lambda t: repeat(t[offset:x.shape[1]+offset,:], "n d -> () n () (d j)", j=2)
+    return (x * cos) + (rotate_every_two(x) * sin)
 
 OPSET = 17
 TRAINING_MODE = torch.onnx.TrainingMode.EVAL
@@ -320,8 +333,8 @@ class DecoderConverter(ModelFileConverter):
         trt_engine_class=DecoderTRTEngine,
     ):
         super().__init__(torch_class=torch_class, onnx_class=onnx_class, trt_engine_class=trt_engine_class)
-
-
+    
+    @mock.patch("transformers.models.gptj.modeling_gptj.apply_rotary_pos_emb", apply_rotary_pos_emb)
     def torch_to_onnx(
         self, output_fpath: str, model: Module, network_metadata: NetworkMetadata, config
     ):

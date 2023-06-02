@@ -30,10 +30,10 @@ from collections import namedtuple, OrderedDict
 
 FILENAME_VALID_CHARS = "-~_.() {}{}".format(string.ascii_letters, string.digits)
 
-"""NetworkResult(input: str, output_tensor: np.array, semantic_output: np.array, median_runtime: NetworkRuntime, models: [str])"""
+"""NetworkResult(input: str, output_tensor: np.array, semantic_output: np.array, median_runtime: NetworkRuntime)"""
 NetworkResult = namedtuple(
     "NetworkResult",
-    ["input", "output_tensor", "semantic_output", "median_runtime", "models"],
+    ["input", "output_tensor", "semantic_output", "median_runtime"],
 )
 
 """BenchmarkingResult(median_runtime: NetworkRuntime, models: [str])"""
@@ -44,7 +44,7 @@ BenchmarkingResult = namedtuple(
 
 """CheckpointResult(network_results: List[NetworkResult], accuracy: float, perplexity: float)"""
 NetworkCheckpointResult = namedtuple(
-    "NetworkCheckpointResult", ["network_results", "accuracy", "perplexity"]
+    "NetworkCheckpointResult", ["network_results", "accuracy", "perplexity", "models"]
 )
 
 InputResult = namedtuple(

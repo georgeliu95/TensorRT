@@ -242,7 +242,8 @@ class NNFolderWorkspace:
         self.cross_attn_generator_engine_path = None
 
     def create_pytorch_folder(self, torch_path=None) -> str:
-        self.torch_path = os.path.join(self.dpath, "pytorch") if torch_path is None else torch_path
+        # All the variants should share the same PyTorch path
+        self.torch_path = os.path.join(self.rootdir, self.variant, "pytorch") if torch_path is None else torch_path
         os.makedirs(self.torch_path, exist_ok=True)
         return self.torch_path
 
@@ -264,8 +265,9 @@ class NNFolderWorkspace:
                 os.makedirs(self.cross_attn_generator_folder, exist_ok=True)
                 self.cross_attn_generator_onnx_path = os.path.join(self.cross_attn_generator_folder, self.metadata_serialized + "-cross-attn-cache-generator.onnx")
 
-    def get_engine_fpath_from_onnx(self, onnx_path, engine_tag):
-        return os.path.splitext(onnx_path)[0] + "-{}.engine".format(engine_tag)
+    def get_engine_fpath_from_onnx(self, onnx_path, engine_tag, engine_postfix=""):
+        full_tag = "{engine_tag}-{engine_postfix}" if (engine_postfix != "") else engine_tag
+        return os.path.splitext(onnx_path)[0] + "-{}.engine".format(full_tag)
 
     def get_timing_cache(self):
         # Timing cache is shared per builder

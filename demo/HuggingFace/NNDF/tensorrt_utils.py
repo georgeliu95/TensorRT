@@ -96,7 +96,7 @@ def move_t5_cast_op(graph):
     # Version check for backward compatibility
     torch_version_major = int(torch.__version__.split('.')[0])
     torch_version_minor = int(torch.__version__.split('.')[1])
-    version_check = torch_version_major == 1 and torch_version_minor > 12
+    version_check = (torch_version_major == 2) or (torch_version_major == 1 and torch_version_minor > 12)
     for n in cast_nodes:
         # Cast appears at the output of add and feeds into a Pow op.
         if n.i().op == "Add":
@@ -191,9 +191,9 @@ def process_onnx(config: List[OnnxProcessOperation], onnx_input_fpath, onnx_outp
 class TRTNativeRunner:
     """TRTNativeRunner avoids the high overheads with Polygraphy runner providing performance comparable to C++ implementation."""
     def __init__(
-        self, 
-        trt_engine_file: TRTEngineFile, 
-        network_metadata: NetworkMetadata, 
+        self,
+        trt_engine_file: TRTEngineFile,
+        network_metadata: NetworkMetadata,
         config: NNConfig,
         nvtx_verbose: bool = False,
     ):
@@ -252,7 +252,7 @@ class TRTNativeRunner:
 class PolygraphyOnnxRunner:
     def __init__(self, onnx_fpath: str, network_metadata: NetworkMetadata):
         self.network_metadata = network_metadata
-        
+
         # Unable to provide CUDA
         providers = ["CPUExecutionProvider"]
 
