@@ -1049,6 +1049,8 @@ namespace tensorrt
             // keep the INetworkDefinition alive while the builder is referenced) is unnecessary here.
             .def_property_readonly("builder", &INetworkDefinition::getBuilder, INetworkDefinitionDoc::builder,
                 py::return_value_policy::reference)
+            .def_property_readonly("flags", &INetworkDefinition::getFlags)
+            .def("get_flag", &INetworkDefinition::getFlag, "flag"_a, INetworkDefinitionDoc::get_flag)
 
 #if ENABLE_INETWORK_SERIALIZE
             // Serialization

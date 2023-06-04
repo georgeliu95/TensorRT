@@ -1345,7 +1345,7 @@ void bindCore(py::module& m)
             NetworkDefinitionCreationFlagDoc::EXPLICIT_BATCH)
         .value("EXPLICIT_PRECISION", NetworkDefinitionCreationFlag::kEXPLICIT_PRECISION,
             NetworkDefinitionCreationFlagDoc::EXPLICIT_PRECISION)
-        .value("kSTRONGLY_TYPED", NetworkDefinitionCreationFlag::kSTRONGLY_TYPED,
+        .value("STRONGLY_TYPED", NetworkDefinitionCreationFlag::kSTRONGLY_TYPED,
             NetworkDefinitionCreationFlagDoc::STRONGLY_TYPED);
 
     // Builder

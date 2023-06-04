@@ -2050,6 +2050,15 @@ constexpr const char* descr = R"trtdoc(
     :ivar has_implicit_batch_dimension: :class:`bool` Whether the network was created with an implicit batch dimension. This is a network-wide property. Either all tensors in the network have an implicit batch dimension or none of them do. This is True when the INetworkDefinition is created with default flags: ``create_network()``. To specify explicit batch, set the flag: ``create_network(flags=1 << int(tensorrt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))``.
     :ivar has_explicit_precision: :class:`bool` True if and only if this :class:`INetworkDefinition` was created with ``NetworkDefinitionCreationFlag.EXPLICIT_PRECISION`` set: ``create_network(flags=(1 << int(NetworkDefinitionCreationFlag.EXPLICIT_PRECISION)))``.
     :ivar error_recorder: :class:`IErrorRecorder` Application-implemented error reporting interface for TensorRT objects.
+    :flags: :int: A bitset of the ``NetworkDefinitionCreationFlag`` s set for this network.
+)trtdoc";
+
+constexpr const char* get_flag = R"trtdoc(
+    Returns true if the specified ``NetworkDefinitionCreationFlag`` is set.
+
+    :arg flag: The ``NetworkDefinitionCreationFlag`` .
+
+    :returns: Whether the flag is set. 
 )trtdoc";
 
 constexpr const char* add_input = R"trtdoc(
