@@ -422,7 +422,7 @@ int main(int argc, char** argv)
         sample::gLogInfo << "Engine " << (options.build.load ? "loaded" : "built") << " in "
                          << duration(buildEndTime - buildStartTime).count() << " sec." << std::endl;
 
-        if (!options.build.safe && options.build.refittable)
+        if (!options.build.safe && !options.build.buildDLAStandalone && options.build.refittable)
         {
             auto* engine = bEnv->engine.get();
             if (options.reporting.refit)
@@ -449,7 +449,7 @@ int main(int argc, char** argv)
 
         if (options.build.skipInference)
         {
-            if (!options.build.safe)
+            if (!options.build.safe && !options.build.buildDLAStandalone)
             {
                 printLayerInfo(options.reporting, bEnv->engine.get(), nullptr);
                 printOptimizationProfileInfo(options.reporting, bEnv->engine.get());
