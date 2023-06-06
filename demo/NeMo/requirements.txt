@@ -1,0 +1,8 @@
+nemo-toolkit[nlp]==1.17.0
+onnx==1.14.0
+onnxruntime==1.13.1
+transformers==4.27.0
+cuda-python==12.1.0
+setuptools==65.5.1
+onnx-graphsurgeon==0.3.27
+tqdm

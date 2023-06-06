@@ -240,7 +240,7 @@ class TRTNativeRunner:
                 selected_profile_idx = idx
                 break
 
-        if selected_profile_idx == -1:
+        if selected_profile_idx == None:
             raise RuntimeError("Could not find any profile that matches batch_size={}, sequence_length={}".format(batch_size, sequence_length))
 
         return selected_profile_idx
