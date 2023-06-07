@@ -33,6 +33,7 @@ from nemo.collections.nlp.models.language_modeling.megatron_gpt_model import Meg
 
 # onnx
 import onnx
+from onnx import helper, TensorProto, numpy_helper
 import onnx_graphsurgeon as gs
     
 # polygraphy
@@ -45,7 +46,7 @@ import torch
 import transformer_engine
 
 # Set logging level here.
-G_LOGGER.module_severity = G_LOGGER.VERBOSE
+G_LOGGER.module_severity = G_LOGGER.INFO
 
 class MegatronGPTSingleInputExportableModel(MegatronGPTExportableModel):
     """
@@ -456,17 +457,198 @@ def create_dir_if_not_exist(path):
         logging.info(f"Making directory {dir}")
         os.makedirs(dir)
 
+def find_node_by_type(graph, search_tensor, is_node_input, search_node_type=None):
+    for idx, node in enumerate(graph.node):
+        search_container = node.output
+        if is_node_input:
+            search_container = node.input
+        for node_tensor in search_container:
+            if search_node_type and node.op_type != search_node_type:
+                continue
+            if node_tensor == search_tensor:
+                return node, idx
+    return None, None
+
+def redirect_quantize_input(graph, q_node):
+    assert(q_node.op_type == 'QuantizeLinear')
+    q_input = q_node.input[0]
+    cast_node, cast_node_idx = find_node_by_type(graph, q_input, False, 'Cast')
+    if cast_node:
+        q_node.input[0] = cast_node.input[0]
+        return [cast_node_idx]
+    return []
+
+def redirect_dequantize_output(graph, dq_node):
+    assert(dq_node.op_type == 'DequantizeLinear')
+    dq_output = dq_node.output[0]
+    cast_node, cast_node_idx = find_node_by_type(graph, dq_output, True, 'Cast')
+    if cast_node:
+        dq_node.output[0] = cast_node.output[0]
+        return [cast_node_idx]
+    return []
+
+def get_attr_numpy_tensor(attr):
+    assert(attr.type == onnx.AttributeProto.TENSOR)
+    return numpy_helper.to_array(attr.t)
+
+def get_attr(node, search_attr_name):
+    for idx, attr in enumerate(node.attribute):
+        if attr.name == search_attr_name:
+            return attr, idx
+    return None, None
+
+def cast_scale(graph, qdq_node, cast_to):
+    assert(cast_to in ['fp32', 'fp16'])
+    assert(qdq_node.op_type in ['QuantizeLinear', 'DequantizeLinear'])
+    constant_node_idx = None
+    scale_tensor = qdq_node.input[1]
+    constant_node, constant_node_idx = find_node_by_type(graph, scale_tensor, False, 'Constant')
+    scale_cast_to_dtype = None
+    onnx_cast_to_dtype = None
+    if cast_to == 'fp16':
+        scale_cast_to_dtype = np.dtype(np.float32)
+        onnx_cast_to_dtype = onnx.TensorProto.FLOAT16
+    elif cast_to == 'fp32':
+        scale_cast_to_dtype = np.dtype(np.float32)
+        onnx_cast_to_dtype = onnx.TensorProto.FLOAT
+
+    if constant_node:
+        scale_attr, _ = get_attr(constant_node, 'value')
+        assert(scale_attr)
+        numpy_scale = get_attr_numpy_tensor(scale_attr)
+        if numpy_scale.dtype != scale_cast_to_dtype:
+            logging.debug(f'Change {qdq_node.name} scale from {numpy_scale.dtype} to {scale_cast_to_dtype}')
+            numpy_scale = numpy_scale.astype(scale_cast_to_dtype)
+            tensor_name = constant_node.name + '_casted'
+            create_constant_tensor(graph, tensor_name, onnx_cast_to_dtype, numpy_scale)
+            qdq_node.input[1] = tensor_name
+    else:
+        logging.warning(f'No constant node connected to {qdq_node} as scale')
+
+    if constant_node_idx:
+        return [constant_node_idx]
+    return []
+
+def create_constant_tensor(graph, name, dtype, np_tensor):
+    tensor_value_info = helper.make_tensor_value_info(name, dtype, np_tensor.shape)
+    graph.input.append(tensor_value_info)
+    helper.make_tensor(name, data_type=dtype, dims=(), vals=[0])
+
+    tensor_initializer = helper.make_tensor(name, dtype, np_tensor.shape, np_tensor.flatten().tolist())
+    graph.initializer.append(tensor_initializer)
+
+
+def custom_op_to_opset19(graph, node, use_int32_quantization, remove_cast_before_q, remove_cast_after_dq, change_qdq_scale_precision):
+    """
+    Convert custom operators to opset19
+    """
+    assert(node.op_type in ['TRT_FP8QuantizeLinear', 'TRT_FP8DequantizeLinear'])
+    is_dq = node.op_type == 'TRT_FP8DequantizeLinear'
+    logging.debug(f'Convert {node.name} to Opset19')
+    orig_node_name = node.name
+    new_node_name = orig_node_name + '_converted'
+
+    quant_to = TensorProto.FLOAT8E4M3FN
+    if use_int32_quantization:
+        quant_to = TensorProto.INT32
+
+    # Add zero point to the node
+    tensor_name = new_node_name + '_zero_point'
+    create_constant_tensor(graph, tensor_name, quant_to, np.array([0]))
+    node.input.append(tensor_name)
+
+    node.op_type = "QuantizeLinear"
+    node_idxs_to_delete = []
+    if is_dq:
+        node.op_type = "DequantizeLinear"
+        if remove_cast_after_dq:
+            node_idxs_to_delete += redirect_dequantize_output(graph, node)
+            if change_qdq_scale_precision:
+                node_idxs_to_delete += cast_scale(graph, node, change_qdq_scale_precision)
+    else:
+        if remove_cast_before_q:
+            node_idxs_to_delete += redirect_quantize_input(graph, node)
+            if change_qdq_scale_precision:
+                node_idxs_to_delete += cast_scale(graph, node, change_qdq_scale_precision)
+
+    node.name = new_node_name
+    logging.debug(f'Convert Done\n')
+    return node_idxs_to_delete
+
+def check_model(graph):
+    """
+    Check if a model needs to be converted or not
+    """
+    converted_qdq_ops = ['TRT_FP8QuantizeLinear', 'TRT_FP8DequantizeLinear']
+    passed_check = True
+    for node in graph.node:
+        if node.op_type in converted_qdq_ops:
+            logging.error(f'Node \"{node.name}\" of type {node.op_type} should have been removed')
+            passed_check = False
+    return passed_check
+
+def replace_customop_qdq_with_onnx_qdq(te_onnx_file, results_path, create_netron_compatible_model, remove_cast_before_q, remove_cast_after_dq, change_qdq_scale_precision):
+    """
+    Convert custom TRT nodes to standard ONNX Q/DQ nodes
+    """
+    model = onnx.load(te_onnx_file, load_external_data=False)
+    model.opset_import[0].version = 19
+    graph = model.graph
+    converted_qdq_ops = ['TRT_FP8QuantizeLinear', 'TRT_FP8DequantizeLinear']
+
+    try:
+        node_idxs_to_delete = []
+        converted = False
+        for node in graph.node:
+            if node.op_type in converted_qdq_ops:
+                converted = True
+                node_idxs_to_delete += custom_op_to_opset19(graph, node, create_netron_compatible_model, remove_cast_before_q, remove_cast_after_dq, change_qdq_scale_precision)
+
+        if converted:
+            assert(check_model(graph))
+            node_idxs_to_delete = reversed(sorted(node_idxs_to_delete))
+            for node_idx in node_idxs_to_delete:
+                del(graph.node[node_idx])
+            suffix = '.opset19'
+            if create_netron_compatible_model:
+                suffix += '.netron'
+            suffix += '.onnx'
+            new_model_filename = os.path.join(results_path, os.path.splitext(os.path.split(te_onnx_file)[1])[0] + suffix)
+            onnx.save_model(model, new_model_filename)
+            logging.info(f'The converted model is saved at {new_model_filename}!')
+            return new_model_filename
+        else:
+            logging.info(f'No conversion was done with {te_onnx_file}!')
+    except Exception as ex:
+        logging.error(f'Failed: {ex}')
+    return None
+
+def onnx_to_opset19(onnx_fpath):
+    return replace_customop_qdq_with_onnx_qdq(onnx_fpath, os.path.split(onnx_fpath)[0],
+                                              create_netron_compatible_model=False,
+                                              remove_cast_before_q=False,
+                                              remove_cast_after_dq=False,
+                                              change_qdq_scale_precision="")
+
 @hydra_runner(config_path="./", config_name="megatron_gpt_demo")
 def main(cfg):
     assert cfg.onnx_model_file != None and cfg.trt_engine_file != None
     create_dir_if_not_exist(cfg.onnx_model_file)
     create_dir_if_not_exist(cfg.trt_engine_file)
 
+    # Convert NeMo model to ONNX model
     onnx_names = nemo_to_onnx(cfg)
     assert len(onnx_names) == 1
     logging.info(f"Using intermediate onnx file path {onnx_names[0]}")
 
     onnx_name = onnx_names[0]
+
+    # Convert Q/DQ nodes to use standard opset19 operators
+    op19_onnx = onnx_to_opset19(onnx_name)
+    if op19_onnx != None:
+        logging.info(f"Get opset19 onnx file {op19_onnx}")
+        onnx_name = op19_onnx
+
     num_layers = 0
     if cfg.enable_kv_cache:
         logging.info(f"Converting {onnx_name} with KV-cache support")

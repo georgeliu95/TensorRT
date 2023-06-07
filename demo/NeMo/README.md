@@ -4,7 +4,7 @@ This repository demonstrates TensorRT inference with NeMo Megatron models in FP8
 Currently, this repository supports NeMo GPT models only.
 
 # Environment Setup
-It's recommended to run inside a container to avoid conflicts in dependencies. Tested with TensorRT container [`tensorrt:23.04-py3`](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tensorrt/tags) and PyTorch container [`pytorch:23.03-py3`](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch/tags). A GPU with compute capability 9.0 or above is required to run the demo.
+It's recommended to run inside a container to avoid conflicts when installing dependencies. Tested with TensorRT container [`tensorrt:23.04-py3`](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tensorrt/tags). A GPU with compute capability 9.0 or above is required to run the demo.
 
 ```
 source install.sh

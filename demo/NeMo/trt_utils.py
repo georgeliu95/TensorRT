@@ -136,7 +136,7 @@ class GPTTRTDecoder(TRTNativeRunner):
 
         # Set up output bindings.
         assert len(output_names) == 1 and output_names[0] == self.get_output_name()
-        type = trt.nptype(self.trt_engine.get_binding_dtype(name))
+        type = trt.nptype(self.trt_engine.get_binding_dtype(output_names[0]))
         if self.logits.dtype != to_torch_dtype(type):
             raise ValueError(f"Output data type does not match, {self.logits.dtype} vs. {to_torch_dtype(type)}.")
         idx = get_binding_idx(output_names[0], binding_offset)
