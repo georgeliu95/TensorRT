@@ -177,6 +177,31 @@ void set_aux_streams(IExecutionContext& self, std::vector<size_t> streamHandle)
     self.setAuxStreams(reinterpret_cast<cudaStream_t*>(streamHandle.data()), static_cast<int32_t>(streamHandle.size()));
 }
 
+template <typename PyIterable>
+Dims castDimsFromPyIterable(PyIterable& in)
+{
+    int32_t const maxDims{static_cast<int32_t>(Dims::MAX_DIMS)};
+    Dims dims{};
+    dims.nbDims = py::len(in);
+    PY_ASSERT_RUNTIME_ERROR(dims.nbDims <= maxDims, "The number of input dims exceeds the maximum allowed number of dimensions");
+    for (int32_t i = 0; i < dims.nbDims; ++i)
+    {
+        dims.d[i] = in[i].template cast<int32_t>();
+    }
+    return dims;
+}
+
+template <typename PyIterable>
+void setBindingDimensions(IExecutionContext& self, int32_t bindingIndex, PyIterable& in)
+{
+    self.setBindingDimensions(bindingIndex, castDimsFromPyIterable<PyIterable>(in));
+}
+template <typename PyIterable>
+void setInputShape(IExecutionContext& self, char const* tensorName, PyIterable& in)
+{
+    self.setInputShape(tensorName, castDimsFromPyIterable<PyIterable>(in));
+}
+
 // For IRuntime
 static const auto runtime_deserialize_cuda_engine = [](IRuntime& self, py::buffer& serializedEngine) {
     py::buffer_info info = serializedEngine.request();
@@ -915,7 +940,9 @@ void bindCore(py::module& m)
             utils::deprecate(lambdas::context_set_optimization_profile, "set_optimization_profile_async"))
         .def("get_strides", utils::deprecateMember(&IExecutionContext::getStrides, "get_tensor_strides"), "binding"_a,
             IExecutionContextDoc::get_strides)
-        .def("set_binding_shape", utils::deprecateMember(&IExecutionContext::setBindingDimensions, "set_input_shape"),
+        .def("set_binding_shape", utils::deprecate(lambdas::setBindingDimensions<py::tuple>, "set_input_shape"),
+            "binding"_a, "shape"_a, IExecutionContextDoc::set_binding_shape)
+        .def("set_binding_shape", utils::deprecate(lambdas::setBindingDimensions<py::list>, "set_input_shape"),
             "binding"_a, "shape"_a, IExecutionContextDoc::set_binding_shape)
         .def("get_binding_shape", utils::deprecateMember(&IExecutionContext::getBindingDimensions, "get_tensor_shape"),
             "binding"_a, IExecutionContextDoc::get_binding_shape)
@@ -926,7 +953,9 @@ void bindCore(py::module& m)
         // Start of enqueueV3 related APIs.
         .def("get_tensor_strides", &IExecutionContext::getTensorStrides, "name"_a,
             IExecutionContextDoc::get_tensor_strides)
-        .def("set_input_shape", &IExecutionContext::setInputShape, "name"_a, "shape"_a,
+        .def("set_input_shape", lambdas::setInputShape<py::tuple>, "name"_a, "shape"_a,
+            IExecutionContextDoc::set_input_shape)
+        .def("set_input_shape", lambdas::setInputShape<py::list>, "name"_a, "shape"_a,
             IExecutionContextDoc::set_input_shape)
         .def("get_tensor_shape", &IExecutionContext::getTensorShape, "name"_a, IExecutionContextDoc::get_tensor_shape)
         .def("set_tensor_address", lambdas::set_tensor_address, "name"_a, "memory"_a,
