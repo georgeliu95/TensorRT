@@ -1076,7 +1076,7 @@ public:
     //!
     //! \see getKernelSize()
     //!
-    //! \deprecated Superseded by setKernelSizeNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by setKernelSizeNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED void setKernelSize(DimsHW kernelSize) noexcept
     {
@@ -1088,7 +1088,7 @@ public:
     //!
     //! \see setKernelSize()
     //!
-    //! \deprecated Superseded by getKernelSizeNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by getKernelSizeNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED DimsHW getKernelSize() const noexcept
     {
@@ -1126,7 +1126,7 @@ public:
     //!
     //! \see getStride()
     //!
-    //! \deprecated Superseded by setStrideNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by setStrideNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED void setStride(DimsHW stride) noexcept
     {
@@ -1136,7 +1136,7 @@ public:
     //!
     //! \brief Get the stride of the convolution.
     //!
-    //! \deprecated Superseded by getStrideNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by getStrideNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED DimsHW getStride() const noexcept
     {
@@ -1156,7 +1156,7 @@ public:
     //!
     //! \see getPadding()
     //!
-    //! \deprecated Superseded by setPaddingNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by setPaddingNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED void setPadding(DimsHW padding) noexcept
     {
@@ -1168,7 +1168,7 @@ public:
     //!
     //! \see setPadding()
     //!
-    //! \deprecated Superseded by getPaddingNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by getPaddingNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED DimsHW getPadding() const noexcept
     {
@@ -1263,7 +1263,7 @@ public:
     //!
     //! \see getDilation()
     //!
-    //! \deprecated Superseded by setDilationNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by setDilationNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED void setDilation(DimsHW dilation) noexcept
     {
@@ -1275,7 +1275,7 @@ public:
     //!
     //! \see setDilation()
     //!
-    //! \deprecated Superseded by getDilationNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by getDilationNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED DimsHW getDilation() const noexcept
     {
@@ -1769,7 +1769,7 @@ public:
     //!
     //! \see getWindowSize()
     //!
-    //! \deprecated Superseded by setWindowSizeNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by setWindowSizeNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED void setWindowSize(DimsHW windowSize) noexcept
     {
@@ -1781,7 +1781,7 @@ public:
     //!
     //! \see setWindowSize()
     //!
-    //! \deprecated Superseded by getWindowSizeNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by getWindowSizeNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED DimsHW getWindowSize() const noexcept
     {
@@ -1797,7 +1797,7 @@ public:
     //!
     //! \see getStride()
     //!
-    //! \deprecated Superseded by setStrideNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by setStrideNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED void setStride(DimsHW stride) noexcept
     {
@@ -1809,7 +1809,7 @@ public:
     //!
     //! \see setStride()
     //!
-    //! \deprecated Superseded by getStrideNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by getStrideNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED DimsHW getStride() const noexcept
     {
@@ -1825,7 +1825,7 @@ public:
     //!
     //! \see getPadding()
     //!
-    //! \deprecated Superseded by setPaddingNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by setPaddingNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED void setPadding(DimsHW padding) noexcept
     {
@@ -1839,7 +1839,7 @@ public:
     //!
     //! \see setPadding()
     //!
-    //! \deprecated Superseded by getPaddingNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by getPaddingNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED DimsHW getPadding() const noexcept
     {
@@ -2483,7 +2483,7 @@ public:
     //!
     //! \see getKernelSize()
     //!
-    //! \deprecated Superseded by setKernelSizeNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by setKernelSizeNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED void setKernelSize(DimsHW kernelSize) noexcept
     {
@@ -2495,7 +2495,7 @@ public:
     //!
     //! \see setKernelSize()
     //!
-    //! \deprecated Superseded by getKernelSizeNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by getKernelSizeNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED DimsHW getKernelSize() const noexcept
     {
@@ -2533,7 +2533,7 @@ public:
     //!
     //! \see getStride()
     //!
-    //! \deprecated Superseded by setStrideNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by setStrideNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED void setStride(DimsHW stride) noexcept
     {
@@ -2545,7 +2545,7 @@ public:
     //!
     //! Default: (1,1)
     //!
-    //! \deprecated Superseded by getStrideNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by getStrideNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED DimsHW getStride() const noexcept
     {
@@ -2565,7 +2565,7 @@ public:
     //!
     //! \see getPadding()
     //!
-    //! \deprecated Superseded by setPaddingNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by setPaddingNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED void setPadding(DimsHW padding) noexcept
     {
@@ -2579,7 +2579,7 @@ public:
     //!
     //! \see setPadding()
     //!
-    //! \deprecated Superseded by getPaddingNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by getPaddingNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED DimsHW getPadding() const noexcept
     {
@@ -3341,8 +3341,7 @@ constexpr inline int32_t EnumMax<RNNGateType>() noexcept
 //!
 //! This layer supersedes IRNNLayer.
 //!
-//! \deprecated Deprecated prior to TensorRT 8.0 and will be removed in 9.0. Superseded by
-//! INetworkDefinition::addLoop().
+//! \deprecated Deprecated prior to TensorRT 8.0. Superseded by INetworkDefinition::addLoop().
 //!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
@@ -3880,7 +3879,7 @@ public:
     //!
     //! \see getPrePadding
     //!
-    //! \deprecated Superseded by setPrePaddingNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by setPrePaddingNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED void setPrePadding(DimsHW padding) noexcept
     {
@@ -3892,7 +3891,7 @@ public:
     //!
     //! \see setPrePadding
     //!
-    //! \deprecated Superseded by getPrePaddingNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by getPrePaddingNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED DimsHW getPrePadding() const noexcept
     {
@@ -3906,7 +3905,7 @@ public:
     //!
     //! \see getPostPadding
     //!
-    //! \deprecated Superseded by setPostPaddingNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by setPostPaddingNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED void setPostPadding(DimsHW padding) noexcept
     {
@@ -3918,7 +3917,7 @@ public:
     //!
     //! \see setPostPadding
     //!
-    //! \deprecated Superseded by getPostPaddingNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by getPostPaddingNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED DimsHW getPostPadding() const noexcept
     {
@@ -7066,7 +7065,7 @@ public:
     //!
     //! \return The new convolution layer, or nullptr if it could not be created.
     //!
-    //! \deprecated Superseded by addConvolutionNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by addConvolutionNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED IConvolutionLayer* addConvolution(
         ITensor& input, int32_t nbOutputMaps, DimsHW kernelSize, Weights kernelWeights, Weights biasWeights) noexcept
@@ -7128,7 +7127,7 @@ public:
     //!
     //! \return The new pooling layer, or nullptr if it could not be created.
     //!
-    //! \deprecated Superseded by addPoolingNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by addPoolingNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED IPoolingLayer* addPooling(ITensor& input, PoolingType type, DimsHW windowSize) noexcept
     {
@@ -7227,7 +7226,7 @@ public:
     //!
     //! \return The new deconvolution layer, or nullptr if it could not be created.
     //!
-    //! \deprecated Superseded by addDeconvolutionNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by addDeconvolutionNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED IDeconvolutionLayer* addDeconvolution(
         ITensor& input, int32_t nbOutputMaps, DimsHW kernelSize, Weights kernelWeights, Weights biasWeights) noexcept
@@ -7294,7 +7293,7 @@ public:
     //!
     //! \return The new padding layer, or nullptr if it could not be created.
     //!
-    //! \deprecated Superseded by addPaddingNd. Deprecated prior to TensorRT 8.0 and will be removed in 9.0
+    //! \deprecated Superseded by addPaddingNd. Deprecated prior to TensorRT 8.0.
     //!
     TRT_DEPRECATED IPaddingLayer* addPadding(ITensor& input, DimsHW prePadding, DimsHW postPadding) noexcept
     {
@@ -7660,7 +7659,7 @@ public:
     //!
     //! \see IRNNv2Layer
     //!
-    //! \deprecated Deprecated prior to TensorRT 8.0 and will be removed in 9.0. Superseded by
+    //! \deprecated Deprecated prior to TensorRT 8.0. Superseded by
     //! INetworkDefinition::addLoop().
     //!
     //! \warning RNN inputs do not support wildcard dimensions or explicit batch size networks.
@@ -9211,7 +9210,7 @@ enum class PreviewFeature : int32_t
     //!
     //! The default value for this flag is on.
     //!
-    //! \deprecated Turning it off is deprecated in TensorRT 8.6. The flag kFASTER_DYNAMIC_SHAPES_0805 will be removed in 9.0.
+    //! \deprecated Turning it off is deprecated in TensorRT 8.6.
     //!
     kFASTER_DYNAMIC_SHAPES_0805 TRT_DEPRECATED_ENUM = 0,
 

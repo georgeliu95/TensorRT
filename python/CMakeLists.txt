@@ -130,7 +130,7 @@ if (MSVC)
         set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
     endif()
 else()
-    set(CMAKE_CXX_FLAGS "-fvisibility=hidden -std=c++${CPP_STANDARD} -Wno-deprecated-declarations")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden -std=c++${CPP_STANDARD} -Wno-deprecated-declarations")
 endif()
 
 # Add the flags to enable MD-TRT.

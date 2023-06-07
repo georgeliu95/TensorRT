@@ -332,6 +332,10 @@ IPluginV2* GeluPluginDynamicCreator::createPlugin(char const* name, PluginFieldC
 {
     try
     {
+        gLogWarning << "GeluPlugin is deprecated since TensorRT 8.7. Use INetworkDefinition::addActivation() "
+                       "[IActivationLayer] and INetworkDefinition::addElementWise() [IElementWiseLayer] to perform the "
+                       "same function."
+                    << std::endl;
         gLogVerbose << "GeluPluginDynamicCreator createPlugin\n";
         PLUGIN_VALIDATE(fc != nullptr);
 
@@ -378,6 +382,10 @@ IPluginV2* GeluPluginDynamicCreator::deserializePlugin(
     // call GeluPluginDynamic::destroy()
     try
     {
+        gLogWarning << "GeluPlugin is deprecated since TensorRT 8.7. Use INetworkDefinition::addActivation() "
+                       "[IActivationLayer] and INetworkDefinition::addElementWise() [IElementWiseLayer] to perform the "
+                       "same function."
+                    << std::endl;
         return new GeluPluginDynamic(name, serialData, serialLength);
     }
     catch (std::exception const& e)
