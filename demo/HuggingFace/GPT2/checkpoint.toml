@@ -178,3 +178,100 @@ label = '''
 If I fall asleep then I am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n
 '''
 
+[GPT2.all.default.all.generate_d]
+
+input = [
+'''
+GPT-2 is a transformer based model pretrained on a large corpus.
+''',
+'''
+If I fall asleep then I am going to wake up in 8 hours.
+''']
+
+label = [
+'''
+GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe model is based on the following assumptions:\n\nThe model is based on the following assumptions:\n\nThe model is based on the following assumptions:\n
+''',
+'''
+If I fall asleep then I am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8
+''']
+
+[GPT2.all.gpt2-medium.all.generate_d]
+
+label = [
+'''
+GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe model is trained on a large corpus of data, and the model is trained on a large number of training examples. The model is trained on a large number
+''',
+'''
+If I fall asleep then I am going to wake up in 8 hours.\n\nIf I fall asleep then I am going to wake up in 8 hours.\n\nIf I fall asleep then I am going to wake up in 8 hours.
+''']
+
+[GPT2.all.gpt2-large.all.generate_d]
+
+label = [
+'''
+GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe model is trained on the following data:\n\nThe corpus consists of the following text files:\n\nThe corpus is split into two parts:\n\n
+''',
+'''
+If I fall asleep then I am going to wake up in 8 hours.\n\nIf I fall asleep then I am going to wake up in 8 hours.\n\nIf I fall asleep then I am going to wake up in 8 hours.
+''']
+
+[GPT2.all.gpt2-xl.all.generate_d]
+
+label = [
+'''
+GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe model is trained on the MNIST dataset, which contains over 100,000 handwritten digits. The training data is split into two parts: the training set and
+''',
+'''
+If I fall asleep then I am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8
+''']
+
+[GPT2.all."EleutherAI/gpt-j-6B".all.generate_d]
+
+label = [
+'''
+GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe model is based on the following assumptions:\n\nThe model is based on the following assumptions:\n\nThe model is based on the following assumptions:\n
+''',
+'''
+If I fall asleep then I am going to wake up in 8 hours.\n\nIf I fall asleep then I am going to wake up in 8 hours.\n\nIf I fall asleep then I am going to wake up in 8 hours.
+''']
+
+[GPT2.all."EleutherAI/gpt-neo-125m".all.generate_d]
+
+label = [
+'''
+GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe model is trained on the corpus of the same size as the corpus of the same size as the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of the corpus of
+''',
+'''
+If I fall asleep then I am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.
+''']
+
+[GPT2.all."EleutherAI/gpt-neo-1.3B".all.generate_d]
+
+label = [
+'''
+GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe model is trained on the GPT-2 dataset [@radford2019language] and is pretrained on the English Wikipedia. The model is trained on
+''',
+'''
+If I fall asleep then I am going to wake up in 8 hours.\n\nI am not a morning person. I am a night person. I am a night person. I am a night person. I am a night person. I
+''']
+
+[GPT2.all."EleutherAI/gpt-neo-2.7B".all.generate_d]
+
+label = [
+'''
+GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe model is trained on the following corpora:\n\n-   **GPT-2**: The GPT-2 model is trained on the
+''',
+'''
+If I fall asleep then I am going to wake up in 8 hours.\n\nIf I fall asleep then I am going to wake up in 8 hours.\n\nIf I fall asleep then I am going to wake up in 8 hours.
+''']
+
+[GPT2.all."EleutherAI/gpt-neox-20b".all.generate_d]
+
+label = [
+'''
+GPT-2 is a transformer based model pretrained on a large corpus.\n\n-   **BERT** [@devlin2018bert] is a deep bidirectional transformer model pretrained on a large corpus.\n\n-   **RoBERTa** [@liu2019roberta] is a deep bidirectional transformer model pretrained on a large corpus.\n\n-   **XLNet** [@yang2019xlnet] is a deep bidirectional transformer model pretrained on
+''',
+'''
+If I fall asleep then I am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n
+''']

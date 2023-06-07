@@ -146,7 +146,7 @@ class ModelFileConverter:
             network_definition = result.get_network_definition(network_from_onnx_path(input_fpath))
 
             trt_engine = engine_from_network(
-                network_definition, 
+                network_definition,
                 config=self.trt_inference_config,
                 save_timing_cache=timing_cache
             )

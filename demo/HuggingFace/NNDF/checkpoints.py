@@ -141,15 +141,29 @@ class NNSemanticCheckpoint(NNTomlCheckpoint):
         # Hash checkpoints by their input
         if self._lookup_cache is None:
             self._lookup_cache = {}
-            for k, v in self.data.items():
-                self._lookup_cache[v["input"]] = k
+            for key, vaule in self.data.items():
+                if isinstance(vaule["input"], list):
+                    for idx, v in enumerate(vaule["input"]):
+                        self._lookup_cache["{}_{}".format(v, str(idx))] = key
+                else:
+                    self._lookup_cache[vaule["input"]] = key
 
         correct_count = 0
-        for r in results:
-            # Find the data the corresponds to input
-            key = self._lookup_cache[r.input]
-            # remove new line characters
-            r_new = r.semantic_output[0] if isinstance(r.semantic_output, list) else r.semantic_output
-            correct_count += int(self.data[key]["label"].replace('\\n','').replace('\n','') == r_new.replace('\\n','').replace('\n',''))
+        result_count = 0
+        def validate_golden(golden_str, result_str):
+            golden_str = golden_str.replace('\\n','').replace('\n','')
+            result_str = result_str.replace('\\n','').replace('\n','')
+            return int(golden_str == result_str)
 
-        return correct_count / len(results)
+        for r in results:
+            if isinstance(r.input, list):
+                result_count += len(r.input)
+                for idx, i in enumerate(r.input):
+                    key = self._lookup_cache["{}_{}".format(i, str(idx))]
+                    correct_count += validate_golden(self.data[key]["label"][idx], r.semantic_output[idx])
+            else:
+                result_count += 1
+                # Find the data the corresponds to input
+                key = self._lookup_cache[r.input]
+                correct_count += validate_golden(self.data[key]["label"], r.semantic_output)
+        return correct_count / result_count

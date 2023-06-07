@@ -85,6 +85,7 @@ class Seq2SeqTRTEncoder(TRTNativeRunner):
         self.bindings[self.trt_engine.get_binding_index("encoder_hidden_states")] = self.encoder_hidden_states.data_ptr()
 
     def forward(self, input_ids: torch.Tensor):
+
         input_length = input_ids.shape[1]
 
         # Check if the input data is on CPU (which usually means the PyTorch does not support current GPU).
@@ -606,7 +607,6 @@ class Seq2SeqTRT(TRTInferenceCommand):
 
         encoder_hidden_size = self.config.hidden_size
         batch_size = self.config.batch_size
-        expand_size = self.config.expand_size
         is_encoder_decoder = self.config.is_encoder_decoder
         use_cache = self.config.use_cache
         num_beams = self.config.num_beams
@@ -615,7 +615,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
         max_batch_size = self.max_dynamic_batch if self.dynamic_batch else batch_size
 
         min_expand_size = self.config._compute_expand_size(min_batch_size, self.config.num_beams)
-        opt_expand_size = expand_size
+        opt_expand_size = self.config._compute_expand_size(batch_size, self.config.num_beams)
         max_expand_size = self.config._compute_expand_size(max_batch_size, self.config.num_beams)
 
         # Convert ONNX models to TRT engines.
