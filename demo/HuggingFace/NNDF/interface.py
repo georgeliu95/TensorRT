@@ -238,6 +238,14 @@ class NetworkCommand(metaclass=ABCMeta):
         skip_checkpoint_load = skip_checkpoint_load or benchmarking_mode or (self._args is None)
         if not skip_checkpoint_load:
             self.checkpoint = self.load_nn_semantic_checkpoint()
+            network_input = list(self.checkpoint.inputs())
+            # If there is input which is list, using maximum input list size to batch size
+            new_batch_size = max([len(n) if isinstance(n, list) else 1 for n in network_input ])
+            # update config batch size
+            self.config.batch_size = new_batch_size
+            self.config.expand_size = self.config._compute_expand_size(new_batch_size, self.config.num_beams)
+
+
 
         # User defined variables for generation
         generation_config = GenerationConfig.from_model_config(hf_config)
@@ -459,7 +467,8 @@ class NetworkCommand(metaclass=ABCMeta):
 
         tokenizer = AutoTokenizer.from_pretrained(self.config.variant)
         if tokenizer.pad_token is None:
-            tokenizer.add_special_tokens({"pad_token": "[PAD]"})
+            tokenizer.pad_token = tokenizer.eos_token
+            tokenizer.padding_side = 'left'
 
         return tokenizer
 
@@ -735,7 +744,7 @@ class NetworkCommand(metaclass=ABCMeta):
     @use_cuda
     def execute_inference(
         self,
-        inference_input: str,
+        inference_input: Union[str, list],
         use_cuda: bool = True
     ) -> Union[NetworkResult, BenchmarkingResult]:
 
@@ -744,7 +753,10 @@ class NetworkCommand(metaclass=ABCMeta):
 
         # Prepare the input tokens and find out output sequence length.
         if not self.benchmarking_mode:
-            input_ids = self.tokenizer([inference_input] * self.config.batch_size, padding=True, return_tensors="pt").input_ids
+            if isinstance(inference_input, list):
+                input_ids = self.tokenizer(inference_input, padding=True, return_tensors="pt").input_ids
+            else:
+                input_ids = self.tokenizer([inference_input] * self.config.batch_size, padding=True, return_tensors="pt").input_ids
         else:
             input_ids = torch.randint(0, self.config.vocab_size, (self.config.batch_size, self._args.input_seq_len))
 
@@ -805,13 +817,18 @@ class NetworkCommand(metaclass=ABCMeta):
         if self.benchmarking_mode:
             return BenchmarkingResult(median_runtime=runtime, models=self.models)
 
-        # Remove the padding and end tokens.
-        semantic_outputs = self.tokenizer.decode(
-            decoder_output[-1, :], skip_special_tokens=True
-        )
+        if isinstance(inference_input, list):
+            semantic_outputs = list()
+            for batch_index in range(decoder_output.shape[0]):
+                semantic_outputs.append(self.tokenizer.decode(
+                    decoder_output[batch_index, :], skip_special_tokens=True
+        ))
+        else:
+            # Remove the padding and end tokens.
+            semantic_outputs = self.tokenizer.decode(
+                decoder_output[0, :], skip_special_tokens=True
+            )
 
-        if isinstance(semantic_outputs, list):
-            semantic_outputs = " ".join(semantic_outputs).strip()
 
         return NetworkResult(
             input=inference_input,

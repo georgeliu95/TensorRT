@@ -60,7 +60,7 @@ def calculate_perplexity_helper_encoder_decoder(
     with torch.no_grad():
         if max_length is not None:
             decoder_input_ids_padded = decoder_input_ids_padded[:, :max_length]
-        
+
         logits = decoder(
             input_ids=decoder_input_ids_padded,
             encoder_outputs=encoder_outputs
@@ -80,9 +80,13 @@ def calculate_perplexity_helper_decoder(
     max_length=None,
     use_cuda=True
 ):
-    
-    input_str = input_str.replace("\\n", "\n")
-    input_ids = tokenizer([input_str] * batch_size, padding=False, return_tensors="pt").input_ids
+
+    if isinstance(input_str, list):
+        input_str = [i.replace("\\n", "\n") for i in input_str]
+        input_ids = tokenizer(input_str, padding=True, return_tensors="pt").input_ids
+    else:
+        input_str = input_str.replace("\\n", "\n")
+        input_ids = tokenizer([input_str] * batch_size, padding=False, return_tensors="pt").input_ids
 
     if use_cuda:
         input_ids = input_ids.to("cuda")
