@@ -96,4 +96,14 @@ git checkout bf270794267e0240d8a8b2f2514c80c6929c76f1
 bash reinstall.sh
 cd ../
 export PYTHONPATH=$(pwd)/NeMo/:${PYTHONPATH}
+
+echo " > Installing Polygraphy...";
+pip uninstall -y polygraphy
+if [ ! -d "Polygraphy" ];
+then
+    git clone ssh://git@gitlab-master.nvidia.com:12051/TensorRT/Infrastructure/Polygraphy.git
+fi
+cd Polygraphy
+make install
 cd ../
+
