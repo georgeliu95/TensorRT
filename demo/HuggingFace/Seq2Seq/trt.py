@@ -58,6 +58,18 @@ from NNDF.logger import G_LOGGER
 from Seq2Seq.Seq2SeqModelConfig import Seq2SeqModelTRTConfig
 from Seq2Seq.measurements import calculate_perplexity_helper_encoder_decoder, calculate_perplexity_helper_decoder
 from Seq2Seq.export import Seq2SeqModelClass
+from cuda import cudart
+
+
+def CUASSERT(cuda_ret):
+    if len(cuda_ret) < 1:
+        raise RuntimeError("CUDA ERROR: There is no return value.")
+    err = cuda_ret[0]
+    if err != cudart.cudaError_t.cudaSuccess:
+         raise RuntimeError(f"CUDA ERROR: {err}, error code reference: https://nvidia.github.io/cuda-python/module/cudart.html#cuda.cudart.cudaError_t")
+    if len(cuda_ret) > 1:
+        return cuda_ret[1]
+    return None
 
 class Seq2SeqTRTEncoder(TRTNativeRunner):
     """TRT implemented network interface that can be used to measure inference time."""
@@ -133,6 +145,9 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
         self.profile_idx = 0
         self.bindings = [0] * self.trt_engine.num_bindings
         self.binding_index_cache = dict()
+
+        self.next_input_binding_shape_setting = dict()
+        self.stream = CUASSERT(cudart.cudaStreamCreate())
 
         # Construct buffer for logits outputs
         self.logits = torch.zeros(
@@ -312,11 +327,23 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
 
             for i in range(self.num_decoder_layers):
                 if self.context_mode:
-                    self.context_trt_context.set_binding_shape(self.cache_binding_offset+2*i+self.num_bindings, self_attn_cache_shape)
-                    self.context_trt_context.set_binding_shape(self.cache_binding_offset+2*i+1+self.num_bindings, self_attn_cache_shape)
+                    attn_cache_shape_even = self.next_input_binding_shape_setting.get(self.cache_binding_offset+2*i+self.num_bindings, None)
+                    attn_cache_shape_odd = self.next_input_binding_shape_setting.get(self.cache_binding_offset+2*i+1+self.num_bindings, None)
+                    if attn_cache_shape_even == self_attn_cache_shape and attn_cache_shape_odd == self_attn_cache_shape:
+                        # Already set, skip.
+                        continue
+                    else:
+                        self.context_trt_context.set_binding_shape(self.cache_binding_offset+2*i+self.num_bindings, self_attn_cache_shape)
+                        self.context_trt_context.set_binding_shape(self.cache_binding_offset+2*i+1+self.num_bindings, self_attn_cache_shape)
                 else:
-                    self.trt_context.set_binding_shape(self.cache_binding_offset+self.num_cache_per_layer*i, self_attn_cache_shape)
-                    self.trt_context.set_binding_shape(self.cache_binding_offset+self.num_cache_per_layer*i+1, self_attn_cache_shape)
+                    attn_cache_shape_even = self.next_input_binding_shape_setting.get(self.cache_binding_offset+self.num_cache_per_layer*i, None)
+                    attn_cache_shape_odd = self.next_input_binding_shape_setting.get(self.cache_binding_offset+self.num_cache_per_layer*i+1, None)
+                    if attn_cache_shape_even == self_attn_cache_shape and attn_cache_shape_odd == self_attn_cache_shape:
+                        # Already set, skip.
+                        continue
+                    else:
+                        self.trt_context.set_binding_shape(self.cache_binding_offset+self.num_cache_per_layer*i, self_attn_cache_shape)
+                        self.trt_context.set_binding_shape(self.cache_binding_offset+self.num_cache_per_layer*i+1, self_attn_cache_shape)
 
         elif input_length == 1 and self.config.is_encoder_decoder:
             encoder_hidden_states = encoder_outputs.last_hidden_state
@@ -325,10 +352,26 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
         # Launch TRT inference.
         if self.context_mode:
             assert self.context_trt_context.all_binding_shapes_specified
-            self.context_trt_context.execute_v2(bindings=self.bindings)
+            self.context_trt_context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream)
         else:
             assert self.trt_context.all_binding_shapes_specified
-            self.trt_context.execute_v2(bindings=self.bindings)
+            self.trt_context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream)
+        # setting next forward input shape
+        if self.config.use_cache and self.past_decoder_length != 0:
+            next_attn_shape = (self.expand_size, self.num_heads, self.past_decoder_length + 1, self.embedding_size_per_head)
+            self.next_input_binding_shape_setting.clear()
+            for i in range(self.num_decoder_layers):
+                if self.context_mode:
+                    self.context_trt_context.set_binding_shape(self.cache_binding_offset+2*i+self.num_bindings, next_attn_shape)
+                    self.context_trt_context.set_binding_shape(self.cache_binding_offset+2*i+1+self.num_bindings, next_attn_shape)
+                    self.next_input_binding_shape_setting[self.cache_binding_offset+2*i+self.num_bindings] = next_attn_shape
+                    self.next_input_binding_shape_setting[self.cache_binding_offset+2*i+1+self.num_bindings] = next_attn_shape
+                else:
+                    self.trt_context.set_binding_shape(self.cache_binding_offset+self.num_cache_per_layer*i, next_attn_shape)
+                    self.trt_context.set_binding_shape(self.cache_binding_offset+self.num_cache_per_layer*i+1, next_attn_shape)
+                    self.next_input_binding_shape_setting[self.cache_binding_offset+self.num_cache_per_layer*i] = next_attn_shape
+                    self.next_input_binding_shape_setting[self.cache_binding_offset+self.num_cache_per_layer*i+1] = next_attn_shape
+        CUASSERT(cudart.cudaStreamSynchronize(self.stream))
 
         # For bs > 1, this is required, so cannnot avoid this D2D copy
         logits_length = self.expand_size * input_length * self.config.vocab_size
