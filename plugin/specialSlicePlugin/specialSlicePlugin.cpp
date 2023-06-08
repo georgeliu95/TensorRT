@@ -57,6 +57,9 @@ IPluginV2Ext* SpecialSlicePluginCreator::createPlugin(char const* name, PluginFi
 {
     try
     {
+        gLogWarning << "SpecialSlicePlugin is deprecated since TensorRT 8.7. Use INetworkDefinition::addSlice() to add an "
+                       "ISliceLayer."
+                    << std::endl;
         return new SpecialSlice();
     }
     catch (std::exception const& e)
@@ -70,6 +73,9 @@ IPluginV2Ext* SpecialSlicePluginCreator::deserializePlugin(char const* name, voi
 {
     try
     {
+        gLogWarning << "SpecialSlicePlugin is deprecated since TensorRT 8.7. Use INetworkDefinition::addSlice() to add an "
+                       "ISliceLayer."
+                    << std::endl;
         return new SpecialSlice(data, length);
     }
     catch (std::exception const& e)

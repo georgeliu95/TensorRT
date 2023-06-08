@@ -2782,8 +2782,7 @@ public:
     //!
     //! \return true if the call succeeded, else false (e.g. input out of range)
     //!
-    //! \deprecated Superseded by setOptimizationProfileAsync. Deprecated prior to TensorRT 8.0 and will be
-    //! removed in 9.0.
+    //! \deprecated Superseded by setOptimizationProfileAsync. Deprecated prior to TensorRT 8.0.
     //!
     //! \see ICudaEngine::getNbOptimizationProfiles() IExecutionContext::setOptimizationProfileAsync()
     //!

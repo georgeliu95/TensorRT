@@ -71,8 +71,8 @@ public:
         : _axis(axis)
         , _output_lengths(std::vector<int32_t>(output_lengths, output_lengths + noutput))
     {
-        gLogWarning << "SplitPlugin is deprecated. Use INetworkDefinition::addSlice() to add an ISliceLayer to "
-                       "perform a split."
+        gLogWarning << "SplitPlugin is deprecated since TensorRT 8.7. Use INetworkDefinition::addSlice() to add an "
+                       "ISliceLayer to perform a split."
                     << std::endl;
         PLUGIN_ASSERT(axis <= nvinfer1::Dims::MAX_DIMS);
     }
@@ -80,8 +80,8 @@ public:
         : _axis(axis)
         , _output_lengths(output_lengths)
     {
-        gLogWarning << "SplitPlugin is deprecated. Use INetworkDefinition::addSlice() to add an ISliceLayer to "
-                       "perform a split."
+        gLogWarning << "SplitPlugin is deprecated since TensorRT 8.7. Use INetworkDefinition::addSlice() to add an "
+                       "ISliceLayer to perform a split."
                     << std::endl;
         PLUGIN_ASSERT(axis <= nvinfer1::Dims::MAX_DIMS);
     }
@@ -173,8 +173,8 @@ public:
     nvinfer1::IPluginV2DynamicExt* deserializePlugin(
         char const* /*name*/, void const* serialData, size_t serialLength) noexcept override
     {
-        gLogWarning << "SplitPlugin is deprecated. Use INetworkDefinition::addSlice() to add an ISliceLayer to "
-                       "perform a split."
+        gLogWarning << "SplitPlugin is deprecated since TensorRT 8.7. Use INetworkDefinition::addSlice() to add an "
+                       "ISliceLayer to perform a split."
                     << std::endl;
         return new SplitPlugin{serialData, serialLength};
     }
