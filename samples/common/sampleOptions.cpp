@@ -165,6 +165,13 @@ SparsityFlag stringToValue<SparsityFlag>(std::string const& option)
     {
         throw std::invalid_argument(std::string("Unknown sparsity mode: ") + option);
     }
+    if (search->second == SparsityFlag::kFORCE)
+    {
+        sample::gLogWarning << "--sparsity=force has been deprecated. "
+                            << "Please use <polygraphy surgeon prune> to rewrite the weights to a sparsity pattern "
+                            << "and then run with --sparsity=enable" << std::endl;
+    }
+
     return search->second;
 }
 
@@ -2311,6 +2318,8 @@ void BuildOptions::help(std::ostream& os)
           "                                                     considered if the weights have the right sparsity pattern)"                         "\n"
           "                                           force   = enable sparse tactics in the builder and force-overwrite the weights to have"       "\n"
           "                                                     a sparsity pattern (even if you loaded a model yourself)"                           "\n"
+          "                                                     [Deprecated] this knob has been deprecated."                                        "\n"
+          "                                                     Please use <polygraphy surgeon prune> to rewrite the weights."                      "\n"
           "  --noTF32                           Disable tf32 precision (default is to enable tf32, in addition to fp32)"                            "\n"
           "  --fp16                             Enable fp16 precision, in addition to fp32 (default = disabled)"                                    "\n"
           "  --bf16                             Enable bf16 precision, in addition to fp32 (default = disabled)"                                    "\n"
