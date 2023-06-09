@@ -51,17 +51,16 @@ def duplicate_interleave(m):
     """
     A simple version of `torch.repeat_interleave` for duplicating a matrix while interleaving the copy.
     """
-    dim0 = m.shape[0]
-    m = m.view(-1, 1)  # flatten the matrix
-    m = m.repeat(1, 2)  # repeat all elements into the 2nd dimension
-    m = m.view(dim0, -1)  # reshape into a matrix, interleaving the copy
+    dim0 = m.shape[1]
+    m = m.reshape(1,-1,1)  # flatten the matrix
+    m = m.repeat(1,1,2)  # repeat all elements into the 2nd dimension
+    m = m.view(dim0, 1, -1)  # reshape into a matrix, interleaving the copy
     return m
 
 
-def apply_rotary_pos_emb(x, sin, cos):
-    sin = duplicate_interleave(sin)[None, :x.shape[1], None, :]
-    cos = duplicate_interleave(cos)[None, :x.shape[1], None, :]
-    # einsum notation for lambda t: repeat(t[offset:x.shape[1]+offset,:], "n d -> () n () (d j)", j=2)
+def apply_rotary_pos_emb(x, _sin, _cos):
+    sin = duplicate_interleave(_sin)[None,:,:,:]
+    cos = duplicate_interleave(_cos)[None,:,:,:]
     return (x * cos) + (rotate_every_two(x) * sin)
 
 OPSET = 17
@@ -233,6 +232,7 @@ class DecoderTorchFile(TorchModelFile):
                 "use_cache": use_cache,
             }
 
+        @mock.patch("transformers.models.gptj.modeling_gptj.apply_rotary_pos_emb", apply_rotary_pos_emb)
         def forward(
             self,
             input_ids,
@@ -333,8 +333,7 @@ class DecoderConverter(ModelFileConverter):
         trt_engine_class=DecoderTRTEngine,
     ):
         super().__init__(torch_class=torch_class, onnx_class=onnx_class, trt_engine_class=trt_engine_class)
-    
-    @mock.patch("transformers.models.gptj.modeling_gptj.apply_rotary_pos_emb", apply_rotary_pos_emb)
+
     def torch_to_onnx(
         self, output_fpath: str, model: Module, network_metadata: NetworkMetadata, config
     ):
