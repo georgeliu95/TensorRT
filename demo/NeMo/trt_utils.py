@@ -96,14 +96,14 @@ class GPTTRTDecoder(TRTNativeRunner):
         return self.trt_engine.get_binding_name(self.trt_engine.num_bindings - 1)
 
     def has_attention_mask(self):
-        # If the input at ATTENTION_MASK_INDEX has a dimension of 2, assume it is attention_mask.
-        return len(self.trt_engine.get_binding_shape(self.ATTENTION_MASK_INDEX)) == 2
+        if self.ATTENTION_MASK_INDEX < self.trt_engine.num_bindings:
+            return self.trt_engine.get_binding_name(self.ATTENTION_MASK_INDEX) == "attention_mask"
+        return False
 
     def get_attention_mask_name(self):
         if self.has_attention_mask():
             return self.trt_engine.get_binding_name(self.ATTENTION_MASK_INDEX)
-        else:
-            return None
+        return None
 
     def run(self, output_names, io_descs, is_first_input=False):
         def get_binding_idx(name, binding_offset=0):

@@ -16,6 +16,16 @@
 # limitations under the License.
 #
 
+DEPENDENCIES_DIR="temp";
+if [ "$#" -ge 1 ]; then
+    echo "Usage: source install.sh [dependencies_dir]";
+    exit 1;
+elif [ "$#" -eq 1 ]; then
+    DEPENDENCIES_DIR=${1};
+fi
+echo "Using ${DEPENDENCIES_DIR} to store dependencies.";
+mkdir -p ${DEPENDENCIES_DIR};
+
 pip install --upgrade pip
 
 # install pytorch
@@ -30,6 +40,9 @@ echo " > Installing Requirements.txt...";
 pip install nvidia-pyindex
 pip install -r requirements.txt
 
+BASE_DIR=$(pwd);
+cd ${DEPENDENCIES_DIR};
+
 # install apex
 has_apex=$(pip list | grep apex | awk '{print $1}' | awk '{print length}');
 if [ "$has_apex" != "4" ];
@@ -42,7 +55,7 @@ then
     cd apex
     git config --global --add safe.directory $(pwd)
     git checkout 5b5d41034b506591a316c308c3d2cd14d5187e23
-    git apply ../apex.patch # Bypass CUDA version check in apex
+    git apply ${BASE_DIR}/apex.patch # Bypass CUDA version check in apex
     torchcppext=$(pip show torch | grep Location | cut -d' ' -f2)"/torch/utils/cpp_extension.py"
     if [ !-f $torchcppext ];
     then
@@ -58,12 +71,12 @@ fi
 echo " > Installing Megatron-LM...";
 if [ ! -d "Megatron-LM" ];
 then
-    git clone https://github.com/NVIDIA/Megatron-LM.git
+    git clone -b main https://github.com/NVIDIA/Megatron-LM.git
 fi
 
 cd Megatron-LM
 git config --global --add safe.directory $(pwd)
-git checkout 3db2063b1ff992a971ba18f7101eecc9c4e90f03
+git checkout 992da75a1fd90989eb1a97be8d9ff3eca993aa83
 pip install ./
 cd ../
 export PYTHONPATH=$(pwd)/Megatron-LM/:${PYTHONPATH}
@@ -75,11 +88,12 @@ MAKEFLAGS="-j6" pip install --upgrade git+https://github.com/NVIDIA/TransformerE
 echo " > Installing NeMo...";
 if [ ! -d "NeMo" ];
 then
-    git clone -b dev-gpt-fp8-e2e-inference https://github.com/yen-shi/NeMo.git
+    git clone -b main https://github.com/NVIDIA/NeMo.git
 fi
 cd NeMo
 git config --global --add safe.directory $(pwd)
-git checkout 63ce966fa6f2f91b8e2c57dff90ca499fc95ed78
+git checkout bf270794267e0240d8a8b2f2514c80c6929c76f1
 bash reinstall.sh
 cd ../
 export PYTHONPATH=$(pwd)/NeMo/:${PYTHONPATH}
+cd ../
