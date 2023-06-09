@@ -156,6 +156,9 @@ class Seq2SeqModelTRTConfig(NNConfig):
         self.max_decoder_length = 1 if (self.use_cache and self.is_encoder_decoder) else self.max_output_length
         self.expand_size = self._compute_expand_size(self.batch_size, self.num_beams)
 
+        # Assume that all inputs have size 1, can adjust later.
+        self.input_case_size = 1
+
     def _compute_expand_size(self, batch_size, num_beams):
         """
         Computes expand size for beam search.

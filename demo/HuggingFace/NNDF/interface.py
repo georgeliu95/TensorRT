@@ -185,34 +185,33 @@ class NetworkCommand(metaclass=ABCMeta):
 
         def get_hf_config():
             """Gets HF config with correct max sequence length limits in benchmarking mode."""
-            if not benchmarking_mode:
-                hf_config = AutoConfig.from_pretrained(variant, use_cache=use_cache)
-            else:
+            hf_config = AutoConfig.from_pretrained(variant, use_cache=use_cache)
+
+            if benchmarking_mode:
                 n_positions_hints = _n_positions_hint()
-                n_positions = setup_benchmark_arg(kwargs.get("n_positions"),
-                                                  "n_positions",
-                                                  n_positions_hints)
+                n_positions = setup_benchmark_arg(
+                    kwargs.get("n_positions"),
+                    "n_positions",
+                    n_positions_hints
+                )
 
                 # Different models have different keyword names for max position embeddings.
                 # Loop over and see if HF consumes keyword.
                 possible_position_kw = ( "n_positions", "max_position_embeddings" )
-                for kw in possible_position_kw:
-                    hf_config, unused_kwargs = AutoConfig.from_pretrained(variant,
-                                                                          use_cache=use_cache,
-                                                                          return_unused_kwargs=True,
-                                                                          **{kw : n_positions})
-
-                    kw_consumed = not unused_kwargs.get(kw)
-                    if kw_consumed:
-                        break
+                original_n_positions = None
+                for k in possible_position_kw:
+                    if hasattr(hf_config, k):
+                        original_n_positions = getattr(hf_config, k)
+                        if original_n_positions < n_positions:
+                            setattr(hf_config, k, n_positions)
 
                 # If none of the possible keywords are consumed (for models such as bloom-560m)
                 # monkey patch a field `n_positions` which Seq2SeqConfig can then pick up.
-                if not kw_consumed:
+                if original_n_positions is None:
                     G_LOGGER.warning("Unable to set n_positions for the model using {} as hints. "
                                      "Overriding the field `n_positions` instead, assigning it "
                                      "to {}".format(", ".join(possible_position_kw), n_positions))
-                    hf_config.n_positions = n_positions
+                    setattr(hf_config, "n_positions", n_positions)
 
             return hf_config
 
@@ -240,12 +239,10 @@ class NetworkCommand(metaclass=ABCMeta):
             self.checkpoint = self.load_nn_semantic_checkpoint()
             network_input = list(self.checkpoint.inputs())
             # If there is input which is list, using maximum input list size to batch size
-            new_batch_size = max([len(n) if isinstance(n, list) else 1 for n in network_input ])
+            self.config.input_case_size = max([len(n) if isinstance(n, list) else 1 for n in network_input ])
             # update config batch size
-            self.config.batch_size = new_batch_size
-            self.config.expand_size = self.config._compute_expand_size(new_batch_size, self.config.num_beams)
-
-
+            self.config.batch_size = self.config.input_case_size * self.config.batch_size
+            self.config.expand_size = self.config._compute_expand_size(self.config.batch_size, self.config.num_beams)
 
         # User defined variables for generation
         generation_config = GenerationConfig.from_model_config(hf_config)
@@ -480,6 +477,7 @@ class NetworkCommand(metaclass=ABCMeta):
             model(torch.Module): PyTorch model downloaded from HuggingFace
 
         """
+        ignore_mismatched_sizes = self.benchmarking_mode
         if self.torch_model:
             return self.torch_model
 
@@ -499,13 +497,13 @@ class NetworkCommand(metaclass=ABCMeta):
                     torch_model = AutoModelForSeq2SeqLM.from_pretrained(
                         self.config.variant,
                         config=hf_config,
-                        ignore_mismatched_sizes=True,
+                        ignore_mismatched_sizes=ignore_mismatched_sizes,
                     )
                 else:
                     torch_model = AutoModelForCausalLM.from_pretrained(
                         self.config.variant,
                         config=hf_config,
-                        ignore_mismatched_sizes=True,
+                        ignore_mismatched_sizes=ignore_mismatched_sizes,
                     )
             except:
                 raise RuntimeError("This model variant is not recognized by HuggingFace.")
@@ -522,13 +520,13 @@ class NetworkCommand(metaclass=ABCMeta):
                     torch_model = AutoModelForSeq2SeqLM.from_pretrained(
                         torch_dir,
                         config=hf_config,
-                        ignore_mismatched_sizes=True,
+                        ignore_mismatched_sizes=ignore_mismatched_sizes,
                     )
                 else:
                     torch_model = AutoModelForCausalLM.from_pretrained(
                         torch_dir,
                         config=hf_config,
-                        ignore_mismatched_sizes=True,
+                        ignore_mismatched_sizes=ignore_mismatched_sizes,
                     )
             except Exception as e:
                 raise RuntimeError("Fails to load model from {}. Reason: {}".format(torch_model, str(e)))
@@ -754,8 +752,9 @@ class NetworkCommand(metaclass=ABCMeta):
         # Prepare the input tokens and find out output sequence length.
         if not self.benchmarking_mode:
             if isinstance(inference_input, list):
-                input_ids = self.tokenizer(inference_input, padding=True, return_tensors="pt").input_ids
+                input_ids = self.tokenizer(inference_input * (self.config.batch_size // self.config.input_case_size), padding=True, return_tensors="pt").input_ids
             else:
+                # TODO: Ideally should be self.config.batch_size // self.config.input_case_size, but this would violate the shape restriction
                 input_ids = self.tokenizer([inference_input] * self.config.batch_size, padding=True, return_tensors="pt").input_ids
         else:
             input_ids = torch.randint(0, self.config.vocab_size, (self.config.batch_size, self._args.input_seq_len))
