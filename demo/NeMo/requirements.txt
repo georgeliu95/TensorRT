@@ -1,5 +1,6 @@
 nemo-toolkit[nlp]==1.17.0
 onnx==1.14.0
+protobuf==3.20.3
 onnxruntime==1.13.1
 transformers==4.27.0
 cuda-python==12.1.0
