@@ -28,4 +28,4 @@ polygraphy>=0.42.2
 tabulate
 toml
 onnx_graphsurgeon
-cuda-python
+cuda-python==12.1.0
