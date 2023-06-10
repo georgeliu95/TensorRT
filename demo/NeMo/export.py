@@ -219,8 +219,7 @@ def onnx_to_trt(cfg, onnx_fpath, num_layers=0):
     use_tf32 = cfg.trt_engine_options.use_tf32
     use_fp16 = cfg.trt_engine_options.use_fp16
     use_fp8 = cfg.trt_engine_options.use_fp8
-    if cfg.trt_engine_options.use_bf16:
-        raise ValueError("bf16 isn't supported by polygraphy yet")
+    use_bf16 = cfg.trt_engine_options.use_bf16
 
     # Create optimization profiles
     bs = cfg.batch_size
@@ -274,6 +273,7 @@ def onnx_to_trt(cfg, onnx_fpath, num_layers=0):
     trt_config = CreateConfig(
         tf32=use_tf32,
         fp16=use_fp16,
+        bf16=use_bf16,
         profiles=profiles,
         precision_constraints="obey",
         preview_features=preview_features,
@@ -443,7 +443,7 @@ def create_kv_onnx(cfg, onnx_fpath):
     create_dir_if_not_exist(onnx_outp_fpath)
 
     nbheads, headsize = cfg.model.nb_heads, cfg.model.head_size
-    dtype = np.float16
+    dtype = onnx.TensorProto.BFLOAT16 if cfg.trt_engine_options.use_bf16 else onnx.TensorProto.FLOAT16
     assert nbheads * headsize == cfg.model.hidden_size, "Model hidden size does not match."
     logging.info(f"Converting onnx from {onnx_inp_fpath} to {onnx_outp_fpath}.")
     num_layers = process_onnx(kv_output_policy,
