@@ -1664,7 +1664,8 @@ void* initSafeRuntime()
 {
     void* handle{nullptr};
 #if !defined(_WIN32)
-    std::string const dllName{samplesCommon::isDebug() ? "libnvinfer_safe_debug.so.8" : "libnvinfer_safe.so.8"};
+    std::string const dllName{samplesCommon::isDebug() ? "libnvinfer_safe_debug.so." + std::to_string(NV_TENSORRT_MAJOR)
+                                                       : "libnvinfer_safe.so." + std::to_string(NV_TENSORRT_MAJOR)};
 #if SANITIZER_BUILD
     handle = dlopen(dllName.c_str(), RTLD_LAZY | RTLD_NODELETE);
 #else
@@ -1678,7 +1679,9 @@ void* initConsistencyCheckerLibrary()
 {
     void* handle{nullptr};
 #if !defined(_WIN32)
-    std::string const dllName{samplesCommon::isDebug() ? "libnvinfer_checker_debug.so.8" : "libnvinfer_checker.so.8"};
+    std::string const dllName{samplesCommon::isDebug()
+            ? "libnvinfer_checker_debug.so." + std::to_string(NV_TENSORRT_MAJOR)
+            : "libnvinfer_checker.so." + std::to_string(NV_TENSORRT_MAJOR)};
 #if SANITIZER_BUILD
     handle = dlopen(dllName.c_str(), RTLD_LAZY | RTLD_NODELETE);
 #else
