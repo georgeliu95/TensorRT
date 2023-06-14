@@ -26,6 +26,7 @@ import torch
 from transformers import CLIPTextModel, CLIPTokenizer
 from cuda import cudart
 import onnx
+import os
 
 class Optimizer():
     def __init__(
@@ -133,7 +134,7 @@ class BaseModel():
         self.embedding_dim = embedding_dim
         self.text_maxlen = text_maxlen
 
-    def get_model(self):
+    def get_model(self, framework_model_dir):
         pass
 
     def get_input_names(self):
@@ -203,10 +204,17 @@ class CLIP(BaseModel):
         super(CLIP, self).__init__(hf_token, device=device, verbose=verbose, path=path, max_batch_size=max_batch_size, embedding_dim=embedding_dim)
         self.name = "CLIP"
 
-    def get_model(self):
-        return CLIPTextModel.from_pretrained(self.path,
-            subfolder="text_encoder",
-            use_auth_token=self.hf_token).to(self.device)
+    def get_model(self, framework_model_dir):
+        clip_model_dir = os.path.join(framework_model_dir, "clip")
+        if not os.path.exists(clip_model_dir):
+            model = CLIPTextModel.from_pretrained(self.path,
+                subfolder="text_encoder",
+                use_auth_token=self.hf_token).to(self.device)
+            model.save_pretrained(clip_model_dir)
+        else:
+            print(f"[I] Load Clip pytorch model from: {clip_model_dir}")
+            model = CLIPTextModel.from_pretrained(clip_model_dir).to(self.device)
+        return model
 
     def get_input_names(self):
         return ['input_ids']
@@ -274,12 +282,19 @@ class UNet(BaseModel):
         self.unet_dim = unet_dim
         self.name = "UNet"
 
-    def get_model(self):
+    def get_model(self, framework_model_dir):
         model_opts = {'revision': 'fp16', 'torch_dtype': torch.float16} if self.fp16 else {}
-        return UNet2DConditionModel.from_pretrained(self.path,
-            subfolder="unet",
-            use_auth_token=self.hf_token,
-            **model_opts).to(self.device)
+        unet_model_dir = os.path.join(framework_model_dir, "unet")
+        if not os.path.exists(unet_model_dir):
+            model = UNet2DConditionModel.from_pretrained(self.path,
+                subfolder="unet",
+                use_auth_token=self.hf_token,
+                **model_opts).to(self.device)
+            model.save_pretrained(unet_model_dir)
+        else:
+            print(f"[I] Load UNet pytorch model from: {unet_model_dir}")
+            model = UNet2DConditionModel.from_pretrained(unet_model_dir).to(self.device)
+        return model
 
     def get_input_names(self):
         return ['sample', 'timestep', 'encoder_hidden_states']
@@ -336,10 +351,16 @@ class VAE(BaseModel):
         super(VAE, self).__init__(hf_token, device=device, verbose=verbose, path=path, max_batch_size=max_batch_size, embedding_dim=embedding_dim)
         self.name = "VAE decoder"
 
-    def get_model(self):
-        vae = AutoencoderKL.from_pretrained(self.path,
-            subfolder="vae",
-            use_auth_token=self.hf_token).to(self.device)
+    def get_model(self, framework_model_dir):
+        vae_decoder_model_path = os.path.join(framework_model_dir, "vae_decoder")
+        if not os.path.exists(vae_decoder_model_path):
+            vae = AutoencoderKL.from_pretrained(self.path,
+                subfolder="vae",
+                use_auth_token=self.hf_token).to(self.device)
+            vae.save_pretrained(vae_decoder_model_path)
+        else:
+            print(f"[I] Load VAE Decoder pytorch model from: {vae_decoder_model_path}")
+            vae = AutoencoderKL.from_pretrained(vae_decoder_model_path).to(self.device)
         vae.forward = vae.decode
         return vae
 
@@ -379,11 +400,18 @@ def make_VAE(version, hf_token, device, verbose, max_batch_size, inpaint=False):
             max_batch_size=max_batch_size, embedding_dim=get_embedding_dim(version))
 
 class TorchVAEEncoder(torch.nn.Module):
-    def __init__(self, token, device, path):
+    def __init__(self, token, device, path, framework_model_dir):
         super().__init__()
         self.path = path
-        self.vae_encoder = AutoencoderKL.from_pretrained(self.path, subfolder="vae", use_auth_token=token).to(device)
-        
+        vae_encoder_model_dir = os.path.join(framework_model_dir, "vae_encoder")
+        if not os.path.exists(vae_encoder_model_dir):
+            self.vae_encoder = AutoencoderKL.from_pretrained(self.path, subfolder="vae", use_auth_token=token).to(device)
+            self.vae_encoder.save_pretrained(vae_encoder_model_dir)
+        else:
+            print(f"[I] Load VAE Encoder pytorch model from: {vae_encoder_model_dir}")
+            self.vae_encoder = AutoencoderKL.from_pretrained(vae_encoder_model_dir).to(self.device)
+
+
     def forward(self, x):
         return self.vae_encoder.encode(x).latent_dist.sample()
 
@@ -399,8 +427,8 @@ class VAEEncoder(BaseModel):
         super(VAEEncoder, self).__init__(hf_token, device=device, verbose=verbose, path=path, max_batch_size=max_batch_size, embedding_dim=embedding_dim)
         self.name = "VAE encoder"
 
-    def get_model(self):
-        vae_encoder = TorchVAEEncoder(self.hf_token, self.device, self.path)
+    def get_model(self, framework_model_dir):
+        vae_encoder = TorchVAEEncoder(self.hf_token, self.device, self.path, framework_model_dir)
         return vae_encoder
 
     def get_input_names(self):
@@ -442,7 +470,14 @@ def make_VAEEncoder(version, hf_token, device, verbose, max_batch_size, inpaint=
     return VAEEncoder(hf_token=hf_token, device=device, verbose=verbose, path=get_path(version, inpaint=inpaint),
             max_batch_size=max_batch_size, embedding_dim=get_embedding_dim(version))
 
-def make_tokenizer(version, hf_token):
-    return CLIPTokenizer.from_pretrained(get_path(version),
-            subfolder="tokenizer",
-            use_auth_token=hf_token)
+def make_tokenizer(version, hf_token, framework_model_dir):
+    tokenizer_model_dir = os.path.join(framework_model_dir, "clip_tokenizer")
+    if not os.path.exists(tokenizer_model_dir):
+        model = CLIPTokenizer.from_pretrained(get_path(version),
+                subfolder="tokenizer",
+                use_auth_token=hf_token)
+        model.save_pretrained(tokenizer_model_dir)
+    else:
+        print(f"[I] Load Clip Tokenizer pytorch model from: {tokenizer_model_dir}")
+        model = CLIPTokenizer.from_pretrained(tokenizer_model_dir)
+    return model

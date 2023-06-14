@@ -190,6 +190,7 @@ class StableDiffusionPipeline:
     def loadEngines(
         self,
         engine_dir,
+        framework_model_dir,
         onnx_dir,
         onnx_opset,
         opt_batch_size,
@@ -213,6 +214,8 @@ class StableDiffusionPipeline:
         Args:
             engine_dir (str):
                 Directory to write the TensorRT engines.
+            framework_model_dir (str):
+                Directory to write the framework model ckpt.
             onnx_dir (str):
                 Directory to write the ONNX models.
             onnx_opset (int):
@@ -252,7 +255,7 @@ class StableDiffusionPipeline:
                 pathlib.Path(directory).mkdir(parents=True)
 
         # Load text tokenizer
-        self.tokenizer = make_tokenizer(self.version, self.hf_token)
+        self.tokenizer = make_tokenizer(self.version, self.hf_token, framework_model_dir)
 
         # Load pipeline models
         models_args = {'version': self.version, 'hf_token': self.hf_token, 'device': self.device, \
@@ -275,7 +278,7 @@ class StableDiffusionPipeline:
                 if force_export or not os.path.exists(onnx_opt_path):
                     if force_export or not os.path.exists(onnx_path):
                         print(f"Exporting model: {onnx_path}")
-                        model = obj.get_model()
+                        model = obj.get_model(framework_model_dir)
                         with torch.inference_mode(), torch.autocast("cuda"):
                             inputs = obj.get_sample_input(opt_batch_size, opt_image_height, opt_image_width)
                             torch.onnx.export(model,
