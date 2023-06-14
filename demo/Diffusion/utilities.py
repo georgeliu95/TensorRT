@@ -1195,6 +1195,9 @@ def add_arguments(parser):
     parser.add_argument('--force-onnx-export', action='store_true', help="Force ONNX export of CLIP, UNET, and VAE models")
     parser.add_argument('--force-onnx-optimize', action='store_true', help="Force ONNX optimizations for CLIP, UNET, and VAE models")
 
+    # Framework model ckpt
+    parser.add_argument('--framework-model-dir', default='pytorch_model', help="Directory for HF saved models")
+
     # TensorRT engine build
     parser.add_argument('--engine-dir', default='engine', help="Output directory for TensorRT engines")
     parser.add_argument('--force-engine-build', action='store_true', help="Force rebuilding the TensorRT engine")
