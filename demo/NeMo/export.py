@@ -204,10 +204,12 @@ def get_trtexec_cmd(onnx_fpath, cfg, bs, num_layers):
     use_tf32 = cfg.trt_engine_options.use_tf32
     use_fp16 = cfg.trt_engine_options.use_fp16
     use_fp8 = cfg.trt_engine_options.use_fp8
+    use_bf16 = cfg.trt_engine_options.use_bf16
     trtexec_cmd += f" {min_shapes} {opt_shapes} {max_shapes}"
     trtexec_cmd += " --noTF32" if not use_tf32 else ""
     trtexec_cmd += " --fp16" if use_fp16 else ""
     trtexec_cmd += " --fp8" if use_fp8 else ""
+    trtexec_cmd += " --bf16" if use_bf16 else ""
     trtexec_cmd += " --timingCacheFile=functional.cache --preview=+fasterDynamicShapes0805,+disableExternalTacticSourcesForCore0805"
     return trtexec_cmd
 
