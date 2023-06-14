@@ -787,6 +787,94 @@ class Seq2SeqTRT(TRTInferenceCommand):
         decoder_engine_path = self.workspace.get_engine_fpath_from_onnx(self.onnx_decoder.fpath, engine_tag, self.engine_postfix)
 
         G_LOGGER.info("Setting up decoder engine in {}...".format(decoder_engine_path))
+        # Used to set up trtexec command for debugging accuracy/performance.
+        def _decoder_trtexec_command():
+            command = f"trtexec --onnx={self.onnx_decoder.fpath} --verbose --saveEngine={decoder_engine_path} "
+            min_shape = "--minShapes="
+            opt_shape = "--optShapes="
+            max_shape = "--maxShapes="
+            if not use_cache:
+                min_shape += f"'input_ids':{min_expand_size}x1"
+                opt_shape += f"'input_ids':{opt_expand_size}x{opt_output_seq_len}"
+                max_shape += f"'input_ids':{max_expand_size}x{max_output_profile_length}"
+                if is_encoder_decoder:
+                    min_shape += f",'encoder_hidden_states':{min_expand_size}x1x{encoder_hidden_size}"
+                    opt_shape += f",'encoder_hidden_states':{opt_expand_size}x{opt_input_seq_len}x{encoder_hidden_size}"
+                    max_shape += f",'encoder_hidden_states':{max_expand_size}x{max_input_profile_length}x{encoder_hidden_size}"
+
+                command += f"{min_shape} {opt_shape} {max_shape} "
+
+            else:
+                min_shape += f"'input_ids':{min_expand_size}x1"
+                opt_shape += f"'input_ids':{opt_expand_size}x1"
+                max_shape += f"'input_ids':{max_expand_size}x1"
+
+                if is_encoder_decoder:
+                    min_shape += f",'encoder_hidden_states':{min_expand_size}x1x{encoder_hidden_size}"
+                    opt_shape += f",'encoder_hidden_states':{opt_expand_size}x{opt_input_seq_len}x{encoder_hidden_size}"
+                    max_shape += f",'encoder_hidden_states':{max_expand_size}x{max_input_profile_length}x{encoder_hidden_size}"
+                else:
+                    # build context phase profile
+                    cmin_shape = "--minShapes="
+                    cmax_shape = "--maxShapes="
+                    copt_shape = "--optShapes="
+                    cmin_shape += f"'input_ids':{min_expand_size}x1"
+                    copt_shape += f"'input_ids':{opt_expand_size}x{opt_output_seq_len}"
+                    cmax_shape += f"'input_ids':{max_expand_size}x{max_output_profile_length}"
+
+                for i in range(num_decoder_layers):
+                    k = f",'past_key_values.{i}.self.key'"
+                    v = f",'past_key_values.{i}.self.value'"
+                    kv_min_str = f":{min_expand_size}x{num_heads}x0x{embedding_size_per_head}"
+                    kv_opt_str = f":{opt_expand_size}x{num_heads}x{opt_output_seq_len-1}x{embedding_size_per_head}"
+                    kv_max_str = f":{max_expand_size}x{num_heads}x{max_output_profile_length-1}x{embedding_size_per_head}"
+                    min_shape += k + kv_min_str + v + kv_min_str
+                    opt_shape += k + kv_opt_str + v + kv_opt_str
+                    max_shape += k + kv_max_str + v + kv_max_str
+
+                    if is_encoder_decoder:
+                        ck = f",'past_key_values.{i}.cross.key'"
+                        cv = f",'past_key_values.{i}.cross.value'"
+                        ckv_min_str = f":{min_expand_size}x{num_heads}x1x{embedding_size_per_head}"
+                        ckv_opt_str = f":{opt_expand_size}x{num_heads}x{opt_input_seq_len}x{embedding_size_per_head}"
+                        ckv_max_str = f":{max_expand_size}x{num_heads}x{max_input_profile_length}x{embedding_size_per_head}"
+                        min_shape += ck + ckv_min_str + cv + ckv_min_str
+                        opt_shape += ck + ckv_opt_str + cv + ckv_opt_str
+                        max_shape += ck + ckv_max_str + cv + ckv_max_str
+                    else:
+                        zero_min_str = f":{min_expand_size}x{num_heads}x0x{embedding_size_per_head}"
+                        zero_opt_str = f":{opt_expand_size}x{num_heads}x0x{embedding_size_per_head}"
+                        zero_max_str = f":{max_expand_size}x{num_heads}x0x{embedding_size_per_head}"
+                        cmin_shape += k + zero_min_str + v + zero_min_str
+                        copt_shape += k + zero_opt_str + v + zero_opt_str
+                        cmax_shape += k + zero_max_str + v + zero_max_str
+
+                if is_encoder_decoder:
+                    command += f"{min_shape} {opt_shape} {max_shape} "
+                else:
+                    command += f"--profile=0 {min_shape} {opt_shape} {max_shape} --profile=1 {cmin_shape} {copt_shape} {cmax_shape} "
+
+            if self.metadata.precision.fp16:
+                inputIO = "--inputIOFormats=int32:chw" # input_ids
+                outputIO = "--outputIOFormats=fp16:chw" # logits
+                if is_encoder_decoder:
+                    inputIO += ",fp16:chw" # encoder_hidden_states
+                if use_cache:
+                    for _ in range(num_decoder_layers):
+                        kv_precision = ",fp16:chw,fp16:chw"
+                        inputIO += kv_precision # self attention
+                        outputIO += kv_precision # self attention
+                        if is_encoder_decoder:
+                            inputIO += kv_precision # cross attention
+
+                command += f"--fp16 --precisionConstraints=obey {inputIO} {outputIO} "
+
+            if self.timing_cache is not None:
+                command += f"--timingCacheFile={self.timing_cache} "
+
+            return command
+
+        G_LOGGER.debug(_decoder_trtexec_command())
 
         self.decoder_engine = self.onnx_decoder.as_trt_engine(
             decoder_engine_path,
@@ -799,8 +887,8 @@ class Seq2SeqTRT(TRTInferenceCommand):
         self.decoder = Seq2SeqTRTDecoder(
             self.decoder_engine, self.metadata, self.config, self.nvtx_verbose_inference,
         )
-
         self.workspace.set_decoder_engine_path(decoder_engine_path)
+
         # Set up encoder if needed
         if is_encoder_decoder:
             encoder_profiles = [
@@ -815,6 +903,30 @@ class Seq2SeqTRT(TRTInferenceCommand):
 
             G_LOGGER.info("Setting up encoder engine in {}...".format(encoder_engine_path))
 
+            if self.config.use_fp32_encoder:
+                encoder_metadata = self.metadata._replace(precision=Precision(fp16=False))
+            else:
+                encoder_metadata = self.metadata
+
+            def _encoder_trtexec_command():
+                command = f"trtexec --onnx={self.onnx_encoder.fpath} --verbose --saveEngine={encoder_engine_path} "
+                min_shape = f"--minShapes='input_ids':{min_batch_size}x1"
+                opt_shape = f"--optShapes='input_ids':{batch_size}x{opt_input_seq_len}"
+                max_shape = f"--maxShapes='input_ids':{max_batch_size}x{max_input_profile_length}"
+                command += f"{min_shape} {opt_shape} {max_shape} "
+
+                if encoder_metadata.precision.fp16:
+                    inputIO = "--inputIOFormats=int32:chw" # input_ids
+                    outputIO = "--outputIOFormats=fp16:chw" # encoder_hidden_states
+                    command += f"--fp16 --precisionConstraints=obey {inputIO} {outputIO} "
+
+                if self.timing_cache is not None:
+                    command += f"--timingCacheFile={self.timing_cache} "
+
+                return command
+
+            G_LOGGER.debug(_encoder_trtexec_command())
+
             self.encoder_engine = self.onnx_encoder.as_trt_engine(
                 encoder_engine_path, # encoder engine name not affected by beam search
                 profiles=encoder_profiles,
@@ -823,15 +935,11 @@ class Seq2SeqTRT(TRTInferenceCommand):
                 timing_cache=self.timing_cache,
             )
 
-            if self.config.use_fp32_encoder:
-                encoder_metadata = self.metadata._replace(precision=Precision(fp16=False))
-            else:
-                encoder_metadata = self.metadata
-
             self.encoder = Seq2SeqTRTEncoder(
                 self.encoder_engine, encoder_metadata, self.config, self.nvtx_verbose_inference,
             )
             self.workspace.set_encoder_engine_path(encoder_engine_path)
+
 
         # Set up cross attn cache generator if needed
         if self.use_generator:
@@ -845,6 +953,30 @@ class Seq2SeqTRT(TRTInferenceCommand):
             cross_attn_cache_generator_engine_path = self.workspace.get_engine_fpath_from_onnx(self.onnx_cross_attn_cache_generator.fpath, engine_tag, self.engine_postfix)
 
             G_LOGGER.info("use_cache=True. Setting up cross attention kv cache generator in {}...".format(cross_attn_cache_generator_engine_path))
+
+            def _generator_trtexec_command():
+                command = f"trtexec --onnx={self.onnx_cross_attn_cache_generator.fpath} --verbose --saveEngine={cross_attn_cache_generator_engine_path} "
+                min_shape = f"--minShapes='encoder_hidden_states':{min_expand_size}x1x{encoder_hidden_size}"
+                opt_shape = f"--optShapes='encoder_hidden_states':{opt_expand_size}x{opt_input_seq_len}x{encoder_hidden_size}"
+                max_shape = f"--maxShapes='encoder_hidden_states':{max_expand_size}x{max_input_profile_length}x{encoder_hidden_size}"
+                command += f"{min_shape} {opt_shape} {max_shape} "
+
+                if self.metadata.precision.fp16:
+                    inputIO = "--inputIOFormats=fp16:chw" # input_ids
+                    outputIO = "--outputIOFormats="
+                    for _ in range(num_decoder_layers):
+                        kv_precision = "fp16:chw,fp16:chw,"
+                        outputIO += kv_precision # cross attention
+
+                    command += f"--fp16 --precisionConstraints=obey {inputIO} {outputIO.rstrip(',')} "
+
+                if self.timing_cache is not None:
+                    command += f"--timingCacheFile={self.timing_cache} "
+
+                return command
+
+            G_LOGGER.debug(_generator_trtexec_command())
+
             self.cross_attn_cache_generator_engine = self.onnx_cross_attn_cache_generator.as_trt_engine(
                 cross_attn_cache_generator_engine_path,
                 profiles=generator_profiles,
