@@ -16,21 +16,32 @@
 #
 
 from collections.abc import Iterable
+import sys
 from typing import List
 
 from apex.transformer.pipeline_parallel.utils import _reconfigure_microbatch_calculator
 from megatron.core import parallel_state
 from nemo.collections.nlp.modules.common.text_generation_strategy import GPTModelTextGenerationStrategy
 from nemo.utils import AppState
-from export import (
+import torch
+import torch.nn.functional as F
+
+# Add syspath for custom library
+if __name__ == "__main__":
+    filepath = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.join(filepath, os.pardir)
+    sys.path.append(project_root)
+
+from GPT3.export_utils import (
     get_past_key_name,
     get_past_value_name,
     get_new_key_name,
     get_new_value_name,
 )
-from trt_utils import to_torch_dtype
-import torch
-import torch.nn.functional as F
+from GPT3.trt_utils import GPTTRTDecoder
+
+sys.path.append('../../HuggingFace') # Include HuggingFace
+from NNDF.logger import G_LOGGER
 
 class TRTKVCache:
     def _allocate_memory(self):
@@ -121,7 +132,7 @@ def sample_sequence_batch(
             # last token of the top-k
             indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
             if started is not None:
-                for i in np.arange(indices_to_remove.size(0))[started.cpu().numpy()]:
+                for i in torch.arange(indices_to_remove.size(0))[started]:
                     logits[i, indices_to_remove[i]] = filter_value
             else:
                 logits[indices_to_remove] = filter_value
@@ -138,7 +149,7 @@ def sample_sequence_batch(
             sorted_indices_to_remove[..., 1:] = sorted_indices_to_remove[..., :-1].clone()
             sorted_indices_to_remove[..., 0] = 0
             if started is not None:
-                for i in np.arange(sorted_indices.size(0))[started.cpu().numpy()]:
+                for i in torch.arange(sorted_indices.size(0))[started]:
                     indices_to_remove = sorted_indices[i][sorted_indices_to_remove[i]]
                     logits[i, indices_to_remove] = filter_value
             else:
@@ -205,16 +216,22 @@ def sample_sequence_batch(
         kv_cache = None
         while context_length < maxlen:
             output = None
+
+            if hasattr(model, "onnx") and extra.get("use_cache", False):
+                G_LOGGER.warn(f"ONNX runtime path does not support KV-cache.")
+
+            # Modify counter based on using cache or not.
+            if not hasattr(model, "onnx") and extra.get("use_cache", False):
+                batch, tensor_shape = inference_strategy.prepare_batch_at_step(
+                    tokens, maxlen, micro_batch_size, counter, context_length
+                )
+            else:
+                batch, tensor_shape = inference_strategy.prepare_batch_at_step(
+                    tokens, maxlen, micro_batch_size, 0, context_length # step is always 0
+                )
+
             # Choose which runtime to use
             if hasattr(model, "trt") or hasattr(model, "onnx"):
-                if extra.get("use_cache", False):
-                    batch, tensor_shape = inference_strategy.prepare_batch_at_step(
-                        tokens, maxlen, micro_batch_size, counter, context_length
-                    )
-                else:
-                    batch, tensor_shape = inference_strategy.prepare_batch_at_step(
-                        tokens, maxlen, micro_batch_size, 0, context_length # step is always 0
-                    )
                 assert len(batch) == 5, "Length of batch must be 5."
                 (
                     batch_tokens,
@@ -228,18 +245,17 @@ def sample_sequence_batch(
 
                 # inputs input_ids: [BS, SEQ], position_ids: [BS, SEQ], attention_mask: [1, 1, SEQ, SEQ]
                 if hasattr(model, "trt"):
-                    from trt_utils import GPTTRTDecoder
                     assert isinstance(model.trt, GPTTRTDecoder)
                     input_ids_name = model.trt.get_input_ids_name()
-                    input_ids = batch_tokens.type(to_torch_dtype(model.trt.get_type(input_ids_name))).contiguous().cuda()
+                    input_ids = batch_tokens.type(model.trt.get_torch_type(input_ids_name)).contiguous().cuda()
                     tensor_dict = {input_ids_name : (input_ids, input_ids.shape)}
                     position_ids_name = model.trt.get_position_ids_name()
                     if position_ids_name != None:
-                        position_ids = position_ids.type(to_torch_dtype(model.trt.get_type(position_ids_name))).contiguous().cuda()
+                        position_ids = position_ids.type(model.trt.get_torch_type(position_ids_name)).contiguous().cuda()
                         tensor_dict[position_ids_name] = (position_ids, position_ids.shape)
                     attention_mask_name = model.trt.get_attention_mask_name()
                     if attention_mask_name != None:
-                        attention_mask = attention_mask.type(to_torch_dtype(model.trt.get_type(attention_mask_name))).contiguous().cuda()
+                        attention_mask = attention_mask.type(model.trt.get_torch_type(attention_mask_name)).contiguous().cuda()
                         tensor_dict[attention_mask_name] = (attention_mask, attention_mask.shape)
 
                     is_first_input = False
@@ -273,10 +289,7 @@ def sample_sequence_batch(
                     output = torch.Tensor(output).cuda()
                 # output logits: [BS, SEQ, 50304]
             else:
-                batch, tensor_shape = inference_strategy.prepare_batch_at_step(
-                    tokens, maxlen, micro_batch_size, counter, context_length
-                )
-
+                # nemo path
                 output = inference_strategy.forward_step(batch, tensor_shape)
                 output = output[0]['logits'].float()
 
@@ -408,7 +421,7 @@ def full_inference(model, inputs, cfg):
             "greedy": cfg.inference.greedy,
             "repetition_penalty": cfg.inference.repetition_penalty,
             "min_tokens_to_generate": min_tokens_to_generate,
-            "use_cache": cfg.enable_kv_cache,
+            "use_cache": cfg.use_cache,
             "benchmark_mode": is_benchmark_mode
         },
     )

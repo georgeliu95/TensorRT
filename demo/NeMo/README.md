@@ -1,7 +1,7 @@
 # TensorRT FP8 Inference for NeMo models
-This repository demonstrates TensorRT inference with NeMo Megatron models in FP8 precision.
+This repository demonstrates TensorRT inference with NeMo Megatron models in FP8/FP16/BF16 precision.
 
-Currently, this repository supports NeMo GPT models only.
+Currently, this repository supports [NeMo GPT](https://huggingface.co/nvidia/nemo-megatron-gpt-5B) models only.
 
 # Environment Setup
 It's recommended to run inside a container to avoid conflicts when installing dependencies. Tested with TensorRT container [`tensorrt:23.04-py3`](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tensorrt/tags). A GPU with compute capability 9.0 or above is required to run the demo.
@@ -12,100 +12,65 @@ source install.sh
 
 > The script will install required dependencies and it can take more than 30 minutes.
 
+**Please note that the [HuggingFace demo directory](demo/HuggingFace) needs to be visible when running this demo, so utility functions can be correctly imported.**
 
-## Download NeMo model
-A GPT-5B model trained with FP16 precision can be downloaded with:
+# File Structure
+This demo follows simliar structure and command-line interface as in [HuggingFace demo](demo/HuggingFace).
 ```
-wget https://huggingface.co/nvidia/nemo-megatron-gpt-5B/resolve/main/nemo_gpt5B_fp16_tp1.nemo
-```
-
-Please get a NeMo GPT model trained with FP8 precision to be compared with FP16 precision.
-
-# Export NeMo to ONNX and TensorRT
-
-Assume `5b_fp8_tp1.nemo` is a NeMo GPT-5B trained with FP8 precision. we can run below command to export the NeMo model to a TRT engine. The ONNX model is used as a middle step, and it will be stored at the specified path.
-```
-# python export.py gpt_model_file=<INPUT_NEMO_MODEL> onnx_model_file=<OUTPUT_ONNX_NAME> trt_engine_file=<OUTPUT_TRT_NAME>
-mkdir onnx
-python export.py gpt_model_file=5b_fp8_tp1.nemo onnx_model_file=onnx/5b_fp8_tp1.onnx trt_engine_file=5b_fp8_tp1.plan
-```
-
-# Run E2E inference
-Perform end-to-end inference on an input prompt with TRT:
-```
-python main.py runtime=trt trt_engine_file=5b_fp8_tp1.plan prompts=["Tell me an interesting fact about TensorRT."]
+.
+├── GPT3                   # GPT3 directory
+│   ├── GPT3ModelConfig.py # model configuration and variant-specific parameters
+│   ├── frameworks.py      # NeMo PyTorch inference script
+│   ├── onnxrt.py          # OnnxRT inference script
+│   ├── trt.py             # TensorRT inference script
+│   ├── decoding.py        # main inference logic for all runtimes
+│   ├── export_utils.py    # export functions for NeMo model -> ONNX model -> TRT engine
+│   └── ...                # files with utility functions for export and inference
+├── interface.py # definitions of setup functions
+└── run.py       # main entry script
 ```
 
-Expected output:
+# How to run inference
+The `run` action will run end-to-end inference on sentences specified in [megatron_gpt_demo.yaml](demo/NeMo/GPT3/megatron_gpt_demo.yaml).
 ```
-***************************
-{'sentences': ['Tell me an interesting fact about TensorRT.\n\nTensorRT is a library for training and deploying neural networks. It is written in C++ and is available on Windows, Linux, and'],
- 'tokens': [['<|endoftext|>', 'Tell', ' me', ' an', ' interesting', ' fact', ' about', ' T', 'ensor', 'RT', '.', '\n', '\n', 'T', 'ensor', 'RT', ' is', ' a', ' library', ' for', ' training', ' and', ' deploying', ' neural', ' networks', '.', ' It', ' is', ' written', ' in', ' C', '++', ' and', ' is', ' available', ' on', ' Windows', ',', ' Linux', ',', ' and']],
- 'logprob': tensor([[-8.8471, -1.9896, -7.4929, -1.8296, -0.7938, -0.4374, -7.7575, -6.3849,
-         -7.1476, -1.3660, -0.4079, -0.1451, -2.2410, -0.0183, -0.0904, -0.4929,
-         -0.6474, -2.7981, -1.0308, -2.4455, -1.0503, -0.8344, -1.3654, -0.1558,
-         -1.0352, -1.1387, -1.5104, -1.7296, -0.2362, -0.1349, -0.0814, -0.5735,
-         -1.3795, -2.2406, -1.2948, -1.4569, -0.1648, -0.7849, -0.3062, -0.3810]], device='cuda:0'),
- 'full_logprob': None, 'token_ids': [[50256, 24446, 502, 281, 3499, 1109, 546, 309, 22854, 14181, 13, 198, 198, 51, 22854, 14181, 318, 257, 5888, 329, 3047, 290, 29682, 17019, 7686, 13, 632, 318, 3194, 287, 327, 4880, 290, 318, 1695, 319, 3964, 11, 7020, 11, 290]], 'offsets': [[0, 0, 4, 7, 10, 22, 27, 33, 35, 40, 42, 43, 44, 45, 46, 51, 53, 56, 58, 66, 70, 79, 83, 93, 100, 109, 110, 113, 116, 124, 127, 129, 131, 135, 138, 148, 151, 159, 160, 166, 167]]}
-***************************
+python3 run.py run GPT3 [frameworks | trt] --variant gpt-5b --working-dir $(pwd)/temp --fp8 --fp16
 ```
 
-Perform end-to-end inference on an input prompt with NeMo:
+Expected output for the second sentence:
 ```
-python main.py runtime=nemo gpt_model_file=5b_fp8_tp1.nemo prompts=["Tell me an interesting fact about TensorRT."]
-```
-
-Expected output:
-```
-***************************
-{'sentences': ['Tell me an interesting fact about TensorRT.\n\nTensorRT is a library for training and deploying neural networks. It is written in C++ and is available on Windows, Linux, and'],
- 'tokens': [['<|endoftext|>', 'Tell', ' me', ' an', ' interesting', ' fact', ' about', ' T', 'ensor', 'RT', '.', '\n', '\n', 'T', 'ensor', 'RT', ' is', ' a', ' library', ' for', ' training', ' and', ' deploying', ' neural', ' networks', '.', ' It', ' is', ' written', ' in', ' C', '++', ' and', ' is', ' available', ' on', ' Windows', ',', ' Linux', ',', ' and']],
- 'logprob': tensor([[-8.9012, -1.9124, -7.5838, -1.9213, -0.8400, -0.4180, -7.7495, -6.4685,
-         -7.3179, -1.4008, -0.3859, -0.1656, -2.1336, -0.0182, -0.0730, -0.4786,
-         -0.6357, -2.7409, -1.0404, -2.4107, -1.0784, -0.9290, -1.4114, -0.1634,
-         -1.0954, -1.1354, -1.5088, -1.5949, -0.2563, -0.1336, -0.0771, -0.5719,
-         -1.4210, -2.2415, -1.2126, -1.5932, -0.1459, -0.7712, -0.3292, -0.4084]], device='cuda:0'),
- 'full_logprob': None, 'token_ids': [[50256, 24446, 502, 281, 3499, 1109, 546, 309, 22854, 14181, 13, 198, 198, 51, 22854, 14181, 318, 257, 5888, 329, 3047, 290, 29682, 17019, 7686, 13, 632, 318, 3194, 287, 327, 4880, 290, 318, 1695, 319, 3964, 11, 7020, 11, 290]], 'offsets': [[0, 0, 4, 7, 10, 22, 27, 33, 35, 40, 42, 43, 44, 45, 46, 51, 53, 56, 58, 66, 70, 79, 83, 93, 100, 109, 110, 113, 116, 124, 127, 129, 131, 135, 138, 148, 151, 159, 160, 166, 167]]}
-***************************
-```
-
-# Accuracy
-
-## Evaluating Sequence Perplexity Using The LAMBADA Dataset
-Perform accuracy check on GPT-5B FP8 model with TRT:
-```
-python main.py runtime=trt trt_engine_file=5b_fp8_tp1.plan mode=accuracy
+Batch 1: {'sentences': ['Tell me an interesting fact about TensorRT.\n\nTensorRT is a library for running machine learning algorithms on TensorFlow.\n\nTensorRT is a library for running machine learning'],
+          'tokens': [['<|endoftext|>', 'Tell', ' me', ' an', ' interesting', ' fact', ' about', ' T', 'ensor', 'RT', '.', '\n', '\n', 'T', 'ensor', 'RT', ' is', ' a', ' library', ' for', ' running', ' machine', ' learning', ' algorithms', ' on', ' T', 'ensor', 'Flow', '.', '\n', '\n', 'T', 'ensor', 'RT', ' is', ' a', ' library', ' for', ' running', ' machine', ' learning']],
+          'logprob': tensor([[-8.9306e+00, -1.9799e+00, -7.5495e+00, -2.1066e+00, -7.3745e-01,
+         -4.1447e-01, -7.8721e+00, -6.5872e+00, -6.7521e+00, -1.3699e+00,
+         -5.6391e-01, -1.6518e-01, -2.2900e+00, -2.2496e-02, -1.0490e-01,
+         -4.6875e-01, -5.9859e-01, -2.7474e+00, -9.9975e-01, -2.6057e+00,
+         -1.9231e+00, -8.5407e-02, -9.6093e-01, -5.4157e-01, -2.0662e+00,
+         -6.8296e-02, -5.9870e-02, -1.0722e+00, -1.3832e+00, -9.8978e-02,
+         -1.4420e+00, -1.2904e-02, -6.5171e-01, -8.1253e-01, -1.6091e+00,
+         -1.1594e+00, -1.3299e-01, -9.7715e-02, -2.2241e-01, -6.7608e-03]],
+       device='cuda:0'),
+          'full_logprob': None,
+          'token_ids': [[50256, 24446, 502, 281, 3499, 1109, 546, 309, 22854, 14181, 13, 198, 198, 51, 22854, 14181, 318, 257, 5888, 329, 2491, 4572, 4673, 16113, 319, 309, 22854, 37535, 13, 198, 198, 51, 22854, 14181, 318, 257, 5888, 329, 2491, 4572, 4673]],
+          'offsets': [[0, 0, 4, 7, 10, 22, 27, 33, 35, 40, 42, 43, 44, 45, 46, 51, 53, 56, 58, 66, 70, 78, 86, 95, 106, 109, 111, 116, 120, 121, 122, 123, 124, 129, 131, 134, 136, 144, 148, 156, 164]]}
 ```
 
-Expected output:
+# How to run with various configurations
+- FP8, FP16, and BF16 precisions are supported, and they can be set through `--fp8`, `--fp16`, and `--bf16` respectively. Currently, the script has constraints on how precisions are specified, and supported combinations are:
+  1. Pure FP16: `--fp16` (default)
+  2. FP8-FP16: `--fp8 --fp16`
+  3. FP8-BF16: `--fp8 --bf16`
+
+- K-V cache can be enabled through `--use-cache`
+
+- Batch size can be changed through `--batch-size=<bs>`
+
+# How to run performance benchmark
+The `benchmark` action will run inference with specified input and output sequence lengths multiple times.
 ```
-***************************
-Lambada ppl: 4.7984961574172145
-***************************
+python3 run.py benchmark GPT3 [frameworks | trt] --variant gpt-5b --working-dir $(pwd)/temp --fp8 --fp16 --batch-size=8 --input-seq-len=128 --output-seq-len=20 --use-cache
 ```
 
-Perform accuracy check on GPT-5B FP8 model with NeMo:
-```
-python main.py runtime=nemo gpt_model_file=5b_fp8_tp1.nemo mode=accuracy
-```
-
-Expected output:
-```
-***************************
-Lambada ppl: 4.789651459845271
-***************************
-```
-
-# Benchmark
-
-## Evaluating performance with fixed input and output sequence length
-Perform benchmark with input sequence 128 and output sequence 20 with TRT, use `batch_size=8`:
-```
-python3 export.py gpt_model_file=5b_fp8_tp1.nemo trt_engine_file=5b_fp8_tp1.plan batch_size=8
-python3 main.py runtime=trt trt_engine_file=5b_fp8_tp1.plan batch_size=8 mode=benchmark benchmark.loop=100 benchmark.warm_up=1 benchmark.input_seq_len=128 benchmark.output_seq_len=20
-```
-
-Expected output:
+Expected output for `trt`:
 ```
 ***************************
 Running 100 iterations with batch size: 8, input sequence length: 128 and output sequence length: 20
@@ -113,15 +78,30 @@ Running 100 iterations with batch size: 8, input sequence length: 128 and output
 ***************************
 ```
 
-Perform benchmark with input sequence 128 and output sequence 20 with NeMo (NeMo FP8 benchmark mode requires batch size to be a multiple of 8.):
-```
-python3 main.py runtime=nemo gpt_model_file=5b_fp8_tp1.nemo batch_size=8 mode=benchmark benchmark.loop=100 benchmark.warm_up=1 benchmark.input_seq_len=128 benchmark.output_seq_len=20
-```
-
-Expected output:
+Expected output for `frameworks`:
 ```
 ***************************
 Running 100 iterations with batch size: 8, input sequence length: 128 and output sequence length: 20
   Total Time: 59.08389 s, Average Time: 0.59084 s, 95th Percentile Time: 0.59606 s, 99th Percentile Time: 0.60624 s, Throughput: 270.80 tokens/s
+***************************
+```
+
+# How to run accuracy check
+The `accuracy` action will run accuracy check on a dataset. Default is to use [LAMBADA](https://paperswithcode.com/dataset/lambada) dataset.
+```
+python3 run.py accuracy GPT3 [frameworks | trt] --variant gpt-5b --working-dir $(pwd)/temp --fp8 --fp16
+```
+
+Expected output for `trt`:
+```
+***************************
+Lambada ppl: 4.7984961574172145
+***************************
+```
+
+Expected output for `frameworks`:
+```
+***************************
+Lambada ppl: 4.789651459845271
 ***************************
 ```

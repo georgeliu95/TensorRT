@@ -17,24 +17,16 @@
 #
 
 DEPENDENCIES_DIR="temp";
-if [ "$#" -ge 1 ]; then
+if [ "$#" -gt 1 ]; then
     echo "Usage: source install.sh [dependencies_dir]";
-    exit 1;
+    return 0;
 elif [ "$#" -eq 1 ]; then
     DEPENDENCIES_DIR=${1};
 fi
-echo "Using ${DEPENDENCIES_DIR} to store dependencies.";
+echo "Using '$(pwd)/${DEPENDENCIES_DIR}' to store dependencies.";
 mkdir -p ${DEPENDENCIES_DIR};
 
 pip install --upgrade pip
-
-# install pytorch
-has_torch=$(pip list | grep torch -o | sort -u | awk '{print $1}' | awk '{print length}');
-if [ "$has_torch" != "5" ];
-then
-    echo " > Installing PyTorch...";
-    pip install torch==2.0.0 torchvision==0.15.1 torchaudio==2.0.1 --index-url https://download.pytorch.org/whl/cu118
-fi
 
 echo " > Installing Requirements.txt...";
 pip install nvidia-pyindex
@@ -44,7 +36,7 @@ BASE_DIR=$(pwd);
 cd ${DEPENDENCIES_DIR};
 
 # install apex
-has_apex=$(pip list | grep apex | awk '{print $1}' | awk '{print length}');
+has_apex=$(pip list | grep "^apex " | grep "apex" -o | awk '{print $1}' | awk '{print length}');
 if [ "$has_apex" != "4" ];
 then
     echo " > Installing Apex...";
@@ -97,13 +89,4 @@ bash reinstall.sh
 cd ../
 export PYTHONPATH=$(pwd)/NeMo/:${PYTHONPATH}
 
-echo " > Installing Polygraphy...";
-pip uninstall -y polygraphy
-if [ ! -d "Polygraphy" ];
-then
-    git clone ssh://git@gitlab-master.nvidia.com:12051/TensorRT/Infrastructure/Polygraphy.git
-fi
-cd Polygraphy
-make install
 cd ../
-

@@ -15,29 +15,35 @@
 # limitations under the License.
 #
 import os
-import abc
 import collections
 import json
 import requests
+import sys
 import torch
 from torch.nn.utils.rnn import pad_sequence
+
+# Add syspath for custom library
+if __name__ == "__main__":
+    filepath = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.join(filepath, os.pardir)
+    sys.path.append(project_root)
+
+from GPT3.export_utils import create_dir_if_not_exist
 
 __all__ = ['Lambada']
 
 
 class Lambada():
 
-    def __init__(self, max_length = 2048):
-        self.download()
+    def __init__(self, base_dir, max_length = 2048):
+        self.base_dir = base_dir
         self.max_length = max_length 
+        self.download()
 
     def get_data_file_path(self):
-        path = os.path.join(os.path.dirname(__file__), "lambada")
-        if not os.path.exists(path):
-            if not os.access(path, os.W_OK):
-                raise "ERROR: No write access to save the lambada dataset"
-            os.mkdir(path)
+        path = os.path.join(self.base_dir, "lambada")
         path = os.path.join(path, "lambada_test.jsonl")
+        create_dir_if_not_exist(path)
         return path
 
     def download(self):

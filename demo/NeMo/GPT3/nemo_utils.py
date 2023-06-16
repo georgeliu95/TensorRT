@@ -17,19 +17,67 @@
 
 import gc
 import os
-import torch
-from omegaconf import OmegaConf
+import sys
+
+# Only print out error messages from NeMo
+from nemo.utils.nemo_logging import Logger as NG_LOGGER
+nemo_logger = NG_LOGGER(False)
+nemo_logger.setLevel(nemo_logger.ERROR)
 
 from nemo.collections.nlp.models.language_modeling.megatron_gpt_model import MegatronGPTModel
 from nemo.collections.nlp.parts.nlp_overrides import NLPDDPStrategy, NLPSaveRestoreConnector
 from omegaconf import OmegaConf, open_dict
 from pytorch_lightning.trainer.trainer import Trainer
+import torch
+
+sys.path.append('../../HuggingFace') # Include HuggingFace directory.
+from NNDF.logger import G_LOGGER
+
+
+def get_computeprob_response(tokenizer, response, inputs):
+    """
+        This function is a modified version from:
+        https://github.com/NVIDIA/NeMo/blob/main/nemo/collections/nlp/modules/common/text_generation_utils.py#L139
+
+        So parallel state does not need to be initialized before calling this function.
+    """
+    compute_prob_response = {}
+    new_token_ids = []
+    new_tokens = []
+    new_texts = []
+    log_probs = []
+    full_logprobs = []
+    offsets = []
+    for batch_id in range(len(response['tokens'])):
+        if isinstance(inputs, (list, tuple)):
+            if isinstance(inputs[0], str):
+                new_token_id = tokenizer.text_to_ids(inputs[batch_id])
+                new_text = inputs[batch_id]
+                token_len = len(new_token_id)
+            elif isinstance(inputs[0], torch.Tensor):
+                token_len = int(inputs[1][batch_id].item())
+                new_token_id = inputs[0][batch_id][:token_len].tolist()
+                new_text = tokenizer.ids_to_text(new_token_id)
+        new_token_ids.append(new_token_id)
+        new_tokens.append(response['tokens'][batch_id][:token_len])
+        new_texts.append(new_text)
+        log_probs.append(response['logprob'][batch_id][:token_len])
+        full_logprobs.append(response['full_logprob'][batch_id][:token_len])
+        offsets.append(response['offsets'][batch_id][:-1])
+    compute_prob_response['sentences'] = new_texts
+    compute_prob_response['tokens'] = new_tokens
+    compute_prob_response['token_ids'] = new_token_ids
+    compute_prob_response['logprob'] = log_probs
+    compute_prob_response['full_logprob'] = full_logprobs
+    compute_prob_response['offsets'] = offsets
+    return compute_prob_response
+
 
 def load_nemo_model(cfg, model_class=MegatronGPTModel):
     if not cfg.gpt_model_file:
         raise ValueError("Need to provide a nemo gpt model through config gpt_model_file.")
 
-    # trainer required for restoring model parallel models
+    # Trainer is required for restoring model parallel models
     trainer = Trainer(strategy=NLPDDPStrategy(), **cfg.trainer)
 
     save_restore_connector = NLPSaveRestoreConnector()
@@ -66,6 +114,7 @@ def load_nemo_model(cfg, model_class=MegatronGPTModel):
         pass
 
     model.eval()
+    G_LOGGER.info(f"{type(model)} has been successfully restored from {cfg.gpt_model_file}")
     return model.cuda()
 
 def release_nemo_model(model):
