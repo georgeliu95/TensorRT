@@ -14,19 +14,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import torch
+import sys
+
 import numpy as np
 import tensorrt as trt
-
-import sys
-sys.path.append('../') # Include one-level up directory so to reuse HuggingFace utils.
-sys.path.append('../HuggingFace') # Include HuggingFace directory as well
-from HuggingFace.NNDF.models import TRTEngineFile
-from HuggingFace.Seq2Seq.export import DecoderTRTEngine
-from HuggingFace.NNDF.networks import NetworkMetadata
-from HuggingFace.NNDF.tensorrt_utils import TRTNativeRunner
-
+import torch
 from transformers.configuration_utils import PretrainedConfig
+
+sys.path.append('../../HuggingFace') # Include HuggingFace directory
+from NNDF.models import TRTEngineFile
+from NNDF.networks import NetworkMetadata
+from NNDF.tensorrt_utils import TRTNativeRunner
+from NNDF.logger import G_LOGGER
+from Seq2Seq.export import DecoderTRTEngine
+
 
 def to_torch_dtype(np_type):
     if np_type == np.int32:
@@ -66,7 +67,8 @@ class GPTTRTDecoder(TRTNativeRunner):
 
         self.cfg = cfg
         logits_size = self.cfg.batch_size * self.cfg.model.max_seq_len * self.cfg.model.vocab_size
-        self.logits = torch.zeros(logits_size, dtype=torch.float16).contiguous().cuda()
+        dtype = self.get_torch_type(self.get_output_name())
+        self.logits = torch.zeros(logits_size, dtype=dtype).contiguous().cuda()
 
     def _set_context_mode_trt_context(self):
         # Create TRT context for context mode (1st decoder run) with optimization profile index = 1
@@ -74,8 +76,21 @@ class GPTTRTDecoder(TRTNativeRunner):
         self.context_trt_context.active_optimization_profile = 1
         self.kv_cache_binding_offset = self.trt_engine.num_bindings // self.trt_engine.num_optimization_profiles
 
-    def get_type(self, name):
-        return trt.nptype(self.trt_engine.get_binding_dtype(name))
+    def get_torch_type(self, name):
+        trt_type = self.trt_engine.get_binding_dtype(name)
+        mapping = {
+            trt.float32: torch.float32,
+            trt.float16: torch.float16,
+            trt.int8: torch.int8,
+            trt.int32: torch.int32,
+            trt.int64: torch.int64,
+            trt.bool: torch.bool,
+            trt.uint8: torch.uint8,
+            trt.bfloat16: torch.bfloat16,
+        }
+        if trt_type in mapping:
+            return mapping[trt_type]
+        raise ValueError(f"Got unexpected tensorrt dtype {trt_type} in get_torch_type().")
 
     def get_input_ids_name(self):
         return self.trt_engine.get_binding_name(self.INPUT_IDS_INDEX)
@@ -136,9 +151,9 @@ class GPTTRTDecoder(TRTNativeRunner):
 
         # Set up output bindings.
         assert len(output_names) == 1 and output_names[0] == self.get_output_name()
-        type = trt.nptype(self.trt_engine.get_binding_dtype(output_names[0]))
-        if self.logits.dtype != to_torch_dtype(type):
-            raise ValueError(f"Output data type does not match, {self.logits.dtype} vs. {to_torch_dtype(type)}.")
+        engine_out_torch_type = self.get_torch_type(output_names[0])
+        if self.logits.dtype != engine_out_torch_type:
+            raise ValueError(f"Output data type does not match, {self.logits.dtype} vs. {engine_out_torch_type}.")
         idx = get_binding_idx(output_names[0], binding_offset)
         shape = active_context.get_binding_shape(idx)
         bindings[idx] = self.logits.data_ptr()
@@ -151,6 +166,6 @@ class GPTTRTDecoder(TRTNativeRunner):
         return [output]
 
 def load_trt_model(cfg):
-    print(f'loading trt model {cfg.trt_engine_file} enable_kv_cache {cfg.enable_kv_cache}')
+    G_LOGGER.info(f'Loading TensorRT engine from {cfg.trt_engine_file} with use_cache={cfg.use_cache}')
     trt_engine_file = DecoderTRTEngine(cfg.trt_engine_file)
-    return GPTTRTDecoder(trt_engine_file, cfg.enable_kv_cache, cfg)
+    return GPTTRTDecoder(trt_engine_file, cfg.use_cache, cfg)

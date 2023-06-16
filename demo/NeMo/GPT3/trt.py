@@ -1,0 +1,140 @@
+#
+# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+import os
+import sys
+
+import omegaconf
+from nemo.collections.nlp.modules.common.tokenizer_utils import get_tokenizer
+from nemo.collections.nlp.models.language_modeling.megatron_gpt_model import MegatronGPTModel
+
+# Add syspath for custom library
+if __name__ == "__main__":
+    filepath = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.join(filepath, os.pardir)
+    sys.path.append(project_root)
+
+from GPT3.GPT3ModelConfig import GPT3ModelTRTConfig
+from GPT3.export import NeMoModelClass
+from GPT3.export_utils import NeMoConverter, create_dir_if_not_exist
+from GPT3.trt_utils import load_trt_model
+from interface import NeMoCommand, BaseModel
+
+sys.path.append('../../HuggingFace') # Include HuggingFace
+from NNDF.interface import FRAMEWORK_TENSORRT
+from NNDF.logger import G_LOGGER
+from NNDF.networks import (
+    NetworkModel,
+    NetworkModels,
+)
+
+class GPT3NeMoTRT(NeMoCommand):
+    def __init__(
+        self,
+        nemo_cfg,
+        config_class=GPT3ModelTRTConfig,
+        description="Runs TensorRT results for GPT3 model.",
+        **kwargs
+    ):
+        super().__init__(nemo_cfg, config_class, description, model_classes=NeMoModelClass, **kwargs)
+        self.framework_name = FRAMEWORK_TENSORRT
+
+
+    def setup_tokenizer_and_model(self):
+        self.nemo_cfg.runtime = 'trt'
+        self.model = BaseModel()
+        self.model.cfg = self.nemo_cfg.model
+        self.model.tokenizer = get_tokenizer(tokenizer_name='megatron-gpt-345m', vocab_file=None, merges_file=None)
+
+        onnx_name = os.path.join(self.workspace.dpath, f"onnx/model-{self.nemo_cfg.trainer.precision}.onnx")
+        self.nemo_cfg.onnx_model_file = onnx_name
+        self.nemo_cfg.trt_engine_options.timing_cache = self.timing_cache
+
+        converter = NeMoConverter(self.nemo_cfg, MegatronGPTModel)
+        if not os.path.isfile(self.nemo_cfg.onnx_model_file):
+            # Convert NeMo model to ONNX model
+            onnx_name = converter.nemo_to_onnx()
+
+        # Convert ONNX opset to 19
+        opset19_onnx_name = NeMoConverter.get_opset19_onnx_fpath(self.nemo_cfg.onnx_model_file)
+        if not os.path.isfile(opset19_onnx_name):
+            opset19_onnx_name = NeMoConverter.onnx_to_opset19(onnx_name)
+
+        if opset19_onnx_name != None:
+            onnx_name = opset19_onnx_name
+
+        # Add KV cache to ONNX model
+        if self.nemo_cfg.use_cache:
+            G_LOGGER.info(f"Converting {onnx_name} with KV-cache support")
+            kv_output_policy = "kv_new"
+            new_dir = str(os.path.dirname(onnx_name)) + f"_{kv_output_policy}"
+            onnx_output_fpath = os.path.join(new_dir, onnx_name.split("/")[-1])
+            if not os.path.isfile(onnx_output_fpath):
+                create_dir_if_not_exist(onnx_output_fpath)
+                converter.create_kv_onnx(onnx_name, onnx_output_fpath, kv_output_policy)
+            onnx_name = onnx_output_fpath
+
+        # Convert ONNX model to TRT engine
+        suffixes = []
+        suffixes.append("bs" + str(self.nemo_cfg.batch_size))
+        if self.nemo_cfg.use_cache:
+            suffixes.append("kv")
+        suffix = "-".join(suffixes)
+        trt_fpath = os.path.join(self.workspace.dpath, f"trt-{suffix}.plan")
+        if not os.path.isfile(trt_fpath):
+            converter.onnx_to_trt(onnx_name, trt_fpath)
+
+        self.nemo_cfg.trt_engine_file = trt_fpath
+        self.model.trt = load_trt_model(self.nemo_cfg)
+        self.tokenizer = self.model.tokenizer
+        onnx_models = [
+            NetworkModel(
+                name=GPT3ModelTRTConfig.NETWORK_FULL_NAME, fpath=self.nemo_cfg.onnx_model_file,
+            )
+        ]
+        return NetworkModels(torch=None, onnx=onnx_models, trt=None)
+
+    def add_args(self):
+        super().add_args()
+        engine_group = self._parser.add_argument_group("trt engine")
+        engine_group.add_argument(
+            "--use-timing-cache",
+            default=False,
+            help="Use Timing Cache could speed up engine building",
+            action="store_true",
+        )
+
+    def process_framework_specific_arguments(
+        self,
+        use_timing_cache: bool = False,
+        **kwargs
+    ):
+        self.use_timing_cache = use_timing_cache
+        self.timing_cache = self.workspace.get_timing_cache() if self.use_timing_cache else None
+
+# Entry point
+def getGPT3NeMoTRT():
+    config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "megatron_gpt_demo.yaml")
+    nemo_cfg = omegaconf.OmegaConf.load(config_path)
+    return GPT3NeMoTRT(nemo_cfg)
+
+# Entry point
+RUN_CMD = getGPT3NeMoTRT()
+
+if __name__ == "__main__":
+    result = RUN_CMD()
+    print("Results: {}".format(result))

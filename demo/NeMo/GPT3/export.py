@@ -14,8 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import onnxruntime as ort
 
-def load_onnx_model(cfg):
-    print(f'loading model cfg.onnx_model_file {cfg.onnx_model_file}')
-    return ort.InferenceSession(cfg.onnx_model_file)
+class NeMoModelClass:
+    """
+    A class to track which class to use for each model type.
+    """
+    # Attributes for HuggingFace infra
+    encoder_classes = None
+    decoder_classes = None
+    cross_attn_cache_generator_classes = None

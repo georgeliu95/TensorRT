@@ -1,9 +1,9 @@
-runtime: nemo # [nemo, onnx, trt]
-gpt_model_file: 'nemo_gpt5B_fp8_tp1.nemo' # GPT nemo file path
-onnx_model_file: 'onnx/model.onnx' # ONNX file path
-trt_engine_file: 'trt.plan' # TRT engine file path
+runtime: null
+gpt_model_file: null # GPT nemo file path
+onnx_model_file: null # ONNX file path
+trt_engine_file: null # TRT engine file path
 batch_size: 1
-enable_kv_cache: True
+use_cache: True
 use_one_input: False # export ONNX model with only one input
 prompts: # prompts for GPT inference
   - "How are you?"
@@ -29,9 +29,7 @@ accuracy:
   metric: Perplexity
 
 benchmark:
-  warm_up: 5
-  loop: 100
-  input_seq_len: 300
+  input_seq_len: 20
   output_seq_len: 20
 
 export_options:
@@ -46,8 +44,8 @@ export_options:
 # for onnx to trt export
 trt_engine_options:
   use_tf32: True
-  use_fp16: False # Default to False until a TRT bug is fixed
-  use_fp8: True
+  use_fp16: False
+  use_fp8: False
   use_bf16: False
   timing_cache: 'functional.cache'
 
