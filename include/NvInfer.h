@@ -2877,7 +2877,8 @@ protected:
 //!
 //! Operation kPOW must have inputs of floating-point type or DataType::kINT8.
 //!
-//! All other operations must have inputs of floating-point type, DataType::kINT8, or DataType::kINT32.
+//! All other operations must have inputs of floating-point type, DataType::kINT8, DataType::kINT32, or
+//! DataType::kINT64.
 //!
 //! \see IElementWiseLayer
 //!
@@ -3030,7 +3031,7 @@ constexpr inline int32_t EnumMax<GatherMode>() noexcept
 //!     GatherMode::kELEMENT:
 //!         The output dimensions match the dimensions of the indices tensor.
 //!
-//! The types of Data and Output must be the same, and Indices shall be DataType::kINT32.
+//! The types of Data and Output must be the same, and Indices shall be DataType::kINT32 or DataType::kINT64.
 //!
 //! How the elements of Data are gathered depends on the mode:
 //!
@@ -3660,7 +3661,8 @@ protected:
 //!
 //! Operations kNOT must have inputs of DataType::kBOOL.
 //!
-//! Operation kSIGN must have inputs of floating-point type, DataType::kINT8, or DataType::kINT32.
+//! Operation kSIGN and kABS must have inputs of floating-point type, DataType::kINT8, DataType::kINT32 or
+//! DataType::kINT64.
 //!
 //! Operation kISINF must have inputs of floating-point type.
 //!
@@ -4712,6 +4714,8 @@ public:
     //!
     //! \brief Set cast layer output type.
     //!
+    //! \param toType The DataType of the output tensor.
+    //!
     //! Set the output type of the cast layer.
     //!
     void setToType(DataType toType) noexcept
@@ -4749,9 +4753,8 @@ public:
     //!
     //! \brief Set the weights for the layer.
     //!
-    //! If weights.type is DataType::kINT32, the output is a tensor of 32-bit indices.
-    //! Otherwise the output is a tensor of real values and the output type will be
-    //! follow TensorRT's normal precision rules.
+    //! The output type is weights.type. If the network is weakly typed and the weights have a real type,
+    //! the output type might be different per TensorRT's type conversion rules.
     //!
     //! \see getWeights()
     //!
@@ -6082,6 +6085,34 @@ public:
         return mImpl->isAlphaBetaInt64();
     }
 
+    //!
+    //! \brief Set the fill layer output type.
+    //!
+    //! \param toType The DataType of the output tensor.
+    //!
+    //! Set the output type of the fill layer. Valid values are DataType::kFLOAT, DataType::kINT32,
+    //! and DataType::kINT64.
+    //! This is equivalent to using setOutputType on the layer outside of strongly typed mode.
+    //! In strongly typed mode, setOutputType cannot be used and setToType must be used instead.
+    //! The value toType must be consistent with the value set by any prior and subsequent setOutputType calls.
+    //!
+    void setToType(DataType toType) noexcept
+    {
+        mImpl->setToType(toType);
+    }
+
+    //!
+    //! \brief Get the fill layer output type.
+    //!
+    //! \return toType parameter set during layer creation or by setToType().
+    //! The return value is the output type of the fill layer.
+    //! The default value is DataType::kFLOAT.
+    //!
+    DataType getToType() const noexcept
+    {
+        return mImpl->getToType();
+    }
+
 protected:
     virtual ~IFillLayer() noexcept = default;
     apiv::VFillLayer* mImpl;
@@ -6174,10 +6205,12 @@ public:
     //!
     //! \brief Set the Quantize layer output type.
     //!
+    //! \param toType The DataType of the output tensor.
+    //!
     //! Set the output type of the quantize layer. Valid values are DataType::kINT8 and DataType::kFP8.
     //! This is equivalent to using setOutputType on the layer outside of strongly typed mode.
     //! In strongly typed mode, setOutputType cannot be used and users must use setToType instead.
-    //! The toType value must be consistent with the value set by any prior setOutputType calls.
+    //! The value toType must be consistent with the value set by any prior setOutputType calls.
     //!
     void setToType(DataType toType) noexcept
     {
@@ -6285,10 +6318,12 @@ public:
     //!
     //! \brief Set the Dequantize layer output type.
     //!
+    //! \param toType The DataType of the output tensor.
+    //!
     //! Set the output type of the dequantize layer. Valid values are DataType::kFLOAT and DataType::kHALF.
     //! This is equivalent to using setOutputType on the layer outside of strongly typed mode.
     //! In strongly typed mode, setOutputType cannot be used and users must use setToType instead.
-    //! The toType value must be consistent with the value set by any prior setOutputType calls.
+    //! The value toType must be consistent with the value set by any prior setOutputType calls.
     //!
     void setToType(DataType toType) noexcept
     {
@@ -6420,7 +6455,7 @@ constexpr inline int32_t EnumMax<ScatterMode>() noexcept
 //!       Scattermode::kELEMENT: s = q = r
 //! * Output is a tensor with the same dimensions as Data that stores the resulting values of the
 //!   transformation. It must not be a shape tensor.
-//! The types of Data, Update, and Output shall be the same, and Indices shall be DataType::kINT32.
+//! The types of Data, Update, and Output shall be the same, and Indices shall be DataType::kINT32 or DataType::kINT64.
 //!
 //! The output is computed by copying the data, and then updating elements of it based on indices.
 //! How Indices are interpreted depends upon the ScatterMode.
@@ -7106,7 +7141,8 @@ public:
     //! output for activations that require these parameters.
     //!
     //! \see IActivationLayer ActivationType
-    //! \warning Int32 tensors are not valid input tensors.
+    //!
+    //! \warning Int32 and Int64 are valid only for activation type kRELU.
     //!
     //! \return The new activation layer, or nullptr if it could not be created.
     //!
@@ -7445,7 +7481,7 @@ public:
     //!
     //! \see IReduceLayer
     //!
-    //! \warning If output is an Int32 shape tensor, ReduceOperation::kAVG is unsupported.
+    //! \warning If output is an Int32 or Int64 shape tensor, ReduceOperation::kAVG is unsupported.
     //!
     //! \return The new reduce layer, or nullptr if it could not be created.
     //!
@@ -7479,8 +7515,6 @@ public:
     //!        Currently reduceAxes must specify exactly one dimension, and it must be one of the last four dimensions.
     //!
     //! \see ITopKLayer
-    //!
-    //! \warning Int32 tensors are not valid input tensors.
     //!
     //! \return The new TopK layer, or nullptr if it could not be created.
     //!
@@ -8115,10 +8149,11 @@ public:
 
     //! \brief Add a fill layer to the network.
     //!
-    //! \param dimensions The output tensor dimensions.
+    //! \param dimensions The output tensor dimensions if input 0 is missing.
     //! \param op The fill operation that the layer applies.
     //!
-    //! \warning For FillOperation::kLINSPACE, dimensions.nbDims must be 1.
+    //! \warning For FillOperation::kLINSPACE, dimensions.nbDims must be 1 for static start/delta. If delta is provided
+    //! as a 1D tensor, the length of delta must match dimensions.nbDims.
     //!
     //! This layer is non-deterministic across subsequent calls as the same inputs will produce different
     //! output tensors if \p op is either FillOperation::kRANDOM_UNIFORM or FillOperation::kRANDOM_NORMAL
@@ -8131,9 +8166,38 @@ public:
     //!
     //! \return The new fill layer, or nullptr if it could not be created.
     //!
-    IFillLayer* addFill(Dims dimensions, FillOperation op) noexcept
+    //! \deprecated Deprecated in TensorRT 9.0. Superseded by three-argument addFill.
+    //!
+    TRT_DEPRECATED IFillLayer* addFill(Dims dimensions, FillOperation op) noexcept
     {
         return mImpl->addFill(dimensions, op);
+    }
+
+    //! \brief Add a fill layer to the network.
+    //!
+    //! \param dimensions The output tensor dimensions if input 0 is missing.
+    //! \param op The fill operation that the layer applies.
+    //! \param outputType Optional output tensor data type, must be DataType::kFLOAT, DataType::kHALF, DataType::kINT32,
+    //! or DataType::kINT64. This parameter is only used for static alpha/beta. Future calls to set output type using
+    //! setToType or setOutputType must be consistent.
+    //!
+    //! \warning For FillOperation::kLINSPACE, dimensions.nbDims must be 1 for static start/delta. If delta is provided
+    //! as a 1D tensor, the length of delta must match dimensions.nbDims.
+    //!
+    //! This layer is non-deterministic across subsequent calls as the same inputs will produce different
+    //! output tensors if \p op is either FillOperation::kRANDOM_UNIFORM or FillOperation::kRANDOM_NORMAL
+    //! due to random state being shared across calls. The output tensors generated are deterministic when
+    //! starting from the same initial state.
+    //!
+    //! The network must not have an implicit batch dimension.
+    //!
+    //! \see IFillLayer
+    //!
+    //! \return The new fill layer, or nullptr if it could not be created.
+    //!
+    IFillLayer* addFill(Dims dimensions, FillOperation op, DataType outputType) noexcept
+    {
+        return mImpl->addFillV2(dimensions, op, outputType);
     }
 
     //! \brief Add a padding layer to the network. Only 2D padding is currently supported.
@@ -8222,7 +8286,7 @@ public:
     //!
     //! \return The new quantization layer, or nullptr if it could not be created.
     //!
-    //! \deprecated Deprecated in TensorRT 8.7. Superceded by addDequantizeV2.
+    //! \deprecated Deprecated in TensorRT 9.0. Superseded by three-argument addDequantize.
     //!
     TRT_DEPRECATED IDequantizeLayer* addDequantize(ITensor& input, ITensor& scale) noexcept
     {
@@ -8284,12 +8348,13 @@ public:
     //!
     //! \return The new quantization layer, or nullptr if it could not be created.
     //!
-    //! \deprecated Deprecated in TensorRT 8.7. Superceded by addQuantizeV2.
+    //! \deprecated Deprecated in TensorRT 9.0. Superseded by three-argument addQuantize.
     //!
     TRT_DEPRECATED IQuantizeLayer* addQuantize(ITensor& input, ITensor& scale) noexcept
     {
         return mImpl->addQuantize(input, scale);
     }
+
     //!
     //! \brief Add a quantization layer to the network.
     //!

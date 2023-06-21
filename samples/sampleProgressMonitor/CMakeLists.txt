@@ -14,14 +14,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
 SET(SAMPLE_SOURCES
-    ../common/sampleEngines.cpp
-    ../common/sampleInference.cpp
-    ../common/sampleOptions.cpp
-    ../common/sampleReporting.cpp
-    ../common/sampleUtils.cpp
-    ../common/bfloat16.cpp
-    trtexec.cpp
+     sampleProgressMonitor.cpp
 )
 
 set(SAMPLE_PARSERS "onnx")

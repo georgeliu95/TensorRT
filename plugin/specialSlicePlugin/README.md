@@ -11,7 +11,7 @@
 
 ## Description
 
-> NOTE: This plugin is deprecated since TensorRT 8.7. Its functionality has been superseded by the `ISliceLayer`.
+> NOTE: This plugin is deprecated since TensorRT 9.0. Its functionality has been superseded by the `ISliceLayer`.
 
 The `SpecialSlice` plugin slice the detections of MaskRCNN from `[y1, x1, y2, x2, class_label, score]` to `[y1, x1, y2, x2]`. It is used in sampleMaskRCNN.
 

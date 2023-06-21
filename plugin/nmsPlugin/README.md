@@ -17,7 +17,7 @@
 
 ## Description
 
-> NOTE: `nmsPlugin` is deprecated since TensorRT 8.7. Its functionality has been superseded by the `INMSLayer` and `EfficientNMS` plugin.
+> NOTE: `nmsPlugin` is deprecated since TensorRT 9.0. Its functionality has been superseded by the `INMSLayer` and `EfficientNMS` plugin.
 
 The `nmsPlugin`, similar to the `batchedNMSPlugin`, implements a `non_max_suppression` (NMS) operation over bounding boxes for object detection networks. This plugin is included in TensorRT.
   

@@ -491,10 +491,12 @@ namespace tensorrt
 
         py::class_<IQuantizeLayer, ILayer, std::unique_ptr<IQuantizeLayer, py::nodelete>>(m, "IQuantizeLayer", IQuantizeLayerDoc::descr, py::module_local())
             .def_property("axis", &IQuantizeLayer::getAxis, &IQuantizeLayer::setAxis)
+            .def_property("to_type", &IQuantizeLayer::getToType, &IQuantizeLayer::setToType)
         ;
 
         py::class_<IDequantizeLayer, ILayer, std::unique_ptr<IDequantizeLayer, py::nodelete>>(m, "IDequantizeLayer", IDequantizeLayerDoc::descr, py::module_local())
             .def_property("axis", &IDequantizeLayer::getAxis, &IDequantizeLayer::setAxis)
+            .def_property("to_type", &IDequantizeLayer::getToType, &IDequantizeLayer::setToType)
         ;
 
         py::class_<ISoftMaxLayer, ILayer, std::unique_ptr<ISoftMaxLayer, py::nodelete>>(m, "ISoftMaxLayer", ISoftMaxLayerDoc::descr, py::module_local())
@@ -860,6 +862,7 @@ namespace tensorrt
             .def_property("operation", &IFillLayer::getOperation, &IFillLayer::setOperation)
             .def_property("alpha", lambdas::get_alpha, lambdas::set_alpha)
             .def_property("beta", lambdas::get_beta, lambdas::set_beta)
+            .def_property("to_type", &IFillLayer::getToType, &IFillLayer::setToType)
             .def("set_input", &IFillLayer::setInput, "index"_a, "tensor"_a, IFillLayerDoc::set_input)
             .def("is_alpha_beta_int64", &IFillLayer::isAlphaBetaInt64)
         ;
@@ -1012,7 +1015,8 @@ namespace tensorrt
                   INetworkDefinitionDoc::add_grid_sample, py::return_value_policy::reference_internal)
             .def("add_nms", &INetworkDefinition::addNMS, "boxes"_a,
                 "scores"_a, "max_output_boxes_per_class"_a, INetworkDefinitionDoc::add_nms, py::return_value_policy::reference_internal)
-            .def("add_fill", &INetworkDefinition::addFill, "shape"_a, "op"_a, INetworkDefinitionDoc::add_fill)
+            .def("add_fill", static_cast<IFillLayer* (INetworkDefinition::*)(Dims, FillOperation)>(&INetworkDefinition::addFill), "shape"_a, "op"_a, INetworkDefinitionDoc::add_fill)
+            .def("add_fill", static_cast<IFillLayer* (INetworkDefinition::*)(Dims, FillOperation, DataType)>(&INetworkDefinition::addFill), "shape"_a, "op"_a, "output_type"_a, INetworkDefinitionDoc::add_fill)
             .def("add_quantize",  static_cast<IQuantizeLayer* (INetworkDefinition::*)(ITensor&, ITensor&)>(&INetworkDefinition::addQuantize), "input"_a, "scale"_a,
                 INetworkDefinitionDoc::add_quantize, py::return_value_policy::reference_internal)
             .def("add_dequantize", static_cast<IDequantizeLayer* (INetworkDefinition::*)(ITensor&, ITensor&)>(&INetworkDefinition::addDequantize), "input"_a, "scale"_a,

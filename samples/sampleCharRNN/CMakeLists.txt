@@ -21,6 +21,6 @@ SET(SAMPLE_SOURCES
     ../common/bfloat16.cpp
 )
 # Required due to inclusion of sampleEnines.h
-SET(SAMPLE_PARSERS "uff" "caffe" "onnx")
+SET(SAMPLE_PARSERS "onnx")
 
 include(../CMakeSamplesTemplate.txt)

@@ -245,7 +245,7 @@ IPluginV2Ext* BatchTilePluginCreator::createPlugin(char const* name, PluginField
 {
     try
     {
-        gLogWarning << "BatchTilePlugin is deprecated since TensorRT 8.7. Use INetworkDefinition::addSlice() to add an "
+        gLogWarning << "BatchTilePlugin is deprecated since TensorRT 9.0. Use INetworkDefinition::addSlice() to add an "
                        "ISliceLayer with SliceMode::kWRAP."
                     << std::endl;
         PLUGIN_VALIDATE(name != nullptr);
@@ -278,7 +278,7 @@ IPluginV2Ext* BatchTilePluginCreator::deserializePlugin(
 {
     try
     {
-        gLogWarning << "BatchTilePlugin is deprecated since TensorRT 8.7. Use INetworkDefinition::addSlice() to add an "
+        gLogWarning << "BatchTilePlugin is deprecated since TensorRT 9.0. Use INetworkDefinition::addSlice() to add an "
                        "ISliceLayer with SliceMode::kWRAP."
                     << std::endl;
         PLUGIN_VALIDATE(name != nullptr);

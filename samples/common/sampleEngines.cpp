@@ -27,10 +27,8 @@
 #include <unordered_map>
 #include <vector>
 
-#include "NvCaffeParser.h"
 #include "NvInfer.h"
 #include "NvOnnxParser.h"
-#include "NvUffParser.h"
 
 #include "ErrorRecorder.h"
 #include "common.h"
@@ -48,22 +46,6 @@ namespace sample
 
 namespace
 {
-
-struct CaffeBufferShutter
-{
-    ~CaffeBufferShutter()
-    {
-        shutdownCaffeParser();
-    }
-};
-
-struct UffBufferShutter
-{
-    ~UffBufferShutter()
-    {
-        shutdownUffParser();
-    }
-};
 
 std::map<std::string, float> readScalesFromCalibrationCache(std::string const& calibrationFile)
 {
@@ -207,7 +189,7 @@ void setTensorScalesFromCalibration(nvinfer1::INetworkDefinition& network, std::
             input->setDynamicRange(-127 * calibScale, 127 * calibScale);
         }
     }
-    bool const broadcastOutputFormats = broadcastIOFormats(outputFormats, network.getNbInputs());
+    bool const broadcastOutputFormats = broadcastIOFormats(outputFormats, network.getNbOutputs());
     for (int32_t i = 0, n = network.getNbOutputs(); i < n; ++i)
     {
         int32_t formatIdx = broadcastOutputFormats ? 0 : i;
@@ -244,69 +226,8 @@ Parser modelToNetwork(ModelOptions const& model, BuildOptions const& build, nvin
     auto const tBegin = std::chrono::high_resolution_clock::now();
 
     Parser parser;
-    std::string const& modelName = model.baseModel.model;
     switch (model.baseModel.format)
     {
-    case ModelFormat::kCAFFE:
-    {
-        using namespace nvcaffeparser1;
-        parser.caffeParser.reset(sampleCreateCaffeParser());
-        CaffeBufferShutter bufferShutter;
-        auto const* const blobNameToTensor = parser.caffeParser->parse(
-            model.prototxt.c_str(), modelName.empty() ? nullptr : modelName.c_str(), network, DataType::kFLOAT);
-        if (!blobNameToTensor)
-        {
-            err << "Failed to parse caffe model or prototxt, tensors blob not found" << std::endl;
-            parser.caffeParser.reset();
-            break;
-        }
-
-        for (auto const& s : model.outputs)
-        {
-            if (blobNameToTensor->find(s.c_str()) == nullptr)
-            {
-                err << "Could not find output blob " << s << std::endl;
-                parser.caffeParser.reset();
-                break;
-            }
-            network.markOutput(*blobNameToTensor->find(s.c_str()));
-        }
-        break;
-    }
-    case ModelFormat::kUFF:
-    {
-        using namespace nvuffparser;
-        parser.uffParser.reset(sampleCreateUffParser());
-        UffBufferShutter bufferShutter;
-        for (auto const& s : model.uffInputs.inputs)
-        {
-            if (!parser.uffParser->registerInput(
-                    s.first.c_str(), s.second, model.uffInputs.NHWC ? UffInputOrder::kNHWC : UffInputOrder::kNCHW))
-            {
-                err << "Failed to register input " << s.first << std::endl;
-                parser.uffParser.reset();
-                break;
-            }
-        }
-
-        for (auto const& s : model.outputs)
-        {
-            if (!parser.uffParser->registerOutput(s.c_str()))
-            {
-                err << "Failed to register output " << s << std::endl;
-                parser.uffParser.reset();
-                break;
-            }
-        }
-
-        if (!parser.uffParser->parse(model.baseModel.model.c_str(), network))
-        {
-            err << "Failed to parse uff file" << std::endl;
-            parser.uffParser.reset();
-            break;
-        }
-        break;
-    }
     case ModelFormat::kONNX:
     {
         using namespace nvonnxparser;

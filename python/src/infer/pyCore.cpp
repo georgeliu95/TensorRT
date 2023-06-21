@@ -197,9 +197,9 @@ void setBindingDimensions(IExecutionContext& self, int32_t bindingIndex, PyItera
     self.setBindingDimensions(bindingIndex, castDimsFromPyIterable<PyIterable>(in));
 }
 template <typename PyIterable>
-void setInputShape(IExecutionContext& self, char const* tensorName, PyIterable& in)
+bool setInputShape(IExecutionContext& self, char const* tensorName, PyIterable& in)
 {
-    self.setInputShape(tensorName, castDimsFromPyIterable<PyIterable>(in));
+    return self.setInputShape(tensorName, castDimsFromPyIterable<PyIterable>(in));
 }
 
 // For IRuntime
@@ -944,6 +944,8 @@ void bindCore(py::module& m)
             "binding"_a, "shape"_a, IExecutionContextDoc::set_binding_shape)
         .def("set_binding_shape", utils::deprecate(lambdas::setBindingDimensions<py::list>, "set_input_shape"),
             "binding"_a, "shape"_a, IExecutionContextDoc::set_binding_shape)
+        .def("set_binding_shape", utils::deprecateMember(&IExecutionContext::setBindingDimensions, "set_input_shape"),
+            "binding"_a, "shape"_a, IExecutionContextDoc::set_binding_shape)
         .def("get_binding_shape", utils::deprecateMember(&IExecutionContext::getBindingDimensions, "get_tensor_shape"),
             "binding"_a, IExecutionContextDoc::get_binding_shape)
         .def("set_shape_input", utils::deprecate(lambdas::context_set_shape_input, "set_tensor_address"), "binding"_a,
@@ -956,6 +958,8 @@ void bindCore(py::module& m)
         .def("set_input_shape", lambdas::setInputShape<py::tuple>, "name"_a, "shape"_a,
             IExecutionContextDoc::set_input_shape)
         .def("set_input_shape", lambdas::setInputShape<py::list>, "name"_a, "shape"_a,
+            IExecutionContextDoc::set_input_shape)
+        .def("set_input_shape", &IExecutionContext::setInputShape, "name"_a, "shape"_a,
             IExecutionContextDoc::set_input_shape)
         .def("get_tensor_shape", &IExecutionContext::getTensorShape, "name"_a, IExecutionContextDoc::get_tensor_shape)
         .def("set_tensor_address", lambdas::set_tensor_address, "name"_a, "memory"_a,

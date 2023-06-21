@@ -12,7 +12,7 @@
 
 ## Description
 
-> NOTE: `geluPlugin` is deprecated since TensorRT 8.7. Its functionality has been superseded by `IActivationLayer` + `IElementWiseLayer`.
+> NOTE: `geluPlugin` is deprecated since TensorRT 9.0. Its functionality has been superseded by `IActivationLayer` + `IElementWiseLayer`.
 
 This plugin applies the Gelu activation `x * Phi(x)`, where Phi is the Gaussian cdf, approximated by: `0.5 * (1 + tanh(sqrt(2 / M_PI) * (x + 0.044715 * x^3)))`.
 Optionally adds a bias vector before the activation.

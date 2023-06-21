@@ -85,8 +85,6 @@ void bindCore(py::module& m);
 // Parsers
 #if EXPORT_ALL_BINDINGS
 void bindOnnx(py::module& m);
-void bindUff(py::module& m);
-void bindCaffe(py::module& m);
 #endif
 } // namespace tensorrt
 

@@ -42,7 +42,7 @@ DetectionOutput::DetectionOutput(DetectionOutputParameters params)
     , mType(DataType::kFLOAT)
     , mScoreBits(16)
 {
-    gLogWarning << "NMS_TRT is deprecated since TensorRT 8.7. Use INetworkDefinition::addNMS() to add an INMSLayer OR "
+    gLogWarning << "NMS_TRT is deprecated since TensorRT 9.0. Use INetworkDefinition::addNMS() to add an INMSLayer OR "
                    "use EfficientNMS plugin."
                 << std::endl;
 }
@@ -633,7 +633,7 @@ IPluginV2Ext* NMSPluginCreator::createPlugin(char const* name, PluginFieldCollec
 {
     try
     {
-        gLogWarning << "NMS_TRT is deprecated since TensorRT 8.7. Use INetworkDefinition::addNMS() to add an "
+        gLogWarning << "NMS_TRT is deprecated since TensorRT 9.0. Use INetworkDefinition::addNMS() to add an "
                        "INMSLayer OR use EfficientNMS plugin."
                     << std::endl;
         PluginField const* fields = fc->fields;
@@ -741,7 +741,7 @@ IPluginV2DynamicExt* NMSDynamicPluginCreator::createPlugin(char const* name, Plu
 {
     try
     {
-        gLogWarning << "NMSDynamic_TRT is deprecated since TensorRT 8.7. Use INetworkDefinition::addNMS() to add an "
+        gLogWarning << "NMSDynamic_TRT is deprecated since TensorRT 9.0. Use INetworkDefinition::addNMS() to add an "
                        "INMSLayer OR use EfficientNMS plugin."
                     << std::endl;
         PluginField const* fields = fc->fields;
@@ -845,7 +845,7 @@ IPluginV2Ext* NMSPluginCreator::deserializePlugin(
 {
     try
     {
-        gLogWarning << "NMS_TRT is deprecated since TensorRT 8.7. Use INetworkDefinition::addNMS() to add an "
+        gLogWarning << "NMS_TRT is deprecated since TensorRT 9.0. Use INetworkDefinition::addNMS() to add an "
                        "INMSLayer OR use EfficientNMS plugin."
                     << std::endl;
         // This object will be deleted when the network is destroyed, which will
@@ -866,7 +866,7 @@ IPluginV2DynamicExt* NMSDynamicPluginCreator::deserializePlugin(
 {
     try
     {
-        gLogWarning << "NMSDynamic_TRT is deprecated since TensorRT 8.7. Use INetworkDefinition::addNMS() to add an "
+        gLogWarning << "NMSDynamic_TRT is deprecated since TensorRT 9.0. Use INetworkDefinition::addNMS() to add an "
                        "INMSLayer OR use EfficientNMS plugin."
                     << std::endl;
         // This object will be deleted when the network is destroyed, which will

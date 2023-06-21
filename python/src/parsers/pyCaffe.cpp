@@ -33,7 +33,7 @@ static const auto parse_binary_proto = [](ICaffeParser& self, const std::string&
 
     // Type-erasure allows us to properly destroy the IBinaryProtoBlob in the bindings.
     nvcaffeparser1::IBinaryProtoBlob* proto = self.parseBinaryProto(filename.c_str());
-    VoidFunc freeFunc = [](void* p) { delete static_cast<IBinaryProtoBlob*>(p); };
+    VoidFunc freeFunc = [](void* p) { static_cast<IBinaryProtoBlob*>(p)->destroy(); };
     py::capsule freeBlob{static_cast<void*>(proto), freeFunc};
 
     // Explicitly check for narrowing dimensions
@@ -43,9 +43,7 @@ static const auto parse_binary_proto = [](ICaffeParser& self, const std::string&
 
     // By specifying the py::capsule as a parent here, we tie the lifetime of the data buffer to this array.
     // When this array is eventually destroyed on the Python side, the capsule parent will free(protoPtr).
-    auto const dtype = utils::nptype(proto->getDataType());
-    PY_ASSERT_RUNTIME_ERROR(dtype, "Could not convert data type to NumPy");
-    return py::array{*dtype, static_cast<int32_t>(volume), proto->getData(), freeBlob};
+    return py::array{utils::nptype(proto->getDataType()), static_cast<int32_t>(volume), proto->getData(), freeBlob};
 };
 
 static const auto parse_buffer = [](ICaffeParser& self, py::buffer& deploy, py::buffer& model,

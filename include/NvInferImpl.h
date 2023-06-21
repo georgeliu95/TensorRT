@@ -890,6 +890,8 @@ public:
     virtual void setBetaInt64(int64_t beta) noexcept = 0;
     virtual int64_t getBetaInt64() const noexcept = 0;
     virtual bool isAlphaBetaInt64() const noexcept = 0;
+    virtual DataType getToType() const noexcept = 0;
+    virtual void setToType(DataType toType) noexcept = 0;
 };
 
 class VQuantizeLayer : public VRoot
@@ -1070,6 +1072,7 @@ public:
     virtual bool usingStronglyTyped() const noexcept = 0;
     virtual IQuantizeLayer* addQuantizeV2(ITensor& input, ITensor& scale, DataType outputType) noexcept = 0;
     virtual IDequantizeLayer* addDequantizeV2(ITensor& input, ITensor& scale, DataType outputType) noexcept = 0;
+    virtual IFillLayer* addFillV2(Dims dimensions, FillOperation op, DataType outputType) noexcept = 0;
 };
 
 class VAlgorithmIOInfo : public VRoot
