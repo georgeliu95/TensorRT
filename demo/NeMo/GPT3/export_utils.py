@@ -31,7 +31,7 @@ from nemo.collections.nlp.models.language_modeling.megatron_gpt_model import Meg
 
 # onnx
 import onnx
-from onnx import helper, TensorProto, numpy_helper
+from onnx import helper, TensorProto, numpy_helper, version_converter
 import onnx_graphsurgeon as gs
     
 # polygraphy
@@ -441,12 +441,24 @@ def create_opset19_onnx_fpath(onnx_fpath, output_path):
     suffix = '.opset19.onnx'
     return os.path.join(output_path, os.path.splitext(os.path.split(onnx_fpath)[1])[0] + suffix)
 
+def update_quantize_node_type(model):
+    """
+    Update QuantizeLinear output dtype to FP8
+    """
+    graph = gs.import_onnx(model)
+    for node in graph.nodes:
+        if node.op == "TRT_FP8QuantizeLinear":
+            for out in node.outputs:
+                out.dtype = TensorProto.FLOAT8E4M3FN
+    return gs.export_onnx(graph)
+
 def replace_customop_qdq_with_onnx_qdq(te_onnx_file, results_path, remove_cast_before_q, remove_cast_after_dq, change_qdq_scale_precision):
     """
     Convert custom TRT nodes to standard ONNX Q/DQ nodes
     """
     model = onnx.load(te_onnx_file, load_external_data=False)
     model.opset_import[0].version = 19
+    model = update_quantize_node_type(model)
     graph = model.graph
     converted_qdq_ops = ['TRT_FP8QuantizeLinear', 'TRT_FP8DequantizeLinear']
 
