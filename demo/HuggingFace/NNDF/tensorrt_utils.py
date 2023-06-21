@@ -221,7 +221,7 @@ class TRTNativeRunner:
 
         # Other metadata required by the profile
         self._num_bindings_per_profile = self.trt_engine.num_bindings // self.trt_engine.num_optimization_profiles
-        G_LOGGER.debug("Number of profiles detected in engine: {}".format(self._num_bindings_per_profile))
+        G_LOGGER.debug("Number of bindings detected in engine: {}".format(self._num_bindings_per_profile))
 
     def release(self):
         pass

@@ -24,6 +24,7 @@ class GPT3ModelTRTConfig(NNConfig):
 
     NETWORK_FULL_NAME = "full"
     TARGET_MODELS = [
+        "gpt-126m",
         "gpt-1.3b",
         "gpt-5b",
     ]

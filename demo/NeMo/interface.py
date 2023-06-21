@@ -70,7 +70,7 @@ GPT3CONFIG_MAPPINGS = {
         "bf16_path": None,
         "num_heads": 12,
         "num_layers": 12,
-        "hidden_size": 2048,
+        "hidden_size": 768,
         "max_position_embeddings": 2048,
     }, **DEFAULT_CONFIG)),
     "gpt-1.3b": PretrainedConfig.from_dict(dict({"_name_or_path": "gpt-1.3b",
