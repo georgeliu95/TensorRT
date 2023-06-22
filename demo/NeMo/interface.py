@@ -224,12 +224,12 @@ class NeMoCommand(NetworkCommand):
             self.nemo_cfg.inference.repetition_penalty = 1.0
         elif action == "benchmark":
             self.nemo_cfg.mode = "benchmark"
-            self.nemo_cfg.inference.tokens_to_generate = self.nemo_cfg.benchmark.output_seq_len
-            self.nemo_cfg.inference.min_tokens_to_generate = self.nemo_cfg.benchmark.output_seq_len
             if input_seq_len != None:
                 self.nemo_cfg.benchmark.input_seq_len = input_seq_len
             if output_seq_len != None:
                 self.nemo_cfg.benchmark.output_seq_len = output_seq_len
+            self.nemo_cfg.inference.tokens_to_generate = self.nemo_cfg.benchmark.output_seq_len
+            self.nemo_cfg.inference.min_tokens_to_generate = self.nemo_cfg.benchmark.output_seq_len
 
         if max_seq_len != None:
             self.nemo_cfg.model.max_seq_len = max_seq_len
