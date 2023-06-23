@@ -81,6 +81,10 @@ class TestOnnxExporter(object):
         [
             (np.float32, onnx.TensorProto.FLOAT),
             (onnx.TensorProto.BFLOAT16, onnx.TensorProto.BFLOAT16),
+            (onnx.TensorProto.FLOAT8E4M3FN, onnx.TensorProto.FLOAT8E4M3FN),
+            (onnx.TensorProto.FLOAT8E4M3FNUZ, onnx.TensorProto.FLOAT8E4M3FNUZ),
+            (onnx.TensorProto.FLOAT8E5M2, onnx.TensorProto.FLOAT8E5M2),
+            (onnx.TensorProto.FLOAT8E5M2FNUZ, onnx.TensorProto.FLOAT8E5M2FNUZ),
         ],
     )
     def test_export_variable_tensor(self, dtype, expected_type):

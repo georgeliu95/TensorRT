@@ -2,6 +2,12 @@
 
 Dates are in YYYY-MM-DD format.
 
+## v0.3.28 (2023-06-14)
+###
+- Added support for various 8-bit floating point types. Like `BFLOAT16`, these will not be converted to NumPy
+    data types.
+
+
 ## v0.3.27 (2023-05-24)
 ### Added
 - Added support for `BFLOAT16`. Tensors of `BFLOAT16` type will not have their data types converted to NumPy.
