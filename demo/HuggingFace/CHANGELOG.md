@@ -20,6 +20,10 @@ Uses [semantic versioning](https://semver.org/).
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+# [2.0.2] - 2023-06-23
+- Added support for BLOOM models
+- Added support for OPT models
+
 # [2.0.1] - 2023-05-31
 - Changed PyTorch==2.0.1 to officially support H100
 - Added `chat` command to accept customized inputs

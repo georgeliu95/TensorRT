@@ -388,7 +388,22 @@ class DecoderConverter(ModelFileConverter):
                 training=TRAINING_MODE,
             )
         else:
-            decoder_input_ids = input_ids[:,-1:]
+            if config.is_encoder_decoder:
+                # We need to use input_ids[:,-1] for encoder/decoder models for kv cache,
+                # BART/T5 only work with seq = 1 for kv cache mode.
+                decoder_input_ids = input_ids[:,-1:]
+            else:
+                # For decoder-only models, we need to use the entire input_ids as dummy inputs.
+                # Passing the full input_ids lets us capture the behavior of the
+                # context phase for models that treat it as a special case (like
+                # OPT and BLOOM).
+                # Passing past_key_values lets us capture the behavior of the
+                # generation phase.
+                # If a model requires that SeqLen == 1 to properly run the
+                # generation phase, this may break.
+                decoder_input_ids = input_ids
+
+            # Create valid past_key_values
             decoder_outputs = decoder_with_lm_head.forward(
                 input_ids=decoder_input_ids,
                 encoder_outputs=BaseModelOutput(last_hidden_state=encoder_hidden_states),

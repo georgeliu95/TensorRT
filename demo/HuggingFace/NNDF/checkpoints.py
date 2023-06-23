@@ -141,18 +141,18 @@ class NNSemanticCheckpoint(NNTomlCheckpoint):
         # Hash checkpoints by their input
         if self._lookup_cache is None:
             self._lookup_cache = {}
-            for key, vaule in self.data.items():
-                if isinstance(vaule["input"], list):
-                    for idx, v in enumerate(vaule["input"]):
+            for key, value in self.data.items():
+                if isinstance(value["input"], list):
+                    for idx, v in enumerate(value["input"]):
                         self._lookup_cache["{}_{}".format(v, str(idx))] = key
                 else:
-                    self._lookup_cache[vaule["input"]] = key
+                    self._lookup_cache[value["input"]] = key
 
         correct_count = 0
         result_count = 0
         def validate_golden(golden_str, result_str):
-            golden_str = golden_str.replace('\\n','').replace('\n','')
-            result_str = result_str.replace('\\n','').replace('\n','')
+            golden_str = golden_str.replace('\\n','').replace('\n','').replace('\\\\"','\"').replace('\\"','\"')
+            result_str = result_str.replace('\\n','').replace('\n','').replace('\\\\"','\"').replace('\\"','\"')
             return int(golden_str == result_str)
 
         for r in results:

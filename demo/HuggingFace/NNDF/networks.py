@@ -129,7 +129,7 @@ class Dims:
         for k, v in self.encoding.items():
             encodings = []
             for idx, e in enumerate(v):
-                if isinstance(e, str) and (e == self.BATCH or self.SEQUENCE in e):
+                if isinstance(e, str) and (self.BATCH in e or self.SEQUENCE in e):
                     encodings.append((idx, e))
             dynamic_axes[k] = {idx: e for idx, e in encodings}
 
