@@ -4,17 +4,59 @@ This repository demonstrates TensorRT inference with models developed using [Hug
 
 Currently, this repository supports the following models:
 
-1. [GPT2 (text generation task)](https://huggingface.co/transformers/model_doc/gpt2.html). The sample supports following variants of GPT2:
+1. [GPT2 (text generation task)](https://huggingface.co/transformers/model_doc/gpt2.html). The sample supports following variants of GPT2 and GPT2-like models:
 
-    gpt2 (117M), gpt2-medium (345M), gpt2-large (774M), gpt2-xl (1558M), EleutherAI/gpt-j-6B (6053M)
+    - [GPT2](https://huggingface.co/transformers/model_doc/gpt2.html)
+      - gpt2 (117M)
+      - gpt2-medium (345M)
+      - gpt2-large (774M)
+      - gpt2-xl (1558M)
+    - [GPT Neo](https://huggingface.co/docs/transformers/model_doc/gpt_neo)
+      - EleutherAI/gpt-neo-125m
+      - EleutherAI/gpt-neo-1.3B 
+      - EleutherAI/gpt-neo-2.7B
+    - [GPT-Neox](https://huggingface.co/docs/transformers/model_doc/gpt_neox)
+      - EleutherAI/gpt-neox-20b
+    - [GPT-J](https://huggingface.co/docs/transformers/model_doc/gptj)
+      - EleutherAI/gpt-j-6B (6053M)
+    - Cerebras-GPT
+      - cerebras/Cerebras-GPT-111M
+      - cerebras/Cerebras-GPT-256M
+      - cerebras/Cerebras-GPT-1.3B
+      - cerebras/Cerebras-GPT-2.7B
+    - [OPT](https://huggingface.co/docs/transformers/main/en/model_doc/opt)
+      - facebook/opt-125m
+      - facebook/opt-350m
+      - facebook/opt-1.3b
+      - facebook/opt-2.7b
+      - facebook/opt-6.7b
+      - facebook/opt-13b
 
-2. [T5 (translation, premise task)](https://huggingface.co/transformers/model_doc/t5.html). The sample supports following variants of T5:
+1. [T5 (translation, premise task)](https://huggingface.co/transformers/model_doc/t5.html). The sample supports following variants of T5:
 
-    t5-small (60M), t5-base (220M), t5-large (770M), t5-3b(3B), t5-11b(11B)
+    - t5-small (60M)
+    - t5-base (220M)
+    - t5-large (770M)
+    - t5-3b(3B)
+    - t5-11b(11B)
 
-3. [BART (summarization task)](https://huggingface.co/docs/transformers/model_doc/bart.html). The sample supports the following variants of BART:
+1. [BART (summarization task)](https://huggingface.co/docs/transformers/model_doc/bart). The sample supports the following variants of BART:
 
-    facebook/bart-base (139M), facebook/bart-large (406M), facebook/bart-large-cnn (406M), facebook/mbart-large-50 (680M)
+    - facebook/bart-base (139M)
+    - facebook/bart-large (406M)
+    - facebook/bart-large-cnn (406M)
+    - facebook/mbart-large-50 (680M)
+
+1. [BLOOM (text generation task)](https://huggingface.co/docs/transformers/main/en/model_doc/bloom). The sample supports following variants of BLOOM:
+
+    - bigscience/bloom-560m
+    - bigscience/bloom-1b1
+    - bigscience/bloom-1b7
+    - bigscience/bloom-3b
+    - bigscience/bloomz-560m
+    - bigscience/bloomz-1b1
+    - bigscience/bloomz-1b7
+    - bigscience/bloomz-3b
 
 ## Setup
 
@@ -41,20 +83,21 @@ python run.py <args> # execute program
 
 ```bash
 .
-├── GPT2      # GPT2 directory
-│   └── ...
-├── T5        # T5 directory
-│   └── ...
 ├── BART      # BART directory
-│   ├── BartModelConfig.py # Model configuration and variant-specific parameters
+│   ├── BARTModelConfig.py # Model configuration and variant-specific parameters
 │   ├── checkpoint.toml    # Example inputs and baseline outputs
 │   ├── export.py          # Model conversions between Torch, TRT, ONNX
 │   ├── frameworks.py      # PyTorch inference script
 │   ├── onnxrt.py          # OnnxRT inference script
 │   ├── trt.py             # TensorRT inference script
-│   └── measurements.py    # Performance measurement script
+├── BLOOM     # BLOOM directory
+│   └── ...
+├── GPT2      # GPT2 directory
+│   └── ...
 ├── NNDF      # common high-level abstraction of classes and utilities
 ├── Seq2Seq   # common concrete abstraction of classes and utilities
+├── T5        # T5 directory
+│   └── ...
 ├── notebooks # Jupyter notebooks for GPT2 and T5
 └── run.py    # main entry script
 ```
@@ -66,7 +109,7 @@ python run.py <args> # execute program
 The `compare` action will by default compare all implemented frameworks, e.g., PyTorch frameworks & TRT (for GPT2), PyTorch framework & TRT & OnnxRT (for T5 and BART).
 
 ```python
-python3 run.py compare GPT2 --variant [gpt2 | gpt2-medium | gpt2-large | gpt2-xl | EleutherAI/gpt-j-6b] --working-dir temp
+python3 run.py compare GPT2 --variant [gpt2 | gpt2-medium | gpt2-large | gpt2-xl | EleutherAI/gpt-j-6b | etc.] --working-dir temp
 ```
 
 The above script compares the performance of PyTorch framework inference and TensorRT inference for GPT2:
@@ -122,7 +165,7 @@ Notes:
 
 ## How to run with K-V cache
 
-For all the models (GPT2/BART/T5), use `--use-cache` option to get the same effect of HuggingFace's `use_cache` option. The old `--enable-kv-cache` flag has been deprecated for simplicity. For encoder-decoder models, this option will use key & value cache in decoder for uni-directional self-attention and encoder-decoder cross-attention. KV cache could reduce the size of `input_ids` and improve runtime performance when `input_ids` is long. Current benchmarking result shows that at `input_seq_len = 1024` and `output_seq_len = 1024`, t5-large model with kv cache could achieve 3x faster than without kv cache in single NVIDIA A100 GPU.
+For all the models, use `--use-cache` option to get the same effect of HuggingFace's `use_cache` option. The old `--enable-kv-cache` flag has been deprecated for simplicity. For encoder-decoder models, this option will use key & value cache in decoder for uni-directional self-attention and encoder-decoder cross-attention. KV cache could reduce the size of `input_ids` and improve runtime performance when `input_ids` is long. Current benchmarking result shows that at `input_seq_len = 1024` and `output_seq_len = 1024`, t5-large model with kv cache could achieve 3x faster than without kv cache in single NVIDIA A100 GPU.
 
 ```python
 python3 run.py run BART [frameworks | trt] --variant facebook/bart-base --working-dir temp --use-cache
@@ -162,7 +205,7 @@ Notes:
 The `benchmark` action will benchmark the specific script under the model directory using random input data with specified input/output sequence lengths. Note that since the input data is random, the accuracy is not guaranteed, but the benchmarking mode is useful for performance measurement since it allows arbitrary and controllable input/output sequence lengths with early stopping being disabled and allows apples-to-apples performance comparisons across different frameworks.
 
 ```python
-python3 run.py benchmark GPT2 [frameworks | trt] --variant [gpt2 | gpt2-medium | gpt2-large | gpt2-xl | EleutherAI/gpt-j-6b] --working-dir temp --input-seq-len 128 --output-seq-len 256
+python3 run.py benchmark GPT2 [frameworks | trt] --variant [gpt2 | gpt2-medium | gpt2-large | gpt2-xl | EleutherAI/gpt-j-6b | etc.] --working-dir temp --input-seq-len 128 --output-seq-len 256
 ```
 
 ## How to run model with only TRT engine

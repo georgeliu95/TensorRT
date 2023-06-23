@@ -28,21 +28,20 @@ class GPT2ModelTRTConfig(Seq2SeqModelTRTConfig):
         "EleutherAI/gpt-neo-125m",
         "EleutherAI/gpt-neo-1.3B",
         "EleutherAI/gpt-neo-2.7B",
-        "EleutherAI/gpt-j-6b",
         "EleutherAI/gpt-neox-20b",
+        "EleutherAI/gpt-j-6b",
         "cerebras/Cerebras-GPT-111M",
         "cerebras/Cerebras-GPT-256M",
         "cerebras/Cerebras-GPT-1.3B",
         "cerebras/Cerebras-GPT-2.7B",
-        # TODO: Bloom kv cache is different than GPT. Need separate implementations.
-        "bigscience/bloom-560m",
-        "bigscience/bloom-1b1",
-        "bigscience/bloom-1b7",
-        "bigscience/bloom-3b",
-        "bigscience/bloomz-560m",
-        "bigscience/bloomz-1b1",
-        "bigscience/bloomz-1b7",
-        "bigscience/bloomz-3b",
+        "facebook/opt-125m",
+        "facebook/opt-350m",
+        "facebook/opt-1.3b",
+        "facebook/opt-2.7b",
+        "facebook/opt-6.7b",
+        "facebook/opt-13b",
+        #"facebook/opt-30b", # Too big for single GPU
+        #"facebook/opt-66b", # Too big for single GPU
     ]
 
     def __init__(self, **kwargs):
@@ -72,5 +71,5 @@ class GPT2ModelTRTConfig(Seq2SeqModelTRTConfig):
 
     def get_metadata_string(self, metadata) -> str:
         # Remove redundant GPT2 name
-        metadata = metadata._replace(variant=metadata.variant.replace("GPT2-","").replace("EleutherAI/","").replace("cerebras/","").replace("bigscience/",""))
+        metadata = metadata._replace(variant=metadata.variant.replace("GPT2-","").replace("EleutherAI/","").replace("cerebras/","").replace("facebook/",""))
         return super().get_metadata_string(metadata)
