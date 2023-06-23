@@ -21,12 +21,10 @@
 #include <iostream>
 #include <vector>
 
-#include "NvCaffeParser.h"
 #include "NvInfer.h"
 #include "NvInferConsistency.h"
 #include "NvInferSafeRuntime.h"
 #include "NvOnnxParser.h"
-#include "NvUffParser.h"
 #include "sampleOptions.h"
 #include "sampleUtils.h"
 
@@ -35,13 +33,11 @@ namespace sample
 
 struct Parser
 {
-    std::unique_ptr<nvcaffeparser1::ICaffeParser> caffeParser;
-    std::unique_ptr<nvuffparser::IUffParser> uffParser;
     std::unique_ptr<nvonnxparser::IParser> onnxParser;
 
     operator bool() const
     {
-        return caffeParser || uffParser || onnxParser;
+        return onnxParser != nullptr;
     }
 };
 

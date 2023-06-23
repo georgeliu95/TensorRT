@@ -1729,6 +1729,17 @@ constexpr const char* get_operation = R"trtdoc(
     get the fill operation for the layer.
 )trtdoc";
 
+constexpr const char* set_to_type = R"trtdoc(
+    set the output data type for the layer.
+    only applied if alpha and beta are static.
+
+    :arg to_type: the output data type for the layer.
+)trtdoc";
+
+constexpr const char* get_to_type = R"trtdoc(
+    get the user specified output data type for the layer.
+)trtdoc";
+
 constexpr const char* set_alpha = R"trtdoc(
     set the alpha parameter (must be finite).
 
@@ -2580,6 +2591,7 @@ constexpr const char* add_fill = R"trtdoc(
 
     :arg dimensions: The output tensor dimensions.
     :arg op: The fill operation that the layer applies.
+    :arg output_type: The datatype of the output tensor. Specifying output_type is optional (default value tensorrt.float32).
 
     :returns: The new fill layer, or :class:`None` if it could not be created.
 )trtdoc";

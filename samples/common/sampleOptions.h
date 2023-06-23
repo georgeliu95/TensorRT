@@ -68,9 +68,7 @@ enum class PrecisionConstraints
 enum class ModelFormat
 {
     kANY,
-    kCAFFE,
-    kONNX,
-    kUFF
+    kONNX
 };
 
 enum class SparsityFlag
@@ -156,24 +154,12 @@ public:
     static void help(std::ostream& out);
 };
 
-class UffInput : public Options
-{
-public:
-    std::vector<std::pair<std::string, nvinfer1::Dims>> inputs;
-    bool NHWC{false};
-
-    void parse(Arguments& arguments) override;
-
-    static void help(std::ostream& out);
-};
-
 class ModelOptions : public Options
 {
 public:
     BaseModelOptions baseModel;
     std::string prototxt;
     std::vector<std::string> outputs;
-    UffInput uffInputs;
 
     void parse(Arguments& arguments) override;
 
@@ -384,8 +370,6 @@ void helpHelp(std::ostream& out);
 // Functions to print options
 
 std::ostream& operator<<(std::ostream& os, const BaseModelOptions& options);
-
-std::ostream& operator<<(std::ostream& os, const UffInput& input);
 
 std::ostream& operator<<(std::ostream& os, const IOFormat& format);
 

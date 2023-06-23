@@ -42,7 +42,6 @@
 #include <vector>
 
 #include "NvInfer.h"
-#include "NvUtils.h"
 #include "argsParser.h"
 #include "buffers.h"
 #include "common.h"

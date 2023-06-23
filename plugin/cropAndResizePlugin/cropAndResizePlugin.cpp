@@ -543,7 +543,7 @@ IPluginV2Ext* CropAndResizePluginCreator::createPlugin(char const* /* name */, P
 {
     try
     {
-        gLogWarning << "CropAndResizePlugin (implementing IPluginV2Ext) is deprecated since TensorRT 8.7. Use "
+        gLogWarning << "CropAndResizePlugin (implementing IPluginV2Ext) is deprecated since TensorRT 9.0. Use "
                        "CropAndResizeDynamic plugin."
                     << std::endl;
         PLUGIN_VALIDATE(fc != nullptr);
@@ -626,7 +626,7 @@ IPluginV2Ext* CropAndResizePluginCreator::deserializePlugin(
 {
     try
     {
-        gLogWarning << "CropAndResizePlugin (implementing IPluginV2Ext) is deprecated since TensorRT 8.7. Use "
+        gLogWarning << "CropAndResizePlugin (implementing IPluginV2Ext) is deprecated since TensorRT 9.0. Use "
                        "CropAndResizeDynamic plugin."
                     << std::endl;
         // This object will be deleted when the network is destroyed,

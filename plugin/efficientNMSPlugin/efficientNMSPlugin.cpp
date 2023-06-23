@@ -561,7 +561,7 @@ IPluginV2DynamicExt* EfficientNMSONNXPluginCreator::createPlugin(
 {
     try
     {
-        gLogWarning << "EfficientNMSONNXPlugin is deprecated since TensorRT 8.7. Use INetworkDefinition::addNMS() to "
+        gLogWarning << "EfficientNMSONNXPlugin is deprecated since TensorRT 9.0. Use INetworkDefinition::addNMS() to "
                        "add an INMSLayer."
                     << std::endl;
         PluginField const* fields = fc->fields;
@@ -610,7 +610,7 @@ IPluginV2DynamicExt* EfficientNMSONNXPluginCreator::deserializePlugin(
 {
     try
     {
-        gLogWarning << "EfficientNMSONNXPlugin is deprecated since TensorRT 8.7. Use INetworkDefinition::addNMS() to "
+        gLogWarning << "EfficientNMSONNXPlugin is deprecated since TensorRT 9.0. Use INetworkDefinition::addNMS() to "
                        "add an INMSLayer."
                     << std::endl;
         // This object will be deleted when the network is destroyed, which will

@@ -16,7 +16,7 @@
 
 ## Description
 
-> NOTE: `EfficientNMSONNXPlugin` is deprecated since TensorRT 8.7. Its functionality has been superseded by the `INMSLayer`.
+> NOTE: `EfficientNMSONNXPlugin` is deprecated since TensorRT 9.0. Its functionality has been superseded by the `INMSLayer`.
 
 This TensorRT plugin implements an efficient algorithm to perform Non Maximum Suppression for object detection networks.
 

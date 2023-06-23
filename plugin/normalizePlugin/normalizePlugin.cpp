@@ -40,7 +40,7 @@ Normalize::Normalize(Weights const* weights, int32_t nbWeights, bool acrossSpati
     , channelShared(channelShared)
     , eps(eps)
 {
-    gLogWarning << "NormalizePlugin is deprecated since TensorRT 8.7. Use INetworkDefinition::addNormalization() to "
+    gLogWarning << "NormalizePlugin is deprecated since TensorRT 9.0. Use INetworkDefinition::addNormalization() to "
                    "add an INormalizationLayer."
                 << std::endl;
     mNbWeights = nbWeights;
@@ -318,7 +318,7 @@ IPluginV2Ext* NormalizePluginCreator::createPlugin(char const* name, PluginField
     try
     {
         gLogWarning
-            << "NormalizePlugin is deprecated since TensorRT 8.7. Use INetworkDefinition::addNormalization() to add an "
+            << "NormalizePlugin is deprecated since TensorRT 9.0. Use INetworkDefinition::addNormalization() to add an "
                "INormalizationLayer."
             << std::endl;
         std::vector<float> weightValues;
@@ -378,7 +378,7 @@ IPluginV2Ext* NormalizePluginCreator::deserializePlugin(
     try
     {
         gLogWarning
-            << "NormalizePlugin is deprecated since TensorRT 8.7. Use INetworkDefinition::addNormalization() to add an "
+            << "NormalizePlugin is deprecated since TensorRT 9.0. Use INetworkDefinition::addNormalization() to add an "
                "INormalizationLayer."
             << std::endl;
         // This object will be deleted when the network is destroyed, which will

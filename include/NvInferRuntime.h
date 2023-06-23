@@ -1478,8 +1478,8 @@ enum class TacticSource : int32_t
     //! cuBLAS LT tactics. Enabled by default.
     //! \note Setting kCUBLAS_LT tactic source takes no effect for core library if
     //! PreviewFeature::kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805 is on.
-    //! \deprecated Deprecated in TensorRT 8.7.
-    kCUBLAS_LT = 1,
+    //! \deprecated Deprecated in TensorRT 9.0.
+    kCUBLAS_LT TRT_DEPRECATED_ENUM = 1,
     //! cuDNN tactics. Enabled by default.
     //! \note Disabling kCUDNN will cause the cuDNN handle passed to plugins in attachToContext to be null.
     //! \note Setting kCUDNN tactic source takes no effect for core library if
@@ -2798,7 +2798,7 @@ public:
     //! If the profile index has not been set yet (implicitly to 0 if no other execution context has been set to
     //! profile 0, or explicitly for all subsequent contexts), an invalid value of -1 will be returned
     //! and all calls to enqueueV2()/enqueueV3()/executeV2() will fail until a valid profile index has been set.
-    //! This behavior is deprecated in TensorRT 8.6 and in TensorRT 9.0, all profiles will default to optimization
+    //! This behavior is deprecated in TensorRT 8.6, all profiles will default to optimization
     //! profile 0 and -1 will no longer be returned.
     //!
     int32_t getOptimizationProfile() const noexcept

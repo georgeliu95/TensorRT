@@ -40,9 +40,7 @@ namespace nvcaffeparser1
 //!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
-//! \deprecated Deprecated in TensorRT 8.0.
-//!
-class TRT_DEPRECATED IBlobNameToTensor
+class IBlobNameToTensor
 {
 public:
     //! \brief Given a blob name, returns a pointer to a ITensor object.
@@ -66,9 +64,7 @@ protected:
 //!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
-//! \deprecated Deprecated in TensorRT 8.0.
-//!
-class TRT_DEPRECATED IBinaryProtoBlob
+class IBinaryProtoBlob
 {
 public:
     virtual void const* getData() noexcept = 0;
@@ -88,9 +84,7 @@ public:
 //!
 //! \brief Plugin factory used to configure plugins.
 //!
-//! \deprecated Deprecated in TensorRT 8.0.
-//!
-class TRT_DEPRECATED IPluginFactoryV2
+class IPluginFactoryV2
 {
 public:
     //!
@@ -122,9 +116,7 @@ public:
 //!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
-//! \deprecated Deprecated in TensorRT 8.0.
-//!
-class TRT_DEPRECATED ICaffeParser
+class ICaffeParser
 {
 public:
     //!
@@ -248,25 +240,19 @@ public:
 //! \deprecated ICaffeParser will be removed in TensorRT 9.0. Plan to migrate your workflow to
 //! use nvonnxparser::IParser for deployment.
 //!
-//! \deprecated Deprecated in TensorRT 8.0.
-//!
-TRT_DEPRECATED_API ICaffeParser* createCaffeParser() noexcept;
+TENSORRTAPI ICaffeParser* createCaffeParser() noexcept;
 
 //!
 //! \brief Shuts down protocol buffers library.
 //!
 //! \note No part of the protocol buffers library can be used after this function is called.
 //!
-//! \deprecated Deprecated in TensorRT 8.0.
-//!
-TRT_DEPRECATED_API void shutdownProtobufLibrary() noexcept;
+TENSORRTAPI void shutdownProtobufLibrary() noexcept;
 } // namespace nvcaffeparser1
 
 //!
 //! Internal C entry point for creating ICaffeParser.
 //! @private
 //!
-//! \deprecated Deprecated in TensorRT 8.0.
-//!
-extern "C" TRT_DEPRECATED_API void* createNvCaffeParser_INTERNAL() noexcept;
+extern "C" TENSORRTAPI void* createNvCaffeParser_INTERNAL() noexcept;
 #endif

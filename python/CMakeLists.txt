@@ -159,7 +159,7 @@ else()
 endif()
 
 if (${TENSORRT_MODULE} STREQUAL "tensorrt")
-    set(TRT_LIBS nvinfer nvonnxparser nvparsers nvinfer_plugin)
+    set(TRT_LIBS nvinfer nvonnxparser nvinfer_plugin)
 elseif (${TENSORRT_MODULE} STREQUAL "tensorrt_lean")
     set(TRT_LIBS "nvinfer_lean${vfc_suffix}")
 elseif (${TENSORRT_MODULE} STREQUAL "tensorrt_dispatch")

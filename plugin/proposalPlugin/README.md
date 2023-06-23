@@ -11,7 +11,7 @@
 
 ## Description
 
-> NOTE: The `IPluginV2Ext` version of this plugin is deprecated since TensorRT 8.7. `IPluginV2DynamicExt`-based `ProposalDynamic` is recommended instead.
+> NOTE: The `IPluginV2Ext` version of this plugin is deprecated since TensorRT 9.0. `IPluginV2DynamicExt`-based `ProposalDynamic` is recommended instead.
 
 The `proposalPlugin` performs object detection for the Faster R-CNN model. This plugin is included in TensorRT.
 

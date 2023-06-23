@@ -89,7 +89,7 @@ nvinfer1::DataType stringToValue<nvinfer1::DataType>(const std::string& option)
 {
     const std::unordered_map<std::string, nvinfer1::DataType> strToDT{{"fp32", nvinfer1::DataType::kFLOAT},
         {"fp16", nvinfer1::DataType::kHALF}, {"bf16", nvinfer1::DataType::kBF16}, {"int8", nvinfer1::DataType::kINT8},
-        {"fp8", nvinfer1::DataType::kFP8}, {"int32", nvinfer1::DataType::kINT32}};
+        {"fp8", nvinfer1::DataType::kFP8}, {"int32", nvinfer1::DataType::kINT32}, {"bool", nvinfer1::DataType::kBOOL}};
     const auto& dt = strToDT.find(option);
     if (dt == strToDT.end())
     {
@@ -838,36 +838,6 @@ void BaseModelOptions::parse(Arguments& arguments)
     {
         format = ModelFormat::kONNX;
     }
-    else if (getAndDelOption(arguments, "--uff", model))
-    {
-        format = ModelFormat::kUFF;
-    }
-    else if (getAndDelOption(arguments, "--model", model))
-    {
-        format = ModelFormat::kCAFFE;
-    }
-}
-
-void UffInput::parse(Arguments& arguments)
-{
-    getAndDelOption(arguments, "--uffNHWC", NHWC);
-    std::vector<std::string> args;
-    if (getAndDelRepeatedOption(arguments, "--uffInput", args))
-    {
-        for (const auto& i : args)
-        {
-            std::vector<std::string> values{splitToStringVec(i, ',')};
-            if (values.size() == 4)
-            {
-                nvinfer1::Dims3 dims{std::stoi(values[1]), std::stoi(values[2]), std::stoi(values[3])};
-                inputs.emplace_back(values[0], dims);
-            }
-            else
-            {
-                throw std::invalid_argument(std::string("Invalid uffInput ") + i);
-            }
-        }
-    }
 }
 
 void ModelOptions::parse(Arguments& arguments)
@@ -876,51 +846,14 @@ void ModelOptions::parse(Arguments& arguments)
 
     switch (baseModel.format)
     {
-    case ModelFormat::kCAFFE:
-    {
-        getAndDelOption(arguments, "--deploy", prototxt);
-        break;
-    }
-    case ModelFormat::kUFF:
-    {
-        uffInputs.parse(arguments);
-        if (uffInputs.inputs.empty())
-        {
-            throw std::invalid_argument("Uff models require at least one input");
-        }
-        break;
-    }
-    case ModelFormat::kONNX: break;
+    case ModelFormat::kONNX:
     case ModelFormat::kANY:
     {
-        if (getAndDelOption(arguments, "--deploy", prototxt))
-        {
-            baseModel.format = ModelFormat::kCAFFE;
-        }
         break;
     }
     }
 
-    // The --output flag should only be used with Caffe and UFF. It has no effect on ONNX.
-    std::vector<std::string> outArgs;
-    if (getAndDelRepeatedOption(arguments, "--output", outArgs))
-    {
-        for (const auto& o : outArgs)
-        {
-            for (auto& v : splitToStringVec(o, ','))
-            {
-                outputs.emplace_back(std::move(v));
-            }
-        }
-    }
-    if (baseModel.format == ModelFormat::kCAFFE || baseModel.format == ModelFormat::kUFF)
-    {
-        if (outputs.empty())
-        {
-            throw std::invalid_argument("Caffe and Uff models require at least one output");
-        }
-    }
-    else if (baseModel.format == ModelFormat::kONNX)
+    if (baseModel.format == ModelFormat::kONNX)
     {
         if (!outputs.empty())
         {
@@ -1082,7 +1015,6 @@ void BuildOptions::parse(Arguments& arguments)
         }
     }
 
-    getAndDelOption(arguments, "--maxBatch", maxBatch);
     getAndDelOption(arguments, "--minTiming", minTiming);
     getAndDelOption(arguments, "--avgTiming", avgTiming);
 
@@ -1119,26 +1051,20 @@ void BuildOptions::parse(Arguments& arguments)
     getAndDelOption(arguments, "--stronglyTyped", stronglyTyped);
     if (stronglyTyped)
     {
-        if (fp16)
-        {
-            throw std::invalid_argument(
-                "Invalid usage, setting fp16 mode is not allowed when strongly typed mode is enabled.");
-        }
-        if (int8)
-        {
-            throw std::invalid_argument(
-                "Invalid usage, setting int8 mode is not allowed when strongly typed mode is enabled.");
-        }
-        if (bf16)
-        {
-            throw std::invalid_argument(
-                "Invalid usage, setting bf16 mode is not allowed when strongly typed mode is enabled.");
-        }
-        if (fp8)
-        {
-            throw std::invalid_argument(
-                "Invalid usage, setting fp8 mode is not allowed when strongly typed mode is enabled.");
-        }
+        auto disableAndLog = [](bool& flag, std::string mode, std::string type) {
+            if (flag)
+            {
+                flag = false;
+                sample::gLogWarning << "Invalid usage, setting " << mode
+                                    << " mode is not allowed when strongly typed mode is "
+                                       "enabled. Disabling BuilderFlag::"
+                                    << type << "." << std::endl;
+            }
+        };
+        disableAndLog(fp16, "fp16", "kFP16");
+        disableAndLog(int8, "int8", "kINT8");
+        disableAndLog(bf16, "bf16", "kBF16");
+        disableAndLog(fp8, "fp8", "kFP8");
     }
 
     if (fp8 && int8)
@@ -1506,7 +1432,6 @@ void InferenceOptions::parse(Arguments& arguments)
     splitInsertKeyValue(inputsList, inputs);
 
     getShapesInference(arguments, shapes, "--shapes");
-    getAndDelOption(arguments, "--batch", batch);
     setOptProfile = getAndDelOption(arguments, "--useProfile", optProfileIndex);
 }
 
@@ -1752,19 +1677,9 @@ std::ostream& operator<<(std::ostream& os, const BaseModelOptions& options)
     os << "Format: ";
     switch (options.format)
     {
-    case ModelFormat::kCAFFE:
-    {
-        os << "Caffe";
-        break;
-    }
     case ModelFormat::kONNX:
     {
         os << "ONNX";
-        break;
-    }
-    case ModelFormat::kUFF:
-    {
-        os << "UFF";
         break;
     }
     case ModelFormat::kANY: os << "*"; break;
@@ -1774,32 +1689,11 @@ std::ostream& operator<<(std::ostream& os, const BaseModelOptions& options)
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const UffInput& input)
-{
-    os << "Uff Inputs Layout: " << (input.NHWC ? "NHWC" : "NCHW") << std::endl;
-    for (const auto& i : input.inputs)
-    {
-        os << "Input: " << i.first << "," << i.second.d[0] << "," << i.second.d[1] << "," << i.second.d[2] << std::endl;
-    }
-
-    return os;
-}
-
 std::ostream& operator<<(std::ostream& os, const ModelOptions& options)
 {
     os << options.baseModel;
     switch (options.baseModel.format)
     {
-    case ModelFormat::kCAFFE:
-    {
-        os << "Prototxt: " << options.prototxt << std::endl;
-        break;
-    }
-    case ModelFormat::kUFF:
-    {
-        os << options.uffInputs;
-        break;
-    }
     case ModelFormat::kONNX: // Fallthrough: No options to report for ONNX or the generic case
     case ModelFormat::kANY: break;
     }
@@ -2222,19 +2116,7 @@ std::ostream& operator<<(std::ostream& os, const SafeBuilderOptions& options)
 void BaseModelOptions::help(std::ostream& os)
 {
     // clang-format off
-    os << "  --uff=<file>                UFF model"                                             << std::endl <<
-          "  --onnx=<file>               ONNX model"                                            << std::endl <<
-          "  --model=<file>              Caffe model (default = no model, random weights used)" << std::endl;
-    // clang-format on
-}
-
-void UffInput::help(std::ostream& os)
-{
-    // clang-format off
-    os << "  --uffInput=<name>,X,Y,Z     Input blob name and its dimensions (X,Y,Z=C,H,W), it can be specified "
-                                                       "multiple times; at least one is required for UFF models" << std::endl <<
-          "  --uffNHWC                   Set if inputs are in the NHWC layout instead of NCHW (use "             <<
-                                                                    "X,Y,Z=H,W,C order in --uffInput)"           << std::endl;
+    os << "  --onnx=<file>               ONNX model"                                            << std::endl;
     // clang-format on
 }
 
@@ -2243,10 +2125,6 @@ void ModelOptions::help(std::ostream& os)
     // clang-format off
     os << "=== Model Options ==="                                                                                 << std::endl;
     BaseModelOptions::help(os);
-    os << "  --deploy=<file>             Caffe prototxt file"                                                     << std::endl <<
-          "  --output=<name>[,<name>]*   Output names (it can be specified multiple times); at least one output "
-                                                                                  "is required for UFF and Caffe" << std::endl;
-    UffInput::help(os);
     // clang-format on
 }
 
@@ -2254,8 +2132,6 @@ void BuildOptions::help(std::ostream& os)
 {
     // clang-format off
     os << "=== Build Options ==="                                                                                                                   "\n"
-          "  --maxBatch                         Set max batch size and build an implicit batch engine (default = same size as --batch)"             "\n"
-          "                                     This option should not be used when the input model is ONNX or when dynamic shapes are provided."   "\n"
           "  --minShapes=spec                   Build with dynamic shapes using a profile with the min shapes provided"                             "\n"
           "  --optShapes=spec                   Build with dynamic shapes using a profile with the opt shapes provided"                             "\n"
           "  --maxShapes=spec                   Build with dynamic shapes using a profile with the max shapes provided"                             "\n"
@@ -2282,7 +2158,7 @@ void BuildOptions::help(std::ostream& os)
           "                                           needs specifying IO format) or set the type and format once for broadcasting."                "\n"
           R"(                                     IO Formats: spec  ::= IOfmt[","spec])"                                                            "\n"
           "                                                 IOfmt ::= type:fmt"                                                                     "\n"
-          R"(                                               type  ::= "fp32"|"fp16"|"bf16"|"int32"|"int8")"                                                "\n"
+          R"(                                               type  ::= "fp32"|"fp16"|"bf16"|"int32"|"int8"|"bool")"                                  "\n"
           R"(                                               fmt   ::= ("chw"|"chw2"|"chw4"|"hwc8"|"chw16"|"chw32"|"dhwc8"|)"                        "\n"
           R"(                                                          "cdhw32"|"hwc"|"dla_linear"|"dla_hwc4")["+"fmt])"                            "\n"
           "  --workspace=N                      Set workspace size in MiB."                                                                         "\n"
@@ -2368,7 +2244,7 @@ void BuildOptions::help(std::ostream& os)
           "  --saveEngine=<file>                Save the serialized engine"                                                                         "\n"
           "  --loadEngine=<file>                Load a serialized engine"                                                                           "\n"
           "  --getPlanVersionOnly               Print TensorRT version when loaded plan was created. Works without deserialization of the plan."    "\n"
-          "                                     Use together with --loadEngine. Supportted only for engines created with 8.6 and forward."          "\n"
+          "                                     Use together with --loadEngine. Supported only for engines created with 8.6 and forward."           "\n"
           "  --tacticSources=tactics            Specify the tactics to be used by adding (+) or removing (-) tactics from the default "             "\n"
           "                                     tactic sources (default = all available tactics)."                                                  "\n"
           "                                     Note: Currently only cuDNN, cuBLAS, cuBLAS-LT, and edge mask convolutions are listed as optional"   "\n"
@@ -2437,9 +2313,6 @@ void InferenceOptions::help(std::ostream& os)
 {
     // clang-format off
     os << "=== Inference Options ==="                                                                                                << std::endl <<
-          "  --batch=N                   Set batch size for implicit batch engines (default = "              << defaultBatch << ")"  << std::endl <<
-          "                              This option should not be used when the engine is built from an ONNX model or when dynamic" << std::endl <<
-          "                              shapes are provided when the engine is built."                                              << std::endl <<
           "  --shapes=spec               Set input shapes for dynamic shapes inference inputs."                                      << std::endl <<
           R"(                              Note: Input names can be wrapped with escaped single quotes (ex: 'Input:0').)"            << std::endl <<
           "                              Example input shapes spec: input0:1x3x256x256, input1:1x3x128x128"                          << std::endl <<

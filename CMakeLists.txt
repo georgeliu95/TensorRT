@@ -33,6 +33,7 @@ else()
     cmake_path(SET CUDNN_ROOT_DIR ${CUDNN_ROOT_DIR})
 endif()
 
+# Required to export symbols to build *.libs
 if(WIN32)
     add_compile_definitions(TENSORRT_BUILD_LIB 1)
 endif()
@@ -157,7 +158,6 @@ if(BUILD_PARSERS)
 endif()
 
 find_library_create_target(nvinfer nvinfer SHARED ${TRT_LIB_DIR})
-find_library_create_target(nvuffparser nvparsers SHARED ${TRT_LIB_DIR})
 
 find_library(CUDART_LIB cudart_static HINTS ${CUDA_TOOLKIT_ROOT_DIR} PATH_SUFFIXES lib lib/x64 lib64)
 
@@ -233,7 +233,6 @@ endif()
 if(BUILD_PARSERS)
     add_subdirectory(parsers)
 else()
-    find_library_create_target(nvcaffeparser nvparsers SHARED ${TRT_OUT_DIR} ${TRT_LIB_DIR})
     find_library_create_target(nvonnxparser nvonnxparser SHARED ${TRT_OUT_DIR} ${TRT_LIB_DIR})
 endif()
 

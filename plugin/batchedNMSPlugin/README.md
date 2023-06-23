@@ -12,7 +12,7 @@
 
 ## Description
 
-> NOTE: This plugin is deprecated since TensorRT 8.7. Its functionality has been superseded by the `INMSLayer` and `EfficientNMS` plugin.
+> NOTE: This plugin is deprecated since TensorRT 9.0. Its functionality has been superseded by the `INMSLayer` and `EfficientNMS` plugin.
 
 The `batchedNMSPlugin` implements a non-maximum suppression (NMS) step over boxes for object detection networks.
 

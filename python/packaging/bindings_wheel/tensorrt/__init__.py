@@ -51,7 +51,6 @@ if sys.platform.startswith("win"):
         "cudnn64_##CUDNN_MAJOR##.dll",
         "nvinfer_plugin.dll",
         "nvonnxparser.dll",
-        "nvparsers.dll",
     ],
     "tensorrt_dispatch": [
         "nvinfer_dispatch.dll",
@@ -110,15 +109,8 @@ if "##TENSORRT_MODULE##" == "tensorrt":
     INetworkDefinition.__enter__ = common_enter
     INetworkDefinition.__exit__ = common_exit
 
-    UffParser.__enter__ = common_enter
-    UffParser.__exit__ = common_exit
-
-    CaffeParser.__enter__ = common_enter
-    CaffeParser.__exit__ = common_exit
-
     OnnxParser.__enter__ = common_enter
     OnnxParser.__exit__ = common_exit
-
 
     Refitter.__enter__ = common_enter
     Refitter.__exit__ = common_exit
