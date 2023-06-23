@@ -67,6 +67,7 @@ class TRTKVCache:
         for _ in range(num_layers):
             self.keys.append(self._allocate_memory())
             self.values.append(self._allocate_memory())
+        self.element_size = self.keys[0].element_size()
 
     def get_key(self, index):
         assert index < len(self.keys)
@@ -77,19 +78,23 @@ class TRTKVCache:
         return self.values[index]
 
     def update_dict(self, tensor_dict, seq_len):
-        assert self.cur_seq_len + seq_len < self.max_seq_len
-        def update_shape(shape, seq_len):
-            shape = list(shape)
-            assert len(shape) > 0
-            shape[0] = seq_len
-            return shape
-
         # Update KV input shapes every time before executing inference
+        cur_shape = (self.cur_seq_len, self.bs, self.nb_heads, self.head_size)
+        new_shape = (seq_len, self.bs, self.nb_heads, self.head_size)
+        assert self.cur_seq_len + seq_len < self.max_seq_len
+
+        offset = self.bs*self.nb_heads*self.head_size*self.cur_seq_len*self.element_size
         for i in range(self.num_layers):
-            tensor_dict[get_past_key_name(i)] = (self.keys[i], update_shape(self.keys[i].shape, self.cur_seq_len))
-            tensor_dict[get_past_value_name(i)] = (self.values[i], update_shape(self.values[i].shape, self.cur_seq_len))
-            tensor_dict[get_new_key_name(i)] = (self.keys[i][self.cur_seq_len:], update_shape(self.keys[i].shape, seq_len))
-            tensor_dict[get_new_value_name(i)] = (self.values[i][self.cur_seq_len:], update_shape(self.values[i].shape, seq_len))
+            key_address = self.keys[i].data_ptr()
+            value_address = self.values[i].data_ptr()
+            # new kv address start from the past kv-cache data end
+            tensor_dict[f"past_key_values.{i}.decoder.key"] = (key_address, cur_shape)
+            tensor_dict[f"past_key_values.{i}.decoder.value"] = (value_address, cur_shape)
+
+            new_key_address = key_address + offset
+            new_value_address = value_address + offset
+            tensor_dict[f"new_key_values.{i}.decoder.key"] = (new_key_address, new_shape)
+            tensor_dict[f"new_key_values.{i}.decoder.value"] = (new_value_address, new_shape)
         self.cur_seq_len += seq_len
 
 def sample_sequence_batch(
@@ -105,7 +110,7 @@ def sample_sequence_batch(
     extra={},
 ):
     def repetition_penalty(logits, repetition_penalty, used_tokens):
-        """ Implement the repetition penalty, check paper 
+        """ Implement the repetition penalty, check paper
         https://arxiv.org/pdf/1909.05858.pdf
         """
         if used_tokens is not None and repetition_penalty != 1.0:
@@ -118,7 +123,7 @@ def sample_sequence_batch(
         This function has been mostly taken from huggingface conversational
             ai code at
             https://medium.com/huggingface/how-to-build-a-state-of-the-art-
-                conversational-ai-with-transfer-learning-2d818ac26313 
+                conversational-ai-with-transfer-learning-2d818ac26313
 
             @param logits: logits tensor
             @param top_k: keep only top k tokens with highest probability
@@ -158,10 +163,6 @@ def sample_sequence_batch(
                     logits[i, indices_to_remove] = filter_value
 
         return logits
-
-    def switch(val1, val2, boolean):
-        boolean = boolean.type_as(val1)
-        return (1 - boolean) * val1 + boolean * val2
 
     def end_of_generation_condition(
         tokenizer, tokens: torch.Tensor, prev: torch.Tensor, eod_id: int, end_strings: List[str]
@@ -213,7 +214,7 @@ def sample_sequence_batch(
 
         lengths = torch.ones([batch_size]).long().cuda() * maxlen
 
-        kv_cache = None
+        kv_cache = TRTKVCache(model.cfg.num_layers, maxlen, batch_size, model.cfg.nb_heads, model.cfg.head_size, torch.float16)
         while context_length < maxlen:
             output = None
 
@@ -248,28 +249,27 @@ def sample_sequence_batch(
                     assert isinstance(model.trt, GPTTRTDecoder)
                     input_ids_name = model.trt.get_input_ids_name()
                     input_ids = batch_tokens.type(model.trt.get_torch_type(input_ids_name)).contiguous().cuda()
-                    tensor_dict = {input_ids_name : (input_ids, input_ids.shape)}
+                    tensor_dict = {input_ids_name : (input_ids.data_ptr(), input_ids.shape)}
                     position_ids_name = model.trt.get_position_ids_name()
                     if position_ids_name != None:
                         position_ids = position_ids.type(model.trt.get_torch_type(position_ids_name)).contiguous().cuda()
-                        tensor_dict[position_ids_name] = (position_ids, position_ids.shape)
+                        tensor_dict[position_ids_name] = (position_ids.data_ptr(), position_ids.shape)
                     attention_mask_name = model.trt.get_attention_mask_name()
                     if attention_mask_name != None:
                         attention_mask = attention_mask.type(model.trt.get_torch_type(attention_mask_name)).contiguous().cuda()
-                        tensor_dict[attention_mask_name] = (attention_mask, attention_mask.shape)
+                        tensor_dict[attention_mask_name] = (attention_mask.data_ptr(), attention_mask.shape)
 
                     is_first_input = False
                     if extra.get("use_cache", False):
                         if set_inference_key_value_memory[0].item():
                             is_first_input = True
-                            kv_cache = TRTKVCache(model.cfg.num_layers, inference_max_sequence_len[0].item(), batch_size, model.cfg.nb_heads, model.cfg.head_size, torch.float16)
                             kv_cache.update_dict(tensor_dict, seq_len)
                         else:
                             assert kv_cache != None
                             kv_cache.update_dict(tensor_dict, 1)
 
                     logits_name = model.trt.get_output_name()
-                    output = model.trt.run([logits_name], tensor_dict, is_first_input)[0]
+                    output = model.trt.run(logits_name, tensor_dict, is_first_input)
                 else: # onnxrt path
                     from onnxruntime import InferenceSession
                     assert isinstance(model.onnx, InferenceSession)
@@ -323,11 +323,14 @@ def sample_sequence_batch(
 
             # Clamp the predicted out of vocabulary tokens
             prev = torch.clamp(prev, max=tokenizer.vocab_size - 1)
-            new_tokens = switch(tokens[:, context_length].view(-1), prev, started)
 
+            if started:
+                new_tokens = prev
+            else:
+                new_tokens = tokens[:, context_length].view(-1)
             # Replace sampled tokens w/ done token if EOD has already been sampled
-            new_tokens = switch(new_tokens, eod_id, is_done)
-
+            if is_done:
+                new_tokens = eod_id
             # post process the inference tokens based on the strategy
             inference_strategy.post_process(tokens, new_tokens, context_length)
 

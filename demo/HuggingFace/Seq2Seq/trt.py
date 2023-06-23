@@ -51,7 +51,7 @@ from NNDF.networks import (
 )
 
 from NNDF.general_utils import confirm_folder_delete
-from NNDF.tensorrt_utils import TRTNativeRunner, setup_benchmark_arg
+from NNDF.tensorrt_utils import TRTNativeRunner, setup_benchmark_arg, CUASSERT
 from NNDF.models import TRTEngineFile
 from NNDF.logger import G_LOGGER
 
@@ -60,16 +60,6 @@ from Seq2Seq.measurements import calculate_perplexity_helper_encoder_decoder, ca
 from Seq2Seq.export import Seq2SeqModelClass
 from cuda import cudart
 
-
-def CUASSERT(cuda_ret):
-    if len(cuda_ret) < 1:
-        raise RuntimeError("CUDA ERROR: There is no return value.")
-    err = cuda_ret[0]
-    if err != cudart.cudaError_t.cudaSuccess:
-         raise RuntimeError(f"CUDA ERROR: {err}, error code reference: https://nvidia.github.io/cuda-python/module/cudart.html#cuda.cudart.cudaError_t")
-    if len(cuda_ret) > 1:
-        return cuda_ret[1]
-    return None
 
 class Seq2SeqTRTEncoder(TRTNativeRunner):
     """TRT implemented network interface that can be used to measure inference time."""
@@ -148,7 +138,6 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
         self.binding_index_cache = dict()
 
         self.next_input_binding_shape_setting = dict()
-        self.stream = CUASSERT(cudart.cudaStreamCreate())
 
         # Construct buffer for logits outputs
         self.logits = torch.zeros(

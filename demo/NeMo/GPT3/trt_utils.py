@@ -28,6 +28,9 @@ from NNDF.tensorrt_utils import TRTNativeRunner
 from NNDF.logger import G_LOGGER
 from Seq2Seq.export import DecoderTRTEngine
 
+from HuggingFace.NNDF.tensorrt_utils import TRTNativeRunner, CUASSERT
+from cuda import cudart
+
 
 def to_torch_dtype(np_type):
     if np_type == np.int32:
@@ -62,8 +65,12 @@ class GPTTRTDecoder(TRTNativeRunner):
         if self.use_cache:
             self._set_context_mode_trt_context()
         self.io_names = set()
-        for i in range(self.trt_engine.num_bindings):
-            self.io_names.add(self.trt_engine.get_binding_name(i))
+        self.input_tensor_names = set()
+        for i in range(self.trt_engine.num_io_tensors):
+            tensor_name = self.trt_engine.get_tensor_name(i)
+            self.io_names.add(tensor_name)
+            if self.trt_engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
+                self.input_tensor_names.add(tensor_name)
 
         self.cfg = cfg
         logits_size = self.cfg.batch_size * self.cfg.model.max_seq_len * self.cfg.model.vocab_size
@@ -120,50 +127,40 @@ class GPTTRTDecoder(TRTNativeRunner):
             return self.trt_engine.get_binding_name(self.ATTENTION_MASK_INDEX)
         return None
 
-    def run(self, output_names, io_descs, is_first_input=False):
-        def get_binding_idx(name, binding_offset=0):
-            idx = self.trt_engine.get_binding_index(name)
-            return binding_offset + idx
-
+    def run(self, output_name, io_descs, is_first_input=False):
         # Set active optimization profile and active execution context.
         self.trt_context.active_optimization_profile = self.profile_idx
         active_context = self.trt_context
-        binding_offset = 0
         if is_first_input and self.use_cache:
             active_context = self.context_trt_context
-            binding_offset += self.kv_cache_binding_offset
 
         # Set up input bindings.
-        bindings = [0] * self.trt_engine.num_bindings
-        tensors = []
         for name, tensor_shape in io_descs.items():
-            tensors.append(tensor_shape[0])
-
-            idx = get_binding_idx(name, binding_offset)
-            bindings[idx] = tensor_shape[0].data_ptr()
-            if self.trt_engine.binding_is_input(name):
-                active_context.set_binding_shape(idx, tensor_shape[1])
+            active_context.set_tensor_address(name, tensor_shape[0])
+            if name in self.input_tensor_names:
+                active_context.set_input_shape(name, tensor_shape[1])
             elif self.use_cache:
                 pass
             else:
                 assert False, "All tensors must be inputs for non-KV mode"
-        assert active_context.all_binding_shapes_specified
+        assert active_context.all_shape_inputs_specified
 
         # Set up output bindings.
-        assert len(output_names) == 1 and output_names[0] == self.get_output_name()
-        engine_out_torch_type = self.get_torch_type(output_names[0])
+        assert output_name == self.get_output_name()
+        engine_out_torch_type = self.get_torch_type(output_name)
         if self.logits.dtype != engine_out_torch_type:
             raise ValueError(f"Output data type does not match, {self.logits.dtype} vs. {engine_out_torch_type}.")
-        idx = get_binding_idx(output_names[0], binding_offset)
-        shape = active_context.get_binding_shape(idx)
-        bindings[idx] = self.logits.data_ptr()
+        shape = active_context.get_tensor_shape(output_name)
+        active_context.set_tensor_address(output_name, self.logits.data_ptr())
+
 
         # Execute inference.
-        active_context.execute_v2(bindings=bindings)
+        active_context.execute_async_v3(self.stream)
+        CUASSERT(cudart.cudaStreamSynchronize(self.stream))
         if len(shape) != 3:
             raise ValueError("Output must have a dimension of 3.")
         output = self.logits[:shape[0] * shape[1] * shape[2]].view(tuple(shape))
-        return [output]
+        return output
 
 def load_trt_model(cfg):
     G_LOGGER.info(f'Loading TensorRT engine from {cfg.trt_engine_file} with use_cache={cfg.use_cache}')
