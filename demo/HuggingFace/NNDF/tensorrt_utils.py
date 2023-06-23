@@ -45,6 +45,19 @@ from NNDF.logger import G_LOGGER
 # PyTorch
 import torch
 
+# CUDA Runtime
+from cuda import cudart
+
+def CUASSERT(cuda_ret):
+    if len(cuda_ret) < 1:
+        raise RuntimeError("CUDA ERROR: There is no return value.")
+    err = cuda_ret[0]
+    if err != cudart.cudaError_t.cudaSuccess:
+         raise RuntimeError(f"CUDA ERROR: {err}, error code reference: https://nvidia.github.io/cuda-python/module/cudart.html#cuda.cudart.cudaError_t")
+    if len(cuda_ret) > 1:
+        return cuda_ret[1:]
+    return None
+
 # Helper Functions
 def setup_benchmark_arg(user_input, name, default):
     '''
@@ -201,6 +214,7 @@ class TRTNativeRunner:
         self.trt_engine_file = trt_engine_file
         self.trt_logger = trt.Logger()
         self.config = config
+        self.stream = CUASSERT(cudart.cudaStreamCreate())[0]
 
         if G_LOGGER.level == G_LOGGER.DEBUG:
             self.trt_logger.min_severity = trt.Logger.VERBOSE
