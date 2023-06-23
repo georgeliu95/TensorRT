@@ -73,6 +73,14 @@ def get_itemsize(dtype):
 
     if dtype == onnx.TensorProto.BFLOAT16:
         return 2
+
+    if dtype in [
+        onnx.TensorProto.FLOAT8E4M3FN,
+        onnx.TensorProto.FLOAT8E4M3FNUZ,
+        onnx.TensorProto.FLOAT8E5M2,
+        onnx.TensorProto.FLOAT8E5M2FNUZ,
+    ]:
+        return 1
     G_LOGGER.critical(f"Unsupported type: {dtype}")
 
 
@@ -81,9 +89,17 @@ def get_numpy_type(onnx_type):
         # Already a NumPy type
         return onnx_type
 
-    # For some reason, TENSOR_TYPE_TO_NP_TYPE maps `bfloat16` to `float32`.
+    numpy_unsupported_types = [
+        onnx.TensorProto.BFLOAT16,
+        onnx.TensorProto.FLOAT8E4M3FN,
+        onnx.TensorProto.FLOAT8E4M3FNUZ,
+        onnx.TensorProto.FLOAT8E5M2,
+        onnx.TensorProto.FLOAT8E5M2FNUZ,
+    ]
+
+    # TENSOR_TYPE_TO_NP_TYPE maps types unsupported by NumPy to random other types.
     # This obviously breaks things, so we need to treat this as a special case.
-    if onnx_type != onnx.TensorProto.BFLOAT16 and onnx_type in onnx.mapping.TENSOR_TYPE_TO_NP_TYPE:
+    if onnx_type not in numpy_unsupported_types and onnx_type in onnx.mapping.TENSOR_TYPE_TO_NP_TYPE:
         return onnx.mapping.TENSOR_TYPE_TO_NP_TYPE[onnx_type]
     return None
 

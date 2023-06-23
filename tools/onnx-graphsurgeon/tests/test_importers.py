@@ -45,6 +45,10 @@ class TestOnnxImporter(object):
         [
             (onnx.TensorProto.FLOAT, np.float32),
             (onnx.TensorProto.BFLOAT16, onnx.TensorProto.BFLOAT16),
+            (onnx.TensorProto.FLOAT8E4M3FN, onnx.TensorProto.FLOAT8E4M3FN),
+            (onnx.TensorProto.FLOAT8E4M3FNUZ, onnx.TensorProto.FLOAT8E4M3FNUZ),
+            (onnx.TensorProto.FLOAT8E5M2, onnx.TensorProto.FLOAT8E5M2),
+            (onnx.TensorProto.FLOAT8E5M2FNUZ, onnx.TensorProto.FLOAT8E5M2FNUZ),
         ],
     )
     def test_import_variable_tensor(self, onnx_type, expected_type):
