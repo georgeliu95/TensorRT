@@ -210,6 +210,7 @@ constexpr const char* descr = R"trtdoc(
     :ivar allowed_formats: :class:`int32` The allowed set of TensorFormat candidates. This should be an integer consisting of one or more :class:`TensorFormat` s, combined via bitwise OR after bit shifting. For example, ``1 << int(TensorFormat.CHW4) | 1 << int(TensorFormat.CHW32)``.
 )trtdoc";
 
+// remove md
 #if ENABLE_MDTRT
 constexpr char const* add_instance_id = R"trtdoc(
     Set that this tensor's data exists on the instance ID.
@@ -236,7 +237,6 @@ constexpr char const* del_instance_id = R"trtdoc(
     :returns: true if the id was removed from the tensor, false otherwise.
 )trtdoc";
 #endif // ENABLE_MDTRT
-
 constexpr const char* set_dynamic_range = R"trtdoc(
     Set dynamic range for the tensor.
     NOTE: It is suggested to use ``tensor.dynamic_range = (min, max)`` instead.

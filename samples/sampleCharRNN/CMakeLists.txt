@@ -17,6 +17,7 @@
 SET(SAMPLE_SOURCES
     sampleCharRNN.cpp
     ../common/sampleEngines.cpp
+    ../common/sampleOptions.cpp
     ../common/sampleUtils.cpp
     ../common/bfloat16.cpp
 )

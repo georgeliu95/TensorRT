@@ -24,6 +24,7 @@
 #include "NvInferSerialize.h"
 #endif
 
+// remove md
 #if ENABLE_MDTRT
 #include "api/internal.h"
 #endif
@@ -364,6 +365,7 @@ namespace tensorrt
             .def("reset_dynamic_range", &ITensor::resetDynamicRange, ITensorDoc::reset_dynamic_range)
             .def("set_dimension_name", &ITensor::setDimensionName, "index"_a, "name"_a, ITensorDoc::set_dimension_name)
             .def("get_dimension_name", &ITensor::getDimensionName, "index"_a, ITensorDoc::get_dimension_name)
+// remove md
 #if ENABLE_MDTRT
             .def("add_instance_id", &nvinfer1AddInstanceID, "id"_a, ITensorDoc::add_instance_id)
             .def("has_instance_id", &nvinfer1HasInstanceID, "id"_a, ITensorDoc::has_instance_id)

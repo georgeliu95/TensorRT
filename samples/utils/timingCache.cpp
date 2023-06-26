@@ -22,7 +22,7 @@ std::vector<char> loadTimingCacheFile(ILogger& logger, std::string const& inFile
         {
             std::stringstream ss;
             ss << "Could not read timing cache from: " << inFileName
-               << ". A new timing cache will be generated and written." << std::endl;
+               << ". A new timing cache will be generated and written.";
             logger.log(ILogger::Severity::kWARNING, ss.str().c_str());
             return std::vector<char>();
         }
@@ -33,7 +33,7 @@ std::vector<char> loadTimingCacheFile(ILogger& logger, std::string const& inFile
         iFile.read(content.data(), fsize);
         iFile.close();
         std::stringstream ss;
-        ss << "Loaded " << fsize << " bytes of timing cache from " << inFileName << std::endl;
+        ss << "Loaded " << fsize << " bytes of timing cache from " << inFileName;
         logger.log(ILogger::Severity::kINFO, ss.str().c_str());
         return content;
     }
@@ -53,14 +53,14 @@ void saveTimingCacheFile(ILogger& logger, std::string const& outFileName, IHostM
         if (!oFile)
         {
             std::stringstream ss;
-            ss << "Could not write timing cache to: " << outFileName << std::endl;
+            ss << "Could not write timing cache to: " << outFileName;
             logger.log(ILogger::Severity::kWARNING, ss.str().c_str());
             return;
         }
         oFile.write(reinterpret_cast<char*>(blob->data()), blob->size());
         oFile.close();
         std::stringstream ss;
-        ss << "Saved " << blob->size() << " bytes of timing cache to " << outFileName << std::endl;
+        ss << "Saved " << blob->size() << " bytes of timing cache to " << outFileName;
         logger.log(ILogger::Severity::kINFO, ss.str().c_str());
     }
     catch (std::exception const& e)
@@ -89,7 +89,7 @@ void updateTimingCacheFile(nvinfer1::ILogger& logger, std::string const& fileNam
             iFile.read(content.data(), fsize);
             iFile.close();
             std::stringstream ss;
-            ss << "Loaded " << fsize << " bytes of timing cache from " << fileName << std::endl;
+            ss << "Loaded " << fsize << " bytes of timing cache from " << fileName;
             logger.log(ILogger::Severity::kINFO, ss.str().c_str());
             fileTimingCache.reset(config->createTimingCache(static_cast<void const*>(content.data()), content.size()));
             if (!fileTimingCache)
@@ -107,14 +107,14 @@ void updateTimingCacheFile(nvinfer1::ILogger& logger, std::string const& fileNam
         if (!oFile)
         {
             std::stringstream ss;
-            ss << "Could not write timing cache to: " << fileName << std::endl;
+            ss << "Could not write timing cache to: " << fileName;
             logger.log(ILogger::Severity::kWARNING, ss.str().c_str());
             return;
         }
         oFile.write(reinterpret_cast<char*>(blob->data()), blob->size());
         oFile.close();
         std::stringstream ss;
-        ss << "Saved " << blob->size() << " bytes of timing cache to " << fileName << std::endl;
+        ss << "Saved " << blob->size() << " bytes of timing cache to " << fileName;
         logger.log(ILogger::Severity::kINFO, ss.str().c_str());
     }
     catch (std::exception const& e)

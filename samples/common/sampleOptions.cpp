@@ -2146,7 +2146,8 @@ void BuildOptions::help(std::ostream& os)
           "                                     Each input shape is supplied as a key-value pair where key is the input name and"                   "\n"
           "                                     value is the dimensions (including the batch dimension) to be used for that input."                 "\n"
           "                                     Each key-value pair has the key and value separated using a colon (:)."                             "\n"
-          "                                     Multiple input shapes can be provided via comma-separated key-value pairs."                         "\n"
+          "                                     Multiple input shapes can be provided via comma-separated key-value pairs, and each input name can" "\n"
+          "                                     contain at most one wildcard ('*') character."                                                      "\n"
           "  --inputIOFormats=spec              Type and format of each of the input tensors (default = all inputs in fp32:chw)"                    "\n"
           "                                     See --outputIOFormats help for the grammar of type and format list."                                "\n"
           "                                     Note: If this option is specified, please set comma-separated types and formats for all"            "\n"
@@ -2212,15 +2213,15 @@ void BuildOptions::help(std::ostream& os)
           "                                                otherwise"                                                                               "\n"
           "  --layerPrecisions=spec             Control per-layer precision constraints. Effective only when precisionConstraints is set to"        "\n"
           R"(                                   "obey" or "prefer". (default = none))"                                                              "\n"
-          R"(                                   The specs are read left-to-right, and later ones override earlier ones. "*" can be used as a)"      "\n"
-          "                                     layerName to specify the default precision for all the unspecified layers."                         "\n"
+          R"(                                   The specs are read left-to-right, and later ones override earlier ones. Each layer name can)"       "\n"
+          "                                     contain at most one wildcard ('*') character."                                                      "\n"
           R"(                                   Per-layer precision spec ::= layerPrecision[","spec])"                                              "\n"
           R"(                                                       layerPrecision ::= layerName":"precision)"                                      "\n"
           R"(                                                       precision ::= "fp32"|"fp16"|"bf16"|"int32"|"int8")"                             "\n"
           "  --layerOutputTypes=spec            Control per-layer output type constraints. Effective only when precisionConstraints is set to"      "\n"
           R"(                                   "obey" or "prefer". (default = none)"                                                               "\n"
-          R"(                                   The specs are read left-to-right, and later ones override earlier ones. "*" can be used as a)"      "\n"
-          "                                     layerName to specify the default precision for all the unspecified layers. If a layer has more than""\n"
+          R"(                                   The specs are read left-to-right, and later ones override earlier ones. Each layer name can)"       "\n"
+          "                                     contain at most one wildcard ('*') character. If a layer has more than"                             "\n"
           R"(                                   one output, then multiple types separated by "+" can be provided for this layer.)"                  "\n"
           R"(                                   Per-layer output type spec ::= layerOutputTypes[","spec])"                                          "\n"
           R"(                                                         layerOutputTypes ::= layerName":"type)"                                       "\n"
@@ -2319,7 +2320,8 @@ void InferenceOptions::help(std::ostream& os)
           "                              Each input shape is supplied as a key-value pair where key is the input name and"           << std::endl <<
           "                              value is the dimensions (including the batch dimension) to be used for that input."         << std::endl <<
           "                              Each key-value pair has the key and value separated using a colon (:)."                     << std::endl <<
-          "                              Multiple input shapes can be provided via comma-separated key-value pairs."                 << std::endl <<
+          "                              Multiple input shapes can be provided via comma-separated key-value pairs, and each input " << std::endl <<
+          "                              name can contain at most one wildcard ('*') character."                                     << std::endl <<
           "  --loadInputs=spec           Load input values from files (default = generate random inputs). Input names can be "
                                                                                        "wrapped with single quotes (ex: 'Input:0')"  << std::endl <<
           R"(                            Input values spec ::= Ival[","spec])"                                                       << std::endl <<

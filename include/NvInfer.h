@@ -5593,7 +5593,7 @@ public:
     //! The indices in the kCONCATENATE or kREVERSE cases are as follows:
     //!
     //! - 0: Contribution to the output tensor.  The contribution must come from inside the loop.
-    //! - 1: The concatenation length scalar value, must come from outside the loop, as a 0D Int32 shape tensor.
+    //! - 1: The concatenation length scalar value, must come from outside the loop, as a 0D Int32 or Int64 shape tensor.
     //!
     //! If this function is called with the value 1, then the function getNbInputs() changes
     //! from returning 1 to 2.
@@ -9107,6 +9107,10 @@ enum class BuilderFlag : int32_t
     kEXCLUDE_LEAN_RUNTIME = 16,
 
     //! Enable FP8 layer selection, with FP32 fallback.
+    //!
+    //! This flag is not supported with hardware-compatibility mode.
+    //!
+    //! \see HardwareCompatibilityLevel
     kFP8 = 17,
 
     //! Emit error when a tactic being timed is not present in the timing cache.

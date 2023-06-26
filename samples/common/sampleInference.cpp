@@ -60,7 +60,7 @@ bool validateTensorNames(MapType const& map, EngineType const* engine, int32_t c
         bool tensorNameFound{false};
         for (int32_t b = 0; b < endBindingIndex; ++b)
         {
-            if (engine->bindingIsInput(b) && engine->getBindingName(b) == item.first)
+            if (engine->bindingIsInput(b) && matchStringWithOneWildcard(item.first, engine->getBindingName(b)))
             {
                 tensorNameFound = true;
                 break;
@@ -96,7 +96,7 @@ private:
         auto const* bindingInOutStr = tensorInfo.isInput ? "Input" : "Output";
         for (auto& binding : bindings)
         {
-            auto const input = inputs.find(name);
+            auto const input = findPlausible(inputs, name);
             if (tensorInfo.isInput && input != inputs.end())
             {
                 sample::gLogInfo << "Using values loaded from " << input->second << " for input " << name << std::endl;
@@ -352,7 +352,7 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
             bool isShapeInferenceIO{false};
             isShapeInferenceIO = engine->isShapeInferenceIO(name);
             bool const hasRuntimeDim = std::any_of(dims.d, dims.d + dims.nbDims, [](int32_t dim) { return dim == -1; });
-            auto const shape = inference.shapes.find(name);
+            auto const shape = findPlausible(inference.shapes, name);
             if (hasRuntimeDim || isShapeInferenceIO)
             {
                 // Set shapeData to either dimensions of the input (if it has a dynamic shape)
@@ -410,6 +410,7 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
                     {
                         if (isShapeInferenceIO)
                         {
+                            sample::gLogInfo << "Set input shape tensor " << name << " to: " << shapeData << std::endl;
                             if (!c->setTensorAddress(name, shapeTensorData))
                             {
                                 return false;
@@ -417,6 +418,8 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
                         }
                         else
                         {
+                            sample::gLogInfo << "Set shape of input tensor " << name << " to: " << shapeData
+                                             << std::endl;
                             if (!c->setInputShape(name, toDims(shapeData)))
                             {
                                 return false;
@@ -427,6 +430,7 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
                     {
                         if (isShapeInferenceIO)
                         {
+                            sample::gLogInfo << "Set input shape tensor " << name << " to: " << shapeData << std::endl;
                             if (!c->setInputShapeBinding(b, shapeTensorData))
                             {
                                 return false;
@@ -449,6 +453,8 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
                 {
                     if (!c->setInputShape(name, toDims(shape->second)))
                     {
+                        sample::gLogError << "The engine was built with static shapes for input tensor " << name
+                                          << " but the provided shapes do not match the static shapes!" << std::endl;
                         return false;
                     }
                 }
@@ -1327,6 +1333,11 @@ void Binding::fill()
         fillBuffer<int32_t>(buffer->getHostBuffer(), volume, -128, 127);
         break;
     }
+    case nvinfer1::DataType::kINT64:
+    {
+        fillBuffer<int64_t>(buffer->getHostBuffer(), volume, -128, 127);
+        break;
+    }
     case nvinfer1::DataType::kINT8:
     {
         fillBuffer<int8_t>(buffer->getHostBuffer(), volume, -128, 127);
@@ -1353,7 +1364,6 @@ void Binding::fill()
         break;
     }
     case nvinfer1::DataType::kFP8: ASSERT(!"FP8 is not supported");
-    case nvinfer1::DataType::kINT64: ASSERT(false && "Unsupported data type");
     }
 }
 
@@ -1579,23 +1589,6 @@ template <>
 Dims getBindingDimensions(nvinfer1::safe::IExecutionContext const& context, int32_t binding)
 {
     return context.getEngine().getBindingDimensions(binding);
-}
-
-inline std::ostream& operator<<(std::ostream& o, nvinfer1::DataType dt)
-{
-    switch (dt)
-    {
-    case DataType::kINT32: o << "Int32"; break;
-    case DataType::kFLOAT: o << "Float"; break;
-    case DataType::kHALF: o << "Half"; break;
-    case DataType::kBF16: o << "BF16"; break;
-    case DataType::kINT8: o << "Int8"; break;
-    case DataType::kUINT8: o << "UInt8"; break;
-    case DataType::kBOOL: o << "Bool"; break;
-    case DataType::kFP8: o << "Float8"; break;
-    case DataType::kINT64: ASSERT(false && "Unsupported data type");
-    }
-    return o;
 }
 
 } // namespace

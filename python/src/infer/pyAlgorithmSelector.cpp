@@ -19,7 +19,7 @@
 #include "ForwardDeclarations.h"
 #include "utils.h"
 #include <pybind11/stl.h>
-
+// remove md
 #if ENABLE_MDTRT
 #include "api/internal.h"
 #endif // ENABLE_MDTRT
@@ -170,6 +170,7 @@ void bindAlgorithm(py::module& m)
         .def("get_shape", lambdas::get_shape, "index"_a, IAlgorithmContextDoc::get_shape)
         .def_property_readonly("num_inputs", &IAlgorithmContext::getNbInputs)
         .def_property_readonly("num_outputs", &IAlgorithmContext::getNbOutputs)
+// remove md
 #if ENABLE_MDTRT
         .def_property_readonly("instance_id", &nvinfer1AlgorithmGetInstanceID)
 #endif // ENABLE_MDTRT
