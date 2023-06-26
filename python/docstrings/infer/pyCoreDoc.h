@@ -680,6 +680,7 @@ constexpr char const* set_aux_streams = R"trtdoc(
 
     :arg aux_streams: A list of cuda streams. If the length of the list is greater than engine.num_aux_streams, then only the first "engine.num_aux_streams" streams will be used. If the length is less than engine.num_aux_streams, such as an empty list, then TensorRT will use the provided streams for the first few auxiliary streams, and will create additional streams internally for the rest of the auxiliary streams.
 )trtdoc";
+// remove md
 #if ENABLE_MDTRT
 constexpr char const* set_communicator = R"trtdoc(
     Set the communicator for the execution context.
@@ -787,6 +788,7 @@ constexpr char const* descr = R"trtdoc(
     :ivar profiling_verbosity: The profiling verbosity the builder config was set to when the engine was built.
     :ivar hardware_compatibility_level: The hardware compatibility level of the engine.
     :ivar num_aux_streams: Read-only. The number of auxiliary streams used by this engine, which will be less than or equal to the maximum allowed number of auxiliary streams by setting builder_config.max_aux_streams when the engine is built.)trtdoc"
+// remove md
 #if ENABLE_MDTRT
                               R"trtdoc(
     :ivar instance_id: Read-only. Each engine is assigned an instance ID in the multi-device plan file, and this function returns the value that was assigned at build time. In the case of single-device mode, this value shall be 0.
@@ -1674,6 +1676,7 @@ constexpr char const* get_preview_feature = R"trtdoc(
 
     :returns: true if the feature is enabled, false otherwise
 )trtdoc";
+// remove md
 #if ENABLE_MDTRT
 constexpr char const* insert_instance_group = R"trtdoc(
     Add an instance to a group.
@@ -1861,6 +1864,7 @@ constexpr char const* deserialize_cuda_engine = R"trtdoc(
 
     :returns: The :class:`ICudaEngine`, or None if it could not be deserialized.
 )trtdoc";
+// remove md
 #if ENABLE_MDTRT
 constexpr char const* deserialize_engine = R"trtdoc(
     Deserialize an :class:`ICudaEngine` from a stream.

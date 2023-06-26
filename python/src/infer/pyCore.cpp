@@ -18,6 +18,7 @@
 // This contains the core elements of the API, i.e. builder, logger, engine, runtime, context.
 #include "ForwardDeclarations.h"
 #include "utils.h"
+// remove md
 #if ENABLE_MDTRT
 #include "api/internal.h"
 #include "common/internalEngineAPI.h"
@@ -207,6 +208,7 @@ static const auto runtime_deserialize_cuda_engine = [](IRuntime& self, py::buffe
     py::buffer_info info = serializedEngine.request();
     return self.deserializeCudaEngine(info.ptr, info.size * info.itemsize);
 };
+// remove md
 #if ENABLE_MDTRT
 static auto const runtime_deserialize_engine = [](IRuntime& self, py::buffer& serializedEngine, int64_t instance) {
     py::buffer_info info = serializedEngine.request();
@@ -997,6 +999,7 @@ void bindCore(py::module& m)
         .def_property("nvtx_verbosity", &IExecutionContext::getNvtxVerbosity, &IExecutionContext::setNvtxVerbosity)
         .def("set_aux_streams", lambdas::set_aux_streams, "aux_streams"_a, IExecutionContextDoc::set_aux_streams)
         .def("__del__", &utils::doNothingDel<IExecutionContext>)
+// remove md
 #if ENABLE_MDTRT
         .def("set_communicator", &nvinfer1SetCommunicator, "communicator"_a, "type"_a,
             IExecutionContextDoc::set_communicator)
@@ -1163,6 +1166,7 @@ void bindCore(py::module& m)
             py::keep_alive<0, 1>{})
         .def_property_readonly("hardware_compatibility_level", &ICudaEngine::getHardwareCompatibilityLevel)
         .def_property_readonly("num_aux_streams", &ICudaEngine::getNbAuxStreams)
+// remove md
 #if ENABLE_MDTRT
         .def_property_readonly("instance_id", &nvinfer1GetInstanceID)
         .def_property_readonly("num_instances", &nvinfer1GetNbInstances)
@@ -1358,6 +1362,7 @@ void bindCore(py::module& m)
         .def_property("max_aux_streams", &IBuilderConfig::getMaxAuxStreams, &IBuilderConfig::setMaxAuxStreams)
         .def_property("progress_monitor", &IBuilderConfig::getProgressMonitor,
             py::cpp_function(&IBuilderConfig::setProgressMonitor, py::keep_alive<1, 2>{}))
+// remove md
 #if ENABLE_MDTRT
         // This gets flipped to the C++ API's with TRT-17558
         .def_property("num_instances", &nvinfer1GetNbInstances, &nvinfer1SetNbInstances)
@@ -1423,6 +1428,7 @@ void bindCore(py::module& m)
         .def(py::init(&nvinfer1::createInferRuntime), "logger"_a, RuntimeDoc::init, py::keep_alive<1, 2>{})
         .def("deserialize_cuda_engine", lambdas::runtime_deserialize_cuda_engine, "serialized_engine"_a,
             RuntimeDoc::deserialize_cuda_engine, py::call_guard<py::gil_scoped_release>{}, py::keep_alive<0, 1>{})
+// remove md
 #if ENABLE_MDTRT
         .def("deserialize_engine", lambdas::runtime_deserialize_engine, "serialized_engine"_a, "instance"_a,
             RuntimeDoc::deserialize_engine, py::call_guard<py::gil_scoped_release>{}, py::keep_alive<0, 1>{})

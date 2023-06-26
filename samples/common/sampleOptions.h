@@ -389,6 +389,10 @@ std::ostream& operator<<(std::ostream& os, const AllOptions& options);
 
 std::ostream& operator<<(std::ostream& os, const SafeBuilderOptions& options);
 
+std::ostream& operator<<(std::ostream& os, nvinfer1::DataType dtype);
+
+std::ostream& operator<<(std::ostream& os, nvinfer1::DeviceType devType);
+
 inline std::ostream& operator<<(std::ostream& os, const nvinfer1::Dims& dims)
 {
     for (int32_t i = 0; i < dims.nbDims; ++i)

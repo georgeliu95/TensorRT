@@ -133,6 +133,7 @@ else()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden -std=c++${CPP_STANDARD} -Wno-deprecated-declarations")
 endif()
 
+# remove md
 # Add the flags to enable MD-TRT.
 if ("${ENABLE_MDTRT}" STREQUAL "1")
     include_directories(${TENSORRT_ROOT}/optimizer)
