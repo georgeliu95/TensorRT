@@ -60,7 +60,6 @@ from Seq2Seq.measurements import calculate_perplexity_helper_encoder_decoder, ca
 from Seq2Seq.export import Seq2SeqModelClass
 from cuda import cudart
 
-
 class Seq2SeqTRTEncoder(TRTNativeRunner):
     """TRT implemented network interface that can be used to measure inference time."""
 
@@ -77,14 +76,12 @@ class Seq2SeqTRTEncoder(TRTNativeRunner):
         self.main_input_name = "input_ids"
         self.device = torch.device("cuda")
 
-        self.bindings = [0] * self.trt_engine.num_bindings
         self.encoder_hidden_states = torch.zeros(
             config.batch_size*config.max_input_length*config.hidden_size,
             dtype=self.data_type,
             device=self.device
         )
-
-        self.bindings[self.trt_engine.get_binding_index("encoder_hidden_states")] = self.encoder_hidden_states.data_ptr()
+        self.trt_context.set_tensor_address("encoder_hidden_states", self.encoder_hidden_states.data_ptr())
 
     def forward(self, input_ids: torch.Tensor):
 
@@ -96,16 +93,16 @@ class Seq2SeqTRTEncoder(TRTNativeRunner):
         if is_cpu_mode:
             input_ids = input_ids.int().flatten().contiguous().cuda()
 
-        self.bindings[0] = input_ids.int().data_ptr()
+        self.trt_context.set_tensor_address(self.main_input_name, input_ids.int().data_ptr())
 
-        # Set the binding shape of input_ids, which should be (bs, input_length).
-        self.trt_context.set_binding_shape(0, input_ids.shape)
+        # Set the input shape of input_ids, which should be (bs, input_length).
+        self.trt_context.set_input_shape(self.main_input_name, input_ids.shape)
 
-        assert self.trt_context.all_binding_shapes_specified
+        assert self.trt_context.all_shape_inputs_specified
 
         # Launch TRT inference.
-        # TODO: Could we use execute_v2_async() instead of execute_v2()?
-        self.trt_context.execute_v2(bindings=self.bindings)
+        self.trt_context.execute_async_v3(self.stream)
+        CUASSERT(cudart.cudaStreamSynchronize(self.stream))
 
         last_hidden_state = self.encoder_hidden_states[:self.config.batch_size * input_length * self.config.hidden_size].view(self.config.batch_size, input_length, self.config.hidden_size)
 
@@ -134,10 +131,10 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
         self.num_decoder_layers = config.num_decoder_layers
         self.expand_size = config.expand_size
         self.profile_idx = 0
-        self.bindings = [0] * self.trt_engine.num_bindings
-        self.binding_index_cache = dict()
 
-        self.next_input_binding_shape_setting = dict()
+        # Setting next input shape when execution
+        # Use dict to record which inputs have changed.
+        self.input_shape_change_record = dict()
 
         # Construct buffer for logits outputs
         self.logits = torch.zeros(
@@ -145,8 +142,7 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
             dtype=config.precision,
             device=self.device,
         )
-
-        self.bindings[self.trt_engine.get_binding_index("logits")] = self.logits.data_ptr()
+        self.trt_context.set_tensor_address("logits", self.logits.data_ptr())
 
         self.context_mode = (not config.is_encoder_decoder) and (config.use_cache)
 
@@ -156,18 +152,18 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
                 dtype=config.precision,
                 device=self.device
             )
-
-            self.bindings[self.trt_engine.get_binding_index("encoder_hidden_states")] = self.encoder_hidden_states.data_ptr()
-
+            self.trt_context.set_tensor_address("encoder_hidden_states", self.encoder_hidden_states.data_ptr())
             self.encoder_length = 0
-        else:
-            self.num_bindings = self.trt_engine.num_bindings // 2 if self.config.use_cache else self.trt_engine.num_bindings
+
+
 
         if config.use_cache:
+            if not self.config.is_encoder_decoder:
+                self.set_context_mode_trt_context()
+                self.context_trt_context.set_tensor_address("logits", self.logits.data_ptr())
 
             self.self_attn_cache = {}
             self.past_cross_attn_cache = {}
-
             self_attn_cache_size = config.expand_size * config.num_heads * config.max_output_length * config.d_kv
             cross_attn_cache_size = config.expand_size * config.num_heads * config.max_input_length * config.d_kv
 
@@ -186,14 +182,14 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
                         device=self.device,
                     )]
                     # Set input = output for cache. Might break for GPT/BART. Let's give it a try first.
-                    input_idx = self.trt_engine.get_binding_index("past_" + self_attn_name)
                     self.self_attn_cache[self_attn_name] = self_attn_buffer
-                    self.bindings[input_idx] = self_attn_buffer[0].data_ptr()
+                    past_kv_cache_tensor_name = "past_" + self_attn_name
+                    present_kv_cache_tensor_name = "present_" + self_attn_name
+                    past_kv_cache_address = self_attn_buffer[0].data_ptr()
+                    present_kv_cache_address = self_attn_buffer[1].data_ptr()
+                    self.trt_context.set_tensor_address(past_kv_cache_tensor_name, past_kv_cache_address)
+                    self.trt_context.set_tensor_address(present_kv_cache_tensor_name, present_kv_cache_address)
 
-                    output_idx = self.trt_engine.get_binding_index("present_" + self_attn_name)
-                    self.bindings[output_idx] = self_attn_buffer[1].data_ptr()
-
-                    self.binding_index_cache[self_attn_name] = [input_idx, output_idx]
                     if config.is_encoder_decoder:
                         # Allocate cross attention buffer
                         cross_attn_past_name = f"past_key_values.{i}.cross.{code}"
@@ -202,22 +198,14 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
                             dtype=config.precision,
                             device=self.device,
                         )
-                        cross_attn_idx = self.trt_engine.get_binding_index(cross_attn_past_name)
                         self.past_cross_attn_cache[cross_attn_past_name] = cross_attn_buffer
-                        self.bindings[cross_attn_idx] = cross_attn_buffer.data_ptr()
+                        self.trt_context.set_tensor_address(cross_attn_past_name, cross_attn_buffer.data_ptr())
                     else:
-                        # Context mode will always use buffer same buffer as output
-                        self.bindings[input_idx + self.num_bindings] = 0 # Context phase, should be 0
-                        self.bindings[output_idx + self.num_bindings] = self_attn_buffer[0].data_ptr()
-
+                        # Context phase, execution V3 can't set nullptr, set same buffer as output
+                        self.context_trt_context.set_tensor_address(past_kv_cache_tensor_name, past_kv_cache_address)
+                        self.context_trt_context.set_tensor_address(present_kv_cache_tensor_name, past_kv_cache_address)
                     self.cache_id = 0
 
-            self.cache_binding_offset = 2 if config.is_encoder_decoder else 1
-            if not self.config.is_encoder_decoder:
-                self.set_context_mode_trt_context()
-                self.bindings[self.trt_engine.get_binding_index("logits") + self.num_bindings] = self.logits.data_ptr()
-
-            self.num_cache_per_layer = 4 if config.is_encoder_decoder else 2
             self.past_decoder_length = 0
 
     def can_generate(self):
@@ -226,7 +214,7 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
     def set_encoder_hidden_states(self, encoder_hidden_states: torch.Tensor):
         """Used to cache encoder hidden state runs across same encoder sessions"""
         self.encoder_hidden_states[:encoder_hidden_states.numel()] = encoder_hidden_states.flatten().contiguous()
-        self.trt_context.set_binding_shape(1, encoder_hidden_states.shape)
+        self.trt_context.set_input_shape("encoder_hidden_states", encoder_hidden_states.shape)
 
     def set_cross_attn_cache_generator_engine(self, cross_attn_cache_generator):
 
@@ -238,12 +226,15 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
             self.cross_attn_cache_generator_context = self.cross_attn_cache_generator_engine.create_execution_context()
             self.cross_attn_cache_generator_context.nvtx_verbosity = self.trt_context.nvtx_verbosity
 
-        self.cross_attn_bindings = [0] * self.cross_attn_cache_generator_engine.num_bindings
-        self.cross_attn_bindings[0] = self.encoder_hidden_states.data_ptr()
+        self.cross_attn_cache_generator_context.set_tensor_address("encoder_hidden_states", self.encoder_hidden_states.data_ptr())
         # Cross attention cache as outputs
         for i in range(self.num_decoder_layers):
-            self.cross_attn_bindings[2*i+1] = self.past_cross_attn_cache[f"past_key_values.{i}.cross.key"].data_ptr()
-            self.cross_attn_bindings[2*i+2] = self.past_cross_attn_cache[f"past_key_values.{i}.cross.value"].data_ptr()
+            past_key_name = f"past_key_values.{i}.cross.key"
+            past_value_name = f"past_key_values.{i}.cross.value"
+            present_key_name = f"present_key_values.{i}.cross.key"
+            present_value_name = f"present_key_values.{i}.cross.value"
+            self.cross_attn_cache_generator_context.set_tensor_address(present_key_name, self.past_cross_attn_cache[past_key_name].data_ptr())
+            self.cross_attn_cache_generator_context.set_tensor_address(present_value_name, self.past_cross_attn_cache[past_value_name].data_ptr())
 
     def set_cross_attn_cache(self, encoder_hidden_states: torch.Tensor):
         """
@@ -252,18 +243,20 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
         Unlike self-attention cache, cross attention is constant during the decoding process, so we only need to set its bindings once at the first decoding step, and skip in all later steps (by self.persist_cross_attention_kv_cache flag)
         """
 
-        self.cross_attn_cache_generator_context.set_binding_shape(0, encoder_hidden_states.shape)
+        self.cross_attn_cache_generator_context.set_input_shape("encoder_hidden_states", encoder_hidden_states.shape)
 
-        assert self.cross_attn_cache_generator_context.all_binding_shapes_specified
-        self.cross_attn_cache_generator_context.execute_v2(bindings=self.cross_attn_bindings)
+        assert self.cross_attn_cache_generator_context.all_shape_inputs_specified
+        self.cross_attn_cache_generator_context.execute_async_v3(self.stream)
+        CUASSERT(cudart.cudaStreamSynchronize(self.stream))
 
         encoder_length = encoder_hidden_states.shape[1]
         cross_attn_cache_shape = (self.expand_size, self.num_heads, encoder_length, self.embedding_size_per_head)
 
         for i in range(self.num_decoder_layers):
-
-            self.trt_context.set_binding_shape(self.cache_binding_offset+4*i+2, cross_attn_cache_shape)
-            self.trt_context.set_binding_shape(self.cache_binding_offset+4*i+3, cross_attn_cache_shape)
+            past_key_name = f"past_key_values.{i}.cross.key"
+            past_value_name = f"past_key_values.{i}.cross.value"
+            self.trt_context.set_input_shape(past_key_name, cross_attn_cache_shape)
+            self.trt_context.set_input_shape(past_value_name, cross_attn_cache_shape)
 
     def set_context_mode_trt_context(self):
         # Create TRT context for context mode (1st decoder run) with optimization profile = 1
@@ -284,7 +277,6 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
             if encoder_outputs is None:
                 raise RuntimeError("You are using a encoder_decoder model but does not provice encoder_outputs.")
             encoder_hidden_states = encoder_outputs.last_hidden_state
-            encoder_length = encoder_hidden_states.shape[1]
         else:
             # When seq len != 1 for decoder only model, meaning it is context mode.
             if self.config.use_cache and input_length > 1:
@@ -298,12 +290,10 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
         if is_cpu_mode:
             input_ids = input_ids.cuda()
 
-        if not self.context_mode:
-            self.bindings[0] = input_ids.data_ptr()
-            self.trt_context.set_binding_shape(0, input_shape)
-        else:
-            self.bindings[self.num_bindings] = input_ids.data_ptr()
-            self.context_trt_context.set_binding_shape(self.num_bindings, input_shape)
+        # Choose context
+        ctx = self.context_trt_context if self.context_mode else self.trt_context
+        ctx.set_tensor_address(self.main_input_name, input_ids.data_ptr())
+        ctx.set_input_shape(self.main_input_name, input_shape)
 
         if self.config.use_cache:
             if kwargs.get("past_key_values") is None:
@@ -313,57 +303,36 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
                     self.set_encoder_hidden_states(encoder_hidden_states)
                     self.set_cross_attn_cache(encoder_hidden_states)
 
-            new_self_attn_keys_cache_shape = self._get_self_attn_keys_cache_shape()
-            new_self_attn_vals_cache_shape = self._get_self_attn_vals_cache_shape()
-
+            self_attn_cache_shape = (self.expand_size, self.num_heads, self.past_decoder_length, self.embedding_size_per_head)
             for i in range(self.num_decoder_layers):
-                if self.context_mode:
-                    self_attn_keys_cache_shape = self.next_input_binding_shape_setting.get(self.cache_binding_offset+2*i+self.num_bindings, None)
-                    self_attn_vals_cache_shape = self.next_input_binding_shape_setting.get(self.cache_binding_offset+2*i+1+self.num_bindings, None)
-                    if self_attn_keys_cache_shape == new_self_attn_keys_cache_shape and self_attn_vals_cache_shape == new_self_attn_vals_cache_shape:
-                        # Already set, skip.
-                        continue
-                    else:
-                        self.context_trt_context.set_binding_shape(self.cache_binding_offset+2*i+self.num_bindings, new_self_attn_keys_cache_shape)
-                        self.context_trt_context.set_binding_shape(self.cache_binding_offset+2*i+1+self.num_bindings, new_self_attn_vals_cache_shape)
-                else:
-                    self_attn_keys_cache_shape = self.next_input_binding_shape_setting.get(self.cache_binding_offset+self.num_cache_per_layer*i, None)
-                    self_attn_vals_cache_shape = self.next_input_binding_shape_setting.get(self.cache_binding_offset+self.num_cache_per_layer*i+1, None)
-                    if self_attn_keys_cache_shape == new_self_attn_keys_cache_shape and self_attn_vals_cache_shape == new_self_attn_vals_cache_shape:
-                        # Already set, skip.
-                        continue
-                    else:
-                        self.trt_context.set_binding_shape(self.cache_binding_offset+self.num_cache_per_layer*i, new_self_attn_keys_cache_shape)
-                        self.trt_context.set_binding_shape(self.cache_binding_offset+self.num_cache_per_layer*i+1, new_self_attn_vals_cache_shape)
+                # If inputs shape has record and the record of context and shape are correct, skip it
+                key_record = self.input_shape_change_record.get("past_key_values.{i}.self.key", None)
+                value_record = self.input_shape_change_record.get("past_key_values.{i}.self.value", None)
+                if key_record is None or value_record is None or \
+                    key_record[0] != ctx or value_record[0] != ctx or \
+                    key_record[1] != self_attn_cache_shape or value_record[1] != self_attn_cache_shape:
+                    # record miss, set input shape
+                    ctx.set_input_shape(f"past_key_values.{i}.self.key", self_attn_cache_shape)
+                    ctx.set_input_shape(f"past_key_values.{i}.self.value", self_attn_cache_shape)
+
 
         elif input_length == 1 and self.config.is_encoder_decoder:
             encoder_hidden_states = encoder_outputs.last_hidden_state
             self.set_encoder_hidden_states(encoder_hidden_states)
 
         # Launch TRT inference.
-        if self.context_mode:
-            assert self.context_trt_context.all_binding_shapes_specified
-            self.context_trt_context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream)
-        else:
-            assert self.trt_context.all_binding_shapes_specified
-            self.trt_context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream)
-        # setting next forward input shape
+        assert ctx.all_shape_inputs_specified
+        ctx.execute_async_v3(self.stream)
         if self.config.use_cache and self.past_decoder_length != 0:
-            next_self_attn_keys_shape = self._get_next_self_attn_keys_cache_shape()
-            next_self_attn_vals_shape = self._get_next_self_attn_vals_cache_shape()
-            self.next_input_binding_shape_setting.clear()
             for i in range(self.num_decoder_layers):
-                if self.context_mode:
-                    self.context_trt_context.set_binding_shape(self.cache_binding_offset+2*i+self.num_bindings, next_self_attn_keys_shape)
-                    self.context_trt_context.set_binding_shape(self.cache_binding_offset+2*i+1+self.num_bindings, next_self_attn_vals_shape)
-                    self.next_input_binding_shape_setting[self.cache_binding_offset+2*i+self.num_bindings] = next_self_attn_keys_shape
-                    self.next_input_binding_shape_setting[self.cache_binding_offset+2*i+1+self.num_bindings] = next_self_attn_vals_shape
-                else:
-                    self.trt_context.set_binding_shape(self.cache_binding_offset+self.num_cache_per_layer*i, next_self_attn_keys_shape)
-                    self.trt_context.set_binding_shape(self.cache_binding_offset+self.num_cache_per_layer*i+1, next_self_attn_vals_shape)
-                    self.next_input_binding_shape_setting[self.cache_binding_offset+self.num_cache_per_layer*i] = next_self_attn_keys_shape
-                    self.next_input_binding_shape_setting[self.cache_binding_offset+self.num_cache_per_layer*i+1] = next_self_attn_vals_shape
-
+                next_self_attn_keys_shape = self._get_next_self_attn_keys_cache_shape()
+                next_self_attn_vals_shape = self._get_next_self_attn_vals_cache_shape()
+                self.input_shape_change_record.clear()
+                # set next iter input shape when cpu is waiting for the current iter to complete on gpu
+                ctx.set_input_shape(f"past_key_values.{i}.self.key", next_self_attn_keys_shape)
+                ctx.set_input_shape(f"past_key_values.{i}.self.value", next_self_attn_vals_shape)
+                key_record = self.input_shape_change_record["past_key_values.{i}.self.key"] = [ctx, next_self_attn_keys_shape]
+                value_record = self.input_shape_change_record["past_key_values.{i}.self.value"] = [ctx, next_self_attn_vals_shape]
         CUASSERT(cudart.cudaStreamSynchronize(self.stream))
 
         # For bs > 1, this is required, so cannnot avoid this D2D copy
@@ -433,10 +402,14 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
         if not (self.cache_id == 0 and self.context_mode):
             for i in range(self.num_decoder_layers):
                 for code in ["key", "value"]:
-                    self_attention_name = f"key_values.{i}.self.{code}"
-                    input_idx, output_idx = self.binding_index_cache.get(self_attention_name)
-
-                    self.bindings[input_idx], self.bindings[output_idx] = self.bindings[output_idx], self.bindings[input_idx]
+                    self_attn_name = f"key_values.{i}.self.{code}"
+                    self_attn_buffer = self.self_attn_cache[self_attn_name]
+                    past_name = "past_" + self_attn_name
+                    present_name = "present_" + self_attn_name
+                    past_address = self_attn_buffer[1-self.cache_id].data_ptr()
+                    present_address = self_attn_buffer[self.cache_id].data_ptr()
+                    self.trt_context.set_tensor_address(past_name, past_address)
+                    self.trt_context.set_tensor_address(present_name, present_address)
 
             self.cache_id = (self.cache_id + 1) % 2
 
@@ -974,15 +947,15 @@ class Seq2SeqTRT(TRTInferenceCommand):
         opt_shape = f"--optShapes='input_ids':{self.config.batch_size}x{self.opt_input_seq_len}"
         max_shape = f"--maxShapes='input_ids':{self.max_batch_size}x{self.config.max_input_profile_length}"
         command += f"{min_shape} {opt_shape} {max_shape} "
-    
+
         if encoder_metadata.precision.fp16:
             inputIO = "--inputIOFormats=int32:chw" # input_ids
             outputIO = "--outputIOFormats=fp16:chw" # encoder_hidden_states
             command += f"--fp16 --precisionConstraints=obey {inputIO} {outputIO} "
-    
+
         if self.timing_cache is not None:
             command += f"--timingCacheFile={self.timing_cache} "
-    
+
         return command
 
     # Used to create generator trtexec command string for debugging accuracy/performance.
@@ -992,19 +965,19 @@ class Seq2SeqTRT(TRTInferenceCommand):
         opt_shape = f"--optShapes='encoder_hidden_states':{self.opt_expand_size}x{self.opt_input_seq_len}x{self.encoder_hidden_size}"
         max_shape = f"--maxShapes='encoder_hidden_states':{self.max_expand_size}x{self.config.max_input_profile_length}x{self.encoder_hidden_size}"
         command += f"{min_shape} {opt_shape} {max_shape} "
-    
+
         if self.metadata.precision.fp16:
             inputIO = "--inputIOFormats=fp16:chw" # input_ids
             outputIO = "--outputIOFormats="
             for _ in range(self.config.num_decoder_layers):
                 kv_precision = "fp16:chw,fp16:chw,"
                 outputIO += kv_precision # cross attention
-    
+
             command += f"--fp16 --precisionConstraints=obey {inputIO} {outputIO.rstrip(',')} "
-    
+
         if self.timing_cache is not None:
             command += f"--timingCacheFile={self.timing_cache} "
-    
+
         return command
 
     def get_seq_tag(self):
