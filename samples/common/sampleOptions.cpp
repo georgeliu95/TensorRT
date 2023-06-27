@@ -89,7 +89,8 @@ nvinfer1::DataType stringToValue<nvinfer1::DataType>(const std::string& option)
 {
     const std::unordered_map<std::string, nvinfer1::DataType> strToDT{{"fp32", nvinfer1::DataType::kFLOAT},
         {"fp16", nvinfer1::DataType::kHALF}, {"bf16", nvinfer1::DataType::kBF16}, {"int8", nvinfer1::DataType::kINT8},
-        {"fp8", nvinfer1::DataType::kFP8}, {"int32", nvinfer1::DataType::kINT32}, {"bool", nvinfer1::DataType::kBOOL}};
+        {"fp8", nvinfer1::DataType::kFP8}, {"int32", nvinfer1::DataType::kINT32}, {"bool", nvinfer1::DataType::kBOOL},
+        {"uint8", nvinfer1::DataType::kUINT8}};
     const auto& dt = strToDT.find(option);
     if (dt == strToDT.end())
     {
@@ -2159,7 +2160,7 @@ void BuildOptions::help(std::ostream& os)
           "                                           needs specifying IO format) or set the type and format once for broadcasting."                "\n"
           R"(                                     IO Formats: spec  ::= IOfmt[","spec])"                                                            "\n"
           "                                                 IOfmt ::= type:fmt"                                                                     "\n"
-          R"(                                               type  ::= "fp32"|"fp16"|"bf16"|"int32"|"int8"|"bool")"                                  "\n"
+          R"(                                               type  ::= "fp32"|"fp16"|"bf16"|"int32"|"int8"|"uint8"|"bool")"                          "\n"
           R"(                                               fmt   ::= ("chw"|"chw2"|"chw4"|"hwc8"|"chw16"|"chw32"|"dhwc8"|)"                        "\n"
           R"(                                                          "cdhw32"|"hwc"|"dla_linear"|"dla_hwc4")["+"fmt])"                            "\n"
           "  --workspace=N                      Set workspace size in MiB."                                                                         "\n"
