@@ -27,6 +27,7 @@ inference:
 accuracy:
   dataset: Lambada
   metric: Perplexity
+  top_n: 1,3,5
 
 benchmark:
   input_seq_len: 20

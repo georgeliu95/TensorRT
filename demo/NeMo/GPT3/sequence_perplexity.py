@@ -22,9 +22,12 @@ import torch
 __all__ = ['SequencePerplexity']
 
 class SequencePerplexity():
-    def __init__(self):
+    def __init__(self, topN):
         super().__init__()
         self.ppls = []
+        self.topN_equals = [0] * len(topN)
+        self.total = 0
+        self.topN = topN
 
     def update(self, ds_input, response, tokenizer):
         batch_size = len(response['token_ids'])
@@ -41,12 +44,24 @@ class SequencePerplexity():
             conti_token_ids = ds_input.inp_enc[batch][-conti_len:]
             conti_tokens = tokenizer.ids_to_tokens(conti_token_ids)
 
+            for index, topN in enumerate(self.topN):
+                if conti_token_ids[0] in log_probs.topk(topN, dim=-1).indices:
+                    self.topN_equals[index] += 1 
+
             log_probs = log_probs.cpu().to(torch.float32)
             conti_enc = torch.tensor(tokenizer.tokens_to_ids(conti_tokens))
             conti_probs = torch.gather(log_probs, 1, conti_enc.unsqueeze(-1)).squeeze(-1)
 
             ppl = float(conti_probs.sum())
             self.ppls.append(ppl)
+        self.total += batch_size
 
     def compute(self):
-        return math.exp(-np.mean(np.array(self.ppls)))
+        ppls = math.exp(-np.mean(np.array(self.ppls)))
+        acc = [equals / self.total for equals in self.topN_equals]
+        txt = []
+        for i, j in zip(self.topN, acc):
+           txt.append("acc(top{}): {}".format(i, j))
+        acc_text = ", ".join(txt)
+        return ppls, acc, acc_text
+
