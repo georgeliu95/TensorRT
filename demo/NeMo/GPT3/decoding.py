@@ -214,7 +214,10 @@ def sample_sequence_batch(
 
         lengths = torch.ones([batch_size]).long().cuda() * maxlen
 
-        kv_cache = TRTKVCache(model.cfg.num_layers, maxlen, batch_size, model.cfg.nb_heads, model.cfg.head_size, torch.float16)
+        kv_cache = None
+        if hasattr(model, "trt") and extra.get("use_cache", False):
+            kv_cache = TRTKVCache(model.cfg.num_layers, maxlen, batch_size, model.cfg.nb_heads, model.cfg.head_size, torch.float16)
+
         while context_length < maxlen:
             output = None
 

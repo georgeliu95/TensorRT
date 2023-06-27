@@ -55,7 +55,13 @@ from GPT3.nemo_utils import load_nemo_model, release_nemo_model
 sys.path.append('../../HuggingFace') # Include HuggingFace
 from NNDF.logger import G_LOGGER
 
-# Set logging level here.
+# ONNX conversion script
+try:
+    from GPT3.convert_te_onnx_to_trt_onnx import replace_customop_qdq_with_onnx_qdq
+except:
+    G_LOGGER.error("Opset19 conversion script needs to be copied to GPT3 folder before running this script.")
+
+# Set polygraphy logging level here.
 PG_LOGGER.module_severity = PG_LOGGER.INFO
 
 class MegatronGPTSingleInputExportableModel(MegatronGPTExportableModel):
@@ -126,33 +132,61 @@ class MegatronGPTSingleInputExportableModel(MegatronGPTExportableModel):
     def input_names(self) -> List[str]:
         return ['input_ids']
 
-def get_trtexec_cmd(onnx_fpath, cfg, bs, num_layers):
+def get_trtexec_cmd(onnx_fpath, cfg, bs):
     max_seq_len = cfg.model.max_seq_len
     trtexec_cmd = f"trtexec --onnx={onnx_fpath}"
-    min_shapes = f"--minShapes=input_ids:{bs}x1,position_ids:{bs}x1"
-    opt_shapes = f"--optShapes=input_ids:{bs}x{max_seq_len // 2},position_ids:{bs}x{max_seq_len // 2}"
-    max_shapes = f"--maxShapes=input_ids:{bs}x{max_seq_len},position_ids:{bs}x{max_seq_len}"
+    min_shapes = f"--minShapes=input_ids:{bs}x1"
+    opt_shapes = f"--optShapes=input_ids:{bs}x{max_seq_len // 2}"
+    max_shapes = f"--maxShapes=input_ids:{bs}x{max_seq_len}"
+    if not cfg.use_one_input:
+        min_shapes += f",position_ids:{bs}x1"
+        opt_shapes += f",position_ids:{bs}x{max_seq_len // 2}"
+        max_shapes += f",position_ids:{bs}x{max_seq_len}"
     if not cfg.trt_engine_options.use_fp8:
         min_shapes += ",attention_mask:1x1x1x1"
         opt_shapes += f",attention_mask:1x1x{max_seq_len // 2}x{max_seq_len // 2}"
         max_shapes += f",attention_mask:1x1x{max_seq_len}x{max_seq_len}"
 
     if cfg.use_cache:
+        trtexec_cmd += " --profile=0"
         nbheads, headsize = cfg.model.nb_heads, cfg.model.head_size
-        for i in range(num_layers):
-            input_k = get_past_key_name(i)
-            input_v = get_past_value_name(i)
-            # ("sequence", "batch", nbheads, headsize)
-            min_shapes += f",{input_k}:0x{bs}x{nbheads}x{headsize},{input_v}:0x{bs}x{nbheads}x{headsize}"
-            opt_shapes += f",{input_k}:1x{bs}x{nbheads}x{headsize},{input_v}:1x{bs}x{nbheads}x{headsize}"
-            max_shapes += f",{input_k}:{max_seq_len}x{bs}x{nbheads}x{headsize},{input_v}:{max_seq_len}x{bs}x{nbheads}x{headsize}"
+        input_k = get_past_key_name('*')
+        input_v = get_past_value_name('*')
+        # ("sequence", "batch", nbheads, headsize)
+        min_shapes += f",{input_k}:0x{bs}x{nbheads}x{headsize},{input_v}:0x{bs}x{nbheads}x{headsize}"
+        opt_shapes += f",{input_k}:0x{bs}x{nbheads}x{headsize},{input_v}:0x{bs}x{nbheads}x{headsize}"
+        max_shapes += f",{input_k}:0x{bs}x{nbheads}x{headsize},{input_v}:0x{bs}x{nbheads}x{headsize}"
+    trtexec_cmd += f" {min_shapes} {opt_shapes} {max_shapes}"
+
+    if cfg.use_cache:
+        trtexec_cmd += " --profile=1"
+
+        min_shapes = f"--minShapes=input_ids:{bs}x1"
+        opt_shapes = f"--optShapes=input_ids:{bs}x1"
+        max_shapes = f"--maxShapes=input_ids:{bs}x1"
+        if not cfg.use_one_input:
+            min_shapes += f",position_ids:{bs}x1"
+            opt_shapes += f",position_ids:{bs}x1"
+            max_shapes += f",position_ids:{bs}x1"
+        if not cfg.trt_engine_options.use_fp8:
+            min_shapes += ",attention_mask:1x1x1x1"
+            opt_shapes += f",attention_mask:1x1x{max_seq_len // 2}x{max_seq_len // 2}"
+            max_shapes += f",attention_mask:1x1x{max_seq_len}x{max_seq_len}"
+
+        nbheads, headsize = cfg.model.nb_heads, cfg.model.head_size
+        input_k = get_past_key_name('*')
+        input_v = get_past_value_name('*')
+        # ("sequence", "batch", nbheads, headsize)
+        min_shapes += f",{input_k}:1x{bs}x{nbheads}x{headsize},{input_v}:1x{bs}x{nbheads}x{headsize}"
+        opt_shapes += f",{input_k}:{max_seq_len // 2}x{bs}x{nbheads}x{headsize},{input_v}:{max_seq_len // 2}x{bs}x{nbheads}x{headsize}"
+        max_shapes += f",{input_k}:{max_seq_len - 1}x{bs}x{nbheads}x{headsize},{input_v}:{max_seq_len - 1}x{bs}x{nbheads}x{headsize}"
+        trtexec_cmd += f" {min_shapes} {opt_shapes} {max_shapes}"
 
     use_tf32 = cfg.trt_engine_options.use_tf32
     use_bf16 = cfg.trt_engine_options.use_bf16
     use_fp16 = cfg.trt_engine_options.use_fp16
     use_fp8 = cfg.trt_engine_options.use_fp8
     use_bf16 = cfg.trt_engine_options.use_bf16
-    trtexec_cmd += f" {min_shapes} {opt_shapes} {max_shapes}"
     trtexec_cmd += " --noTF32" if not use_tf32 else ""
     trtexec_cmd += " --fp16" if use_fp16 else ""
     trtexec_cmd += " --bf16" if use_bf16 else ""
@@ -164,11 +198,11 @@ def get_trtexec_cmd(onnx_fpath, cfg, bs, num_layers):
 
 # Use ONNX graphsurgeon to add KV-cache to ONNX file
 # Reusing the HF demo names.
-def get_past_key_name(layer_id: int):
+def get_past_key_name(layer_id):
     past_key_name = f"past_key_values.{layer_id}.decoder.key"
     return past_key_name
 
-def get_past_value_name(layer_id: int):
+def get_past_value_name(layer_id):
     past_value_name = f"past_key_values.{layer_id}.decoder.value"
     return past_value_name
 
@@ -312,179 +346,6 @@ def create_dir_if_not_exist(path):
         G_LOGGER.info(f"Making directory {dir}")
         os.makedirs(dir)
 
-def find_node_by_type(graph, search_tensor, is_node_input, search_node_type=None):
-    for idx, node in enumerate(graph.node):
-        search_container = node.output
-        if is_node_input:
-            search_container = node.input
-        for node_tensor in search_container:
-            if search_node_type and node.op_type != search_node_type:
-                continue
-            if node_tensor == search_tensor:
-                return node, idx
-    return None, None
-
-def redirect_quantize_input(graph, q_node):
-    assert(q_node.op_type == 'QuantizeLinear')
-    q_input = q_node.input[0]
-    cast_node, cast_node_idx = find_node_by_type(graph, q_input, False, 'Cast')
-    if cast_node:
-        q_node.input[0] = cast_node.input[0]
-        return [cast_node_idx]
-    return []
-
-def redirect_dequantize_output(graph, dq_node):
-    assert(dq_node.op_type == 'DequantizeLinear')
-    dq_output = dq_node.output[0]
-    cast_node, cast_node_idx = find_node_by_type(graph, dq_output, True, 'Cast')
-    if cast_node:
-        dq_node.output[0] = cast_node.output[0]
-        return [cast_node_idx]
-    return []
-
-def get_attr_numpy_tensor(attr):
-    assert(attr.type == onnx.AttributeProto.TENSOR)
-    return numpy_helper.to_array(attr.t)
-
-def get_attr(node, search_attr_name):
-    for idx, attr in enumerate(node.attribute):
-        if attr.name == search_attr_name:
-            return attr, idx
-    return None, None
-
-def cast_scale(graph, qdq_node, cast_to):
-    assert(cast_to in ['fp32', 'fp16'])
-    assert(qdq_node.op_type in ['QuantizeLinear', 'DequantizeLinear'])
-    constant_node_idx = None
-    scale_tensor = qdq_node.input[1]
-    constant_node, constant_node_idx = find_node_by_type(graph, scale_tensor, False, 'Constant')
-    scale_cast_to_dtype = None
-    onnx_cast_to_dtype = None
-    if cast_to == 'fp16':
-        scale_cast_to_dtype = np.dtype(np.float32)
-        onnx_cast_to_dtype = onnx.TensorProto.FLOAT16
-    elif cast_to == 'fp32':
-        scale_cast_to_dtype = np.dtype(np.float32)
-        onnx_cast_to_dtype = onnx.TensorProto.FLOAT
-
-    if constant_node:
-        scale_attr, _ = get_attr(constant_node, 'value')
-        assert(scale_attr)
-        numpy_scale = get_attr_numpy_tensor(scale_attr)
-        if numpy_scale.dtype != scale_cast_to_dtype:
-            G_LOGGER.debug(f'Change {qdq_node.name} scale from {numpy_scale.dtype} to {scale_cast_to_dtype}')
-            numpy_scale = numpy_scale.astype(scale_cast_to_dtype)
-            tensor_name = constant_node.name + '_casted'
-            create_constant_tensor(graph, tensor_name, onnx_cast_to_dtype, numpy_scale)
-            qdq_node.input[1] = tensor_name
-    else:
-        G_LOGGER.warning(f'No constant node connected to {qdq_node} as scale')
-
-    if constant_node_idx:
-        return [constant_node_idx]
-    return []
-
-def create_constant_tensor(graph, name, dtype, np_tensor):
-    tensor_value_info = helper.make_tensor_value_info(name, dtype, np_tensor.shape)
-    graph.input.append(tensor_value_info)
-    helper.make_tensor(name, data_type=dtype, dims=(), vals=[0])
-
-    tensor_initializer = helper.make_tensor(name, dtype, np_tensor.shape, np_tensor.flatten().tolist())
-    graph.initializer.append(tensor_initializer)
-
-
-def custom_op_to_opset19(graph, node, remove_cast_before_q, remove_cast_after_dq, change_qdq_scale_precision):
-    """
-    Convert custom operators to opset19
-    """
-    assert(node.op_type in ['TRT_FP8QuantizeLinear', 'TRT_FP8DequantizeLinear'])
-    is_dq = node.op_type == 'TRT_FP8DequantizeLinear'
-    orig_node_name = node.name
-    new_node_name = orig_node_name + '_converted'
-    quant_to = TensorProto.FLOAT8E4M3FN
-
-    # Add zero point to the node
-    tensor_name = new_node_name + '_zero_point'
-    create_constant_tensor(graph, tensor_name, quant_to, np.array([0]))
-    node.input.append(tensor_name)
-
-    node.op_type = "QuantizeLinear"
-    node_idxs_to_delete = []
-    if is_dq:
-        node.op_type = "DequantizeLinear"
-        if remove_cast_after_dq:
-            node_idxs_to_delete += redirect_dequantize_output(graph, node)
-            if change_qdq_scale_precision:
-                node_idxs_to_delete += cast_scale(graph, node, change_qdq_scale_precision)
-    else:
-        if remove_cast_before_q:
-            node_idxs_to_delete += redirect_quantize_input(graph, node)
-            if change_qdq_scale_precision:
-                node_idxs_to_delete += cast_scale(graph, node, change_qdq_scale_precision)
-
-    node.name = new_node_name
-    return node_idxs_to_delete
-
-def check_model(graph):
-    """
-    Check if a model needs to be converted or not
-    """
-    converted_qdq_ops = ['TRT_FP8QuantizeLinear', 'TRT_FP8DequantizeLinear']
-    passed_check = True
-    for node in graph.node:
-        if node.op_type in converted_qdq_ops:
-            G_LOGGER.error(f'Node \"{node.name}\" of type {node.op_type} should have been removed')
-            passed_check = False
-    return passed_check
-
-def create_opset19_onnx_fpath(onnx_fpath, output_path):
-    suffix = '.opset19.onnx'
-    return os.path.join(output_path, os.path.splitext(os.path.split(onnx_fpath)[1])[0] + suffix)
-
-def update_quantize_node_type(model):
-    """
-    Update QuantizeLinear output dtype to FP8
-    """
-    graph = gs.import_onnx(model)
-    for node in graph.nodes:
-        if node.op == "TRT_FP8QuantizeLinear":
-            for out in node.outputs:
-                out.dtype = TensorProto.FLOAT8E4M3FN
-    return gs.export_onnx(graph)
-
-def replace_customop_qdq_with_onnx_qdq(te_onnx_file, results_path, remove_cast_before_q, remove_cast_after_dq, change_qdq_scale_precision):
-    """
-    Convert custom TRT nodes to standard ONNX Q/DQ nodes
-    """
-    model = onnx.load(te_onnx_file, load_external_data=False)
-    model.opset_import[0].version = 19
-    model = update_quantize_node_type(model)
-    graph = model.graph
-    converted_qdq_ops = ['TRT_FP8QuantizeLinear', 'TRT_FP8DequantizeLinear']
-
-    try:
-        node_idxs_to_delete = []
-        converted = False
-        for node in graph.node:
-            if node.op_type in converted_qdq_ops:
-                converted = True
-                node_idxs_to_delete += custom_op_to_opset19(graph, node, remove_cast_before_q, remove_cast_after_dq, change_qdq_scale_precision)
-
-        if converted:
-            assert(check_model(graph))
-            node_idxs_to_delete = reversed(sorted(node_idxs_to_delete))
-            for node_idx in node_idxs_to_delete:
-                del(graph.node[node_idx])
-            new_model_filename = create_opset19_onnx_fpath(te_onnx_file, results_path)
-            onnx.save_model(model, new_model_filename)
-            G_LOGGER.info(f'The converted model is saved at {new_model_filename}!')
-            return new_model_filename
-        else:
-            G_LOGGER.info(f'No conversion was done with {te_onnx_file}!')
-    except Exception as ex:
-        G_LOGGER.error(f'Failed: {ex}')
-    return None
-
 
 class NeMoConverter():
     """
@@ -578,7 +439,6 @@ class NeMoConverter():
         nbheads, headsize = self.cfg.model.nb_heads, self.cfg.model.head_size
         dtype = onnx.TensorProto.BFLOAT16 if self.cfg.trt_engine_options.use_bf16 else onnx.TensorProto.FLOAT16
         assert nbheads * headsize == self.cfg.model.hidden_size, "Model hidden size does not match."
-        G_LOGGER.info(f"Converting onnx from {onnx_input_fpath} to {onnx_output_fpath}.")
         num_qkvs = process_onnx(kv_output_policy,
             onnx_input_fpath, onnx_output_fpath, separate_param_files=True,
             nbheads=nbheads, headsize=headsize, vocab_size=self.cfg.model.vocab_size, dtype=dtype)
@@ -586,6 +446,7 @@ class NeMoConverter():
         G_LOGGER.info(f"Number of QKV subgraphs = {num_qkvs}, number of layers = {self.cfg.model.num_layers}")
         if num_qkvs != self.cfg.model.num_layers:
             raise ValueError("Number of QKV subgraphs must be the same as number of layers in the model.")
+        G_LOGGER.info(f"Saved KV-cache onnx to {onnx_output_fpath}.")
 
 
     # Reads an onnx file and creates a trt engine file
@@ -660,7 +521,7 @@ class NeMoConverter():
 
         # Print out trtexec command for debugging
         G_LOGGER.debug(" >>> trtexec command for debugging:")
-        G_LOGGER.debug(get_trtexec_cmd(onnx_fpath, self.cfg, bs, num_layers))
+        G_LOGGER.debug(get_trtexec_cmd(onnx_fpath, self.cfg, bs))
 
         G_LOGGER.info(f"Reading ONNX file at {onnx_fpath}")
         network = network_from_onnx_path(onnx_fpath)
@@ -672,7 +533,9 @@ class NeMoConverter():
 
     @staticmethod
     def get_opset19_onnx_fpath(onnx_fpath) -> str:
-        return create_opset19_onnx_fpath(onnx_fpath, os.path.split(onnx_fpath)[0])
+        suffix = '.opset19.onnx'
+        return os.path.join(os.path.split(onnx_fpath)[0], os.path.splitext(os.path.split(onnx_fpath)[1])[0] + suffix)
+
 
     @staticmethod
     def onnx_to_opset19(onnx_fpath) -> str:
@@ -680,11 +543,17 @@ class NeMoConverter():
         Convert a ONNX model `onnx_fpath` to be with standard opset19 Q/DQ nodes, return a string
         contains a file path to the result ONNX if any conversion is performed, otherwise return `None`.
         """
-        return replace_customop_qdq_with_onnx_qdq(onnx_fpath, os.path.split(onnx_fpath)[0],
-                                                remove_cast_before_q=False,
-                                                remove_cast_after_dq=False,
-                                                change_qdq_scale_precision="")
+        mappings = replace_customop_qdq_with_onnx_qdq([onnx_fpath], os.path.split(onnx_fpath)[0],
+                                                   create_netron_compatible_model=False,
+                                                   remove_cast_before_q=False,
+                                                   remove_cast_after_dq=False,
+                                                   change_qdq_scale_precision="")
+        if (not mappings) or (onnx_fpath not in mappings) or (mappings[onnx_fpath] == None):
+            G_LOGGER.error(f"Opset19 onnx file conversion failed for {onnx_fpath}.")
+            assert False
 
+        G_LOGGER.info(f"Converted {onnx_fpath} to {mappings[onnx_fpath]} for opset19.")
+        return mappings[onnx_fpath]
 
 @hydra_runner(config_path="./", config_name="megatron_gpt_demo")
 def main(cfg):
@@ -710,6 +579,7 @@ def main(cfg):
         onnx_output_fpath = os.path.join(new_dir, onnx_name.split("/")[-1])
         create_dir_if_not_exist(onnx_output_fpath)
         converter.create_kv_onnx(onnx_name, onnx_output_fpath, kv_output_policy)
+        onnx_name = onnx_output_fpath
 
     # Convert ONNX model to TRT engine
     trt_fpath = cfg.trt_engine_file

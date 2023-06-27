@@ -115,6 +115,8 @@ def load_nemo_model(cfg, model_class=MegatronGPTModel):
 
     model.eval()
     G_LOGGER.info(f"{type(model)} has been successfully restored from {cfg.gpt_model_file}")
+    G_LOGGER.debug(f"Model configuration: {model.cfg}")
+    G_LOGGER.debug(f"Vocabulary size: {model.tokenizer.vocab_size}")
     return model.cuda()
 
 def release_nemo_model(model):
