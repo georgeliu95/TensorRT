@@ -233,7 +233,7 @@ class Engine():
             self.context = self.engine.create_execution_context()
 
     def allocate_buffers(self, shape_dict=None, device='cuda'):
-        for idx in range(trt_util.get_bindings_per_profile(self.engine)):
+        for idx in range(self.engine.num_io_tensors):
             binding = self.engine[idx]
             if shape_dict and binding in shape_dict:
                 shape = shape_dict[binding]
