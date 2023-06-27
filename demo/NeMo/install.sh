@@ -27,6 +27,7 @@ echo "Using '$(pwd)/${DEPENDENCIES_DIR}' to store dependencies.";
 mkdir -p ${DEPENDENCIES_DIR};
 
 pip install --upgrade pip
+pip install --upgrade cython
 
 echo " > Installing Requirements.txt...";
 pip install nvidia-pyindex
@@ -74,8 +75,8 @@ cd ../
 export PYTHONPATH=$(pwd)/Megatron-LM/:${PYTHONPATH}
 
 echo " > Installing TransformerEngine...";
-MAKEFLAGS="-j6" pip install flash-attn==1.0.2 # explicitly specify version to avoid CUDA version error
-MAKEFLAGS="-j6" pip install --upgrade git+https://github.com/NVIDIA/TransformerEngine.git@215dfe7e5bd326cc0a774c3f2149a0acc41535c4
+MAKEFLAGS="-j6" pip install flash-attn==1.0.6 --no-build-isolation # explicitly specify version to avoid CUDA version error
+MAKEFLAGS="-j6" pip install --upgrade git+https://github.com/NVIDIA/TransformerEngine.git@804f120322a13cd5f21ea8268860607dcecd055c
 
 echo " > Installing NeMo...";
 if [ ! -d "NeMo" ];
@@ -88,5 +89,16 @@ git checkout bf270794267e0240d8a8b2f2514c80c6929c76f1
 bash reinstall.sh
 cd ../
 export PYTHONPATH=$(pwd)/NeMo/:${PYTHONPATH}
+
+if [ ! -f "GPT3/convert_te_onnx_to_trt_onnx.py" ];
+then
+    echo " > Copying opset19 conversion script...";
+    if [ ! -f "../../../scripts/convert_te_onnx_to_trt_onnx.py" ];
+    then
+        echo "Opset19 conversion script is not located at <ROOT_DIR>/scripts/convert_te_onnx_to_trt_onnx.py";
+        return 1;
+    fi
+    cp ../../../scripts/convert_te_onnx_to_trt_onnx.py ../GPT3/convert_te_onnx_to_trt_onnx.py
+fi
 
 cd ../
