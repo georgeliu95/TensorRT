@@ -95,13 +95,13 @@ python3 run.py accuracy GPT3 [frameworks | trt] --variant gpt-5b --working-dir $
 Expected output for `trt`:
 ```
 ***************************
-Lambada ppl: 4.7984961574172145
+Lambada ppl: 4.7984961574172145, acc(top1): 0.6846497186105182, acc(top3): 0.8649330487094896, acc(top5): 0.9146128468853095
 ***************************
 ```
 
 Expected output for `frameworks`:
 ```
 ***************************
-Lambada ppl: 4.789651459845271
+Lambada ppl: 4.789651459845271, acc(top1): 0.6846497186105182, acc(top3): 0.8649330487094896, acc(top5): 0.9146128468853095
 ***************************
 ```

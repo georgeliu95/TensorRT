@@ -97,9 +97,10 @@ def load_dataset(dataset_name, base_dir):
     ds_map = {"Lambada": Lambada(base_dir)}
     return ds_map[dataset_name]
 
-def get_accuracy_metric(metric_name):
-    m_map = {"Perplexity": SequencePerplexity()}
-    return m_map[metric_name]
+def get_accuracy_metric(cfg):
+    topN = [int(i.strip()) for i in cfg.top_n.split(",")]
+    m_map = {"Perplexity": SequencePerplexity(topN)}
+    return m_map[cfg.metric]
 
 def remove_padded_prompts(output, nb_paddings):
     if nb_paddings == 0:
@@ -333,7 +334,7 @@ class NeMoCommand(NetworkCommand):
         torch.manual_seed(self.nemo_cfg.inference.seed)
         if self.nemo_cfg.mode == "accuracy":
             G_LOGGER.debug("Run in accuracy mode.")
-            eval_ppl = get_accuracy_metric(self.nemo_cfg.accuracy.metric)
+            eval_ppl = get_accuracy_metric(self.nemo_cfg.accuracy)
             dataset = load_dataset(self.nemo_cfg.accuracy.dataset, self.workspace.rootdir)
             tokenizer = self.tokenizer
 
@@ -358,10 +359,10 @@ class NeMoCommand(NetworkCommand):
             if len(batch_input):
                 eval_ppl_with_batch_input(eval_ppl, batch_input)
 
+            ppl, _, acc_text = eval_ppl.compute()
             print("***************************")
-            print("{} ppl: {}".format(self.nemo_cfg.accuracy.dataset, eval_ppl.compute()))
+            print("{} ppl: {}, {}".format(self.nemo_cfg.accuracy.dataset, ppl, acc_text))
             print("***************************")
-            ppl = eval_ppl.compute()
         elif self.nemo_cfg.mode == "benchmark":
             G_LOGGER.debug("Run in benchmark mode.")
             rand_input = get_random_input(self.model.tokenizer, self.nemo_cfg.batch_size, self.nemo_cfg.benchmark.input_seq_len, self.nemo_cfg.benchmark.output_seq_len)
