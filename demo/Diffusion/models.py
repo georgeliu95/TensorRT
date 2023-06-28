@@ -409,7 +409,7 @@ class TorchVAEEncoder(torch.nn.Module):
             self.vae_encoder.save_pretrained(vae_encoder_model_dir)
         else:
             print(f"[I] Load VAE Encoder pytorch model from: {vae_encoder_model_dir}")
-            self.vae_encoder = AutoencoderKL.from_pretrained(vae_encoder_model_dir).to(self.device)
+            self.vae_encoder = AutoencoderKL.from_pretrained(vae_encoder_model_dir).to(device)
 
 
     def forward(self, x):
