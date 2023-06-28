@@ -9301,7 +9301,7 @@ enum class PreviewFeature : int32_t
 
     //!
     //! Allows optimization profiles to be shared across execution contexts.
-    //! This flag defaults to false and will become the default behavior in TensorRT 9.0.
+    //! This flag defaults to false and will become the default behavior in TensorRT 10.0.
     //! At that point this flag will do nothing.
     //!
     kPROFILE_SHARING_0806 = 2,
