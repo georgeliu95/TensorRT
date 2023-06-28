@@ -303,17 +303,18 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
                     self.set_encoder_hidden_states(encoder_hidden_states)
                     self.set_cross_attn_cache(encoder_hidden_states)
 
-            self_attn_cache_shape = (self.expand_size, self.num_heads, self.past_decoder_length, self.embedding_size_per_head)
+            new_self_attn_keys_cache_shape = self._get_self_attn_keys_cache_shape()
+            new_self_attn_vals_cache_shape = self._get_self_attn_vals_cache_shape()
             for i in range(self.num_decoder_layers):
                 # If inputs shape has record and the record of context and shape are correct, skip it
                 key_record = self.input_shape_change_record.get("past_key_values.{i}.self.key", None)
                 value_record = self.input_shape_change_record.get("past_key_values.{i}.self.value", None)
                 if key_record is None or value_record is None or \
                     key_record[0] != ctx or value_record[0] != ctx or \
-                    key_record[1] != self_attn_cache_shape or value_record[1] != self_attn_cache_shape:
+                    key_record[1] != new_self_attn_keys_cache_shape or value_record[1] != new_self_attn_vals_cache_shape:
                     # record miss, set input shape
-                    ctx.set_input_shape(f"past_key_values.{i}.self.key", self_attn_cache_shape)
-                    ctx.set_input_shape(f"past_key_values.{i}.self.value", self_attn_cache_shape)
+                    ctx.set_input_shape(f"past_key_values.{i}.self.key", new_self_attn_keys_cache_shape)
+                    ctx.set_input_shape(f"past_key_values.{i}.self.value", new_self_attn_vals_cache_shape)
 
 
         elif input_length == 1 and self.config.is_encoder_decoder:
