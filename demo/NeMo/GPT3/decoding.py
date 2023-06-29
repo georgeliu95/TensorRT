@@ -326,14 +326,9 @@ def sample_sequence_batch(
 
             # Clamp the predicted out of vocabulary tokens
             prev = torch.clamp(prev, max=tokenizer.vocab_size - 1)
-
-            if started:
-                new_tokens = prev
-            else:
-                new_tokens = tokens[:, context_length].view(-1)
+            new_tokens = torch.where(started, prev, tokens[:, context_length].view(-1))
             # Replace sampled tokens w/ done token if EOD has already been sampled
-            if is_done:
-                new_tokens = eod_id
+            new_tokens = torch.where(is_done, eod_id, new_tokens)
             # post process the inference tokens based on the strategy
             inference_strategy.post_process(tokens, new_tokens, context_length)
 
