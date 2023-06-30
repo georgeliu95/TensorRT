@@ -28,6 +28,12 @@ label = '''
 TensorRT is a Deep Learning compiler used for deep learning.\nTensorRT is a deep learning compiler for TensorFlow. It is a tool for building and running deep learning models on GPUs. TensorRT is a tool for building and running deep learning models on GPUs. TensorRT is a tool for building and running deep learning models on GPUs. TensorRT is a tool for building and running deep learning models on GPUs. TensorRT is a tool for building and running deep learning models on GPU
 '''
 
+[BLOOM.all."bigscience/bloom-7b1".all.generate]
+
+label = '''
+TensorRT is a Deep Learning compiler used for deep learning.\n *\n * Copyright (C) 2016 The TensorFlow Authors\n *\n * Licensed under the Apache License, Version 2.0 (the "License");\n * you may not use this file except in compliance with the License.\n * You may obtain a copy of the License at\n *\n * http://www.apache.org/licenses/LICENSE-2.0\n *\n * Unless required by applicable law or agreed to in writing, software\n *
+'''
+
 [BLOOM.all."bigscience/bloomz-560m".all.generate]
 
 label = '''
@@ -50,6 +56,12 @@ TensorRT is a Deep Learning compiler used for deep learning.\n TensorRT is a lib
 
 label = '''
 TensorRT is a Deep Learning compiler used for deep learning.\n # Author: Alexandre B. Ribeiro <alexandre.b.ribeiro@gmail.com>\n#\n# License: BSD (3-clause)\n\nimport tensorflow as tf\n\nimport numpy as np\n\nimport matplotlib.pyplot as plt\n\nimport mpl_toolkits.mplot3d.axes3d as mpl_axes3d\n\nimport matplotlib.patches as patches\n\nimport matplotlib.cm as cm\n\nimport matplotlib.colors
+'''
+
+[BLOOM.all."bigscience/bloomz-7b1".all.generate]
+
+label = '''
+TensorRT is a Deep Learning compiler used for deep learning.\n #!/usr/bin/env python\n# -*- coding: utf-8 -*-\n\nimport tensorflow as tf\nimport numpy as np\nimport matplotlib.pyplot as plt\nimport os\nimport sys\nimport math\nimport copy\nimport pickle\nimport itertools\nimport datetime\nimport time\nimport re\nimport copy\nimport math\nimport copy\nimport itertools\nimport datetime\nimport time\nimport re\nimport copy\nimport math\nimport copy\n
 '''
 
 [BLOOM.all.default.all.generate_b]
@@ -82,6 +94,12 @@ label = '''
 BLOOM is a transformer based model pretrained on a large corpus.\nThe model is trained on a large corpus of images with a large number of classes. The model is trained on a large corpus of images with a large number of classes. The model is trained on a large corpus of images with a large number of classes. The model is trained on a large corpus of images with a large number of classes. The model is trained on a large corpus of images with a large number of classes
 '''
 
+[BLOOM.all."bigscience/bloom-7b1".all.generate_b]
+
+label = '''
+BLOOM is a transformer based model pretrained on a large corpus.\nThe model is trained to predict the probability of a word given a context. The model is trained to predict the probability of a word given a context. The model is trained to predict the probability of a word given a context. The model is trained to predict the probability of a word given a context. The model is trained to predict the probability of a word given a context. The model is trained to predict the probability of
+'''
+
 [BLOOM.all."bigscience/bloomz-560m".all.generate_b]
 
 label = '''
@@ -104,6 +122,12 @@ BLOOM is a transformer based model pretrained on a large corpus.\n # Authors: Al
 
 label = '''
 BLOOM is a transformer based model pretrained on a large corpus.\n # TODO: Replace <FILL IN> with appropriate code\n# TODO: Replace <FILL IN> with appropriate code
+'''
+
+[BLOOM.all."bigscience/bloomz-7b1".all.generate_b]
+
+label = '''
+BLOOM is a transformer based model pretrained on a large corpus.\nBERT is a transformer based model pretrained on a small corpus.
 '''
 
 [BLOOM.all.default.all.generate_c]
@@ -136,6 +160,12 @@ label = '''
 If I fall asleep then I am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake
 '''
 
+[BLOOM.all."bigscience/bloom-7b1".all.generate_c]
+
+label = '''
+If I fall asleep then I am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake
+'''
+
 [BLOOM.all."bigscience/bloomz-560m".all.generate_c]
 
 label = '''
@@ -158,6 +188,12 @@ If I fall asleep then I am going to wake up in 8 hours.\nI am going to wake up i
 
 label = '''
 If I fall asleep then I am going to wake up in 8 hours.\nI will wake up in 8 hours.
+'''
+
+[BLOOM.all."bigscience/bloomz-7b1".all.generate_c]
+
+label = '''
+If I fall asleep then I am going to wake up in 8 hours.\nYes
 '''
 
 # TODO: Uncomment these once attention masks are supported: https://jirasw.nvidia.com/browse/TRT-20564
@@ -218,6 +254,16 @@ If I fall asleep then I am going to wake up in 8 hours.\nI will wake up in 8 hou
 #If I fall asleep then I am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake
 #''']
 #
+#[BLOOM.all."bigscience/bloom-7b1".all.generate_d]
+#
+#label = [
+#'''
+#BLOOM is a transformer based model pretrained on a large corpus.\nThe model is trained to predict the probability of a word given a context. The model is trained to predict the probability of a word given a context. The model is trained to predict the probability of a word given a context. The model is trained to predict the probability of a word given a context. The model is trained to predict the probability of a word given a context. The model is trained to predict the probability of
+#''' ,
+#'''
+#If I fall asleep then I am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake up in 8 hours.\nI am going to wake
+#''']
+#
 #[BLOOM.all."bigscience/bloomz-560m".all.generate_d]
 #
 #label = [
@@ -256,5 +302,15 @@ If I fall asleep then I am going to wake up in 8 hours.\nI will wake up in 8 hou
 #''' ,
 #'''
 #If I fall asleep then I am going to wake up in 8 hours.\nI will wake up in 8 hours.
+#''']
+#
+#[BLOOM.all."bigscience/bloomz-7b1".all.generate_d]
+#
+#label = [
+#'''
+#BLOOM is a transformer based model pretrained on a large corpus.\nBERT is a transformer based model pretrained on a small corpus.
+#''' ,
+#'''
+#If I fall asleep then I am going to wake up in 8 hours.\nYes
 #''']
 #

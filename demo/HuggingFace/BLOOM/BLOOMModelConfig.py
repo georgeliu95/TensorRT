@@ -30,10 +30,12 @@ class BLOOMModelTRTConfig(Seq2SeqModelTRTConfig):
         "bigscience/bloom-1b1",
         "bigscience/bloom-1b7",
         "bigscience/bloom-3b",
+        "bigscience/bloom-7b1",
         "bigscience/bloomz-560m",
         "bigscience/bloomz-1b1",
         "bigscience/bloomz-1b7",
         "bigscience/bloomz-3b",
+        "bigscience/bloomz-7b1",
     ]
 
     def __init__(self, **kwargs):
