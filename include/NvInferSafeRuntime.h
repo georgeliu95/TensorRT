@@ -596,6 +596,9 @@ struct RuntimeErrorInformation
     uint64_t bitMask; //!< Each bit represent a RuntimeErrorType has occured during kernel execution
 };
 
+//!
+//! \brief Enum to represent runtime error types.
+//!
 enum class RuntimeErrorType : uint64_t
 {
     kNAN_CONSUMED = 1ULL << 0, //!< NaN floating-point value was silently consumed

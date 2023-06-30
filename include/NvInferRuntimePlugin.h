@@ -40,6 +40,8 @@ namespace nvinfer1
 //!
 using PluginFormat = TensorFormat;
 
+static constexpr int32_t kPLUGIN_VERSION_PYTHON_BIT = 0x40;
+
 //! \struct PluginTensorDesc
 //!
 //! \brief Fields that a plugin might see for an input or output.
@@ -78,6 +80,16 @@ enum class PluginVersion : uint8_t
     kV2_IOEXT = 2,
     //! IPluginV2DynamicExt
     kV2_DYNAMICEXT = 3,
+    //! IPluginV2DynamicExt-based Python plugins
+    kV2_DYNAMICEXT_PYTHON = kPLUGIN_VERSION_PYTHON_BIT | 3
+};
+
+enum class PluginCreatorVersion : int32_t
+{
+    //! IPluginCreator
+    kV1 = 0,
+    //! IPluginCreator-based Python plugin creators
+    kV1_PYTHON = kPLUGIN_VERSION_PYTHON_BIT
 };
 
 //! \class IPluginV2
@@ -809,7 +821,11 @@ class IPluginCreator
 {
 public:
     //!
-    //! \brief Return the version of the API the plugin creator was compiled with.
+    //! \brief Return the version of the API the plugin creator was compiled with. The
+    //!  upper byte is reserved by TensorRT and is used to differentiate between plugin creator versions.
+    //!
+    //! Do not override this method as it is used by the TensorRT library to maintain backwards-compatibility with
+    //! plugin creators.
     //!
     //! \usage
     //! - Allowed context for the API call
@@ -817,7 +833,8 @@ public:
     //!
     virtual int32_t getTensorRTVersion() const noexcept
     {
-        return NV_TENSORRT_VERSION;
+        return static_cast<int32_t>((static_cast<uint32_t>(PluginCreatorVersion::kV1) << 24U)
+            | (static_cast<uint32_t>(NV_TENSORRT_VERSION) & 0xFFFFFFU));
     }
 
     //!
