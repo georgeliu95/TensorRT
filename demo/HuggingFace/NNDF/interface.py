@@ -886,6 +886,10 @@ class NetworkCommand(metaclass=ABCMeta):
                 if perplexity_reference is not None:
                     assert len(network_input) == len(perplexity_reference), "Encoder and decoder inputs must pair up"
                     for ei, di in zip(network_input, perplexity_reference):
+                        if ei == "":
+                            raise ValueError("Perplexity reference encoder input is empty")
+                        if di == "":
+                            raise ValueError("Perplexity reference decoder input is empty")
                         ppl_results.append(
                             self.calculate_perplexity(ei, di, use_cuda=self.use_cuda)
                         )

@@ -101,13 +101,17 @@ class NNTomlCheckpoint:
         """
         returns_dict = len(slice) > 1
         for value in self.data.values():
-            if "skip" in value:
+            if skip_keyword in value:
                 continue
 
-            if returns_dict:
-                yield {s: value[s] for s in slice}
-            else:
-                yield value[slice[0]]
+            try:
+                if returns_dict:
+                    yield {s: value[s] for s in slice}
+                else:
+                    yield value[slice[0]]
+            except KeyError as e:
+                raise KeyError(f"Your checkpoint is missing fields for this model: {slice}") from e
+
 
 
 class NNSemanticCheckpoint(NNTomlCheckpoint):
