@@ -7565,6 +7565,7 @@ public:
     //!
     //! \warning The bounds tensor cannot have the last dimension be the wildcard character.
     //! \warning Int32 tensors are not valid input tensors.
+    //! \warning The input and bounds tensors should be 2D tensors in implicit batch mode, 3D tensors otherwise.
     //!
     //! \return The new RaggedSoftMax layer, or nullptr if it could not be created.
     //!
