@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
@@ -24,17 +24,20 @@ elif [ "$#" -eq 1 ]; then
     DEPENDENCIES_DIR=${1};
 fi
 echo "Using '$(pwd)/${DEPENDENCIES_DIR}' to store dependencies.";
-mkdir -p ${DEPENDENCIES_DIR};
+mkdir -p "${DEPENDENCIES_DIR}";
 
 pip install --upgrade pip
-pip install --upgrade cython
 
 echo " > Installing Requirements.txt...";
-pip install nvidia-pyindex
-pip install -r requirements.txt
+pip install nvidia-pyindex || { echo "Could not install nvidia-pyindex, stopping install"; exit 1; }
+# # One of the hidden dependencies require Cython, but doesn't specify it.
+# # https://github.com/VKCOM/YouTokenToMe/pull/108
+# # WAR by installing Cython before requirements.
+pip install "Cython>=0.29.34" || { echo "Could not install Cython, stopping install"; exit 1; }
+pip install -r requirements.txt || { echo "Could not install dependencies, stopping install"; exit 1; }
 
 BASE_DIR=$(pwd);
-cd ${DEPENDENCIES_DIR};
+cd "${DEPENDENCIES_DIR}" || exit
 
 # install apex
 has_apex=$(pip list | grep "^apex " | grep "apex" -o | awk '{print $1}' | awk '{print length}');
@@ -45,21 +48,25 @@ then
     then
         git clone https://github.com/NVIDIA/apex.git;
     fi
-    cd apex
-    git config --global --add safe.directory $(pwd)
+    cd apex || exit
+    APEX_PATH="$(pwd)"
+    git config --global --add safe.directory "${APEX_PATH}"
     git checkout 5b5d41034b506591a316c308c3d2cd14d5187e23
-    git apply ${BASE_DIR}/apex.patch # Bypass CUDA version check in apex
+    git apply "${BASE_DIR}"/apex.patch # Bypass CUDA version check in apex
     torchcppext=$(pip show torch | grep Location | cut -d' ' -f2)"/torch/utils/cpp_extension.py"
-    if [ !-f $torchcppext ];
+    if [ ! -f "$torchcppext" ];
     then
         echo "Could not locate torch installation using pip";
         exit 1;
     fi
-    sed -i 's/raise RuntimeError(CUDA_MISMATCH_MESSAGE.format(cuda_str_version, torch.version.cuda))/pass/' $torchcppext # Bypass CUDA version check in torch
+    sed -i 's/raise RuntimeError(CUDA_MISMATCH_MESSAGE.format(cuda_str_version, torch.version.cuda))/pass/' "$torchcppext" # Bypass CUDA version check in torch
+	unset torchcppext
     pip install -v --disable-pip-version-check --no-cache-dir --global-option="--cpp_ext" --global-option="--cuda_ext" --global-option="--fast_layer_norm" --global-option="--distributed_adam" --global-option="--deprecated_fused_adam" ./
     cd ../
-    export PYTHONPATH=$(pwd)/apex/:${PYTHONPATH}
+    export PYTHONPATH="${APEX_PATH}:${PYTHONPATH}"
+    unset APEX_PATH
 fi
+unset has_apex
 
 echo " > Installing Megatron-LM...";
 if [ ! -d "Megatron-LM" ];
@@ -67,28 +74,42 @@ then
     git clone -b main https://github.com/NVIDIA/Megatron-LM.git
 fi
 
-cd Megatron-LM
-git config --global --add safe.directory $(pwd)
+cd Megatron-LM || exit
+MEGATRON_PATH="$(pwd)"
+git config --global --add safe.directory "${MEGATRON_PATH}"
 git checkout 992da75a1fd90989eb1a97be8d9ff3eca993aa83
 pip install ./
 cd ../
-export PYTHONPATH=$(pwd)/Megatron-LM/:${PYTHONPATH}
+export PYTHONPATH="${MEGATRON_PATH}:${PYTHONPATH}"
+unset MEGATRON_PATH
 
 echo " > Installing TransformerEngine...";
 MAKEFLAGS="-j6" pip install flash-attn==1.0.6 --no-build-isolation # explicitly specify version to avoid CUDA version error
 MAKEFLAGS="-j6" pip install --upgrade git+https://github.com/NVIDIA/TransformerEngine.git@804f120322a13cd5f21ea8268860607dcecd055c
+
+echo " > Patching TransformerEngine...";
+te_loc="$(pip show transformer_engine | grep '^Location' | awk '{print $2}')"
+cd "${te_loc}/transformer_engine" || { echo "Could not locate transformer engine install path"; exit 1; }
+# Use sys.executable when calling pip within subprocess to recognize virtualenv.
+# If patch is already applied, skip it and proceed with the rest of the script, quit otherwise.
+# NOTE: patch needs to be updated to track the current version of TE installed above.
+OUT="$(patch --forward common/__init__.py < "${BASE_DIR}"/transformer_engine.patch)" || echo "${OUT}" | grep "Skipping patch" -q || { echo "Could not patch transformer engine because ${OUT}"; exit 1; }
+cd - || exit
+unset te_loc
 
 echo " > Installing NeMo...";
 if [ ! -d "NeMo" ];
 then
     git clone -b main https://github.com/NVIDIA/NeMo.git
 fi
-cd NeMo
-git config --global --add safe.directory $(pwd)
+cd NeMo || exit
+NeMo_PATH="$(pwd)"
+git config --global --add safe.directory "${NeMo_PATH}"
 git checkout bf270794267e0240d8a8b2f2514c80c6929c76f1
 bash reinstall.sh
 cd ../
-export PYTHONPATH=$(pwd)/NeMo/:${PYTHONPATH}
+export PYTHONPATH="${NeMo_PATH}:${PYTHONPATH}"
+unset NeMo_PATH
 
 if [ ! -f "GPT3/convert_te_onnx_to_trt_onnx.py" ];
 then
@@ -102,3 +123,6 @@ then
 fi
 
 cd ../
+
+unset BASE_DIR
+unset DEPENDENCIES_DIR
