@@ -61,6 +61,13 @@ class GPT3NeMoTorch(NeMoCommand):
         ]
         return NetworkModels(torch=torch_models, onnx=None, trt=None)
 
+    def process_framework_specific_arguments(self, onnx_model: str = None, **kwargs):
+        if onnx_model:
+            raise RuntimeError(
+                "native framework does not support loading an ONNX file via `onnx-model` yet. Please specify the NeMo model using `nemo-model` instead."
+            )
+
+
 # Entry point
 def getGPT3NeMoTorch():
     config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "megatron_gpt_demo.yaml")
