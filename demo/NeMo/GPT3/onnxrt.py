@@ -19,6 +19,7 @@ import os
 import sys
 
 import onnxruntime as ort
+import onnx
 import omegaconf
 from nemo.collections.nlp.modules.common.tokenizer_utils import get_tokenizer
 from nemo.collections.nlp.models.language_modeling.megatron_gpt_model import MegatronGPTModel
@@ -56,6 +57,17 @@ class GPT3NeMoOnnxRT(NeMoCommand):
 
     def load_onnx_model(self):
         G_LOGGER.info(f'Loading ONNX model from {self.nemo_cfg.onnx_model_file}')
+
+        def get_opset_version(name : str) -> int:
+            """Returns opset.
+
+            `model` here is local in scope and python's gc will collect
+            it without manual memory management via `del`.
+            """
+            model = onnx.load(name, load_external_data=False)
+            return model.opset_import[0].version
+
+        assert get_opset_version(self.nemo_cfg.onnx_model_file) == 17
         return ort.InferenceSession(self.nemo_cfg.onnx_model_file)
 
 
@@ -65,7 +77,12 @@ class GPT3NeMoOnnxRT(NeMoCommand):
         self.model.cfg = self.nemo_cfg.model
         self.model.tokenizer = get_tokenizer(tokenizer_name='megatron-gpt-345m', vocab_file=None, merges_file=None)
 
-        self.nemo_cfg.onnx_model_file = os.path.join(self.workspace.dpath, f"onnx/model-{self.nemo_cfg.trainer.precision}.onnx")
+        if not self.nemo_cfg.onnx_model_file:
+            self.nemo_cfg.onnx_model_file = os.path.join(
+                self.workspace.dpath,
+                f"onnx/model-{self.nemo_cfg.trainer.precision}.onnx",
+            )
+
         converter = NeMoConverter(self.nemo_cfg, MegatronGPTModel)
         if not os.path.isfile(self.nemo_cfg.onnx_model_file):
             # Convert NeMo model to ONNX model

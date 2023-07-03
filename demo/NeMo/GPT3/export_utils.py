@@ -18,7 +18,7 @@
 import os
 import sys
 import warnings
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 # nemo
@@ -33,7 +33,7 @@ from nemo.collections.nlp.models.language_modeling.megatron_gpt_model import Meg
 import onnx
 from onnx import helper, TensorProto, numpy_helper, version_converter
 import onnx_graphsurgeon as gs
-    
+
 # polygraphy
 from polygraphy.backend.trt import Profile, CreateConfig, engine_from_network, network_from_onnx_path, save_engine
 from polygraphy.logger import G_LOGGER as PG_LOGGER
@@ -356,6 +356,15 @@ class NeMoConverter():
         self.cfg = cfg
         self.model = None
 
+    def export_envvars(self) -> None:
+        if self.cfg.trt_engine_options.use_fp8:
+            G_LOGGER.info(
+                f"Setting max sequence length to {self.cfg.model.max_seq_len}"
+            )
+            os.environ["NVTE_ONNX_KVCACHE_max_seq_len"] = str(
+                self.cfg.model.max_seq_len
+            )
+
     def nemo_to_onnx(self) -> str:
         """
         Convert a NeMo model to an ONNX model, return the file path to the ONNX model.
@@ -399,9 +408,7 @@ class NeMoConverter():
                 G_LOGGER.info("Exporting ONNX with attention_mask")
                 dynamic_axes['attention_mask'] = {2: "sequence", 3: "sequence"}
 
-            if self.cfg.trt_engine_options.use_fp8:
-                G_LOGGER.info(f"Setting max sequence length to {self.cfg.model.max_seq_len}")
-                os.environ['NVTE_ONNX_KVCACHE_max_seq_len'] = str(self.cfg.model.max_seq_len)
+            self.export_envvars()
 
             self.model.export(
                 onnx_out,
@@ -439,6 +446,7 @@ class NeMoConverter():
         nbheads, headsize = self.cfg.model.nb_heads, self.cfg.model.head_size
         dtype = onnx.TensorProto.BFLOAT16 if self.cfg.trt_engine_options.use_bf16 else onnx.TensorProto.FLOAT16
         assert nbheads * headsize == self.cfg.model.hidden_size, "Model hidden size does not match."
+        self.export_envvars()
         num_qkvs = process_onnx(kv_output_policy,
             onnx_input_fpath, onnx_output_fpath, separate_param_files=True,
             nbheads=nbheads, headsize=headsize, vocab_size=self.cfg.model.vocab_size, dtype=dtype)
@@ -530,25 +538,39 @@ class NeMoConverter():
         G_LOGGER.info(f"Saving TRT engine to {trt_fpath}")
         save_engine(engine, trt_fpath)
 
+    @staticmethod
+    def _resolve_opset19_paths(onnx_fpath, results_path: Optional[str] = None) -> str:
+        foldername, filename = os.path.split(onnx_fpath)
+        return foldername if not results_path else results_path, filename
 
     @staticmethod
-    def get_opset19_onnx_fpath(onnx_fpath) -> str:
-        suffix = '.opset19.onnx'
-        return os.path.join(os.path.split(onnx_fpath)[0], os.path.splitext(os.path.split(onnx_fpath)[1])[0] + suffix)
+    def get_opset19_onnx_fpath(onnx_fpath, results_path: Optional[str] = None) -> str:
+        suffix = ".opset19.onnx"
+        results_path, filename = NeMoConverter._resolve_opset19_paths(
+            onnx_fpath, results_path
+        )
+        return os.path.join(results_path, os.path.splitext(filename)[0] + suffix)
 
 
     @staticmethod
-    def onnx_to_opset19(onnx_fpath) -> str:
+    def onnx_to_opset19(onnx_fpath, results_path: Optional[str] = None) -> str:
         """
         Convert a ONNX model `onnx_fpath` to be with standard opset19 Q/DQ nodes, return a string
         contains a file path to the result ONNX if any conversion is performed, otherwise return `None`.
         """
-        mappings = replace_customop_qdq_with_onnx_qdq([onnx_fpath], os.path.split(onnx_fpath)[0],
-                                                   create_netron_compatible_model=False,
-                                                   remove_cast_before_q=False,
-                                                   remove_cast_after_dq=False,
-                                                   change_qdq_scale_precision="")
-        if (not mappings) or (onnx_fpath not in mappings) or (mappings[onnx_fpath] == None):
+        mappings = replace_customop_qdq_with_onnx_qdq(
+            [onnx_fpath],
+            NeMoConverter._resolve_opset19_paths(onnx_fpath, results_path)[0],
+            create_netron_compatible_model=False,
+            remove_cast_before_q=False,
+            remove_cast_after_dq=False,
+            change_qdq_scale_precision="",
+        )
+        if (
+            (not mappings)
+            or (onnx_fpath not in mappings)
+            or (mappings[onnx_fpath] == None)
+        ):
             G_LOGGER.error(f"Opset19 onnx file conversion failed for {onnx_fpath}.")
             assert False
 

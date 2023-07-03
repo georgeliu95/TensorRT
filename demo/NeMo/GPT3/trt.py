@@ -33,6 +33,7 @@ from GPT3.export import NeMoModelClass
 from GPT3.export_utils import NeMoConverter, create_dir_if_not_exist
 from GPT3.trt_utils import load_trt_model
 from interface import NeMoCommand, BaseModel
+import onnx
 
 sys.path.append('../../HuggingFace') # Include HuggingFace
 from NNDF.interface import FRAMEWORK_TENSORRT
@@ -60,29 +61,83 @@ class GPT3NeMoTRT(NeMoCommand):
         self.model.cfg = self.nemo_cfg.model
         self.model.tokenizer = get_tokenizer(tokenizer_name='megatron-gpt-345m', vocab_file=None, merges_file=None)
 
-        onnx_name = os.path.join(self.workspace.dpath, f"onnx/model-{self.nemo_cfg.trainer.precision}.onnx")
-        self.nemo_cfg.onnx_model_file = onnx_name
-        self.nemo_cfg.trt_engine_options.timing_cache = self.timing_cache
+        # Path to write new onnx models if need arises. Prevents overwrite of
+        # user-provided onnx files in case opset_version needs to be upgraded
+        # to 19 or onnx files with kv-cache needs to be written.
+        onnx_workpath = os.path.join(
+            self.workspace.dpath,
+            "onnx",
+        )
+        if self.nemo_cfg.onnx_model_file:
+            # Input by user, can be a read-only location.
+            onnx_name = self.nemo_cfg.onnx_model_file
+        else:
+            onnx_name = os.path.join(
+                onnx_workpath,
+                f"model-{self.nemo_cfg.trainer.precision}.onnx",
+            )
+            self.nemo_cfg.onnx_model_file = onnx_name
+            self.nemo_cfg.trt_engine_options.timing_cache = self.timing_cache
 
-        converter = NeMoConverter(self.nemo_cfg, MegatronGPTModel)
-        if not os.path.isfile(self.nemo_cfg.onnx_model_file):
-            # Convert NeMo model to ONNX model
-            onnx_name = converter.nemo_to_onnx()
+            converter = NeMoConverter(self.nemo_cfg, MegatronGPTModel)
+            if not os.path.isfile(onnx_name):
+                # Convert NeMo model to ONNX model
+                onnx_name = converter.nemo_to_onnx()
 
-        # Convert ONNX opset to 19
-        opset19_onnx_name = NeMoConverter.get_opset19_onnx_fpath(self.nemo_cfg.onnx_model_file)
-        if not os.path.isfile(opset19_onnx_name):
-            opset19_onnx_name = NeMoConverter.onnx_to_opset19(onnx_name)
+        def get_opset_version(name : str) -> int:
+            """Returns opset.
 
-        if opset19_onnx_name != None:
-            onnx_name = opset19_onnx_name
+            `model` here is local in scope and python's gc will collect
+            it without manual memory management via `del`.
+            """
+            model = onnx.load(name, load_external_data=False)
+            return model.opset_import[0].version
+
+        opset_version = get_opset_version(onnx_name)
+        if opset_version < 19:
+            opset19_onnx_name = NeMoConverter.get_opset19_onnx_fpath(
+                onnx_name, onnx_workpath
+            )
+            if not os.path.isfile(opset19_onnx_name):
+                opset19_onnx_name = NeMoConverter.onnx_to_opset19(
+                    onnx_name, onnx_workpath
+                )
+
+            if opset19_onnx_name != None:
+                onnx_name = opset19_onnx_name
 
         # Add KV cache to ONNX model
-        if self.nemo_cfg.use_cache:
+        kv_output_policy = "kv_new"
+
+        converter = NeMoConverter(self.nemo_cfg)
+
+        def has_kv_cache_support(
+            model_name: str, match_names=("key", "value", "kv")
+        ) -> bool:
+            """To detect onnx models with kv_cache exported, input node names
+            contain match_names.
+            """
+            model = onnx.load(model_name, load_external_data=False)
+
+            node_names = map(lambda node: node.name, model.graph.input)
+            kv_nodes = filter(
+                lambda name: any(map(lambda match: match in name, match_names)),
+                node_names,
+            )
+            return any(kv_nodes)
+
+        if (not self.nemo_cfg.use_cache) and (has_kv_cache_support(onnx_name)):
+            raise RuntimeError(
+                "ONNX model has been exported with kv-cache enabled, but "
+                "runtime configuration has kv-cache disabled. Consider "
+                "enabling kv-cache support via the `use-cache` option."
+            )
+
+        if self.nemo_cfg.use_cache and (not has_kv_cache_support(onnx_name)):
             G_LOGGER.info(f"Converting {onnx_name} with KV-cache support")
-            kv_output_policy = "kv_new"
-            new_dir = str(os.path.dirname(onnx_name)) + f"_{kv_output_policy}"
+            new_dir = onnx_workpath + f"_{kv_output_policy}"
             onnx_output_fpath = os.path.join(new_dir, onnx_name.split("/")[-1])
+
             if not os.path.isfile(onnx_output_fpath):
                 create_dir_if_not_exist(onnx_output_fpath)
                 converter.create_kv_onnx(onnx_name, onnx_output_fpath, kv_output_policy)

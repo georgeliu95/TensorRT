@@ -192,6 +192,7 @@ class NeMoCommand(NetworkCommand):
         input_seq_len: int = None,
         output_seq_len: int = None,
         nemo_model: str = None,
+        onnx_model: str = None,
         **kwargs,
     ) -> None:
         """
@@ -250,8 +251,19 @@ class NeMoCommand(NetworkCommand):
         else:
             raise ValueError("A precision needs to be set to retrieve a model.")
 
+        if nemo_model and onnx_model:
+            raise RuntimeError(
+                "Both nemo-model and onnx-model cannot be specified together. Please specify either nemo-model or onnx-model."
+            )
+
         if nemo_model != None:
             self.nemo_cfg.gpt_model_file = nemo_model
+        if onnx_model:
+            G_LOGGER.info(f"Using onnx model {onnx_model} for inference.")
+            if os.path.exists(onnx_model):
+                self.nemo_cfg.onnx_model_file = onnx_model
+            else:
+                raise IOError(f"Could not find the specified path {onnx_model}.")
 
         self.nemo_cfg.batch_size = batch_size
         self.nemo_cfg.use_cache = use_cache
@@ -309,7 +321,7 @@ class NeMoCommand(NetworkCommand):
         self.keep_onnx_model = not cleanup
         self.keep_trt_engine = not cleanup
 
-        self.process_framework_specific_arguments(**kwargs)
+        self.process_framework_specific_arguments(onnx_model=onnx_model, **kwargs)
 
     def process_framework_specific_arguments(self, **kwargs):
         pass
@@ -466,6 +478,12 @@ class NeMoCommand(NetworkCommand):
             help="Set a NeMo model to be used.",
             type=str,
             default=None
+        )
+        model_config_group.add_argument(
+            "--onnx-model",
+            help="Set a onnx model (exported from a NeMo model) to be used. See `export_utils.py` in the model directory for exporting onnx files",
+            type=str,
+            default=None,
         )
         model_config_group.add_argument(
             "--max-seq-len",
