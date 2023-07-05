@@ -79,7 +79,8 @@ class OnnxExporter(BaseExporter):
             )
 
         if tensor.dtype is not None:
-            onnx_tensor = onnx.helper.make_tensor_value_info(tensor.name, dtype_to_onnx(tensor.dtype), tensor.shape)
+            shape = tensor.shape if tensor.shape is not None else [] # make sure `shape` field is present in value info
+            onnx_tensor = onnx.helper.make_tensor_value_info(tensor.name, dtype_to_onnx(tensor.dtype), shape)
         else:
             onnx_tensor = onnx.helper.make_empty_tensor_value_info(tensor.name)
         return onnx_tensor
@@ -118,6 +119,7 @@ class OnnxExporter(BaseExporter):
             graph (Graph): The graph to export.
 
             do_type_check (bool): Whether to check that input and output tensors have data types defined, and fail if not.
+                                  Defaults to True.
         """
         check_duplicate_node_names(graph.nodes, level=G_LOGGER.WARNING)
         nodes = [OnnxExporter.export_node(node, do_type_check) for node in graph.nodes]
@@ -162,6 +164,7 @@ def export_onnx(graph: Graph, do_type_check=True, **kwargs) -> "onnx.ModelProto"
         graph (Graph): The graph to export
 
         do_type_check (bool): Whether to check that input and output tensors have data types defined, and fail if not.
+                              Defaults to True.
         kwargs: Additional arguments to onnx.helper.make_model
 
     Returns:
