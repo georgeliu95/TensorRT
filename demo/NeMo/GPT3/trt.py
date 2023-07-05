@@ -119,12 +119,16 @@ class GPT3NeMoTRT(NeMoCommand):
             """
             model = onnx.load(model_name, load_external_data=False)
 
-            node_names = map(lambda node: node.name, model.graph.input)
+            # Get network inputs.
+            input_all = [node.name for node in model.graph.input]
+            input_initializer =  [node.name for node in model.graph.initializer]
+            net_input_names = list(set(input_all)  - set(input_initializer))
+
             kv_nodes = filter(
                 lambda name: any(map(lambda match: match in name, match_names)),
-                node_names,
+                net_input_names,
             )
-            return any(kv_nodes)
+            return any(kv_nodes) and len(net_input_names) > 2
 
         if (not self.nemo_cfg.use_cache) and (has_kv_cache_support(onnx_name)):
             raise RuntimeError(
