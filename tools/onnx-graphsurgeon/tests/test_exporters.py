@@ -38,6 +38,14 @@ from onnx_models import (
 
 
 class TestOnnxExporter(object):
+    def test_export_value_info_proto_has_shape_attr(self):
+        name = "test_has_shape_attr"
+        dtype = np.float32
+
+        tensor = Variable(name=name, dtype=dtype) # do not specify shape
+        onnx_tensor = OnnxExporter.export_value_info_proto(tensor, do_type_check=True)
+        assert onnx_tensor.type.tensor_type.HasField("shape")
+
     def test_export_constant_tensor_lazy_values_to_tensor_proto(self):
         name = "constant_tensor"
         shape = (3, 3, 3)
