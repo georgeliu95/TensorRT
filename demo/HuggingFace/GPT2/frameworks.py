@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
 from Seq2Seq.frameworks import Seq2SeqHF
 from GPT2.GPT2ModelConfig import GPT2ModelTRTConfig
-from Seq2Seq.export import Seq2SeqModelClass
+from GPT2.export import GPT2ModelClass
 
 class GPT2HF(Seq2SeqHF):
     def __init__(
@@ -35,7 +35,7 @@ class GPT2HF(Seq2SeqHF):
         description="Runs framework results for GPT2 model.",
         **kwargs
     ):
-        super().__init__(config_class, description, model_classes=Seq2SeqModelClass, **kwargs)
+        super().__init__(config_class, description, model_classes=GPT2ModelClass, **kwargs)
 
 # Entry point
 RUN_CMD = GPT2HF()

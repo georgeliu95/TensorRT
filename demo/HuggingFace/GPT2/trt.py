@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
 from Seq2Seq.trt import Seq2SeqTRT
 from GPT2.GPT2ModelConfig import GPT2ModelTRTConfig
-from Seq2Seq.export import Seq2SeqModelClass
+from GPT2.export import GPT2ModelClass
 
 
 class GPT2TRT(Seq2SeqTRT):
@@ -36,7 +36,7 @@ class GPT2TRT(Seq2SeqTRT):
         description="Runs trt results for GPT2 model.",
         **kwargs
     ):
-        super().__init__(config_class, description=description, model_classes=Seq2SeqModelClass, **kwargs)
+        super().__init__(config_class, description=description, model_classes=GPT2ModelClass, **kwargs)
 
 # Entry point
 RUN_CMD = GPT2TRT()

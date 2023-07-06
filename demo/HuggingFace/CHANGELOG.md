@@ -20,6 +20,9 @@ Uses [semantic versioning](https://semver.org/).
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+# [2.0.3] - 2023-06-29
+- Added `attention_mask` support for multi-batch inference with various seq len
+
 # [2.0.2] - 2023-06-23
 - Added support for BLOOM models
 - Added support for OPT models

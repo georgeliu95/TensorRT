@@ -83,20 +83,38 @@ class Seq2SeqTRTEncoder(TRTNativeRunner):
         )
         self.trt_context.set_tensor_address("encoder_hidden_states", self.encoder_hidden_states.data_ptr())
 
-    def forward(self, input_ids: torch.Tensor):
+    def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor = None):
 
         input_length = input_ids.shape[1]
 
         # Check if the input data is on CPU (which usually means the PyTorch does not support current GPU).
         is_cpu_mode = (input_ids.device == torch.device("cpu"))
 
+        # Older TRT version does not have int64 support, and therefore requires int32 bindings
+        if self.trt_engine.get_tensor_dtype(self.main_input_name) == trt.int32:
+            input_ids = input_ids.int().contiguous()
+        else:
+            input_ids = input_ids.long().contiguous()
+
         if is_cpu_mode:
-            input_ids = input_ids.int().flatten().contiguous().cuda()
+            input_ids = input_ids.flatten().contiguous().cuda()
 
-        self.trt_context.set_tensor_address(self.main_input_name, input_ids.int().data_ptr())
-
-        # Set the input shape of input_ids, which should be (bs, input_length).
+        self.trt_context.set_tensor_address(self.main_input_name, input_ids.data_ptr())
         self.trt_context.set_input_shape(self.main_input_name, input_ids.shape)
+
+        if self.config.use_mask:
+            if attention_mask is None:
+                attention_mask = torch.ones_like(input_ids)
+
+            if self.trt_engine.get_tensor_dtype("attention_mask") == trt.int32:
+                attention_mask = attention_mask.int().contiguous()
+            else:
+                attention_mask = attention_mask.long().contiguous()
+
+            if is_cpu_mode:
+                attention_mask = attention_mask.cuda()
+            self.trt_context.set_tensor_address("attention_mask", attention_mask.data_ptr())
+            self.trt_context.set_input_shape("attention_mask", attention_mask.shape)
 
         assert self.trt_context.all_shape_inputs_specified
 
@@ -154,8 +172,6 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
             )
             self.trt_context.set_tensor_address("encoder_hidden_states", self.encoder_hidden_states.data_ptr())
             self.encoder_length = 0
-
-
 
         if config.use_cache:
             if not self.config.is_encoder_decoder:
@@ -267,11 +283,20 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
         self,
         input_ids,
         encoder_outputs: BaseModelOutput = None,
+        attention_mask = None,
         **kwargs
     ) -> Seq2SeqLMOutput:
 
         # Actual sequence length of the input_ids and the output hidden_states.
         input_length = input_ids.shape[1]
+
+        # Compute past decoder length
+        if not self.config.use_cache:
+            mask_length = input_length
+        else:
+            if kwargs.get("past_key_values") is None:
+                self.past_decoder_length = 0
+            mask_length = input_length + self.past_decoder_length
 
         if self.config.is_encoder_decoder:
             if encoder_outputs is None:
@@ -282,40 +307,60 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
             if self.config.use_cache and input_length > 1:
                 self.context_mode = True
 
+        # Choose context
+        ctx = self.context_trt_context if self.context_mode else self.trt_context
         input_shape = input_ids.shape
         is_cpu_mode = input_ids.device == torch.device("cpu")
 
-        input_ids = input_ids.int()
+        # Older TRT version does not have int64 support, and therefore requires int32 bindings
+        if self.trt_engine.get_tensor_dtype(self.main_input_name) == trt.int32:
+            input_ids = input_ids.int().contiguous()
+        else:
+            input_ids = input_ids.long().contiguous()
 
         if is_cpu_mode:
             input_ids = input_ids.cuda()
 
-        # Choose context
-        ctx = self.context_trt_context if self.context_mode else self.trt_context
         ctx.set_tensor_address(self.main_input_name, input_ids.data_ptr())
         ctx.set_input_shape(self.main_input_name, input_shape)
+
+
+        if self.config.use_mask:
+
+            if attention_mask is None:
+                attention_mask = torch.ones((input_ids.shape[0], mask_length), device=input_ids.device)
+
+            assert attention_mask.shape[1] == mask_length, f"Mask length should equal to {mask_length}"
+            if self.trt_engine.get_tensor_dtype("attention_mask") == trt.int32:
+                attention_mask = attention_mask.int().contiguous()
+            else:
+                attention_mask = attention_mask.long().contiguous()
+
+            if is_cpu_mode:
+                attention_mask = attention_mask.cuda()
+
+            ctx.set_tensor_address("attention_mask", attention_mask.data_ptr())
+            ctx.set_input_shape("attention_mask", attention_mask.shape)
 
         if self.config.use_cache:
             if kwargs.get("past_key_values") is None:
                 # If no past_key_values are passed in from prepare_inputs_for_generation, need to reset encoder_hidden_states and cross_attn_cache
-                self.past_decoder_length = 0
                 if self.config.is_encoder_decoder:
                     self.set_encoder_hidden_states(encoder_hidden_states)
                     self.set_cross_attn_cache(encoder_hidden_states)
 
-            new_self_attn_keys_cache_shape = self._get_self_attn_keys_cache_shape()
-            new_self_attn_vals_cache_shape = self._get_self_attn_vals_cache_shape()
+            self_attn_keys_cache_shape = self._get_self_attn_keys_cache_shape()
+            self_attn_values_cache_shape = self._get_self_attn_vals_cache_shape()
             for i in range(self.num_decoder_layers):
                 # If inputs shape has record and the record of context and shape are correct, skip it
                 key_record = self.input_shape_change_record.get("past_key_values.{i}.self.key", None)
                 value_record = self.input_shape_change_record.get("past_key_values.{i}.self.value", None)
                 if key_record is None or value_record is None or \
                     key_record[0] != ctx or value_record[0] != ctx or \
-                    key_record[1] != new_self_attn_keys_cache_shape or value_record[1] != new_self_attn_vals_cache_shape:
+                    key_record[1] != self_attn_keys_cache_shape or value_record[1] != self_attn_values_cache_shape:
                     # record miss, set input shape
-                    ctx.set_input_shape(f"past_key_values.{i}.self.key", new_self_attn_keys_cache_shape)
-                    ctx.set_input_shape(f"past_key_values.{i}.self.value", new_self_attn_vals_cache_shape)
-
+                    ctx.set_input_shape(f"past_key_values.{i}.self.key", self_attn_keys_cache_shape)
+                    ctx.set_input_shape(f"past_key_values.{i}.self.value", self_attn_values_cache_shape)
 
         elif input_length == 1 and self.config.is_encoder_decoder:
             encoder_hidden_states = encoder_outputs.last_hidden_state
@@ -365,16 +410,24 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
         return Seq2SeqLMOutput(logits=logits, past_key_values=present_key_values,)
 
     def prepare_inputs_for_generation(self, input_ids, past_key_values=None, encoder_outputs = None, **kwargs):
+
         # In HuggingFace generation_utils.py, this function will be called at each decoding step, before running the decoder's forward().
+        input_args = {}
+
+        if self.config.is_encoder_decoder and self.config.use_mask:
+            input_args["attention_mask"] = torch.ones_like(input_ids)
+
         if past_key_values is not None:
             input_ids = input_ids[:, -1:]
 
-        input_args = {
-            "input_ids": input_ids,
-        }
+        input_args["input_ids"] = input_ids
 
         if self.config.is_encoder_decoder:
+            # In HuggingFace, once a sequence has finished, HuggingFace will only decode unfinished sequence, so decoder attention mask is always 1.
+            # But let's move attention mask generation out and controllable.
             input_args["encoder_outputs"] = encoder_outputs
+        elif self.config.use_mask:
+            input_args["attention_mask"] = kwargs["attention_mask"]
 
         if self.config.use_cache:
             input_args["use_cache"] = True
@@ -455,6 +508,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
         )
         self.onnx_encoder = None
         self.onnx_decoder = None
+        self.encoder_class = Seq2SeqTRTEncoder
         self.decoder_class = Seq2SeqTRTDecoder
 
     def process_framework_specific_arguments(
@@ -505,7 +559,6 @@ class Seq2SeqTRT(TRTInferenceCommand):
         self.timing_cache = self.workspace.get_timing_cache() if self.use_timing_cache else None
 
         self.embedding_size_per_head = self.config.d_kv
-
 
         # In building the engine, setting nvtx verbose level does not affect performance, so always set to True.
         self.nvtx_verbose_build = True
@@ -611,7 +664,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
                 else:
                     encoder_metadata = self.metadata
 
-                self.encoder = Seq2SeqTRTEncoder(
+                self.encoder = self.encoder_class(
                     self.encoder_engine, encoder_metadata, self.config, self.nvtx_verbose_inference
                 )
 
@@ -635,15 +688,11 @@ class Seq2SeqTRT(TRTInferenceCommand):
         # benchmarking mode: user can specify opt and max profile by flags.
         #                    If no additional benchmarking flags are provided, it will just use n_positions for max coverage
 
-        # benchmarking flags
-        if self.benchmarking_mode:
-            seq_tag = self.get_seq_tag()
-
         # Convert ONNX models to TRT engines.
         if not self.benchmarking_mode:
             engine_tag = "bs{}".format(self.config.batch_size)
         # When user does not input any profile_max_len, use seq as tag, both max are config max
-        elif seq_tag:
+        elif self.seq_tag:
             # When user inputs dynamic batch, enable engine reuse in future with different batch size.
             if self.dynamic_batch:
                 engine_tag = "minbs{}-maxbs{}-inseq{}-outseq{}".format(self.min_dynamic_batch,
@@ -678,7 +727,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
             preview_features.append(PreviewFeature.FASTER_DYNAMIC_SHAPES_0805)
 
         # Set up decoder engine
-        decoder_profiles = self._set_up_decoder_profiles()
+        decoder_profiles = self._setup_decoder_profiles()
 
         decoder_engine_path = self.workspace.get_engine_fpath_from_onnx(self.onnx_decoder.fpath, engine_tag, self.engine_postfix)
 
@@ -689,10 +738,10 @@ class Seq2SeqTRT(TRTInferenceCommand):
 
         self.decoder_engine = self.onnx_decoder.as_trt_engine(
             decoder_engine_path,
-            profiles = decoder_profiles,
-            preview_features = preview_features,
-            nvtx_verbose = self.nvtx_verbose_build,
-            timing_cache = self.timing_cache,
+            profiles=decoder_profiles,
+            preview_features=preview_features,
+            nvtx_verbose=self.nvtx_verbose_build,
+            timing_cache=self.timing_cache,
         )
 
         self.decoder = self.decoder_class(
@@ -702,14 +751,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
 
         # Set up encoder if needed
         if self.config.is_encoder_decoder:
-            encoder_profiles = [
-                Profile().add(
-                    "input_ids",
-                    min=(self.min_batch_size, 1),
-                    opt=(self.config.batch_size, self.opt_input_seq_len),
-                    max=(self.max_batch_size, self.config.max_input_profile_length),
-                )
-            ]
+            encoder_profiles = self._setup_encoder_profiles()
             encoder_engine_path = self.workspace.get_engine_fpath_from_onnx(self.onnx_encoder.fpath, engine_tag, self.engine_postfix).replace(f"-beam{self.config.num_beams}", "")
 
             G_LOGGER.info("Setting up encoder engine in {}...".format(encoder_engine_path))
@@ -737,12 +779,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
 
         # Set up cross attn cache generator if needed
         if self.use_generator:
-            generator_profiles = [Profile().add(
-                "encoder_hidden_states",
-                min=(self.min_expand_size, 1, self.encoder_hidden_size),
-                opt=(self.opt_expand_size, self.opt_input_seq_len, self.encoder_hidden_size),
-                max=(self.max_expand_size, self.config.max_input_profile_length, self.encoder_hidden_size),
-            )]
+            generator_profiles = self._setup_generator_profiles()
 
             cross_attn_cache_generator_engine_path = self.workspace.get_engine_fpath_from_onnx(self.onnx_cross_attn_cache_generator.fpath, engine_tag, self.engine_postfix)
 
@@ -761,7 +798,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
             self.decoder.set_cross_attn_cache_generator_engine(self.cross_attn_cache_generator_engine)
             self.workspace.set_cross_attn_generator_engine_path(cross_attn_cache_generator_engine_path)
 
-    def _set_up_decoder_profiles(self):
+    def _setup_decoder_profiles(self):
         if not self.config.use_cache:
             decoder_profile = Profile().add(
                 "input_ids",
@@ -769,6 +806,13 @@ class Seq2SeqTRT(TRTInferenceCommand):
                 opt=(self.opt_expand_size, self.opt_output_seq_len),
                 max=(self.max_expand_size, self.config.max_output_profile_length),
             )
+            if self.config.use_mask:
+                decoder_profile = decoder_profile.add(
+                    "attention_mask",
+                    min=(self.min_expand_size, 1),
+                    opt=(self.opt_expand_size, self.opt_output_seq_len),
+                    max=(self.max_expand_size, self.config.max_output_profile_length),
+                )
             if self.config.is_encoder_decoder:
                 decoder_profile.add(
                     "encoder_hidden_states",
@@ -798,6 +842,14 @@ class Seq2SeqTRT(TRTInferenceCommand):
                 max=(self.max_expand_size, 1),
             )
 
+            if self.config.use_mask:
+                decoder_profile_generation = decoder_profile_generation.add(
+                    "attention_mask",
+                    min=(self.min_expand_size, 1),
+                    opt=(self.opt_expand_size, self.opt_output_seq_len),
+                    max=(self.max_expand_size, self.config.max_output_profile_length),
+                )
+
             if self.config.is_encoder_decoder:
                 decoder_profile_generation.add(
                     "encoder_hidden_states",
@@ -805,7 +857,6 @@ class Seq2SeqTRT(TRTInferenceCommand):
                     opt=(self.opt_expand_size, self.opt_input_seq_len, self.encoder_hidden_size),
                     max=(self.max_expand_size, self.config.max_input_profile_length, self.encoder_hidden_size),
                 )
-
 
             for i in range(self.config.num_decoder_layers):
                 decoder_profile_generation = decoder_profile_generation.add(
@@ -835,6 +886,13 @@ class Seq2SeqTRT(TRTInferenceCommand):
                     opt=(self.opt_expand_size, self.opt_input_seq_len),
                     max=(self.max_expand_size, self.config.max_input_profile_length),
                 )
+                if self.config.use_mask:
+                    decoder_profile_context = decoder_profile_context.add(
+                        "attention_mask",
+                        min=(self.min_expand_size, 1),
+                        opt=(self.opt_expand_size, self.opt_input_seq_len),
+                        max=(self.max_expand_size, self.config.max_input_profile_length),
+                    )
 
                 self_attn_profile_context = {
                     "min": (self.min_expand_size, self.config.num_heads, 0, self.embedding_size_per_head),
@@ -864,6 +922,11 @@ class Seq2SeqTRT(TRTInferenceCommand):
             min_shape += f"'input_ids':{self.min_expand_size}x1"
             opt_shape += f"'input_ids':{self.opt_expand_size}x{self.opt_output_seq_len}"
             max_shape += f"'input_ids':{self.max_expand_size}x{self.config.max_output_profile_length}"
+            if self.config.use_mask:
+                min_shape += f",'attention_mask':{self.min_expand_size}x1"
+                opt_shape += f",'attention_mask':{self.opt_expand_size}x{self.opt_output_seq_len}"
+                max_shape += f",'attention_mask':{self.max_expand_size}x{self.config.max_output_profile_length}"
+
             if self.config.is_encoder_decoder:
                 min_shape += f",'encoder_hidden_states':{self.min_expand_size}x1x{self.encoder_hidden_size}"
                 opt_shape += f",'encoder_hidden_states':{self.opt_expand_size}x{self.opt_input_seq_len}x{self.encoder_hidden_size}"
@@ -875,6 +938,10 @@ class Seq2SeqTRT(TRTInferenceCommand):
             min_shape += f"'input_ids':{self.min_expand_size}x1"
             opt_shape += f"'input_ids':{self.opt_expand_size}x1"
             max_shape += f"'input_ids':{self.max_expand_size}x1"
+            if self.config.use_mask:
+                min_shape += f",'attention_mask':{self.min_expand_size}x1"
+                opt_shape += f",'attention_mask':{self.opt_expand_size}x{self.opt_output_seq_len}"
+                max_shape += f",'attention_mask':{self.max_expand_size}x{self.config.max_output_profile_length}"
 
             if self.config.is_encoder_decoder:
                 min_shape += f",'encoder_hidden_states':{self.min_expand_size}x1x{self.encoder_hidden_size}"
@@ -886,8 +953,12 @@ class Seq2SeqTRT(TRTInferenceCommand):
                 cmax_shape = "--maxShapes="
                 copt_shape = "--optShapes="
                 cmin_shape += f"'input_ids':{self.min_expand_size}x1"
-                copt_shape += f"'input_ids':{self.opt_expand_size}x{self.opt_output_seq_len}"
-                cmax_shape += f"'input_ids':{self.max_expand_size}x{self.config.max_output_profile_length}"
+                copt_shape += f"'input_ids':{self.opt_expand_size}x{self.opt_input_seq_len}"
+                cmax_shape += f"'input_ids':{self.max_expand_size}x{self.config.max_input_profile_length}"
+                if self.config.use_mask:
+                    cmin_shape += f",'attention_mask':{self.min_expand_size}x1"
+                    copt_shape += f",'attention_mask':{self.opt_expand_size}x{self.opt_input_seq_len}"
+                    cmax_shape += f",'attention_mask':{self.max_expand_size}x{self.config.max_input_profile_length}"
 
             for i in range(self.config.num_decoder_layers):
                 k = f",'past_key_values.{i}.self.key'"
@@ -922,7 +993,11 @@ class Seq2SeqTRT(TRTInferenceCommand):
                 command += f"--profile=0 {min_shape} {opt_shape} {max_shape} --profile=1 {cmin_shape} {copt_shape} {cmax_shape} "
 
         if self.metadata.precision.fp16:
-            inputIO = "--inputIOFormats=int32:chw" # input_ids
+            # For version compatibility. Older version of TRT does not support int64.
+            int_type = "int64" if hasattr(trt,"int64") else "int32"
+            inputIO = f"--inputIOFormats={int_type}:chw" # input_ids
+            if self.config.use_mask:
+                inputIO += f",{int_type}:chw" # attention_mask
             outputIO = "--outputIOFormats=fp16:chw" # logits
             if self.config.is_encoder_decoder:
                 inputIO += ",fp16:chw" # encoder_hidden_states
@@ -941,6 +1016,26 @@ class Seq2SeqTRT(TRTInferenceCommand):
 
         return command
 
+    def _setup_encoder_profiles(self):
+        if not self.config.is_encoder_decoder:
+            raise NotImplementedError("You are setting encoder profile for a non encoder_decoder model!")
+        encoder_profile = Profile().add(
+            "input_ids",
+            min=(self.min_batch_size, 1),
+            opt=(self.config.batch_size, self.opt_input_seq_len),
+            max=(self.max_batch_size, self.config.max_input_profile_length),
+        )
+
+        if self.config.use_mask:
+            encoder_profile = encoder_profile.add(
+                "attention_mask",
+                min=(self.min_batch_size, 1),
+                opt=(self.config.batch_size, self.opt_input_seq_len),
+                max=(self.max_batch_size, self.config.max_input_profile_length),
+            )
+
+        return [encoder_profile]
+
     # Used to create encoder trtexec command string for debugging accuracy/performance.
     def _encoder_trtexec_command(self, encoder_engine_path, encoder_metadata):
         command = f"trtexec --onnx={self.onnx_encoder.fpath} --verbose --saveEngine={encoder_engine_path} "
@@ -958,6 +1053,16 @@ class Seq2SeqTRT(TRTInferenceCommand):
             command += f"--timingCacheFile={self.timing_cache} "
 
         return command
+
+    def _setup_generator_profiles(self):
+        if not self.use_generator:
+            raise NotImplementedError("You do not need cross attention generator but is setting it up!")
+        return [Profile().add(
+            "encoder_hidden_states",
+            min=(self.min_expand_size, 1, self.encoder_hidden_size),
+            opt=(self.opt_expand_size, self.opt_input_seq_len, self.encoder_hidden_size),
+            max=(self.max_expand_size, self.config.max_input_profile_length, self.encoder_hidden_size),
+        )]
 
     # Used to create generator trtexec command string for debugging accuracy/performance.
     def _generator_trtexec_command(self, cross_attn_cache_generator_engine_path):
@@ -980,9 +1085,6 @@ class Seq2SeqTRT(TRTInferenceCommand):
             command += f"--timingCacheFile={self.timing_cache} "
 
         return command
-
-    def get_seq_tag(self):
-        return self._args.input_profile_max_len is None and self._args.output_profile_max_len is None
 
     def calculate_perplexity(self, input_str: str, reference_str: str, use_cuda: bool = True):
 

@@ -127,7 +127,6 @@ class ModelFileConverter:
         """
         result = self.trt_engine_class(output_fpath, network_metadata)
 
-        #load_mode = os.path.exists(timing_cache)
         profiling_verbosity = ProfilingVerbosity.DETAILED if nvtx_verbose else ProfilingVerbosity.LAYER_NAMES_ONLY
 
         try:

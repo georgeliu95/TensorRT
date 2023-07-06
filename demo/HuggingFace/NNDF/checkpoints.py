@@ -50,6 +50,7 @@ class NNTomlCheckpoint:
 
     def __init__(self, fpath: str, framework: str, network_name: str, metadata: NetworkMetadata):
         """Loads the toml file for processing."""
+
         data = {}
         with open(fpath) as f:
             data = toml.load(f)
@@ -131,15 +132,30 @@ class NNSemanticCheckpoint(NNTomlCheckpoint):
     <variant> = "default" indicates rules apply to all networks.
     <precision> = "all" indicates rules apply to all precisions.
     """
+    def __init__(self, *args, skip_multibatch = False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.skip_multibatch = skip_multibatch
+        self._labels = None
+        self._inputs = None
 
     def __iter__(self):
         return self._iterate_data(["label", "input"])
 
     def labels(self):
-        return self._iterate_data(["label"])
+        if self._labels:
+            return self._labels
+        self._labels = [n for n in self._iterate_data(["label"])]
+        if self.skip_multibatch:
+            self._labels = [n for n in self._labels if not isinstance(n, list)]
+        return self._labels
 
     def inputs(self):
-        return self._iterate_data(["input"])
+        if self._inputs:
+            return self._inputs
+        self._inputs = [n for n in self._iterate_data(["input"])]
+        if self.skip_multibatch:
+            self._inputs = [n for n in self._inputs if not isinstance(n, list)]
+        return self._inputs
 
     def accuracy(self, results: List[NetworkResult]) -> float:
         # Hash checkpoints by their input
