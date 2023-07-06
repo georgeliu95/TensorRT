@@ -39,6 +39,7 @@ class GPT3ModelTRTConfig(NNConfig):
             **kwargs
         )
         self.nemo_config = None
+        self.use_mask = False
         self.metadata = metadata
         self.variant = metadata.variant
 
@@ -55,7 +56,7 @@ class GPT3ModelTRTConfig(NNConfig):
             string: <network>-<variant-name>[-<precision>]*-<others>
         """
 
-        enabled_precisions = self.nemo_config.trt_engine_options
+        enabled_precisions = self.nemo_config.trt_export_options
         precision_str = "-".join(
             [
                 k for k, v in {

@@ -22,7 +22,6 @@ Requires Python 3.6+
 
 import argparse
 import os
-import pickle
 import sys
 from typing import List, Tuple
 

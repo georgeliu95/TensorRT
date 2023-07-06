@@ -26,18 +26,6 @@ from nemo.utils import AppState
 import torch
 import torch.nn.functional as F
 
-# Add syspath for custom library
-if __name__ == "__main__":
-    filepath = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.join(filepath, os.pardir)
-    sys.path.append(project_root)
-
-from GPT3.export_utils import (
-    get_past_key_name,
-    get_past_value_name,
-    get_new_key_name,
-    get_new_value_name,
-)
 from GPT3.trt_utils import GPTTRTDecoder
 
 sys.path.append('../../HuggingFace') # Include HuggingFace

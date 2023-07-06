@@ -28,7 +28,6 @@ if __name__ == "__main__":
 
 from GPT3.nemo_utils import load_nemo_model
 from GPT3.GPT3ModelConfig import GPT3ModelTRTConfig
-from GPT3.export import NeMoModelClass
 from interface import NeMoCommand
 
 sys.path.append('../../HuggingFace') # Include HuggingFace
@@ -46,7 +45,7 @@ class GPT3NeMoTorch(NeMoCommand):
         description="Runs framework results for GPT3 model with NeMo.",
         **kwargs
     ):
-        super().__init__(nemo_cfg, config_class, description, model_classes=NeMoModelClass, **kwargs)
+        super().__init__(nemo_cfg, config_class, description, model_classes=None, **kwargs)
         self.framework_name = FRAMEWORK_NATIVE
 
     def setup_tokenizer_and_model(self):
@@ -70,7 +69,7 @@ class GPT3NeMoTorch(NeMoCommand):
 
 # Entry point
 def getGPT3NeMoTorch():
-    config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "megatron_gpt_demo.yaml")
+    config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../config.yaml")
     nemo_cfg = omegaconf.OmegaConf.load(config_path)
     return GPT3NeMoTorch(nemo_cfg)
 

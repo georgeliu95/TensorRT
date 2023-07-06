@@ -150,9 +150,9 @@ class NeMoCommand(NetworkCommand):
             G_LOGGER.warn("Precision is not specified. Use pure FP16 precision by default.")
 
         self.fp8, self.fp16, self.bf16 = fp8, fp16, bf16
-        self.nemo_cfg.trt_engine_options.use_fp8 = fp8
-        self.nemo_cfg.trt_engine_options.use_fp16 = fp16
-        self.nemo_cfg.trt_engine_options.use_bf16 = bf16
+        self.nemo_cfg.trt_export_options.use_fp8 = fp8
+        self.nemo_cfg.trt_export_options.use_fp16 = fp16
+        self.nemo_cfg.trt_export_options.use_bf16 = bf16
         if fp16:
             self.nemo_cfg.trainer.precision = "16"
         elif bf16:
@@ -211,6 +211,9 @@ class NeMoCommand(NetworkCommand):
         # See https://pytorch.org/docs/stable/_modules/torch.html#set_float32_matmul_precision
         torch.set_float32_matmul_precision('medium')
 
+        if max_seq_len != None:
+            self.nemo_cfg.model.max_seq_len = max_seq_len
+
         assert action != None, "Action must be specified"
         if action == "accuracy":
             self.nemo_cfg.mode = "accuracy"
@@ -233,21 +236,21 @@ class NeMoCommand(NetworkCommand):
             self.nemo_cfg.inference.tokens_to_generate = self.nemo_cfg.benchmark.output_seq_len
             self.nemo_cfg.inference.min_tokens_to_generate = self.nemo_cfg.benchmark.output_seq_len
 
-        if max_seq_len != None:
-            self.nemo_cfg.model.max_seq_len = max_seq_len
+        if self.nemo_cfg.model.max_seq_len < (self.nemo_cfg.benchmark.input_seq_len + self.nemo_cfg.benchmark.output_seq_len):
+            raise ValueError(f"Max sequence length of the model needs to be greater than or equal to the sum of input sequence length and output sequence length. Got {self.nemo_cfg.model.max_seq_len} < {self.nemo_cfg.benchmark.input_seq_len} + {self.nemo_cfg.benchmark.output_seq_len}.")
 
         # Get NeMo model path
         assert variant in GPT3CONFIG_MAPPINGS
         model_config = GPT3CONFIG_MAPPINGS[variant]
         if self.fp8 == True:
             self.nemo_cfg.gpt_model_file = model_config.fp8_path
-            self.nemo_cfg.trt_engine_options.use_fp8 = True
+            self.nemo_cfg.trt_export_options.use_fp8 = True
         elif self.fp16 == True:
             self.nemo_cfg.gpt_model_file = model_config.fp16_path
-            self.nemo_cfg.trt_engine_options.use_fp16 = True
+            self.nemo_cfg.trt_export_options.use_fp16 = True
         elif self.bf16 == True:
             self.nemo_cfg.gpt_model_file = model_config.bf16_path
-            self.nemo_cfg.trt_engine_options.use_bf16 = True
+            self.nemo_cfg.trt_export_options.use_bf16 = True
         else:
             raise ValueError("A precision needs to be set to retrieve a model.")
 
@@ -493,14 +496,14 @@ class NeMoCommand(NetworkCommand):
         )
         model_config_group.add_argument(
             "--batch-size", "-b",
-            help="Chosen batch size for given network",
+            help="Set batch size for inference",
             required=False,
             type=int,
             default=1
         )
         model_config_group.add_argument(
             "--variant", "-m",
-            help="model to generate",
+            help="Model to generate",
             required=True,
             choices=GPT3ModelTRTConfig.TARGET_MODELS,
         )
@@ -520,7 +523,7 @@ class NeMoCommand(NetworkCommand):
         model_config_group.add_argument(
             "--fp16",
             action="store_true",
-            help="Uses fp16 tactics.",
+            help="Use FP16 precision.",
             default=False
         )
         model_config_group.add_argument(
