@@ -28,7 +28,7 @@ if __name__ == "__main__":
     project_root = os.path.join(filepath, os.pardir)
     sys.path.append(project_root)
 
-from GPT3.export_utils import create_dir_if_not_exist
+from nemo_export import create_dir_if_not_exist
 
 __all__ = ['Lambada']
 

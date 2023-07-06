@@ -30,10 +30,9 @@ if __name__ == "__main__":
     project_root = os.path.join(filepath, os.pardir)
     sys.path.append(project_root)
 
-from GPT3.GPT3ModelConfig import GPT3ModelTRTConfig
-from GPT3.export import NeMoModelClass
-from GPT3.export_utils import NeMoConverter
 from interface import NeMoCommand, BaseModel
+from nemo_export import NeMoConverter
+from GPT3.GPT3ModelConfig import GPT3ModelTRTConfig
 
 sys.path.append('../../HuggingFace') # Include HuggingFace
 from NNDF.interface import FRAMEWORK_ONNXRT
@@ -51,7 +50,7 @@ class GPT3NeMoOnnxRT(NeMoCommand):
         description="Runs ONNX Runtime results for GPT3 model.",
         **kwargs
     ):
-        super().__init__(nemo_cfg, config_class, description, model_classes=NeMoModelClass, **kwargs)
+        super().__init__(nemo_cfg, config_class, description, model_classes=None, **kwargs)
         self.framework_name = FRAMEWORK_ONNXRT
 
 
@@ -101,7 +100,7 @@ class GPT3NeMoOnnxRT(NeMoCommand):
 
 # Entry point
 def getGPT3NeMoOnnxRT():
-    config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "megatron_gpt_demo.yaml")
+    config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../config.yaml")
     nemo_cfg = omegaconf.OmegaConf.load(config_path)
     return GPT3NeMoOnnxRT(nemo_cfg)
 

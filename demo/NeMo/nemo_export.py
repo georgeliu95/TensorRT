@@ -15,6 +15,8 @@
 # limitations under the License.
 #
 
+import argparse
+import omegaconf
 import os
 import sys
 import warnings
@@ -31,7 +33,6 @@ from nemo.collections.nlp.models.language_modeling.megatron_gpt_model import Meg
 
 # onnx
 import onnx
-from onnx import helper, TensorProto, numpy_helper, version_converter
 import onnx_graphsurgeon as gs
 
 # polygraphy
@@ -43,23 +44,19 @@ from tensorrt import PreviewFeature
 import torch
 import transformer_engine
 
-# Add syspath for custom library
 if __name__ == "__main__":
     filepath = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.join(filepath, os.pardir)
+    project_root = os.path.join(filepath, os.pardir, "HuggingFace")
     sys.path.append(project_root)
 
+# Add syspath for custom library
 from GPT3.nemo_utils import load_nemo_model, release_nemo_model
+from GPT3.convert_te_onnx_to_trt_onnx import replace_customop_qdq_with_onnx_qdq
 
 # HuggingFace utils
-sys.path.append('../../HuggingFace') # Include HuggingFace
 from NNDF.logger import G_LOGGER
 
 # ONNX conversion script
-try:
-    from GPT3.convert_te_onnx_to_trt_onnx import replace_customop_qdq_with_onnx_qdq
-except:
-    G_LOGGER.error("Opset19 conversion script needs to be copied to GPT3 folder before running this script.")
 
 # Set polygraphy logging level here.
 PG_LOGGER.module_severity = PG_LOGGER.INFO
@@ -134,17 +131,18 @@ class MegatronGPTSingleInputExportableModel(MegatronGPTExportableModel):
 
 def get_trtexec_cmd(onnx_fpath, cfg, bs):
     max_seq_len = cfg.model.max_seq_len
+    opt_seq_len = cfg.trt_export_options.opt_seq_len if cfg.trt_export_options.opt_seq_len else (max_seq_len // 2)
     trtexec_cmd = f"trtexec --onnx={onnx_fpath}"
     min_shapes = f"--minShapes=input_ids:{bs}x1"
-    opt_shapes = f"--optShapes=input_ids:{bs}x{max_seq_len // 2}"
+    opt_shapes = f"--optShapes=input_ids:{bs}x{opt_seq_len}"
     max_shapes = f"--maxShapes=input_ids:{bs}x{max_seq_len}"
     if not cfg.use_one_input:
         min_shapes += f",position_ids:{bs}x1"
-        opt_shapes += f",position_ids:{bs}x{max_seq_len // 2}"
+        opt_shapes += f",position_ids:{bs}x{opt_seq_len}"
         max_shapes += f",position_ids:{bs}x{max_seq_len}"
-    if not cfg.trt_engine_options.use_fp8:
+    if not cfg.trt_export_options.use_fp8:
         min_shapes += ",attention_mask:1x1x1x1"
-        opt_shapes += f",attention_mask:1x1x{max_seq_len // 2}x{max_seq_len // 2}"
+        opt_shapes += f",attention_mask:1x1x{opt_seq_len}x{opt_seq_len}"
         max_shapes += f",attention_mask:1x1x{max_seq_len}x{max_seq_len}"
 
     if cfg.use_cache:
@@ -168,9 +166,9 @@ def get_trtexec_cmd(onnx_fpath, cfg, bs):
             min_shapes += f",position_ids:{bs}x1"
             opt_shapes += f",position_ids:{bs}x1"
             max_shapes += f",position_ids:{bs}x1"
-        if not cfg.trt_engine_options.use_fp8:
+        if not cfg.trt_export_options.use_fp8:
             min_shapes += ",attention_mask:1x1x1x1"
-            opt_shapes += f",attention_mask:1x1x{max_seq_len // 2}x{max_seq_len // 2}"
+            opt_shapes += f",attention_mask:1x1x{opt_seq_len}x{opt_seq_len}"
             max_shapes += f",attention_mask:1x1x{max_seq_len}x{max_seq_len}"
 
         nbheads, headsize = cfg.model.nb_heads, cfg.model.head_size
@@ -178,19 +176,17 @@ def get_trtexec_cmd(onnx_fpath, cfg, bs):
         input_v = get_past_value_name('*')
         # ("sequence", "batch", nbheads, headsize)
         min_shapes += f",{input_k}:1x{bs}x{nbheads}x{headsize},{input_v}:1x{bs}x{nbheads}x{headsize}"
-        opt_shapes += f",{input_k}:{max_seq_len // 2}x{bs}x{nbheads}x{headsize},{input_v}:{max_seq_len // 2}x{bs}x{nbheads}x{headsize}"
+        opt_shapes += f",{input_k}:{opt_seq_len}x{bs}x{nbheads}x{headsize},{input_v}:{opt_seq_len}x{bs}x{nbheads}x{headsize}"
         max_shapes += f",{input_k}:{max_seq_len - 1}x{bs}x{nbheads}x{headsize},{input_v}:{max_seq_len - 1}x{bs}x{nbheads}x{headsize}"
         trtexec_cmd += f" {min_shapes} {opt_shapes} {max_shapes}"
 
-    use_tf32 = cfg.trt_engine_options.use_tf32
-    use_bf16 = cfg.trt_engine_options.use_bf16
-    use_fp16 = cfg.trt_engine_options.use_fp16
-    use_fp8 = cfg.trt_engine_options.use_fp8
-    use_bf16 = cfg.trt_engine_options.use_bf16
+    use_tf32 = cfg.trt_export_options.use_tf32
+    use_fp8 = cfg.trt_export_options.use_fp8
+    use_fp16 = cfg.trt_export_options.use_fp16
+    use_bf16 = cfg.trt_export_options.use_bf16
     trtexec_cmd += " --noTF32" if not use_tf32 else ""
-    trtexec_cmd += " --fp16" if use_fp16 else ""
-    trtexec_cmd += " --bf16" if use_bf16 else ""
     trtexec_cmd += " --fp8" if use_fp8 else ""
+    trtexec_cmd += " --fp16" if use_fp16 else ""
     trtexec_cmd += " --bf16" if use_bf16 else ""
     trtexec_cmd += " --timingCacheFile=functional.cache --preview=+fasterDynamicShapes0805,+disableExternalTacticSourcesForCore0805"
     return trtexec_cmd
@@ -357,11 +353,11 @@ class NeMoConverter():
         self.model = None
 
     def export_envvars(self) -> None:
-        if self.cfg.trt_engine_options.use_fp8:
+        if self.cfg.trt_export_options.use_fp8:
             G_LOGGER.info(
                 f"Setting max sequence length to {self.cfg.model.max_seq_len}"
             )
-            os.environ["NVTE_ONNX_KVCACHE_max_seq_len"] = str(
+            os.environ["NVTE_ONNX_KVCACHE_MAX_SEQ_LEN"] = str(
                 self.cfg.model.max_seq_len
             )
 
@@ -377,17 +373,17 @@ class NeMoConverter():
             sys.exit(1)
 
         if hasattr(self.model.cfg, "fp8") and self.model.cfg.fp8 == True:
-            if self.cfg.trt_engine_options.use_fp8 == False:
-                G_LOGGER.info("Turning on trt_engine_options.use_fp8 because NeMo model is in FP8 precision.")
-                self.cfg.trt_engine_options.use_fp8 = True
+            if self.cfg.trt_export_options.use_fp8 == False:
+                G_LOGGER.info("Turning on trt_export_options.use_fp8 because NeMo model is in FP8 precision.")
+                self.cfg.trt_export_options.use_fp8 = True
         else:
-            if self.cfg.trt_engine_options.use_fp8 == True:
-                G_LOGGER.info("Turning off trt_engine_options.use_fp8 because NeMo model is not in FP8 precision.")
-                self.cfg.trt_engine_options.use_fp8 = False
+            if self.cfg.trt_export_options.use_fp8 == True:
+                G_LOGGER.info("Turning off trt_export_options.use_fp8 because NeMo model is not in FP8 precision.")
+                self.cfg.trt_export_options.use_fp8 = False
 
         onnx_out = self.cfg.onnx_model_file
         create_dir_if_not_exist(onnx_out)
-        check_trace = self.cfg.export_options.runtime_check
+        check_trace = self.cfg.onnx_export_options.runtime_check
         onnx_names = []
 
         dynamic_axes={
@@ -402,9 +398,9 @@ class NeMoConverter():
             del dynamic_axes['position_ids']
 
         try:
-            self.model.to(device=self.cfg.export_options.device).freeze()
+            self.model.to(device=self.cfg.onnx_export_options.device).freeze()
             self.model.eval()
-            if not self.cfg.trt_engine_options.use_fp8:
+            if not self.cfg.trt_export_options.use_fp8:
                 G_LOGGER.info("Exporting ONNX with attention_mask")
                 dynamic_axes['attention_mask'] = {2: "sequence", 3: "sequence"}
 
@@ -412,12 +408,12 @@ class NeMoConverter():
 
             self.model.export(
                 onnx_out,
-                onnx_opset_version=self.cfg.export_options.onnx_opset,
-                do_constant_folding=self.cfg.export_options.do_constant_folding,
+                onnx_opset_version=self.cfg.onnx_export_options.onnx_opset,
+                do_constant_folding=self.cfg.onnx_export_options.do_constant_folding,
                 dynamic_axes=dynamic_axes,
                 check_trace=check_trace,
-                check_tolerance=self.cfg.export_options.check_tolerance,
-                verbose=self.cfg.export_options.verbose,
+                check_tolerance=self.cfg.onnx_export_options.check_tolerance,
+                verbose=self.cfg.onnx_export_options.verbose,
             )
             onnx_names = [augment_filename(onnx_out, subnet_name) for subnet_name in self.model.list_export_subnets()]
 
@@ -444,7 +440,7 @@ class NeMoConverter():
         assert os.path.splitext(onnx_output_fpath)[1] == ".onnx", "Output ONNX file must end with '.onnx'."
 
         nbheads, headsize = self.cfg.model.nb_heads, self.cfg.model.head_size
-        dtype = onnx.TensorProto.BFLOAT16 if self.cfg.trt_engine_options.use_bf16 else onnx.TensorProto.FLOAT16
+        dtype = onnx.TensorProto.BFLOAT16 if self.cfg.trt_export_options.use_bf16 else onnx.TensorProto.FLOAT16
         assert nbheads * headsize == self.cfg.model.hidden_size, "Model hidden size does not match."
         self.export_envvars()
         num_qkvs = process_onnx(kv_output_policy,
@@ -463,21 +459,22 @@ class NeMoConverter():
         Convert an ONNX model from `onnx_fpath` to a TensorRT engine, and save the result to `trt_fpath`.
         """
         # Set up polygraphy config
-        use_tf32 = self.cfg.trt_engine_options.use_tf32
-        use_fp16 = self.cfg.trt_engine_options.use_fp16
-        use_fp8 = self.cfg.trt_engine_options.use_fp8
-        use_bf16 = self.cfg.trt_engine_options.use_bf16
+        use_tf32 = self.cfg.trt_export_options.use_tf32
+        use_fp16 = self.cfg.trt_export_options.use_fp16
+        use_fp8 = self.cfg.trt_export_options.use_fp8
+        use_bf16 = self.cfg.trt_export_options.use_bf16
 
         # Create optimization profiles
         bs = self.cfg.batch_size
         max_seq_len = self.cfg.model.max_seq_len
+        opt_seq_len = self.cfg.trt_export_options.opt_seq_len if self.cfg.trt_export_options.opt_seq_len else (max_seq_len // 2)
         profile_non_kv = Profile()
-        profile_non_kv.add(name="input_ids", min=(bs, 1), opt=(bs, max_seq_len // 2), max=(bs, max_seq_len)) # (batch, sequence)
+        profile_non_kv.add(name="input_ids", min=(bs, 1), opt=(bs, opt_seq_len), max=(bs, max_seq_len)) # (batch, sequence)
         if not self.cfg.use_one_input:
-            profile_non_kv.add(name="position_ids", min=(bs, 1), opt=(bs, max_seq_len // 2), max=(bs, max_seq_len)) # (batch, sequence)
+            profile_non_kv.add(name="position_ids", min=(bs, 1), opt=(bs, opt_seq_len), max=(bs, max_seq_len)) # (batch, sequence)
             # For FP8 precision, attention mask is created inside transformer_engine.
-            if not self.cfg.trt_engine_options.use_fp8:
-                profile_non_kv.add(name="attention_mask", min=(1, 1, 1, 1), opt=(1, 1, max_seq_len // 2, max_seq_len // 2), max=(1, 1, max_seq_len, max_seq_len)) # (1, 1, sequence, sequence)
+            if not self.cfg.trt_export_options.use_fp8:
+                profile_non_kv.add(name="attention_mask", min=(1, 1, 1, 1), opt=(1, 1, opt_seq_len, opt_seq_len), max=(1, 1, max_seq_len, max_seq_len)) # (1, 1, sequence, sequence)
 
         num_layers, nbheads, headsize = self.cfg.model.num_layers, self.cfg.model.nb_heads, self.cfg.model.head_size
         if self.cfg.use_cache:
@@ -497,8 +494,8 @@ class NeMoConverter():
             if not self.cfg.use_one_input:
                 profile_kv.add(name="position_ids", min=(bs, 1), opt=(bs, 1), max=(bs, 1)) # (batch, sequence)
                 # For FP8 precision, attention mask is created inside transformer_engine.
-                if not self.cfg.trt_engine_options.use_fp8:
-                    profile_kv.add(name="attention_mask", min=(1, 1, 1, 1), opt=(1, 1, max_seq_len // 2, max_seq_len // 2), max=(1, 1, max_seq_len, max_seq_len)) # (1, 1, sequence, sequence)
+                if not self.cfg.trt_export_options.use_fp8:
+                    profile_kv.add(name="attention_mask", min=(1, 1, 1, 1), opt=(1, 1, opt_seq_len, opt_seq_len), max=(1, 1, max_seq_len, max_seq_len)) # (1, 1, sequence, sequence)
 
             assert num_layers > 0
             nbheads, headsize = self.cfg.model.nb_heads, self.cfg.model.head_size
@@ -506,8 +503,8 @@ class NeMoConverter():
                 input_k = get_past_key_name(i)
                 input_v = get_past_value_name(i)
                 # (sequence, batch, nbheads, headsize)
-                profile_kv.add(name=input_k, min=(1, bs, nbheads, headsize), opt=(max_seq_len // 2, bs, nbheads, headsize), max=(max_seq_len-1, bs, nbheads, headsize))
-                profile_kv.add(name=input_v, min=(1, bs, nbheads, headsize), opt=(max_seq_len // 2, bs, nbheads, headsize), max=(max_seq_len-1, bs, nbheads, headsize))
+                profile_kv.add(name=input_k, min=(1, bs, nbheads, headsize), opt=(opt_seq_len, bs, nbheads, headsize), max=(max_seq_len-1, bs, nbheads, headsize))
+                profile_kv.add(name=input_v, min=(1, bs, nbheads, headsize), opt=(opt_seq_len, bs, nbheads, headsize), max=(max_seq_len-1, bs, nbheads, headsize))
             profiles = [profile_kv, profile_non_kv]
 
 
@@ -524,7 +521,7 @@ class NeMoConverter():
             precision_constraints="obey",
             preview_features=preview_features,
             fp8=use_fp8,
-            load_timing_cache=self.cfg.trt_engine_options.timing_cache,
+            load_timing_cache=self.cfg.trt_export_options.timing_cache,
         )
 
         # Print out trtexec command for debugging
@@ -577,35 +574,161 @@ class NeMoConverter():
         G_LOGGER.info(f"Converted {onnx_fpath} to {mappings[onnx_fpath]} for opset19.")
         return mappings[onnx_fpath]
 
-@hydra_runner(config_path="./", config_name="megatron_gpt_demo")
-def main(cfg):
-    assert cfg.onnx_model_file != None and cfg.trt_engine_file != None
-    create_dir_if_not_exist(cfg.trt_engine_file)
+def parse_args():
+    parser = argparse.ArgumentParser(description='NeMo export script arguments', add_help=True)
+    parser.add_argument(
+        "--nemo-model",
+        help="Set a NeMo model to be used.",
+        required=False,
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
+        "--load-onnx",
+        help="A path to load an ONNX model for conversion.",
+        required=False,
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
+        "--save-onnx-dir",
+        help="A directory to save the generated ONNX model. Must be writable.",
+        required=True,
+    )
+    parser.add_argument(
+        "--opset19",
+        action="store_true",
+        help="If set, the ONNX will be converted to opset19.",
+        default=False
+    )
+    parser.add_argument(
+        "--use_cache",
+        action="store_true",
+        help="If set, the ONNX will have KV-cache inputs and outputs.",
+        default=False
+    )
+    parser.add_argument(
+        "--save-engine",
+        required=False,
+        help="If set to a path, a TensorRT engine will be built from ONNX and save to the path.",
+    )
+    parser.add_argument(
+        "--fp8",
+        action="store_true",
+        help="Use FP8 precision during conversion.",
+        default=False
+    )
+    parser.add_argument(
+        "--fp16",
+        action="store_true",
+        help="Use FP16 precision during conversion.",
+        default=False
+    )
+    parser.add_argument(
+        "--bf16",
+        action="store_true",
+        help="Use BF16 precision during conversion.",
+        default=False
+    )
+    parser.add_argument(
+        "--extra-configs",
+        required=False,
+        help='Use this flag to set fields specified in config.yml with a format of --extra-configs="[<KEY>=<VALUE>][ <KEY>=<VALUE>]*". Values specified by this flag will not override any value set from other flags.',
+        default=None,
+        type=str,
+    )
+    args, _ = parser.parse_known_args()
+    return args
+
+def main():
+    G_LOGGER.setLevel(level=G_LOGGER.INFO)
+
+    config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "config.yaml")
+    cfg = omegaconf.OmegaConf.load(config_path)
+    G_LOGGER.info(f"Loaded configs = {cfg}")
+
+    args = parse_args()
+    if args.nemo_model != None and args.load_onnx != None:
+        G_LOGGER.error("NeMo model and ONNX model cannot be both set.")
+        exit(1)
+
+    if args.nemo_model == None and args.load_onnx == None:
+        G_LOGGER.error("Either one of --nemo-model or --load-onnx needs to be set.")
+        exit(1)
+
+    if args.extra_configs != None:
+        G_LOGGER.info(f"CFG={cfg}")
+        kwargs = args.extra_configs.split(" ")
+        for kwarg in kwargs:
+            kw = kwarg.split("=")
+            if len(kw) != 2:
+                raise ValueError(f'Arg {kwarg} is not in a format of "<KEY>=<VALUE>"')
+            def nested_set(dic, keys, value):
+                for i in range(len(keys)):
+                    if not hasattr(dic, keys[i]):
+                        raise ValueError(f"Cannot find key {keys[:i+1]} in the config.")
+                    if i == len(keys) - 1:
+                        dic[keys[i]] = value
+                    else:
+                        dic = dic[keys[i]]
+
+            G_LOGGER.info(f"Setting {kw[0]} to {kw[1]}")
+            nested_set(cfg, kw[0].split("."), kw[1])
+
+    # Set precision for conversion
+    if args.fp16:
+        cfg.trainer.precision = "16"
+        cfg.trt_export_options.use_fp16 = True
+    elif args.bf16:
+        cfg.trainer.precision = "bf16"
+        cfg.trt_export_options.use_bf16 = True
+    else:
+        cfg.trainer.precision = "32"
+
+    if args.fp8:
+        cfg.trt_export_options.use_fp8 = True
+
+    if os.path.exists(args.save_onnx_dir) and not os.path.isdir(args.save_onnx_dir):
+        raise ValueError(f"{args.save_onnx_dir} is not a directory.")
+
+    cfg.onnx_model_file = os.path.join(args.save_onnx_dir, "model.onnx")
+    create_dir_if_not_exist(cfg.onnx_model_file)
 
     # Convert NeMo model to ONNX model
-    converter = NeMoConverter(cfg, MegatronGPTModel)
-    onnx_name = converter.nemo_to_onnx()
-    G_LOGGER.info(f"Using intermediate onnx file path {onnx_name}")
+    converter = None
+    if args.nemo_model:
+        cfg.gpt_model_file = args.nemo_model
+        converter = NeMoConverter(cfg, MegatronGPTModel)
+        onnx_name = converter.nemo_to_onnx()
+        G_LOGGER.info(f"ONNX exported from NeMo {onnx_name}")
+    elif args.load_onnx:
+        onnx_name = args.load_onnx
 
     # Convert Q/DQ nodes to use standard opset19 operators
-    op19_onnx = NeMoConverter.onnx_to_opset19(onnx_name)
-    if op19_onnx != None:
-        G_LOGGER.info(f"Get opset19 onnx file {op19_onnx}")
-        onnx_name = op19_onnx
+    if args.opset19:
+        op19_onnx = NeMoConverter.onnx_to_opset19(onnx_name, args.save_onnx_dir)
+        if op19_onnx != None:
+            G_LOGGER.info(f"Get opset19 onnx file {op19_onnx}")
+            onnx_name = op19_onnx
 
     # Add KV cache to ONNX model
     if cfg.use_cache:
         G_LOGGER.info(f"Converting {onnx_name} with KV-cache support")
         kv_output_policy = "kv_new"
-        new_dir = str(os.path.dirname(onnx_name)) + f"_{kv_output_policy}"
+        new_dir = os.path.join(args.save_onnx_dir, f"{kv_output_policy}")
         onnx_output_fpath = os.path.join(new_dir, onnx_name.split("/")[-1])
         create_dir_if_not_exist(onnx_output_fpath)
+        if not converter:
+            converter = NeMoConverter(cfg, MegatronGPTModel)
         converter.create_kv_onnx(onnx_name, onnx_output_fpath, kv_output_policy)
         onnx_name = onnx_output_fpath
 
     # Convert ONNX model to TRT engine
-    trt_fpath = cfg.trt_engine_file
-    converter.onnx_to_trt(onnx_name, trt_fpath)
+    if args.save_engine:
+        create_dir_if_not_exist(args.save_engine)
+        if not converter:
+            converter = NeMoConverter(cfg, MegatronGPTModel)
+        converter.onnx_to_trt(onnx_name, args.save_engine)
 
 if __name__ == '__main__':
     main()

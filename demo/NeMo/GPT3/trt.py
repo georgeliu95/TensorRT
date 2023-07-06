@@ -28,9 +28,8 @@ if __name__ == "__main__":
     project_root = os.path.join(filepath, os.pardir)
     sys.path.append(project_root)
 
+from nemo_export import NeMoConverter, create_dir_if_not_exist
 from GPT3.GPT3ModelConfig import GPT3ModelTRTConfig
-from GPT3.export import NeMoModelClass
-from GPT3.export_utils import NeMoConverter, create_dir_if_not_exist
 from GPT3.trt_utils import load_trt_model
 from interface import NeMoCommand, BaseModel
 import onnx
@@ -51,7 +50,7 @@ class GPT3NeMoTRT(NeMoCommand):
         description="Runs TensorRT results for GPT3 model.",
         **kwargs
     ):
-        super().__init__(nemo_cfg, config_class, description, model_classes=NeMoModelClass, **kwargs)
+        super().__init__(nemo_cfg, config_class, description, model_classes=None, **kwargs)
         self.framework_name = FRAMEWORK_TENSORRT
 
 
@@ -77,7 +76,7 @@ class GPT3NeMoTRT(NeMoCommand):
                 f"model-{self.nemo_cfg.trainer.precision}.onnx",
             )
             self.nemo_cfg.onnx_model_file = onnx_name
-            self.nemo_cfg.trt_engine_options.timing_cache = self.timing_cache
+            self.nemo_cfg.trt_export_options.timing_cache = self.timing_cache
 
             converter = NeMoConverter(self.nemo_cfg, MegatronGPTModel)
             if not os.path.isfile(onnx_name):
@@ -148,8 +147,13 @@ class GPT3NeMoTRT(NeMoCommand):
             onnx_name = onnx_output_fpath
 
         # Convert ONNX model to TRT engine
+        self.nemo_cfg.trt_export_options.timing_cache = self.timing_cache
+        self.nemo_cfg.trt_export_options.opt_seq_len = self.opt_seq_len
+
         suffixes = []
         suffixes.append("bs" + str(self.nemo_cfg.batch_size))
+        if self.nemo_cfg.trt_export_options.opt_seq_len != None:
+            suffixes.append("opt" + str(self.nemo_cfg.trt_export_options.opt_seq_len))
         if self.nemo_cfg.use_cache:
             suffixes.append("kv")
         suffix = "-".join(suffixes)
@@ -171,23 +175,31 @@ class GPT3NeMoTRT(NeMoCommand):
         super().add_args()
         engine_group = self._parser.add_argument_group("trt engine")
         engine_group.add_argument(
-            "--use-timing-cache",
+            "--opt-seq-len",
+            default=None,
+            help="Set optimized input sequence length to be used in engine building",
+            type=int,
+        )
+        engine_group.add_argument(
+            "--no-timing-cache",
             default=False,
-            help="Use Timing Cache could speed up engine building",
+            help="Set to not use timing cache for speeding up engine building",
             action="store_true",
         )
 
     def process_framework_specific_arguments(
         self,
-        use_timing_cache: bool = False,
+        opt_seq_len: int = None,
+        no_timing_cache : bool = False,
         **kwargs
     ):
-        self.use_timing_cache = use_timing_cache
+        self.opt_seq_len = opt_seq_len
+        self.use_timing_cache = not no_timing_cache
         self.timing_cache = self.workspace.get_timing_cache() if self.use_timing_cache else None
 
 # Entry point
 def getGPT3NeMoTRT():
-    config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "megatron_gpt_demo.yaml")
+    config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "../config.yaml")
     nemo_cfg = omegaconf.OmegaConf.load(config_path)
     return GPT3NeMoTRT(nemo_cfg)
 

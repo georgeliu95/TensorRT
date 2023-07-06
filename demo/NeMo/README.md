@@ -4,7 +4,7 @@ This repository demonstrates TensorRT inference with NeMo Megatron models in FP8
 Currently, this repository supports [NeMo GPT](https://huggingface.co/nvidia/nemo-megatron-gpt-5B) models only.
 
 # Environment Setup
-It's recommended to run inside a container to avoid conflicts when installing dependencies. Tested with TensorRT container [`tensorrt:23.04-py3`](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tensorrt/tags). A GPU with compute capability 9.0 or above is required to run the demo.
+It's recommended to run inside a container to avoid conflicts when installing dependencies. Tested with TensorRT container [`tensorrt:23.05-py3`](https://catalog.ngc.nvidia.com/orgs/nvidia/containers/tensorrt/tags). A GPU with compute capability 9.0 or above is required to run the demo.
 
 ```
 source install.sh
@@ -18,20 +18,24 @@ source install.sh
 This demo follows simliar structure and command-line interface as in [HuggingFace demo](demo/HuggingFace).
 ```
 .
-├── GPT3                   # GPT3 directory
-│   ├── GPT3ModelConfig.py # model configuration and variant-specific parameters
-│   ├── frameworks.py      # NeMo PyTorch inference script
-│   ├── onnxrt.py          # OnnxRT inference script
-│   ├── trt.py             # TensorRT inference script
-│   ├── decoding.py        # main inference logic for all runtimes
-│   ├── export_utils.py    # export functions for NeMo model -> ONNX model -> TRT engine
-│   └── ...                # files with utility functions for export and inference
-├── interface.py # definitions of setup functions
-└── run.py       # main entry script
+├── GPT3                              # GPT3 directory
+│   ├── GPT3ModelConfig.py            # model configuration and variant-specific parameters
+│   ├── frameworks.py                 # NeMo PyTorch inference script
+│   ├── onnxrt.py                     # OnnxRT inference script
+│   ├── trt.py                        # TensorRT inference script
+│   ├── decoding.py                   # main inference logic for all runtimes
+│   └── ...                           # files with utility functions for export and inference
+├── interface.py                      # definitions of setup functions
+├── nemo_export.py                    # export functions for NeMo model -> ONNX model -> TRT engine
+└── run.py                            # main entry script
 ```
 
+# Overview
+
+This demo contains two scripts `run.py` and `nemo_export.py`. Script `run.py` accepts a NeMo model or an ONNX model as input, and performs end-to-end inference with various actions specified by the user. Script `nemo_export.py` accepts a NeMo model or an ONNX model as input, and exports the input to an ONNX model or a TensorRT engine.
+
 # How to run inference
-The `run` action will run end-to-end inference on sentences specified in [megatron_gpt_demo.yaml](demo/NeMo/GPT3/megatron_gpt_demo.yaml).
+The `run` action will run end-to-end inference on sentences specified in [config.yaml](demo/NeMo/config.yaml).
 ```
 python3 run.py run GPT3 [frameworks | trt] --variant gpt-5b --working-dir $(pwd)/temp --fp8 --fp16
 ```
@@ -57,8 +61,9 @@ Batch 1: {'sentences': ['Tell me an interesting fact about TensorRT.\n\nTensorRT
 # How to run with various configurations
 - FP8, FP16, and BF16 precisions are supported, and they can be set through `--fp8`, `--fp16`, and `--bf16` respectively. Currently, the script has constraints on how precisions are specified, and supported combinations are:
   1. Pure FP16: `--fp16` (default)
-  2. FP8-FP16: `--fp8 --fp16`
-  3. FP8-BF16: `--fp8 --bf16`
+  2. Pure BF16: `--bf16`
+  3. FP8-FP16: `--fp8 --fp16`
+  4. FP8-BF16: `--fp8 --bf16`
 
 - K-V cache can be enabled through `--use-cache`
 
@@ -105,3 +110,16 @@ Expected output for `frameworks`:
 Lambada ppl: 4.789651459845271, acc(top1): 0.6846497186105182, acc(top3): 0.8649330487094896, acc(top5): 0.9146128468853095
 ***************************
 ```
+
+# How to export a NeMo model to ONNX
+NeMo to ONNX conversion consists of 3 steps:
+1. Export ONNX from NeMo.
+2. NeMo uses TransformerEngine to export FP8 models to ONNX (step 1) and the exported ONNX has custom TensorRT Q/DQ nodes. Script `convert_te_onnx_to_trt_onnx.py` can be used to convert the custom operators into standard opset19 ONNX Q/DQ nodes.
+3. Add KV-cache inputs and outputs to the exported ONNX, so it is faster when performing inference on the model.
+
+`nemo_export.py` has `--opset19` and `--use_cache` option to decide whether to perform step 2. and step 3., respectively:
+```
+python3 nemo_export.py --nemo-model=model.nemo --onnx=onnx/model.onnx --opset19 --use_cache
+```
+`--extra-configs` can be used to specified configs that are defined in `config.yml` but not being exposed from existing command-line interface.
+Please specify `--help` to see more options.
