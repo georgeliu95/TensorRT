@@ -52,10 +52,15 @@ from Seq2Seq.export import Seq2SeqModelClass
 
 class OnnxEncoder(PolygraphyOnnxRunner):
     """OnnxRT implemented network interface that is mainly to check correctness."""
-    def forward(self, input_ids, *args, **kwargs):
+    def forward(self, input_ids, attention_mask=None, **kwargs):
         # Unoptimized unconditional transfer to numpy for interfacing with polygraphy
         input_ids = input_ids.cpu().numpy().astype("int64")
-        return BaseModelOutput(last_hidden_state = torch.from_numpy(self.runner.infer({"input_ids": input_ids})["encoder_hidden_states"]))
+        input_dict = {"input_ids": input_ids}
+        if self.config.use_mask:
+            attention_mask = attention_mask.cpu().numpy().astype("int64")
+            input_dict["attention_mask"] = attention_mask
+
+        return BaseModelOutput(last_hidden_state = torch.from_numpy(self.runner.infer()["encoder_hidden_states"]))
 
 class OnnxDecoder(PolygraphyOnnxRunner, GenerationMixin):
 
@@ -73,16 +78,25 @@ class OnnxDecoder(PolygraphyOnnxRunner, GenerationMixin):
         input_dict = {
             "input_ids": input_ids
         }
+        if self.config.use_mask:
+            if self.config.is_encoder_decoder:
+                input_dict["attention_mask"] = torch.ones_like(input_ids)
+            else:
+                input_dict["attention_mask"] = kwargs["attention_mask"]
+
         if kwargs.get("encoder_outputs") is not None:
             input_dict["encoder_outputs"] = kwargs["encoder_outputs"]
 
         return input_dict
 
-    def forward(self, input_ids, encoder_outputs = None, *args, **kwargs):
+    def forward(self, input_ids, encoder_outputs = None, attention_mask = None, **kwargs):
         # Unoptimized unconditional transfer to numpy for interfacing with polygraphy
         input_ids = input_ids.cpu().numpy().astype("int64")
         data_type = "float32"
         input_dict = {"input_ids": input_ids}
+        if self.config.use_mask:
+            attention_mask = attention_mask.cpu().numpy().astype("int64")
+            input_dict["attention_mask"] = attention_mask
 
         if encoder_outputs is not None:
             encoder_hidden_states = encoder_outputs.last_hidden_state.cpu().numpy().astype(data_type)
@@ -118,9 +132,9 @@ class Seq2SeqOnnxRT(OnnxRTCommand):
             G_LOGGER.warning("OnnxRT does not support fp16 ONNX yet. Ignored.")
             self.config.precision = torch.float32
             self.metadata = self.metadata._replace(precision=torch.float32)
-        
+
         self.use_generator = False
-        
+
         self.tokenizer = self.download_tokenizer()
 
         self.load_onnx_model()

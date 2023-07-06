@@ -86,6 +86,8 @@ class Seq2SeqModelTRTConfig(NNConfig):
                 )
             )
 
+        self.use_mask = False
+
         super().__init__(network_name, variants=variants)
 
     def from_hf_config(self, hf_config):
@@ -216,7 +218,12 @@ class Seq2SeqModelTRTConfig(NNConfig):
         return self.network_segments
 
     def _get_encoder_inputs(self):
-        return {"input_ids": (Dims.BATCH, Dims.SEQUENCE)}
+        encoder_inputs = OrderedDict({
+            "input_ids": (Dims.BATCH, Dims.SEQUENCE),
+        })
+        if self.use_mask:
+            encoder_inputs["attention_mask"] = (Dims.BATCH, Dims.SEQUENCE)
+        return encoder_inputs
 
     def _get_encoder_outputs(self):
         return {"encoder_hidden_states":(Dims.BATCH, Dims.SEQUENCE, "encoder_hidden_size")}
@@ -240,8 +247,11 @@ class Seq2SeqModelTRTConfig(NNConfig):
         return self_attention_cache_outputs
 
     def _get_decoder_inputs(self):
-        decoder_inputs = OrderedDict({})
-        decoder_inputs["input_ids"] = (Dims.BATCH, self.decoder_dims)
+        decoder_inputs = OrderedDict({
+            "input_ids": (Dims.BATCH, self.decoder_dims),
+        })
+        if self.use_mask:
+            decoder_inputs["attention_mask"] = (Dims.BATCH, Dims.create_new_sequence_dim("past_attention_mask"))
 
         if self.is_encoder_decoder:
             decoder_inputs["encoder_hidden_states"] = (Dims.BATCH, Dims.create_new_sequence_dim("encoder"), "encoder_hidden_size")

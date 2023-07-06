@@ -46,8 +46,8 @@ from NNDF.tensorrt_utils import TRTNativeRunner, setup_benchmark_arg
 
 # From HuggingFace
 from transformers import (
-    AutoModelForCausalLM, # For GPT
-    AutoModelForSeq2SeqLM, # For T5 and BART
+    AutoModelForCausalLM, # For decoder-only models
+    AutoModelForSeq2SeqLM, # For encoder_decoder models
     AutoTokenizer,
     AutoConfig,
     GenerationConfig,
@@ -123,6 +123,10 @@ class NetworkCommand(metaclass=ABCMeta):
         duration: int = DEFAULT_DURATION,
         percentile: int = DEFAULT_PERCENTILE,
         benchmarking_mode: bool = False,
+        input_seq_len: int = None,
+        output_seq_len: int = None,
+        input_profile_max_len: int = None,
+        output_profile_max_len: int = None,
         cleanup: bool = False,
         torch_dir: str = None,
         encoder_onnx: str = None,
@@ -130,6 +134,7 @@ class NetworkCommand(metaclass=ABCMeta):
         cache_generator_onnx: str = None,
         skip_checkpoint_load: bool = False,
         engine_postfix: str = "",
+        use_mask: bool = False,
         **kwargs,
     ) -> None:
         """
@@ -154,6 +159,7 @@ class NetworkCommand(metaclass=ABCMeta):
         else:
             G_LOGGER.info("User-customized API is called")
 
+
         self.metadata = NetworkMetadata(
             variant=variant,
             precision=Precision(fp16=fp16),
@@ -169,17 +175,17 @@ class NetworkCommand(metaclass=ABCMeta):
 
         def _n_positions_hint():
             hint_cli_args = (
-                "input_seq_len",
-                "output_seq_len",
-                "input_profile_max_len",
-                "output_profile_max_len",
+                input_seq_len,
+                output_seq_len,
+                input_profile_max_len,
+                output_profile_max_len,
             )
             def consider_if_valid(x):
                 return x if x else -1
 
             # Return supremum of a max value and valid user input values
             N_POSITION_EMBEDDINGS_FALLBACK = 1024
-            return max(max(map(lambda x : consider_if_valid(kwargs.get(x)), hint_cli_args)),
+            return max(max(map(lambda x : consider_if_valid(x), hint_cli_args)),
                        N_POSITION_EMBEDDINGS_FALLBACK)
 
 
@@ -227,18 +233,23 @@ class NetworkCommand(metaclass=ABCMeta):
         if benchmarking_mode:
             self.checkpoint = None
             # Overwrite some fields for generation
+            self.seq_tag = (input_profile_max_len is None and output_profile_max_len)
             self.process_benchmarking_args(
-                kwargs.get("input_seq_len"),
-                kwargs.get("output_seq_len"),
-                kwargs.get("input_profile_max_len"),
-                kwargs.get("output_profile_max_len"),
+                input_seq_len=input_seq_len,
+                output_seq_len=output_seq_len,
+                input_profile_max_len=input_profile_max_len,
+                output_profile_max_len=output_profile_max_len,
             )
+
+        if use_mask:
+            self.config.use_mask = True
 
         skip_checkpoint_load = skip_checkpoint_load or benchmarking_mode or (self._args is None)
         if not skip_checkpoint_load:
             self.checkpoint = self.load_nn_semantic_checkpoint()
             network_input = list(self.checkpoint.inputs())
             # If there is input which is list, using maximum input list size to batch size
+
             self.config.input_case_size = max([len(n) if isinstance(n, list) else 1 for n in network_input ])
             # update config batch size
             self.config.batch_size = self.config.input_case_size * self.config.batch_size
@@ -381,7 +392,14 @@ class NetworkCommand(metaclass=ABCMeta):
             "--fp16",
             action="store_true",
             help="Uses fp16 tactics.",
-            default=False
+            default=False,
+        )
+
+        model_config_group.add_argument(
+            "--use-mask",
+            action="store_true",
+            help="Pass attention_mask as external inputs instead of auto generated for better multi-batch accuracy.",
+            default=False,
         )
 
         timing_group = self._parser.add_argument_group("inference measurement")
@@ -463,9 +481,9 @@ class NetworkCommand(metaclass=ABCMeta):
             return self.tokenizer
 
         tokenizer = AutoTokenizer.from_pretrained(self.config.variant)
-        if tokenizer.pad_token is None:
-            tokenizer.pad_token = tokenizer.eos_token
-            tokenizer.padding_side = 'left'
+        # Set pad_token = eos_token because eos token will be discarded by attention_mask
+        tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.padding_side = 'left'
 
         return tokenizer
 
@@ -529,7 +547,7 @@ class NetworkCommand(metaclass=ABCMeta):
                         ignore_mismatched_sizes=ignore_mismatched_sizes,
                     )
             except Exception as e:
-                raise RuntimeError("Fails to load model from {}. Reason: {}".format(torch_model, str(e)))
+                raise RuntimeError(f"Fails to load model from {torch_dir}. Reason: {str(e)}")
 
         G_LOGGER.info("PyTorch model loading time is {:.4f}s".format(time.time() - t0))
         return torch_model
@@ -627,6 +645,7 @@ class NetworkCommand(metaclass=ABCMeta):
             framework=self.framework_name,
             network_name=self.config.network_name,
             metadata=self.metadata,
+            skip_multibatch=(not self.config.use_mask) # Skip multi-batch tests if not using attention_mask,
         )
         return checkpoint
 
@@ -634,14 +653,23 @@ class NetworkCommand(metaclass=ABCMeta):
     def decoder_inference(
         self,
         input_ids,
+        attention_mask = None,
         encoder_outputs = None,
         use_cuda = True
     ):
+        G_LOGGER.info(f"Running decoder inference...")
 
         if isinstance(self.decoder, TRTNativeRunner) and self.config.is_encoder_decoder:
             self.decoder.set_encoder_hidden_states(encoder_outputs.last_hidden_state)
 
-        decoder_stmt = lambda: self.decoder(input_ids = input_ids, encoder_outputs = encoder_outputs)
+        if self.config.use_mask and attention_mask is None:
+            attention_mask = torch.ones_like(input_ids)
+
+        decoder_stmt = lambda: self.decoder(
+            input_ids=input_ids,
+            encoder_outputs=encoder_outputs,
+            attention_mask=attention_mask
+        )
 
         decoder_e2e_time = measure_python_inference_code(decoder_stmt, self.timing_profile)
         decoder_output = decoder_stmt()
@@ -652,10 +680,16 @@ class NetworkCommand(metaclass=ABCMeta):
     def encoder_inference(
         self,
         input_ids,
+        attention_mask = None,
         use_cuda = True
     ):
-
-        encoder_stmt = lambda: self.encoder(input_ids=input_ids)
+        G_LOGGER.info(f"Running encoder inference...")
+        if self.config.use_mask and attention_mask is None:
+            attention_mask = torch.ones_like(input_ids)
+        encoder_stmt = lambda: self.encoder(
+            input_ids=input_ids,
+            attention_mask=attention_mask
+        )
         encoder_e2e_time = measure_python_inference_code(encoder_stmt, self.timing_profile)
         encoder_output = encoder_stmt()
         return (encoder_output, encoder_e2e_time)
@@ -664,17 +698,24 @@ class NetworkCommand(metaclass=ABCMeta):
     def full_inference(
         self,
         input_ids,
-        early_stopping=True,
+        attention_mask = None,
+        early_stopping = True,
         use_cuda = True
     ):
 
         G_LOGGER.info(f"Running full inference...")
+        if self.config.use_mask and attention_mask is None:
+            attention_mask = torch.ones_like(input_ids)
 
         def _e2e():
             with torch.no_grad():
-                encoder_outputs = self.encoder(input_ids=input_ids) if self.encoder is not None else None
+                encoder_outputs = self.encoder(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask
+                ) if self.encoder else None
 
-                if self.decoder is not None:
+                mask_kwargs = {"attention_mask": attention_mask} if self.config.use_mask else {}
+                if self.decoder:
                     decoder_output = self.decoder.generate(
                         input_ids,
                         num_beams=self.config.num_beams,
@@ -685,6 +726,7 @@ class NetworkCommand(metaclass=ABCMeta):
                         encoder_outputs=encoder_outputs,
                         min_length=self.config.min_output_length,
                         max_length=self.config.max_output_length,
+                        **mask_kwargs,
                     )
 
                     return decoder_output
@@ -703,6 +745,7 @@ class NetworkCommand(metaclass=ABCMeta):
         self,
         input_str: str = None,
         input_ids: torch.Tensor = None,
+        attention_mask: torch.Tensor = None,
         use_cuda: bool = True,
     ):
         # If models are not set, need to setup tokenizer and models to run inference
@@ -711,26 +754,36 @@ class NetworkCommand(metaclass=ABCMeta):
 
         if input_str is None and input_ids is None:
             raise RuntimeError("Please provide either input_str or input_ids for generate")
+
+        # If no input_ids, use input_str to tokenize
         if input_ids is None:
-            input_ids = self.tokenizer([input_str] * self.config.batch_size, padding=True, return_tensors="pt").input_ids
+            tokenizer_output = self.tokenizer([input_str] * self.config.batch_size, padding=True, return_tensors="pt")
+            input_ids = tokenizer_output.input_ids
+            if self.config.use_mask:
+                attention_mask = tokenizer_output.attention_mask
+        elif self.config.use_mask and attention_mask is None:
+            attention_mask = torch.ones_like(input_ids)
 
         if use_cuda:
             input_ids = input_ids.to("cuda")
+            if self.config.use_mask:
+                attention_mask = attention_mask.to("cuda")
 
         encoder_outputs = None
         if self.config.is_encoder_decoder:
-            encoder_outputs = self.encoder(input_ids)
+            encoder_outputs = self.encoder(input_ids, attention_mask=attention_mask)
 
+        mask_kwargs = {"attention_mask": attention_mask} if self.config.use_mask else {}
         decoder_outputs = self.decoder.generate(
             input_ids,
-            max_length=self.config.max_length,
-            min_length=self.config.min_length,
             num_beams=self.config.num_beams,
-            early_stopping=self.config.early_stopping,
             eos_token_id=self.config.eos_token_id,
             pad_token_id=self.config.pad_token_id,
             use_cache=self.config.use_cache,
-            encoder_outputs=encoder_outputs
+            encoder_outputs=encoder_outputs,
+            min_length=self.config.min_output_length,
+            max_length=self.config.max_output_length,
+            **mask_kwargs,
         )
 
         semantic_outputs = self.tokenizer.decode(
@@ -749,46 +802,61 @@ class NetworkCommand(metaclass=ABCMeta):
         if self.models is None:
             self.models = self.setup_tokenizer_and_model()
 
+        attention_mask = None
         # Prepare the input tokens and find out output sequence length.
         if not self.benchmarking_mode:
             if isinstance(inference_input, list):
-                input_ids = self.tokenizer(inference_input * (self.config.batch_size // self.config.input_case_size), padding=True, return_tensors="pt").input_ids
+                tokenizer_output = self.tokenizer(inference_input * (self.config.batch_size // self.config.input_case_size), padding=True, return_tensors="pt")
             else:
                 # TODO: Ideally should be self.config.batch_size // self.config.input_case_size, but this would violate the shape restriction
-                input_ids = self.tokenizer([inference_input] * self.config.batch_size, padding=True, return_tensors="pt").input_ids
+                tokenizer_output = self.tokenizer([inference_input] * self.config.batch_size, padding=True, return_tensors="pt")
+
+            input_ids = tokenizer_output.input_ids
+            if self.config.use_mask:
+                attention_mask = tokenizer_output.attention_mask
         else:
             input_ids = torch.randint(0, self.config.vocab_size, (self.config.batch_size, self._args.input_seq_len))
+            if self.config.use_mask:
+                attention_mask = torch.ones_like(input_ids)
+
+        decoder_output, full_e2e_runtime = self.full_inference(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            use_cuda=use_cuda,
+        )
 
         if self.config.is_encoder_decoder:
             encoder_outputs, encoder_e2e_time = self.encoder_inference(
                 input_ids=input_ids,
+                attention_mask=attention_mask,
                 use_cuda=use_cuda,
             )
 
         # Run decoder once at a reasonable seq length
-        if self.config.use_cache:
-            decoder_input_ids = input_ids[:,-1:]
-        else:
+        # Note: For kv cache, because we do not have kv cache information, we are always running in context mode.
+        if not self.config.is_encoder_decoder:
             decoder_input_ids = input_ids
+        else:
+            decoder_input_ids = input_ids[:,-1:]
+            if self.config.use_mask:
+                attention_mask = attention_mask[:,-1:]
 
         # Expand decoder_inputs if using beam search
         decoder_input_ids, model_kwargs = GenerationMixin._expand_inputs_for_generation(
             expand_size=self.config.num_beams,
             input_ids=decoder_input_ids,
+            attention_mask=attention_mask,
             is_encoder_decoder=self.config.is_encoder_decoder,
             encoder_outputs=encoder_outputs if self.config.is_encoder_decoder else None,
         )
 
         expanded_encoder_outputs = model_kwargs["encoder_outputs"]
+        expanded_attention_mask = model_kwargs["attention_mask"]
 
         _, decoder_e2e_time = self.decoder_inference(
             input_ids=decoder_input_ids,
+            attention_mask=expanded_attention_mask,
             encoder_outputs=expanded_encoder_outputs,
-            use_cuda=use_cuda,
-        )
-
-        decoder_output, full_e2e_runtime = self.full_inference(
-            input_ids=input_ids,
             use_cuda=use_cuda,
         )
 
@@ -823,11 +891,19 @@ class NetworkCommand(metaclass=ABCMeta):
                     decoder_output[batch_index, :], skip_special_tokens=True
         ))
         else:
+            # Check that each expanded batch returns the same result
+            for batch_index in range(1, decoder_output.shape[0]):
+                if not torch.equal(decoder_output[0, :], decoder_output[batch_index,:]):
+                    # This usually indicate some accuracy issue with multi-batch inference
+                    G_LOGGER.warning(f"batches do not equal for identical inputs. \
+                                       decoder_output = {decoder_output}. \
+                                       input_ids = {input_ids}.")
+                    break
+
             # Remove the padding and end tokens.
             semantic_outputs = self.tokenizer.decode(
                 decoder_output[0, :], skip_special_tokens=True
             )
-
 
         return NetworkResult(
             input=inference_input,
@@ -872,6 +948,7 @@ class NetworkCommand(metaclass=ABCMeta):
             perplexity_reference = None
         else:
             network_input = list(self.checkpoint.inputs())
+
             perplexity_reference = list(self.checkpoint.labels())
 
         inference_results = []

@@ -24,13 +24,14 @@ Currently, this repository supports the following models:
       - cerebras/Cerebras-GPT-256M
       - cerebras/Cerebras-GPT-1.3B
       - cerebras/Cerebras-GPT-2.7B
-    - [OPT](https://huggingface.co/docs/transformers/main/en/model_doc/opt)
-      - facebook/opt-125m
-      - facebook/opt-350m
-      - facebook/opt-1.3b
-      - facebook/opt-2.7b
-      - facebook/opt-6.7b
-      - facebook/opt-13b
+
+1. [OPT (text generation task)](https://huggingface.co/docs/transformers/main/en/model_doc/opt). The sample supports following variants of OPT
+  - facebook/opt-125m
+  - facebook/opt-350m
+  - facebook/opt-1.3b
+  - facebook/opt-2.7b
+  - facebook/opt-6.7b
+  - facebook/opt-13b
 
 1. [T5 (translation, premise task)](https://huggingface.co/transformers/model_doc/t5.html). The sample supports following variants of T5:
 
@@ -208,18 +209,21 @@ The `benchmark` action will benchmark the specific script under the model direct
 python3 run.py benchmark GPT2 [frameworks | trt] --variant [gpt2 | gpt2-medium | gpt2-large | gpt2-xl | EleutherAI/gpt-j-6b | etc.] --working-dir temp --input-seq-len 128 --output-seq-len 256
 ```
 
+## How to customized engine name
+Occasionally, users may want to build engines for different platform/GPU/TRT version, etc. The same PyTorch and ONNX models could be reused for the purpose, but cleaning up or renaming generated engine every time is required to save multiple engines in the same folder. To resolve this issue, we have conveniently provided a flag `--engine-postfix`, so users can tag engines for any purpose.
+
 ## How to run model with only TRT engine
 
 If you already have TRT engines, you can run TRT with the following extra flags:
-python3 run.py run [GPT2 | T5 | BART] [frameworks | TRT] --variant $variant_name --working-dir temp [--use-cache] [ --num_beams <N>] --decoder-engine $decoder_engine_path [--encoder-engine $encoder_engine_path --cache-generator-engine $cross_attn_cache_generator_path]. Note that for encoder/decoder models, encoder engine is required. For encoder/decoder model with kv cache, cross attention cache generator is required.
+python3 run.py run [GPT2 | T5 | BART | etc.] [frameworks | trt] --variant $variant_name --working-dir temp [--use-cache] [ --num_beams <N>] --decoder-engine $decoder_engine_path [--encoder-engine $encoder_engine_path --cache-generator-engine $cross_attn_cache_generator_path]. Note that for encoder/decoder models, encoder engine is required. For encoder/decoder model with kv cache, cross attention cache generator is required.
 
 
 ## How to run your own model
-**Please note that thie demo does not support any customized model not registered in HuggingFace, because we will be using HuggingFace config to understand the model parameters.**
+**Please note that the demo does not support any customized model not registered in HuggingFace, because we will be using HuggingFace config to understand the model parameters.**
 
-Currently, we only support a limited number of models with accuracy checks. However, this demo has the potential to run more HuggingFace models without accuracy checkpoints. If you have a T5/GPT2/BART model variant or a similar one from HuggingFace, you can run:
+Currently, we only support a limited number of models with accuracy checks. However, this demo has the potential to run more HuggingFace models without accuracy checkpoints. If you have a HuggingFace model variant similar to the supported ones, you can run:
 
-python3 run.py run [GPT2 | T5 | BART] [frameworks | TRT] --variant your_model --working-dir temp [--use-cache] [ --num_beams <N>].
+python3 run.py run [GPT2 | T5 | BART | etc.] [frameworks | trt] --variant your_model --working-dir temp [--use-cache] [ --num_beams <N>].
 
 
 ## Testing

@@ -40,29 +40,6 @@ from NNDF.models import (
     ModelFileConverter,
 )
 
-from NNDF.networks import NetworkMetadata
-
-# In gpt-j, torch.repeat_interleave will export SplitToSequence with subgraph. Use transformers==4.27.4 as a patch to avoid it
-# https://github.com/pytorch/pytorch/pull/100575 is merged and is expected to fix this issue in the next PyTorch release.
-from transformers.models.gptj.modeling_gptj import rotate_every_two
-import unittest.mock as mock
-
-def duplicate_interleave(m):
-    """
-    A simple version of `torch.repeat_interleave` for duplicating a matrix while interleaving the copy.
-    """
-    dim0 = m.shape[1]
-    m = m.reshape(1,-1,1)  # flatten the matrix
-    m = m.repeat(1,1,2)  # repeat all elements into the 2nd dimension
-    m = m.view(dim0, 1, -1)  # reshape into a matrix, interleaving the copy
-    return m
-
-
-def apply_rotary_pos_emb(x, _sin, _cos):
-    sin = duplicate_interleave(_sin)[None,:,:,:]
-    cos = duplicate_interleave(_cos)[None,:,:,:]
-    return (x * cos) + (rotate_every_two(x) * sin)
-
 OPSET = 17
 TRAINING_MODE = torch.onnx.TrainingMode.EVAL
 CONSTANT_FOLDING = True
@@ -105,6 +82,7 @@ class EncoderTRTEngine(TRTEngineFile):
         super().__init__(model, default_converter, network_metadata)
 
     def get_network_definition(self, network_definition):
+
         if self.network_metadata.precision.fp16:
             for i in range(network_definition[1].num_inputs):
                 t = network_definition[1].get_input(i)
@@ -146,6 +124,10 @@ class EncoderConverter(ModelFileConverter):
         """
         device = model.device
         input_ids = torch.tensor([[42] * 10]).to(device)
+        if config.use_mask:
+            attention_mask = torch.tensor([[1] * 10]).to(device)
+        else:
+            attention_mask = None
         simplified_encoder = self.torch_class.TorchModule(model)
         inputs = config.get_input_dims()[config.NETWORK_ENCODER_SEGMENT_NAME]
         outputs = config.get_output_dims()[config.NETWORK_ENCODER_SEGMENT_NAME]
@@ -153,9 +135,9 @@ class EncoderConverter(ModelFileConverter):
         # Exports to ONNX
         torch.onnx.export(
             simplified_encoder,
-            input_ids,
+            (input_ids, attention_mask),
             output_fpath,
-            do_constant_folding=True,
+            do_constant_folding=CONSTANT_FOLDING,
             opset_version=OPSET,
             input_names=inputs.get_names(),
             output_names=outputs.get_names(),
@@ -217,6 +199,7 @@ class DecoderTorchFile(TorchModelFile):
         def prepare_inputs_for_generation(
             self,
             input_ids,
+            attention_mask = None,
             past_key_values = None,
             use_cache = None,
             encoder_outputs = None,
@@ -225,31 +208,37 @@ class DecoderTorchFile(TorchModelFile):
             if past_key_values is not None:
                 input_ids = input_ids[:, -1:]
 
-            return {
+            input_dict = {
                 "input_ids": input_ids,
                 "past_key_values": past_key_values,
                 "encoder_outputs": encoder_outputs,
                 "use_cache": use_cache,
             }
 
-        @mock.patch("transformers.models.gptj.modeling_gptj.apply_rotary_pos_emb", apply_rotary_pos_emb)
+            if not self.config.is_encoder_decoder:
+                input_dict["attention_mask"] = attention_mask
+
+            return input_dict
+
         def forward(
             self,
             input_ids,
+            attention_mask = None,
             encoder_outputs = None,
             past_key_values = None,
             use_cache = None,
             **kwargs,
         ):
-            encoder_args = {}
+            extra_args = {}
             if self.config.is_encoder_decoder:
-                encoder_args["encoder_hidden_states"] = encoder_outputs.last_hidden_state
+                extra_args["encoder_hidden_states"] = encoder_outputs.last_hidden_state
 
             decoder_outputs = self.decoder(
                 input_ids=input_ids,
                 use_cache=use_cache,
                 past_key_values=past_key_values,
-                **encoder_args,
+                attention_mask=attention_mask,
+                **extra_args,
                 **kwargs
             )
 
@@ -275,10 +264,19 @@ class DecoderTorchFile(TorchModelFile):
                 # batch dim of `past` is at 2nd position
                 reordered_layer_past_states = ()
                 for layer_past_state in layer_past_states:
-                    # need to set correct `past` for each of the four key / value states
-                    reordered_layer_past_states = reordered_layer_past_states + (
-                        layer_past_state.index_select(0, beam_idx.to(layer_past_state.device)),
-                    )
+                    # BLOOM kv cache is different than other models.
+                    if len(layer_past_state.shape) == 3:
+                        expand_size = layer_past_state.shape[0] // self.config.num_attention_heads
+                        reordered_layer_past_states = reordered_layer_past_states + (
+                            layer_past_state.view((expand_size, self.config.num_attention_heads, layer_past_state.shape[1], layer_past_state.shape[2])) \
+                            .index_select(0, beam_idx.to(layer_past_state.device)) \
+                            .view(layer_past_state.shape),
+                        )
+                    else:
+
+                        reordered_layer_past_states = reordered_layer_past_states + (
+                            layer_past_state.index_select(0, beam_idx.to(layer_past_state.device)),
+                        )
 
                 assert reordered_layer_past_states[0].shape == layer_past_states[0].shape
                 assert len(reordered_layer_past_states) == len(layer_past_states)
@@ -304,6 +302,7 @@ class DecoderTRTEngine(TRTEngineFile):
         super().__init__(model, default_converter, network_metadata)
 
     def get_network_definition(self, network_definition):
+
         if self.network_metadata.precision.fp16:
             for i in range(network_definition[1].num_inputs):
                 t = network_definition[1].get_input(i)
@@ -339,7 +338,7 @@ class DecoderConverter(ModelFileConverter):
     ):
         """
         Exports a given huggingface Seq2Seq to decoder architecture only.
-        Inspired by https://github.com/onnx/models/blob/master/text/machine_comprehension/t5/dependencies/Seq2Seq-export.py
+        Inspired by https://github.com/onnx/models/blob/master/text/machine_comprehension/t5/dependencies/T5-export.py
 
         Args:
             output_prefix (str): Path to the onnx file
@@ -351,10 +350,14 @@ class DecoderConverter(ModelFileConverter):
         # Adding a device parameter to the class may help
         device = model.device
         input_ids = torch.tensor([[42] * 10]).to(device)
+        if config.use_mask:
+            attention_mask = torch.tensor([[1] * 10]).to(device)
+        else:
+            attention_mask = None
         encoder_hidden_states = None
         if config.is_encoder_decoder:
             simplified_encoder = config.encoder_classes["torch"].TorchModule(model)
-            encoder_hidden_states = simplified_encoder(input_ids).last_hidden_state
+            encoder_hidden_states = simplified_encoder(input_ids, attention_mask).last_hidden_state
 
         # Exports to ONNX
         decoder_with_lm_head = self.torch_class.TorchModule(model)
@@ -367,17 +370,17 @@ class DecoderConverter(ModelFileConverter):
         if not network_metadata.use_cache:
             # This code allows for huggingface compatible torch class to use onnx exporter
             old_forward = decoder_with_lm_head.forward
-            def _export_forward(input_ids, encoder_hidden_states):
+            def _export_forward(input_ids, attention_mask, encoder_hidden_states):
                 encoder_outputs = BaseModelOutput(last_hidden_state=encoder_hidden_states)
-                result = old_forward(input_ids, encoder_outputs=encoder_outputs, use_cache=False)
+                result = old_forward(input_ids, attention_mask=attention_mask, encoder_outputs=encoder_outputs, use_cache=False)
                 return result[0]
 
             decoder_with_lm_head.forward = _export_forward
             torch.onnx.export(
                 decoder_with_lm_head,
-                (input_ids, encoder_hidden_states),
+                (input_ids, attention_mask, encoder_hidden_states),
                 output_fpath,
-                do_constant_folding=True,
+                do_constant_folding=CONSTANT_FOLDING,
                 opset_version=OPSET,
                 input_names=inputs.get_names(),
                 output_names=outputs.get_names(),
@@ -388,10 +391,13 @@ class DecoderConverter(ModelFileConverter):
                 training=TRAINING_MODE,
             )
         else:
+            decoder_attention_mask = None
             if config.is_encoder_decoder:
                 # We need to use input_ids[:,-1] for encoder/decoder models for kv cache,
                 # BART/T5 only work with seq = 1 for kv cache mode.
                 decoder_input_ids = input_ids[:,-1:]
+                if config.use_mask:
+                    decoder_attention_mask = torch.tensor([[1]]).to(device)
             else:
                 # For decoder-only models, we need to use the entire input_ids as dummy inputs.
                 # Passing the full input_ids lets us capture the behavior of the
@@ -402,10 +408,13 @@ class DecoderConverter(ModelFileConverter):
                 # If a model requires that SeqLen == 1 to properly run the
                 # generation phase, this may break.
                 decoder_input_ids = input_ids
+                if config.use_mask:
+                    decoder_attention_mask = attention_mask
 
             # Create valid past_key_values
             decoder_outputs = decoder_with_lm_head.forward(
                 input_ids=decoder_input_ids,
+                attention_mask=decoder_attention_mask,
                 encoder_outputs=BaseModelOutput(last_hidden_state=encoder_hidden_states),
                 use_cache=True,
                 past_key_values=None
@@ -415,9 +424,9 @@ class DecoderConverter(ModelFileConverter):
 
             old_forward = decoder_with_lm_head.forward
 
-            def _export_forward(input_ids, encoder_hidden_states, past_key_values):
+            def _export_forward(input_ids, attention_mask, encoder_hidden_states, past_key_values):
                 encoder_outputs = BaseModelOutput(last_hidden_state=encoder_hidden_states)
-                decoder_outputs = old_forward(input_ids, encoder_outputs=encoder_outputs, past_key_values=past_key_values, use_cache=True)
+                decoder_outputs = old_forward(input_ids, attention_mask, encoder_outputs=encoder_outputs, past_key_values=past_key_values, use_cache=True)
                 past_key_values = ()
                 past_key_values_output = decoder_outputs[1]
                 for layer_past_states in past_key_values_output:
@@ -431,11 +440,15 @@ class DecoderConverter(ModelFileConverter):
 
             decoder_with_lm_head.forward = _export_forward
 
+            # Attention mask = curr_seq + past_seq(=curr_seq in export), so it needs to be expanded
+            if config.use_mask:
+                decoder_attention_mask = torch.cat((decoder_attention_mask, decoder_attention_mask), 1)
+
             torch.onnx.export(
                 decoder_with_lm_head,
-                (decoder_input_ids, encoder_hidden_states, past_key_values),
+                (decoder_input_ids, decoder_attention_mask, encoder_hidden_states, past_key_values),
                 output_fpath,
-                do_constant_folding=True,
+                do_constant_folding=CONSTANT_FOLDING,
                 opset_version=OPSET,
                 input_names=inputs.get_names(),
                 output_names=outputs.get_names(),
@@ -532,7 +545,7 @@ class CrossAttnCacheGeneratorConverter(ModelFileConverter):
             cross_attn_cache_generator,
             (encoder_hidden_states),
             output_fpath,
-            do_constant_folding=True,
+            do_constant_folding=CONSTANT_FOLDING,
             opset_version=OPSET,
             input_names=inputs.get_names(),
             output_names=outputs.get_names(),

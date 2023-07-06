@@ -24,22 +24,22 @@ if __name__ == "__main__":
     project_root = os.path.join(filepath, os.pardir)
     sys.path.append(project_root)
 
-from Seq2Seq.onnxrt import Seq2SeqOnnxRT
-from GPT2.GPT2ModelConfig import GPT2ModelTRTConfig
-from GPT2.export import GPT2ModelClass
+from Seq2Seq.trt import Seq2SeqTRT
+from OPT.OPTModelConfig import OPTModelTRTConfig
+from Seq2Seq.export import Seq2SeqModelClass
 
 
-class GPT2OnnxRT(Seq2SeqOnnxRT):
+class OPTTRT(Seq2SeqTRT):
     def __init__(
         self,
-        config_class=GPT2ModelTRTConfig,
-        description="Runs OnnxRT results for GPT2 model.",
+        config_class=OPTModelTRTConfig,
+        description="Runs trt results for OPT model.",
         **kwargs
     ):
-        super().__init__(config_class, description=description, model_classes=GPT2ModelClass, **kwargs)
+        super().__init__(config_class, description=description, model_classes=Seq2SeqModelClass, **kwargs)
 
 # Entry point
-RUN_CMD = GPT2OnnxRT()
+RUN_CMD = OPTTRT()
 
 if __name__ == "__main__":
     result = RUN_CMD()

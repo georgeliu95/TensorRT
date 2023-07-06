@@ -18,28 +18,23 @@
 # Base Class
 from Seq2Seq.Seq2SeqModelConfig import Seq2SeqModelTRTConfig
 
-class GPT2ModelTRTConfig(Seq2SeqModelTRTConfig):
+class OPTModelTRTConfig(Seq2SeqModelTRTConfig):
 
     TARGET_MODELS = [
-        "gpt2",
-        "gpt2-medium",
-        "gpt2-large",
-        "gpt2-xl",
-        "EleutherAI/gpt-neo-125m",
-        "EleutherAI/gpt-neo-1.3B",
-        "EleutherAI/gpt-neo-2.7B",
-        "EleutherAI/gpt-neox-20b",
-        "EleutherAI/gpt-j-6b",
-        "cerebras/Cerebras-GPT-111M",
-        "cerebras/Cerebras-GPT-256M",
-        "cerebras/Cerebras-GPT-1.3B",
-        "cerebras/Cerebras-GPT-2.7B",
+        "facebook/opt-125m",
+        "facebook/opt-350m",
+        "facebook/opt-1.3b",
+        "facebook/opt-2.7b",
+        "facebook/opt-6.7b",
+        "facebook/opt-13b",
+        #"facebook/opt-30b", # Too big for single GPU
+        #"facebook/opt-66b", # Too big for single GPU
     ]
 
     def __init__(self, **kwargs):
 
         super().__init__(
-            network_name="GPT2",
+            network_name="OPT",
             **kwargs
         )
 
@@ -49,7 +44,7 @@ class GPT2ModelTRTConfig(Seq2SeqModelTRTConfig):
         self.pad_token_id = self.eos_token_id
 
         """
-        GPT model's n_positions is too long (~2048). The model size for the models in the demo
+        OPT model's n_positions is too long (~2048). The model size for the models in the demo
         is not large enough to generate useful information and therefore will generate repetitive sentences.
         Truncate to 100 for useful informations.
         """
@@ -62,6 +57,6 @@ class GPT2ModelTRTConfig(Seq2SeqModelTRTConfig):
         self.generation_config.pad_token_id = self.eos_token_id
 
     def get_metadata_string(self, metadata) -> str:
-        # Remove redundant GPT2 name
-        metadata = metadata._replace(variant=metadata.variant.replace("GPT2-","").replace("EleutherAI/","").replace("cerebras/",""))
+        # Remove redundant OPT name
+        metadata = metadata._replace(variant=metadata.variant.replace("facebook/",""))
         return super().get_metadata_string(metadata)

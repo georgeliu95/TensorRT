@@ -89,13 +89,18 @@ def process_per_result_entries(script_category: List[str], results: List[Network
     row_data_by_input = defaultdict(list)
     for cat, result in zip(script_category, results):
         for nr in result.network_results:
-            for runtime in  nr.median_runtime:
-                row_data_by_input[hash(nr.input)].append([
+            for runtime in nr.median_runtime:
+                # After multi-batch tests are added, nr.input maybe a list or a str
+                if isinstance(nr.input, list):
+                    hash_str = "\n".join(nr.input)
+                else:
+                    hash_str = nr.input
+                row_data_by_input[hash(hash_str)].append([
                     cat,
                     runtime.name,
                     result.accuracy,
                     runtime.runtime,
-                    _shorten_text(nr.input),
+                    _shorten_text(hash_str),
                     _shorten_text(nr.semantic_output)
                 ])
 
@@ -222,6 +227,11 @@ class NNFolderWorkspace:
         if "/" in self.metadata.variant:
             self.metadata = self.metadata._replace(variant = self.metadata.variant.split("/")[-1])
         self.metadata_serialized = self.config.get_metadata_string(self.metadata)
+
+        # Separate the onnx with mask or without mask
+        if config.use_mask:
+            self.metadata_serialized += "-with-mask"
+
         self.variant = self.metadata.variant
 
         self.dpath = os.path.join(self.rootdir, self.variant, self.metadata_serialized)

@@ -56,42 +56,6 @@ label = '''
 TensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a deep learning compiler used for deep learning.\n\nTensorRT is a deep learning compiler used for deep learning.\n\nTensorRT is a deep learning compiler used for deep learning.\n\nTensorRT is a deep learning compiler used for deep learning.\n\nTensorRT is a deep learning compiler used for deep learning.\n\nTensorRT is a deep learning compiler used for deep learning.\n\nTensorRT
 '''
 
-[GPT2.all."facebook/opt-125m".all.generate]
-
-label = '''
-TensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used
-'''
-
-[GPT2.all."facebook/opt-350m".all.generate]
-
-label = '''
-TensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used
-'''
-
-[GPT2.all."facebook/opt-1.3b".all.generate]
-
-label = '''
-TensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used
-'''
-
-[GPT2.all."facebook/opt-2.7b".all.generate]
-
-label = '''
-TensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a compiler for deep learning. It is a tool for building neural networks and is used to train neural networks.\n\nTensorRT is a compiler for deep learning. It is a tool for building neural networks and is used to train neural networks.\n\nTensorRT is a compiler for deep learning. It is a tool for building neural networks and is used to train neural networks.\n\n
-'''
-
-[GPT2.all."facebook/opt-6.7b".all.generate]
-
-label = '''
-TensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used
-'''
-
-[GPT2.all."facebook/opt-13b".all.generate]
-
-label = '''
-TensorRT is a Deep Learning compiler used for deep learning.\n\nTensorRT is a Deep Learning compiler used for deep learning.\n\n−\n\n== Installation ==\n\n+\n\n== Installation ==\n\n−\n\nTensorRT is available in the [http://www.nvidia.com/downloads/download.aspx?product=nvidia-tensor-rt-compiler-for-cuda-v100-and-v200-
-'''
-
 [GPT2.all.default.fp16.generate]
 
 label = '''
@@ -156,42 +120,6 @@ label = '''
 GPT-2 is a transformer based model pretrained on a large corpus.\n\n-   **BERT** [@devlin2018bert] is a deep bidirectional transformer model pretrained on a large corpus.\n\n-   **RoBERTa** [@liu2019roberta] is a deep bidirectional transformer model pretrained on a large corpus.\n\n-   **XLNet** [@yang2019xlnet] is a deep bidirectional transformer model pretrained on
 '''
 
-[GPT2.all."facebook/opt-125m".all.generate_b]
-
-label = '''
-GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe GPT-2
-'''
-
-[GPT2.all."facebook/opt-350m".all.generate_b]
-
-label = '''
-GPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model
-'''
-
-[GPT2.all."facebook/opt-1.3b".all.generate_b]
-
-label = '''
-GPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model
-'''
-
-[GPT2.all."facebook/opt-2.7b".all.generate_b]
-
-label = '''
-GPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model
-'''
-
-[GPT2.all."facebook/opt-6.7b".all.generate_b]
-
-label = '''
-GPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model
-'''
-
-[GPT2.all."facebook/opt-13b".all.generate_b]
-
-label = '''
-GPT-2 is a transformer based model pretrained on a large corpus.\n\nIt is a transformer based model that is pretrained on a large corpus.\n\nIt is a transformer based model that is pretrained on a large corpus.\n\nIt is a transformer based model that is pretrained on a large corpus.\n\nIt is a transformer based model that is pretrained on a large corpus.\n\nIt is a transformer based model that is pretrained on a large
-'''
-
 [GPT2.all.default.all.generate_c]
 
 input = '''
@@ -250,42 +178,6 @@ label = '''
 If I fall asleep then I am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n
 '''
 
-[GPT2.all."facebook/opt-125m".all.generate_c]
-
-label = '''
-If I fall asleep then I am going to wake up in 8 hours.\nI'm not sure if I'm dreaming or not.\nI'm not sure if I'm dreaming or not.\nI'm not sure if I'm dreaming or not.\nI'm not sure if I'm dreaming or not.\nI'm not sure if I'm dreaming or not.\nI'm not sure if I'm dreaming or not.\nI'm not sure if I'm dreaming or not.
-'''
-
-[GPT2.all."facebook/opt-350m".all.generate_c]
-
-label = '''
-If I fall asleep then I am going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up
-'''
-
-[GPT2.all."facebook/opt-1.3b".all.generate_c]
-
-label = '''
-If I fall asleep then I am going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up
-'''
-
-[GPT2.all."facebook/opt-2.7b".all.generate_c]
-
-label = '''
-If I fall asleep then I am going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up
-'''
-
-[GPT2.all."facebook/opt-6.7b".all.generate_c]
-
-label = '''
-If I fall asleep then I am going to wake up in 8 hours.\nI'm not sure if I should be happy or sad about this.
-'''
-
-[GPT2.all."facebook/opt-13b".all.generate_c]
-
-label = '''
-If I fall asleep then I am going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up
-'''
-
 [GPT2.all.default.all.generate_d]
 
 input = [
@@ -298,10 +190,9 @@ If I fall asleep then I am going to wake up in 8 hours.
 
 label = [
 '''
-GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe model is based on the following assumptions:\n\nThe model is based on the following assumptions:\n\nThe model is based on the following assumptions:\n
-''',
+GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe model is based on the following assumptions:\n\nThe model is based on the following assumptions:\n\nThe model is based on the following assumptions:\n''',
 '''
-If I fall asleep then I am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8
+If I fall asleep then I am going to wake up in 8 hours.\n\nI am not going to sleep for 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8
 ''']
 
 [GPT2.all.gpt2-medium.all.generate_d]
@@ -383,64 +274,3 @@ GPT-2 is a transformer based model pretrained on a large corpus.\n\n-   **BERT**
 '''
 If I fall asleep then I am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n\nI am going to wake up in 8 hours.\n
 ''']
-
-[GPT2.all."facebook/opt-125m".all.generate_d]
-
-label = [
-'''
-GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe GPT-2 is a transformer based model pretrained on a large corpus.\n\nThe GPT-2
-''',
-'''
-If I fall asleep then I am going to wake up in 8 hours.\nI'm not sure if I'm dreaming or not.\nI'm not sure if I'm dreaming or not.\nI'm not sure if I'm dreaming or not.\nI'm not sure if I'm dreaming or not.\nI'm not sure if I'm dreaming or not.\nI'm not sure if I'm dreaming or not.\nI'm not sure if I'm dreaming or not.
-''']
-
-[GPT2.all."facebook/opt-350m".all.generate_d]
-
-label = [
-'''
-GPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model
-''',
-'''
-If I fall asleep then I am going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up
-''']
-
-[GPT2.all."facebook/opt-1.3b".all.generate_d]
-
-label = [
-'''
-GPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model
-''',
-'''
-If I fall asleep then I am going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up
-''']
-
-[GPT2.all."facebook/opt-2.7b".all.generate_d]
-
-label = [
-'''
-GPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model
-''',
-'''
-If I fall asleep then I am going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up
-''']
-
-[GPT2.all."facebook/opt-6.7b".all.generate_d]
-
-label = [
-'''
-GPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model pretrained on a large corpus.\n\nGPT-2 is a transformer based model
-''',
-'''
-If I fall asleep then I am going to wake up in 8 hours.\nI'm not sure if I should be happy or sad about this.
-''']
-
-[GPT2.all."facebook/opt-13b".all.generate_d]
-
-label = [
-'''
-GPT-2 is a transformer based model pretrained on a large corpus.\n\nIt is a transformer based model that is pretrained on a large corpus.\n\nIt is a transformer based model that is pretrained on a large corpus.\n\nIt is a transformer based model that is pretrained on a large corpus.\n\nIt is a transformer based model that is pretrained on a large corpus.\n\nIt is a transformer based model that is pretrained on a large
-''',
-'''
-If I fall asleep then I am going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up in 8 hours.\nI'm going to wake up
-''']
-
