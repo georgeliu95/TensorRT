@@ -115,6 +115,8 @@ public:
     //! Do not override this method as it is used by the TensorRT library to maintain backwards-compatibility with
     //! plugins.
     //!
+    //! \return The TensorRT version in the format 1000 * major + 100 * minor + patch.
+    //!
     //! \usage
     //! - Allowed context for the API call
     //!   - Thread-safe: Yes, the implementation provided here is safe to call from any thread.
@@ -128,8 +130,8 @@ public:
     //! \brief Return the plugin type. Should match the plugin name returned by the corresponding plugin creator
     //! \see IPluginCreator::getPluginName()
     //!
-    //! \warning The string returned must be 1024 bytes or less including the NULL terminator and must be NULL
-    //! terminated.
+    //! \warning The string returned must be NULL terminated and have a length of 1024 bytes or less including the
+    //! NULL terminator.
     //!
     //! \usage
     //! - Allowed context for the API call
@@ -142,8 +144,8 @@ public:
     //! \brief Return the plugin version. Should match the plugin version returned by the corresponding plugin creator
     //! \see IPluginCreator::getPluginVersion()
     //!
-    //! \warning The string returned must be 1024 bytes or less including the NULL terminator and must be NULL
-    //! terminated.
+    //! \warning The string returned must be NULL terminated and have a length of 1024 bytes or less including the
+    //! NULL terminator.
     //!
     //! \usage
     //! - Allowed context for the API call
@@ -155,7 +157,7 @@ public:
     //!
     //! \brief Get the number of outputs from the layer.
     //!
-    //! \return The number of outputs.
+    //! \return The number of outputs, which is a positive integer.
     //!
     //! This function is called by the implementations of INetworkDefinition and IBuilder. In particular, it is called
     //! prior to any call to initialize().
@@ -170,9 +172,13 @@ public:
     //!
     //! \brief Get the dimension of an output tensor.
     //!
-    //! \param index The index of the output tensor.
-    //! \param inputs The input tensors.
-    //! \param nbInputDims The number of input tensors.
+    //! \param index The index of the output tensor. Will lie in the valid range (between 0 and getNbOutputs()-1
+    //! inclusive).
+    //! \param inputs The input tensor dimensions. Will be the start address of a Dims array of length nbInputDims.
+    //! \param nbInputDims The number of input tensors. Will be a non-negative integer.
+    //!
+    //! \return The output tensor dimensions if the index is in the valid range.
+    //!         An invalid value of Dims{-1, {}} must be returned if the index is not in the valid range.
     //!
     //! This function is called by the implementations of INetworkDefinition and IBuilder. In particular, it is called
     //! prior to any call to initialize().
@@ -182,7 +188,7 @@ public:
     //!   - Thread-safe: Yes, this method is required to be thread-safe and may be called from multiple threads
     //!                  when building networks on multiple devices sharing the same plugin.
     //!
-    //! \note In any non-IPluginV2DynamicExt plugin, batch size should not be included in the returned dimensions,
+    //! \note In any non-IPluginV2DynamicExt plugin, batch size must not be included in the returned dimensions,
     //! even if the plugin is expected to be run in a network with explicit batch mode enabled.
     //! Please see the TensorRT Developer Guide for more details on how plugin inputs and outputs behave.
     //!
@@ -218,13 +224,14 @@ public:
     //! This function is called by the builder prior to initialize(). It provides an opportunity for the layer to make
     //! algorithm choices on the basis of its weights, dimensions, and maximum batch size.
     //!
-    //! \param inputDims The input tensor dimensions.
-    //! \param nbInputs The number of inputs.
-    //! \param outputDims The output tensor dimensions.
-    //! \param nbOutputs The number of outputs.
+    //! \param inputDims The input tensor dimensions. Will be the start address of a Dims array of length nbInputs.
+    //! \param nbInputs The number of inputs. Will be a non-negative integer.
+    //! \param outputDims The output tensor dimensions. Will be the start address of a Dims array of length nbOutputs.
+    //! \param nbOutputs The number of outputs. Will be a positive integer identical to the return value of
+    //! getNbOutputs().
     //! \param type The data type selected for the engine.
     //! \param format The format selected for the engine.
-    //! \param maxBatchSize The maximum batch size.
+    //! \param maxBatchSize The maximum batch size. Will be a positive integer.
     //!
     //! The dimensions passed here do not include the outermost batch size (i.e. for 2-D image networks, they will be
     //! 3-dimensional CHW dimensions).
@@ -277,10 +284,12 @@ public:
     //!
     //! \brief Find the workspace size required by the layer.
     //!
-    //! This function is called during engine startup, after initialize(). The workspace size returned should be
+    //! This function is called during engine startup, after initialize(). The workspace size returned must be
     //! sufficient for any batch size up to the maximum.
     //!
-    //! \return The workspace size.
+    //! \param maxBatchSize The maximum batch size, which will be a positive integer.
+    //! \return The workspace size in bytes, i.e. the device memory size that the plugin requires for its internal
+    //! computations.
     //!
     //! \usage
     //! - Allowed context for the API call
@@ -294,10 +303,15 @@ public:
     //! \brief Execute the layer.
     //!
     //! \param batchSize The number of inputs in the batch.
-    //! \param inputs The memory for the input tensors.
-    //! \param outputs The memory for the output tensors.
-    //! \param workspace Workspace for execution.
-    //! \param stream The stream in which to execute the kernels.
+    //! \param inputs The memory for the input tensors. Will be an array of device addresses corresponding to input
+    //!        tensors of length nbInputs, where nbInputs is the second parameter passed to configureWithFormat().
+    //!        The i-th input tensor will have the dimensions inputDims[i], where inputDims is the first parameter
+    //!        that was passed to configureWithFormat().
+    //! \param outputs The memory for the output tensors. Will be an array of device addresses corresponding to output
+    //!        tensors of length getNbOutputs().
+    //! \param workspace Workspace for execution. Will be the start address of a device buffer whose length will be at
+    //!        least getWorkspaceSize(batchSize).
+    //! \param stream The stream in which to execute the kernels. This will be a valid CUDA stream.
     //!
     //! \return 0 for success, else non-zero (which will cause engine termination).
     //!
@@ -311,9 +325,9 @@ public:
         = 0;
 
     //!
-    //! \brief Find the size of the serialization buffer required.
+    //! \brief Find the size of the serialization buffer required to store the plugin configuration in a binary file.
     //!
-    //! \return The size of the serialization buffer.
+    //! \return The size of the serialization buffer in bytes.
     //!
     //! \usage
     //! - Allowed context for the API call
@@ -325,8 +339,8 @@ public:
     //!
     //! \brief Serialize the layer.
     //!
-    //! \param buffer A pointer to a buffer to serialize data. Size of buffer must be equal to value returned by
-    //! getSerializationSize.
+    //! \param buffer A pointer to a host buffer to serialize data. Size of buffer will be at least as large as the
+    //! value returned by getSerializationSize.
     //!
     //! \see getSerializationSize()
     //!
@@ -353,7 +367,10 @@ public:
     //!
     //! The TensorRT runtime calls clone() to clone the plugin when an execution context is created for an engine,
     //! after the engine has been created.  The runtime does not call initialize() on the cloned plugin,
-    //! so the cloned plugin should be created in an initialized state.
+    //! so the cloned plugin must be created in an initialized state.
+    //!
+    //! \return A cloned plugin object in an initialized state with the same parameters as the current object.
+    //!         nullptr must be returned if the cloning fails, e.g. because of resource exhaustion.
     //!
     //! \usage
     //! - Allowed context for the API call
@@ -365,12 +382,12 @@ public:
 
     //!
     //! \brief Set the namespace that this plugin object belongs to. Ideally, all plugin
-    //! objects from the same plugin library should have the same namespace.
+    //! objects from the same plugin library must have the same namespace.
     //!
     //! \param pluginNamespace The namespace for the plugin object.
     //!
-    //! \warning The string pluginNamespace must be 1024 bytes or less including the NULL terminator and must be NULL
-    //! terminated.
+    //! \warning The string pluginNamespace will be NULL terminated and have a length of 1024 bytes or less including the
+    //! NULL terminator.
     //!
     //! \usage
     //! - Allowed context for the API call
@@ -381,6 +398,9 @@ public:
 
     //!
     //! \brief Return the namespace of the plugin object.
+    //!
+    //! \return The namespace string that was passed to setPluginNamespace(), possibly after truncation to 1024 bytes
+    //! if a longer string was passed. An empty string must be returned as default value.
     //!
     //! \usage
     //! - Allowed context for the API call
@@ -422,7 +442,15 @@ public:
     //!
     //! \brief Return the DataType of the plugin output at the requested index.
     //!
-    //! The default behavior should be to return the type of the first input, or DataType::kFLOAT if the layer has no
+    //! \param index The output tensor index in the valid range between 0 and getNbOutputs()-1.
+    //! \param inputTypes The data types of the input tensors, stored in an array of length nbInputs.
+    //! \param nbInputs The number of input tensors. Will be a non-negative integer.
+    //!
+    //! \return The data type of the output tensor with the provided index if the input tensors have the data types
+    //! provided in inputTypes, provided the output tensor index is in the valid range. DataType::kFLOAT must be
+    //! returned if the index is not in the valid range.
+    //!
+    //! The default behavior must be to return the type of the first input, or DataType::kFLOAT if the layer has no
     //! inputs. The returned data type must have a format that is supported by the plugin.
     //!
     //! \see supportsFormat()
@@ -438,11 +466,13 @@ public:
         int32_t index, nvinfer1::DataType const* inputTypes, int32_t nbInputs) const noexcept
         = 0;
 
-    //! \brief Return true if output tensor is broadcast across a batch.
+    //! \brief Return true if the output tensor is broadcast across a batch.
     //!
-    //! \param outputIndex The index of the output
-    //! \param inputIsBroadcasted The ith element is true if the tensor for the ith input is broadcast across a batch.
-    //! \param nbInputs The number of inputs
+    //! \param outputIndex The index of the output tensor, which will be in the valid range between 0 and
+    //! nbOutputs()-1.
+    //! \param inputIsBroadcasted A boolean array of length nbInputs. The i-th element will be true if and only if
+    //! the tensor for the ith input is broadcast across a batch.
+    //! \param nbInputs The number of inputs. Will be a non-negative integer.
     //!
     //! The values in inputIsBroadcasted refer to broadcasting at the semantic level,
     //! i.e. are unaffected by whether method canBroadcastInputAcrossBatch requests
@@ -457,14 +487,18 @@ public:
         int32_t outputIndex, bool const* inputIsBroadcasted, int32_t nbInputs) const noexcept
         = 0;
 
-    //! \brief Return true if plugin can use input that is broadcast across batch without replication.
+    //! \brief Return true if the plugin can use an input tensor that is broadcast across batch without replication.
     //!
-    //! \param inputIndex Index of input that could be broadcast.
+    //! \param inputIndex Index of input that could be broadcast. Will be in the valid range between 0 and
+    //! nbInputs - 1 where nbInputs is the maximum number of input tensors supported by this plugin.
+    //!
+    //! \return true if the index is in the valid range and the plugin is able to broadcast a single copy of this
+    //! input tensor across the batch. False otherwise.
     //!
     //! For each input whose tensor is semantically broadcast across a batch,
     //! TensorRT calls this method before calling configurePlugin.
     //! If canBroadcastInputAcrossBatch returns true, TensorRT will not replicate the input tensor;
-    //! i.e., there will be a single copy that the plugin should share across the batch.
+    //! i.e., there will be a single copy that the plugin must share across the batch.
     //! If it returns false, TensorRT will replicate the input tensor
     //! so that it appears like a non-broadcasted tensor.
     //!
@@ -483,20 +517,22 @@ public:
     //! This function is called by the builder prior to initialize(). It provides an opportunity for the layer to make
     //! algorithm choices on the basis of its weights, dimensions, data types and maximum batch size.
     //!
-    //! \param inputDims The input tensor dimensions.
-    //! \param nbInputs The number of inputs.
-    //! \param outputDims The output tensor dimensions.
-    //! \param nbOutputs The number of outputs.
-    //! \param inputTypes The data types selected for the plugin inputs.
-    //! \param outputTypes The data types selected for the plugin outputs.
+    //! \param inputDims The input tensor dimensions. Will be an array of length nbInputs.
+    //! \param nbInputs The number of inputs. Will be a non-negative integer.
+    //! \param outputDims The output tensor dimensions. Will be an array of length nbOutputs.
+    //! \param nbOutputs The number of outputs. Will be a positive integer.
+    //! \param inputTypes The data types selected for the plugin inputs. Will be an array of length nbInputs.
+    //! \param outputTypes The data types selected for the plugin outputs. Will be an array of length nbOutputs.
     //! \param inputIsBroadcast True for each input that the plugin must broadcast across the batch.
+    //!                         Will be an array of length nbInputs.
     //! \param outputIsBroadcast True for each output that TensorRT will broadcast across the batch.
+    //!                          Will be an array of length nbOutputs.
     //! \param floatFormat The format selected for the engine for the floating point inputs/outputs.
-    //! \param maxBatchSize The maximum batch size.
+    //! \param maxBatchSize The maximum batch size. Will be a positive integer.
     //!
     //! The dimensions passed here do not include the outermost batch size (i.e. for 2-D image networks, they will be
     //! 3-dimensional CHW dimensions). When inputIsBroadcast or outputIsBroadcast is true, the outermost batch size for
-    //! that input or output should be treated as if it is one.
+    //! that input or output must be treated as if it is one.
     //! Index 'i' of inputIsBroadcast is true only if the input is semantically broadcast across the batch and
     //! calling canBroadcastInputAcrossBatch with argument 'i' returns true.
     //! Index 'i' of outputIsBroadcast is true only if calling isOutputBroadcastAcrossBatch with argument 'i'
@@ -522,10 +558,12 @@ public:
 
     //!
     //! \brief Attach the plugin object to an execution context and grant the plugin the access to some context
-    //! resource.
+    //! resources.
     //!
-    //! \param cudnn The CUDNN context handle of the execution context
-    //! \param cublas The cublas context handle of the execution context
+    //! \param cudnn The cuDNN context handle of the execution context. Will be a valid cuDNN context handle, or
+    //!              nullptr if the cuDNN backend is not used.
+    //! \param cublas The cuBLAS context handle of the execution context. Will be a valid cuBLAS context handle, or
+    //!               nullptr if the cuBLAS backend is not used.
     //! \param allocator The allocator used by the execution context
     //!
     //! This function is called automatically for each plugin when a new execution context is created. If the context
@@ -533,10 +571,10 @@ public:
     //! new resources are assigned to the context.
     //!
     //! If the plugin needs per-context resource, it can be allocated here.
-    //! The plugin can also get context-owned CUDNN and CUBLAS context here.
+    //! The plugin can also get context-owned cuDNN and cuBLAS context here.
     //!
-    //! \note In the automotive safety context, the CUDNN and CUBLAS parameters will be nullptr because CUDNN and CUBLAS
-    //!       is not used by the safe runtime.
+    //! \note In the automotive safety context, the cuDNN and cuBLAS parameters will be nullptr because cuDNN and cuBLAS
+    //!       are not used by the safe runtime.
     //!
     //! \usage
     //! - Allowed context for the API call
@@ -566,9 +604,11 @@ public:
     //!
     //! \brief Clone the plugin object. This copies over internal plugin parameters as well and returns a new plugin
     //! object with these parameters. If the source plugin is pre-configured with configurePlugin(), the returned object
-    //! should also be pre-configured. The returned object should allow attachToContext() with a new execution context.
+    //! must also be pre-configured. The returned object must allow attachToContext() with a new execution context.
     //! Cloned plugin objects can share the same per-engine immutable resource (e.g. weights) with the source object
     //! (e.g. via ref-counting) to avoid duplication.
+    //!
+    //! \return A pointer to a cloned plugin object if cloning was successful, otherwise nullptr.
     //!
     //! \usage
     //! - Allowed context for the API call
@@ -589,6 +629,9 @@ protected:
     //! \brief Return the API version with which this plugin was built. The
     //!  upper byte reserved by TensorRT and is used to differentiate this from IPluginV2.
     //!
+    //! \return In the lower three bytes, the TensorRT version in the format 1000 * major + 100 * minor + patch.
+    //!         In the upper byte, the value 1.
+    //!
     //! Do not override this method as it is used by the TensorRT library to maintain backwards-compatibility with
     //! plugins.
     //!
@@ -603,7 +646,10 @@ protected:
     }
 
     //!
-    //! \brief Derived classes should not implement this. In a C++11 API it would be override final.
+    //! \brief Derived classes must not implement this. In a C++11 API it would be override final.
+    //!
+    //! IPluginV2Ext::configureWithFormat() is a NOP operation for all classes derived from IPluginV2Ext.
+    //! These classes call configurePlugin() instead.
     //!
     void configureWithFormat(Dims const* /*inputDims*/, int32_t /*nbInputs*/, Dims const* /*outputDims*/,
         int32_t /*nbOutputs*/, DataType /*type*/, PluginFormat /*format*/, int32_t /*maxBatchSize*/) noexcept override
@@ -651,10 +697,10 @@ public:
     //! Using this numbering, pos is an index into InOut, where 0 <= pos < nbInputs+nbOutputs.
     //!
     //! TensorRT invokes this method to ask if the input/output indexed by pos supports the format/datatype specified
-    //! by inOut[pos].format and inOut[pos].type. The override should return true if that format/datatype at inOut[pos]
+    //! by inOut[pos].format and inOut[pos].type. The override must return true if that format/datatype at inOut[pos]
     //! are supported by the plugin. If support is conditional on other input/output formats/datatypes, the plugin can
     //! make its result conditional on the formats/datatypes in inOut[0..pos-1], which will be set to values
-    //! that the plugin supports. The override should not inspect inOut[pos+1..nbInputs+nbOutputs-1],
+    //! that the plugin supports. The override must not inspect inOut[pos+1..nbInputs+nbOutputs-1],
     //! which will have invalid values.  In other words, the decision for pos must be based on inOut[0..pos] only.
     //!
     //! Some examples:
@@ -840,8 +886,8 @@ public:
     //!
     //! \brief Return the plugin name.
     //!
-    //! \warning The string returned must be 1024 bytes or less including the NULL terminator and must be NULL
-    //! terminated.
+    //! \warning The string returned must be NULL terminated and have a length of 1024 bytes or less including
+    //! the NULL terminator.
     //!
     //! \usage
     //! - Allowed context for the API call
@@ -854,8 +900,8 @@ public:
     //!
     //! \brief Return the plugin version.
     //!
-    //! \warning The string returned must be 1024 bytes or less including the NULL terminator and must be NULL
-    //! terminated.
+    //! \warning The string returned must be NULL terminated and have a length of 1024 bytes or less including
+    //! the NULL terminator.
     //!
     //! \usage
     //! - Allowed context for the API call
@@ -880,6 +926,9 @@ public:
     //!
     //! \brief Return a plugin object. Return nullptr in case of error.
     //!
+    //! \param name A NULL-terminated name string of length 1024 or less, including the NULL terminator.
+    //! \param fc A pointer to a collection of fields needed for constructing the plugin.
+    //!
     //! \usage
     //! - Allowed context for the API call
     //!   - Thread-safe: Yes, this method is required to be thread-safe and may be called from multiple threads
@@ -890,6 +939,12 @@ public:
 
     //!
     //! \brief Called during deserialization of plugin layer. Return a plugin object.
+    //!
+    //! \param name A NULL-terminated name string of length 1024 or less, including the NULL terminator.
+    //! \param serialData The start address of a byte array with the serialized plugin representation.
+    //! \param serialLength The length in bytes of the byte array with the serialized plugin representation.
+    //!
+    //! \return A deserialized plugin object
     //!
     //! \usage
     //! - Allowed context for the API call
@@ -904,6 +959,8 @@ public:
     //! \brief Set the namespace of the plugin creator based on the plugin
     //! library it belongs to. This can be set while registering the plugin creator.
     //!
+    //! \param pluginNamespace A NULL-terminated namespace string of length 1024 or less, including the NULL terminator
+    //!
     //! \see IPluginRegistry::registerCreator()
     //!
     //! \usage
@@ -917,8 +974,8 @@ public:
     //!
     //! \brief Return the namespace of the plugin creator object.
     //!
-    //! \warning The string returned must be 1024 bytes or less including the NULL terminator and must be NULL
-    //! terminated.
+    //! \warning The string returned must be NULL terminated and have a length of 1024 bytes or less including the
+    //! NULL terminator.
     //!
     //! \usage
     //! - Allowed context for the API call

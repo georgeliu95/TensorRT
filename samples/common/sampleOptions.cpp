@@ -449,6 +449,17 @@ bool getShapesInference(Arguments& arguments, InferenceOptions::ShapeProfile& sh
         auto nameDimsPair = splitNameAndValue<std::vector<int32_t>>(s);
         auto tensorName = removeSingleQuotationMarks(nameDimsPair.first);
         auto dims = nameDimsPair.second;
+
+        // TRT-20513 WAR: Currently don't have a way to assign scalar input.
+        // As a result, similar to how the engine parses kBOOL scalars,
+        // we allow for input:0 as a valid input option where 0 denotes a scalar.
+        if (dims.size() == 1 && all_of(dims.begin(), dims.end(), [](int32_t i) { return i == 0; }))
+        {
+            // See how scalars are parsed on engine-side in sampleEngines.cpp.
+            // We force the parsing of inference as 0.
+            dims = {};
+        }
+
         insertShapesInference(shapes, tensorName, dims);
     }
     return retVal;
