@@ -228,9 +228,19 @@ class NNFolderWorkspace:
             self.metadata = self.metadata._replace(variant = self.metadata.variant.split("/")[-1])
         self.metadata_serialized = self.config.get_metadata_string(self.metadata)
 
-        # Separate the onnx with mask or without mask
-        if config.use_mask:
-            self.metadata_serialized += "-with-mask"
+        # NeMo demo configurations may not have use_mask.
+        if hasattr(self.config, "use_mask"):
+            # Separate the onnx with mask or without mask
+            if config.use_mask:
+                self.metadata_serialized += "-with-mask"
+
+        # NeMo demo configurations may not have n_positions.
+        if hasattr(self.config, "n_positions"):
+            # Engines for GPT2 models with n_positions > DEFAULT fail to build
+            # if previously exported ONNX models are found in the workspace.
+            # Hence max sequence length is appended to the workspace name to
+            # prevent onnx file collisions.
+            self.metadata_serialized += f"-maxseq{self.config.n_positions}"
 
         self.variant = self.metadata.variant
 
