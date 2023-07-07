@@ -233,7 +233,7 @@ class NetworkCommand(metaclass=ABCMeta):
         if benchmarking_mode:
             self.checkpoint = None
             # Overwrite some fields for generation
-            self.seq_tag = (input_profile_max_len is None and output_profile_max_len)
+            self.seq_tag = input_profile_max_len is None and output_profile_max_len is None
             self.process_benchmarking_args(
                 input_seq_len=input_seq_len,
                 output_seq_len=output_seq_len,
