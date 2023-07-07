@@ -1180,6 +1180,8 @@ constexpr char const* EXCLUDE_LEAN_RUNTIME = R"trtdoc(Exclude lean runtime from 
 constexpr char const* FP8 = R"trtdoc(Enable FP8 layer selection)trtdoc";
 constexpr char const* ERROR_ON_TIMING_CACHE_MISS
     = R"trtdoc(Emit error when a tactic being timed is not present in the timing cache.)trtdoc";
+constexpr char const* DISABLE_COMPILATION_CACHE
+    = R"trtdoc(Disable caching JIT compilation results during engine build.)trtdoc";
 } // namespace BuilderFlagDoc
 
 namespace MemoryPoolTypeDoc

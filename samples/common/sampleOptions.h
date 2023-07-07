@@ -208,6 +208,7 @@ public:
     bool versionCompatible{false};
     bool nativeInstanceNorm{false};
     bool excludeLeanRuntime{false};
+    bool disableCompilationCache{false};
     int32_t builderOptimizationLevel{defaultBuilderOptimizationLevel};
     SparsityFlag sparsity{SparsityFlag::kDISABLE};
     nvinfer1::ProfilingVerbosity profilingVerbosity{nvinfer1::ProfilingVerbosity::kLAYER_NAMES_ONLY};

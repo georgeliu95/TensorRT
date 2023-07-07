@@ -1061,7 +1061,7 @@ void BuildOptions::parse(Arguments& arguments)
     }
 
     getAndDelOption(arguments, "--excludeLeanRuntime", excludeLeanRuntime);
-
+    getAndDelOption(arguments, "--noCompilationCache", disableCompilationCache);
     getAndDelNegOption(arguments, "--noTF32", tf32);
     getAndDelOption(arguments, "--fp16", fp16);
     getAndDelOption(arguments, "--bf16", bf16);
@@ -1947,6 +1947,7 @@ std::ostream& operator<<(std::ostream& os, const BuildOptions& options)
           "Tactic sources: ";   printTacticSources(os, options.enabledTactics, options.disabledTactics)                 << std::endl <<
           "timingCacheMode: ";  printTimingCache(os, options.timingCacheMode)                                           << std::endl <<
           "timingCacheFile: " << options.timingCacheFile                                                                << std::endl <<
+          "Enable Compilation Cache: "<< boolToEnabled(!options.disableCompilationCache) << std::endl <<
           "errorOnTimingCacheMiss: "  << boolToEnabled(options.errorOnTimingCacheMiss)                                  << std::endl <<
           "Heuristic: "       << boolToEnabled(options.heuristic)                                                       << std::endl <<
           "Preview Features: "; printPreviewFlags(os, options)                                                          << std::endl <<
@@ -2278,6 +2279,7 @@ void BuildOptions::help(std::ostream& os)
           R"(                                                               |"JIT_CONVOLUTIONS")"                                                   "\n"
           "                                     For example, to disable cudnn and enable cublas: --tacticSources=-CUDNN,+CUBLAS"                    "\n"
           "  --noBuilderCache                   Disable timing cache in builder (default is to enable timing cache)"                                "\n"
+          "  --noCompilationCache               Disable Compilation cache in builder, and the cache is part of timing cache (default is to enable compilation cache)"                                                "\n"
           "  --errorOnTimingCacheMiss           Emit error when a tactic being timed is not present in the timing cache (default = false)"          "\n"
           "  --heuristic                        Enable tactic selection heuristic in builder (default is to disable the heuristic)"                 "\n"
           "  --timingCacheFile=<file>           Save/load the serialized global timing cache"                                                       "\n"
