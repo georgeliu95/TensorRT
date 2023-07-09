@@ -1,5 +1,16 @@
 # TensorRT OSS Release Changelog
 
+## [8.6.1 GA](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/#rel-8-6-1) - 2023-05-02
+
+TensorRT OSS release corresponding to TensorRT 8.6.1.6 GA release.
+- Updates since [TensorRT 8.6.0 EA release](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/#rel-8-6-0-EA).
+- Please refer to the [TensorRT 8.6.1.6 GA release notes](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/#rel-8-6-1) for more information.
+
+Key Features and Updates:
+
+- Added a new flag `--use-cuda-graph` to demoDiffusion to improve performance.
+- Optimized GPT2 and T5 HuggingFace demos to use fp16 I/O tensors for fp16 networks.
+
 ## [8.6.0 EA](https://docs.nvidia.com/deeplearning/tensorrt/release-notes/#rel-8-6-0-EA) - 2023-03-10
 
 TensorRT OSS release corresponding to TensorRT 8.6.0.12 EA release.
