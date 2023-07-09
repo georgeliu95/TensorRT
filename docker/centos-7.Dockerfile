@@ -47,19 +47,26 @@ RUN yum -y install \
 # Install python3
 RUN yum install -y python36 python3-devel
 
+# yum needs to use python2
+RUN sed -i "1s/python/python2/" /usr/bin/yum
+
 # Install TensorRT
 RUN if [ "${CUDA_VERSION}" = "10.2" ] ; then \
     v="${TRT_VERSION%.*}-1.cuda${CUDA_VERSION}" &&\
     yum-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel7/x86_64/cuda-rhel7.repo &&\
     yum -y install libnvinfer8-${v} libnvparsers8-${v} libnvonnxparsers8-${v} libnvinfer-plugin8-${v} \
         libnvinfer-devel-${v} libnvparsers-devel-${v} libnvonnxparsers-devel-${v} libnvinfer-plugin-devel-${v} \
-        python3-libnvinfer-${v}; \
+        python3-libnvinfer-=${v} libnvinfer-dispatch8-=${v} libnvinfer-dispatch-devel-=${v} libnvinfer-lean8-=${v} \
+        libnvinfer-lean-devel-=${v} libnvinfer-vc-plugin8-=${v} libnvinfer-vc-plugin-devel-=${v} \
+        libnvinfer-headers-devel-=${v} libnvinfer-headers-plugin-devel-=${v}; \
 else \
     v="${TRT_VERSION}-1.cuda${CUDA_VERSION%.*}" &&\
     yum-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel7/x86_64/cuda-rhel7.repo &&\
     yum -y install libnvinfer8-${v} libnvparsers8-${v} libnvonnxparsers8-${v} libnvinfer-plugin8-${v} \
         libnvinfer-devel-${v} libnvparsers-devel-${v} libnvonnxparsers-devel-${v} libnvinfer-plugin-devel-${v} \
-        python3-libnvinfer-${v}; \
+        python3-libnvinfer-=${v} libnvinfer-dispatch8-=${v} libnvinfer-dispatch-devel-=${v} libnvinfer-lean8-=${v} \
+        libnvinfer-lean-devel-=${v} libnvinfer-vc-plugin8-=${v} libnvinfer-vc-plugin-devel-=${v} \
+        libnvinfer-headers-devel-=${v} libnvinfer-headers-plugin-devel-=${v}; \
 fi
 
 # Install dev-toolset-8 for g++ version that supports c++14
