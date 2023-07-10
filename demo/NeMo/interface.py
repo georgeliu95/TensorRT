@@ -192,6 +192,8 @@ class NeMoCommand(NetworkCommand):
         input_seq_len: int = None,
         output_seq_len: int = None,
         nemo_model: str = None,
+        nemo_checkpoint: str = None,
+        nemo_hparams: str = None,
         onnx_model: str = None,
         **kwargs,
     ) -> None:
@@ -239,28 +241,36 @@ class NeMoCommand(NetworkCommand):
         if self.nemo_cfg.model.max_seq_len < (self.nemo_cfg.benchmark.input_seq_len + self.nemo_cfg.benchmark.output_seq_len):
             raise ValueError(f"Max sequence length of the model needs to be greater than or equal to the sum of input sequence length and output sequence length. Got {self.nemo_cfg.model.max_seq_len} < {self.nemo_cfg.benchmark.input_seq_len} + {self.nemo_cfg.benchmark.output_seq_len}.")
 
-        # Get NeMo model path
-        assert variant in GPT3CONFIG_MAPPINGS
-        model_config = GPT3CONFIG_MAPPINGS[variant]
-        if self.fp8 == True:
-            self.nemo_cfg.gpt_model_file = model_config.fp8_path
-            self.nemo_cfg.trt_export_options.use_fp8 = True
-        elif self.fp16 == True:
-            self.nemo_cfg.gpt_model_file = model_config.fp16_path
-            self.nemo_cfg.trt_export_options.use_fp16 = True
-        elif self.bf16 == True:
-            self.nemo_cfg.gpt_model_file = model_config.bf16_path
-            self.nemo_cfg.trt_export_options.use_bf16 = True
-        else:
-            raise ValueError("A precision needs to be set to retrieve a model.")
-
-        if nemo_model and onnx_model:
+        if (nemo_model or nemo_checkpoint) and onnx_model:
             raise RuntimeError(
                 "Both nemo-model and onnx-model cannot be specified together. Please specify either nemo-model or onnx-model."
             )
 
-        if nemo_model != None:
-            self.nemo_cfg.gpt_model_file = nemo_model
+        model_config = GPT3CONFIG_MAPPINGS[variant]
+
+        if nemo_checkpoint != None:
+            # Set NeMo checkpoint configs
+            self.nemo_cfg.checkpoint_dir = os.path.dirname(nemo_checkpoint)
+            self.nemo_cfg.checkpoint_name = os.path.basename(nemo_checkpoint)
+            self.nemo_cfg.hparams_file = nemo_hparams
+        else:
+            # Get NeMo model path
+            assert variant in GPT3CONFIG_MAPPINGS
+            if self.fp8 == True:
+                self.nemo_cfg.gpt_model_file = model_config.fp8_path
+                self.nemo_cfg.trt_export_options.use_fp8 = True
+            elif self.fp16 == True:
+                self.nemo_cfg.gpt_model_file = model_config.fp16_path
+                self.nemo_cfg.trt_export_options.use_fp16 = True
+            elif self.bf16 == True:
+                self.nemo_cfg.gpt_model_file = model_config.bf16_path
+                self.nemo_cfg.trt_export_options.use_bf16 = True
+            else:
+                raise ValueError("A precision needs to be set to retrieve a model.")
+
+            if nemo_model != None:
+                self.nemo_cfg.gpt_model_file = nemo_model
+
         if onnx_model:
             G_LOGGER.info(f"Using onnx model {onnx_model} for inference.")
             if os.path.exists(onnx_model):
@@ -271,8 +281,8 @@ class NeMoCommand(NetworkCommand):
         self.nemo_cfg.batch_size = batch_size
         self.nemo_cfg.use_cache = use_cache
 
-        if self.nemo_cfg.gpt_model_file == None:
-            G_LOGGER.error("No model exists based on specified precisions.")
+        if self.nemo_cfg.gpt_model_file == None and self.nemo_cfg.checkpoint_dir == None:
+            G_LOGGER.error("No model exists based on specified configs and precisions.")
             raise ValueError("Model not found.")
 
         self.update_hyperparams(model_config)
@@ -479,6 +489,18 @@ class NeMoCommand(NetworkCommand):
         model_config_group.add_argument(
             "--nemo-model",
             help="Set a NeMo model to be used.",
+            type=str,
+            default=None
+        )
+        model_config_group.add_argument(
+            "--nemo-checkpoint",
+            help="Set a NeMo checkpoint to be used.",
+            type=str,
+            default=None
+        )
+        model_config_group.add_argument(
+            "--nemo-hparams",
+            help="Set a NeMo hparams.yaml to be used.",
             type=str,
             default=None
         )
