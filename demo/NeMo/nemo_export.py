@@ -25,7 +25,6 @@ import numpy as np
 
 # nemo
 from nemo.core import ModelPT
-from nemo.core.config import hydra_runner
 from nemo.core.classes import Exportable
 from nemo.core.neural_types import ChannelType, NeuralType
 from nemo.utils.export_utils import augment_filename

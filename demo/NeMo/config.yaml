@@ -2,6 +2,12 @@ runtime: null
 gpt_model_file: null # GPT nemo file path
 onnx_model_file: null # ONNX file path
 trt_engine_file: null # TRT engine file path
+
+# Parameters for loading from a checkpoint
+checkpoint_dir: null # Path to a folder that contains a .ckpt file
+checkpoint_name: null # Name of the .ckpt file within the checkpoint_dir.
+hparams_file: null # Path to a .yaml file that contains the hyperparameters of the checkpoint.
+
 batch_size: 1
 use_cache: True
 use_one_input: False # export ONNX model with only one input

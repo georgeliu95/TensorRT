@@ -24,6 +24,9 @@ from nemo.utils.nemo_logging import Logger as NG_LOGGER
 nemo_logger = NG_LOGGER(False)
 nemo_logger.setLevel(nemo_logger.ERROR)
 
+from nemo.utils.app_state import AppState
+from nemo.utils.model_utils import inject_model_parallel_rank
+from nemo.collections.nlp.modules.common.megatron.megatron_init import fake_initialize_model_parallel
 from nemo.collections.nlp.models.language_modeling.megatron_gpt_model import MegatronGPTModel
 from nemo.collections.nlp.parts.nlp_overrides import NLPDDPStrategy, NLPSaveRestoreConnector
 from omegaconf import OmegaConf, open_dict
@@ -74,36 +77,67 @@ def get_computeprob_response(tokenizer, response, inputs):
 
 
 def load_nemo_model(cfg, model_class=MegatronGPTModel):
-    if not cfg.gpt_model_file:
-        raise ValueError("Need to provide a nemo gpt model through config gpt_model_file.")
-
     # Trainer is required for restoring model parallel models
     trainer = Trainer(strategy=NLPDDPStrategy(), **cfg.trainer)
 
-    save_restore_connector = NLPSaveRestoreConnector()
-    if os.path.isdir(cfg.gpt_model_file):
-        save_restore_connector.model_extracted_dir = cfg.gpt_model_file
+    if cfg.gpt_model_file and cfg.checkpoint_dir:
+        raise ValueError(f"NeMo model and checkpoint cannot be both set.")
 
-    pretrained_cfg = MegatronGPTModel.restore_from(
-        restore_path=cfg.gpt_model_file,
-        trainer=trainer,
-        return_config=True,
-        save_restore_connector=save_restore_connector,
-    )
-    OmegaConf.set_struct(pretrained_cfg, True)
-    with open_dict(pretrained_cfg):
-        pretrained_cfg.sequence_parallel = False
-        pretrained_cfg.activations_checkpoint_granularity = None
-        pretrained_cfg.activations_checkpoint_method = None
-        pretrained_cfg.precision = trainer.precision
-        if trainer.precision == "16":
-            pretrained_cfg.megatron_amp_O2 = False
-    model = model_class.restore_from(
-        restore_path=cfg.gpt_model_file,
-        trainer=trainer,
-        override_config_path=pretrained_cfg,
-        save_restore_connector=save_restore_connector,
-    )
+    if cfg.gpt_model_file:
+        save_restore_connector = NLPSaveRestoreConnector()
+        if os.path.isdir(cfg.gpt_model_file):
+            save_restore_connector.model_extracted_dir = cfg.gpt_model_file
+
+        pretrained_cfg = MegatronGPTModel.restore_from(
+            restore_path=cfg.gpt_model_file,
+            trainer=trainer,
+            return_config=True,
+            save_restore_connector=save_restore_connector,
+        )
+        OmegaConf.set_struct(pretrained_cfg, True)
+        with open_dict(pretrained_cfg):
+            pretrained_cfg.sequence_parallel = False
+            pretrained_cfg.activations_checkpoint_granularity = None
+            pretrained_cfg.activations_checkpoint_method = None
+            pretrained_cfg.precision = trainer.precision
+            if trainer.precision == "16":
+                pretrained_cfg.megatron_amp_O2 = False
+        model = model_class.restore_from(
+            restore_path=cfg.gpt_model_file,
+            trainer=trainer,
+            override_config_path=pretrained_cfg,
+            save_restore_connector=save_restore_connector,
+        )
+        G_LOGGER.info(f"{type(model)} has been successfully restored from {cfg.gpt_model_file}")
+    elif cfg.checkpoint_dir:
+        checkpoint_file= os.path.join(cfg.checkpoint_dir, cfg.checkpoint_name)
+        if not os.path.exists(checkpoint_file):
+            raise ValueError(f"File {checkpoint_file} does not exist.")
+
+        app_state = AppState()
+        if cfg.tensor_model_parallel_size > 1 or cfg.pipeline_model_parallel_size > 1:
+            app_state.model_parallel_size = cfg.tensor_model_parallel_size * cfg.pipeline_model_parallel_size
+            app_state.tensor_model_parallel_size = cfg.tensor_model_parallel_size
+            app_state.pipeline_model_parallel_size = cfg.pipeline_model_parallel_size
+            (
+                app_state.tensor_model_parallel_rank,
+                app_state.pipeline_model_parallel_rank,
+                app_state.model_parallel_size,
+                app_state.data_parallel_size,
+                app_state.pipeline_model_parallel_split_rank,
+                app_state.virtual_pipeline_model_parallel_rank,
+            ) = fake_initialize_model_parallel(
+                world_size=app_state.model_parallel_size,
+                rank=trainer.global_rank,
+                tensor_model_parallel_size_=cfg.tensor_model_parallel_size,
+                pipeline_model_parallel_size_=cfg.pipeline_model_parallel_size,
+                pipeline_model_parallel_split_rank_=cfg.pipeline_model_parallel_split_rank,
+            )
+        checkpoint_path = inject_model_parallel_rank(checkpoint_file)
+        model = model_class.load_from_checkpoint(checkpoint_path, hparams_file=cfg.hparams_file, trainer=trainer)
+        G_LOGGER.info(f"{type(model)} has been successfully restored from checkpoint {checkpoint_path}")
+    else:
+        raise ValueError("Need to provide a nemo gpt model through config file.")
 
     model.freeze()
 
@@ -114,7 +148,6 @@ def load_nemo_model(cfg, model_class=MegatronGPTModel):
         pass
 
     model.eval()
-    G_LOGGER.info(f"{type(model)} has been successfully restored from {cfg.gpt_model_file}")
     G_LOGGER.debug(f"Model configuration: {model.cfg}")
     G_LOGGER.debug(f"Vocabulary size: {model.tokenizer.vocab_size}")
     return model.cuda()

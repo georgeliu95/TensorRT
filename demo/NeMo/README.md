@@ -65,6 +65,8 @@ Batch 1: {'sentences': ['Tell me an interesting fact about TensorRT.\n\nTensorRT
   3. FP8-FP16: `--fp8 --fp16`
   4. FP8-BF16: `--fp8 --bf16`
 
+- `--nemo-model=<model.nemo>` or `--nemo-checkpoint=<model.ckpt>` can be used to load a NeMo model or checkpoint from a specified path, respectively.
+
 - K-V cache can be enabled through `--use-cache`
 
 - Batch size can be changed through `--batch-size=<bs>`
