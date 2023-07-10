@@ -1,4 +1,4 @@
-Pillow
+Pillow==9.5.0
 pycuda<2021.1; python_version<"3.7"
 pycuda; python_version>="3.7"
 cuda-python

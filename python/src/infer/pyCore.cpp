@@ -1218,7 +1218,9 @@ void bindCore(py::module& m)
         .value("EXCLUDE_LEAN_RUNTIME", BuilderFlag::kEXCLUDE_LEAN_RUNTIME, BuilderFlagDoc::EXCLUDE_LEAN_RUNTIME)
         .value("FP8", BuilderFlag::kFP8, BuilderFlagDoc::FP8)
         .value("ERROR_ON_TIMING_CACHE_MISS", BuilderFlag::kERROR_ON_TIMING_CACHE_MISS,
-            BuilderFlagDoc::ERROR_ON_TIMING_CACHE_MISS);
+            BuilderFlagDoc::ERROR_ON_TIMING_CACHE_MISS)
+        .value("DISABLE_COMPILATION_CACHE", BuilderFlag::kDISABLE_COMPILATION_CACHE,
+            BuilderFlagDoc::DISABLE_COMPILATION_CACHE);
 
     py::enum_<MemoryPoolType>(m, "MemoryPoolType", MemoryPoolTypeDoc::descr, py::module_local())
         .value("WORKSPACE", MemoryPoolType::kWORKSPACE, MemoryPoolTypeDoc::WORKSPACE)

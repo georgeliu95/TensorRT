@@ -9121,6 +9121,12 @@ enum class BuilderFlag : int32_t
     //! Enable DataType::kBF16 layer selection, with FP32 fallback.
     //! This flag is only supported by NVIDIA Ampere and later GPUs.
     kBF16 = 19,
+
+    //! Disable caching of JIT-compilation results during engine build.
+    //! By default, JIT-compiled code will be serialized as part of the timing cache, which may significantly increase
+    //! the cache size. Setting this flag prevents the code from being serialized. This flag has an effect only when
+    //! BuilderFlag::DISABLE_TIMING_CACHE is not set.
+    kDISABLE_COMPILATION_CACHE = 20,
 };
 
 //!
@@ -9131,7 +9137,7 @@ enum class BuilderFlag : int32_t
 template <>
 constexpr inline int32_t EnumMax<BuilderFlag>() noexcept
 {
-    return 20;
+    return 21;
 }
 
 //!

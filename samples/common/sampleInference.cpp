@@ -239,6 +239,10 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
                 sample::gLogError << "Unable to create execution context for stream " << s << "." << std::endl;
                 return false;
             }
+
+            sample::gLogInfo << "Created safe execution context with device memory size: "
+                             << (safeEngine->getDeviceMemorySize() / 1.0_MiB) << " MiB" << std::endl;
+
             iEnv.safeContexts.emplace_back(ec);
             iEnv.bindings.emplace_back(new Bindings(useManagedMemory));
         }
@@ -314,6 +318,9 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
             }
             return false;
         }
+
+        sample::gLogInfo << "Created execution context with device memory size: "
+                         << (engine->getDeviceMemorySize() / 1.0_MiB) << " MiB" << std::endl;
 
         iEnv.contexts.emplace_back(ec);
         iEnv.bindings.emplace_back(new Bindings(useManagedMemory));

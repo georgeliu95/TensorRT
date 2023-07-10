@@ -891,6 +891,11 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
         config.setFlag(BuilderFlag::kDISABLE_TIMING_CACHE);
     }
 
+    if (build.disableCompilationCache)
+    {
+        config.setFlag(BuilderFlag::kDISABLE_COMPILATION_CACHE);
+    }
+
     if (build.errorOnTimingCacheMiss)
     {
         config.setFlag(BuilderFlag::kERROR_ON_TIMING_CACHE_MISS);
@@ -1193,6 +1198,8 @@ bool networkToSerializedEngine(
     std::unique_ptr<IHostMemory> serializedEngine{builder.buildSerializedNetwork(*env.network, *config)};
     SMP_RETVAL_IF_FALSE(serializedEngine != nullptr, "Engine could not be created from network", false, err);
 
+    sample::gLogInfo << "Created engine with size: " << (serializedEngine->size() / 1.0_MiB) << " MiB" << std::endl;
+
     if (build.safe && build.consistency)
     {
         checkSafeEngine(serializedEngine->data(), serializedEngine->size());
@@ -1321,6 +1328,8 @@ bool loadEngineToBuildEnv(std::string const& engine, bool enableConsistency, Bui
     std::vector<uint8_t> engineBlob(fsize);
     engineFile.read(reinterpret_cast<char*>(engineBlob.data()), fsize);
     SMP_RETVAL_IF_FALSE(engineFile.good(), "", false, err << "Error loading engine file: " << engine);
+
+    sample::gLogInfo << "Loaded engine with size: " << (fsize / 1.0_MiB) << " MiB" << std::endl;
 
     if (enableConsistency)
     {
