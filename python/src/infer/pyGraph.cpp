@@ -370,6 +370,10 @@ namespace tensorrt
             .def("add_instance_id", &nvinfer1AddInstanceID, "id"_a, ITensorDoc::add_instance_id)
             .def("has_instance_id", &nvinfer1HasInstanceID, "id"_a, ITensorDoc::has_instance_id)
             .def("del_instance_id", &nvinfer1DelInstanceID, "id"_a, ITensorDoc::del_instance_id)
+            .def_property("tile_pattern", &nvinfer1SetTilingPattern, &nvinfer1GetTilingPattern)
+            .def_property_readonly("num_tiles", &nvinfer1GetNbTiles)
+            .def("set_tile_assignment", &nvinfer1SetTilingAssignment, "tile"_a, "instance"_a, ITensorDoc::set_tiling_assignment)
+            .def("get_tile_assignment", &nvinfer1GetTilingAssignment, "tile"_a, ITensorDoc::get_tiling_assignment)
 #endif // ENABLE_MDTRT
         ;
 

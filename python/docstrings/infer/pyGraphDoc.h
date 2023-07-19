@@ -236,6 +236,18 @@ constexpr char const* del_instance_id = R"trtdoc(
     :arg id: the instance id to remove from the tensor.
     :returns: true if the id was removed from the tensor, false otherwise.
 )trtdoc";
+constexpr char const* get_tiling_assignment = R"trtdoc(
+    Get the instance associated with the tile.
+
+    :arg tile: The tile to get the instance mapping of.
+    :returns: The instance associated with the tile or -1 for unassigned.
+)trtdoc";
+constexpr char const* set_tiling_assignment = R"trtdoc(
+    set the instance id associated with the tile.
+
+    :arg tile: The tile to set the instance mapping of.
+    :arg instance: The instance to assign to the tile.
+)trtdoc";
 #endif // ENABLE_MDTRT
 constexpr const char* set_dynamic_range = R"trtdoc(
     Set dynamic range for the tensor.
