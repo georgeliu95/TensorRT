@@ -35,7 +35,7 @@ endfunction()
 # -------- CMAKE OPTIONS --------
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${TENSORRT_MODULE}/)
-set(CPP_STANDARD 11 CACHE STRING "CPP Standard Version")
+set(CPP_STANDARD 14 CACHE STRING "CPP Standard Version")
 set(CMAKE_CXX_STANDARD ${CPP_STANDARD})
 
 if (NOT MSVC)
@@ -45,7 +45,7 @@ endif()
 
 # -------- PATHS --------
 message(STATUS "EXT_PATH: ${EXT_PATH}")
-message(STATUS "TENSORRT_BUILD: ${TENSORRT_BUILD}")
+message(STATUS "TENSORRT_LIBPATH: ${TENSORRT_LIBPATH}")
 message(STATUS "CMAKE_BINARY_DIR: ${CMAKE_BINARY_DIR}")
 message(STATUS "CUDA_ROOT: ${CUDA_ROOT}")
 message(STATUS "CUDA_INCLUDE_DIRS: ${CUDA_INCLUDE_DIRS}")
@@ -111,7 +111,7 @@ message(STATUS "PY_CONFIG_INCLUDE: ${PY_CONFIG_INCLUDE}")
 # -------- GLOBAL COMPILE OPTIONS --------
 
 include_directories(${TENSORRT_ROOT}/include ${PROJECT_SOURCE_DIR}/include ${CUDA_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/docstrings ${ONNX_INC_DIR} ${PYBIND11_DIR})
-link_directories(${TENSORRT_BUILD})
+link_directories(${TENSORRT_LIBPATH})
 
 if (MSVC)
     message(STATUS "include_dirs: ${MSVC_COMPILER_DIR}/include ${MSVC_COMPILER_DIR}/../ucrt/include ${NV_WDKSDK_INC}/um ${NV_WDKSDK_INC}/shared")
