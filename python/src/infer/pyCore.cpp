@@ -1348,7 +1348,8 @@ void bindCore(py::module& m)
             IBuilderConfigDoc::set_tactic_sources)
         .def("get_tactic_sources", &IBuilderConfig::getTacticSources, IBuilderConfigDoc::get_tactic_sources)
         .def("create_timing_cache", lambdas::netconfig_create_timing_cache, "serialized_timing_cache"_a,
-            IBuilderConfigDoc::create_timing_cache, py::call_guard<py::gil_scoped_release>{})
+            IBuilderConfigDoc::create_timing_cache, py::call_guard<py::gil_scoped_release>{},
+            py::return_value_policy::reference)
         .def("set_timing_cache", &IBuilderConfig::setTimingCache, "cache"_a, "ignore_mismatch"_a,
             IBuilderConfigDoc::set_timing_cache, py::keep_alive<1, 2>{})
         .def("get_timing_cache", &IBuilderConfig::getTimingCache, IBuilderConfigDoc::get_timing_cache)
@@ -1376,8 +1377,8 @@ void bindCore(py::module& m)
             IBuilderConfigDoc::get_num_instance_groups)
         .def("get_instance_group", &nvinfer1GetInstanceGroup, "instance"_a, "num"_a,
             IBuilderConfigDoc::get_instance_group)
-#endif // ENABLE_MDTRT
-        .def("__del__", &utils::doNothingDel<IBuilderConfig>);
+#endif  // ENABLE_MDTRT
+                .def("__del__", &utils::doNothingDel<IBuilderConfig>);
 
     py::enum_<NetworkDefinitionCreationFlag>(m, "NetworkDefinitionCreationFlag", py::arithmetic{},
         NetworkDefinitionCreationFlagDoc::descr, py::module_local())

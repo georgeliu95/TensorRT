@@ -84,6 +84,9 @@ enum class PluginVersion : uint8_t
     kV2_DYNAMICEXT_PYTHON = kPLUGIN_VERSION_PYTHON_BIT | 3
 };
 
+//!
+//! \brief Enum to identify version of the plugin creator.
+//!
 enum class PluginCreatorVersion : int32_t
 {
     //! IPluginCreator

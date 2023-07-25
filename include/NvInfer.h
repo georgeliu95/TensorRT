@@ -634,9 +634,9 @@ public:
     }
 
     //!
-    //! \brief Set the computational precision of this layer
+    //! \brief Set the preferred or required computational precision of this layer in a weakly-typed network.
     //!
-    //! Setting the precision allows TensorRT to choose an implementation which run at this computational precision.
+    //! Setting the precision directs TensorRT to choose an implementation that runs at this computational precision.
     //! TensorRT could still choose a non-conforming fastest implementation that ignores the requested precision.
     //! To force choosing an implementation with the requested precision, set exactly one of the following flags,
     //! which differ in what happens if no such implementation exists:
@@ -651,6 +651,10 @@ public:
     //!
     //! For a IIdentityLayer: If it casts to/from float/half/int8/uint8, the precision must be one of those types,
     //! otherwise it must be either the input or output type.
+    //!
+    //! Strongly-typed networks reject calls to method setPrecision. In strongly-typed networks, the computation
+    //! precision is typically controlled by casting the input tensors to the desired type. The exception is
+    //! INormalizationLayer, which has a method setComputePrecision().
     //!
     //! \param dataType the computational precision.
     //!
@@ -696,12 +700,13 @@ public:
     }
 
     //!
-    //! \brief Set the output type of this layer
+    //! \brief Set the output type of this layer in a weakly-typed network.
     //!
     //! Setting the output type constrains TensorRT to choose implementations which generate output data with the
     //! given type. If it is not set, TensorRT will select output type based on layer computational precision. TensorRT
     //! could still choose non-conforming output type based on fastest implementation. To force choosing the requested
-    //! output type, set exactly one of the following flags, which differ in what happens if no such implementation exists:
+    //! output type, set exactly one of the following flags, which differ in what happens if no such implementation
+    //! exists:
     //!
     //! * BuilderFlag::kOBEY_PRECISION_CONSTRAINTS - build fails with an error message.
     //!
@@ -722,6 +727,14 @@ public:
     //! layer->getOutput(i)->setType(type) to change the tensor data type. This is particularly relevant if the tensor
     //! is marked as a network output, since only setType() [but not setOutputType()] will affect the data
     //! representation in the corresponding output binding.
+    //!
+    //! Strongly-typed networks reject calls to method setOutputType. Instead, the output type can be set
+    //! only for layers that define method setToType(). Those layers are:
+    //!
+    //! * ICastLayer
+    //! * IDequantizeLayer
+    //! * IFillLayer
+    //! * IQuantizeLayer
     //!
     //! \param index the index of the output to set
     //! \param dataType the type of the output
@@ -5501,7 +5514,6 @@ protected:
     apiv::VIfConditional* mImpl;
 };
 
-
 class IRecurrenceLayer : public ILoopBoundaryLayer
 {
 public:
@@ -6092,9 +6104,10 @@ public:
     //!
     //! Set the output type of the fill layer. Valid values are DataType::kFLOAT, DataType::kINT32,
     //! and DataType::kINT64.
-    //! This is equivalent to using setOutputType on the layer outside of strongly typed mode.
-    //! In strongly typed mode, setOutputType cannot be used and setToType must be used instead.
-    //! The value toType must be consistent with the value set by any prior and subsequent setOutputType calls.
+    //! If the network is strongly typed, setToType must be used to set the output type, and use of setOutputType
+    //! is an error. Otherwise, types passed to setOutputType and setToType must be the same.
+    //!
+    //! \see NetworkDefinitionCreationFlag::kSTRONGLY_TYPED
     //!
     void setToType(DataType toType) noexcept
     {
@@ -6173,6 +6186,8 @@ protected:
 //! 1. Constant -> Quantize
 //! 2. Constant -> Cast -> Quantize
 //!
+//! \note The input tensor for this layer must not be a scalar.
+//!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
 class IQuantizeLayer : public ILayer
@@ -6208,9 +6223,10 @@ public:
     //! \param toType The DataType of the output tensor.
     //!
     //! Set the output type of the quantize layer. Valid values are DataType::kINT8 and DataType::kFP8.
-    //! This is equivalent to using setOutputType on the layer outside of strongly typed mode.
-    //! In strongly typed mode, setOutputType cannot be used and users must use setToType instead.
-    //! The value toType must be consistent with the value set by any prior setOutputType calls.
+    //! If the network is strongly typed, setToType must be used to set the output type, and use of setOutputType
+    //! is an error. Otherwise, types passed to setOutputType and setToType must be the same.
+    //!
+    //! \see NetworkDefinitionCreationFlag::kSTRONGLY_TYPED
     //!
     void setToType(DataType toType) noexcept
     {
@@ -6218,7 +6234,7 @@ public:
     }
 
     //!
-    //! \brief Get the Quantize layer output type.
+    //! \brief Return the Quantize layer output type.
     //!
     //! \return toType parameter set during layer creation or by setToType().
     //! The return value is the output type of the quantize layer.
@@ -6286,6 +6302,8 @@ protected:
 //! 1. Constant -> Quantize
 //! 2. Constant -> Cast -> Quantize
 //!
+//! \note The input tensor for this layer must not be a scalar.
+//!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
 class IDequantizeLayer : public ILayer
@@ -6321,9 +6339,10 @@ public:
     //! \param toType The DataType of the output tensor.
     //!
     //! Set the output type of the dequantize layer. Valid values are DataType::kFLOAT and DataType::kHALF.
-    //! This is equivalent to using setOutputType on the layer outside of strongly typed mode.
-    //! In strongly typed mode, setOutputType cannot be used and users must use setToType instead.
-    //! The value toType must be consistent with the value set by any prior setOutputType calls.
+    //! If the network is strongly typed, setToType must be used to set the output type, and use of setOutputType
+    //! is an error. Otherwise, types passed to setOutputType and setToType must be the same.
+    //!
+    //! \see NetworkDefinitionCreationFlag::kSTRONGLY_TYPED
     //!
     void setToType(DataType toType) noexcept
     {
@@ -6331,7 +6350,7 @@ public:
     }
 
     //!
-    //! \brief Return Dequantize layer output type.
+    //! \brief Return the Dequantize layer output type.
     //!
     //! \return toType parameter set during layer creation or by setToType().
     //! The return value is the output type of the quantize layer.
@@ -6976,12 +6995,18 @@ public:
     //!
     //! \param type The datatype used for the compute precision of this layer.
     //!
-    //! By default TensorRT will run the normalization computation in DataType::kFLOAT32 even in mixed precision
-    //! mode regardless of any set builder flags to avoid overflow errors. To override this default,
-    //! use this function to set the desired compute precision.
+    //! By default, to avoid overflow errors, TensorRT will run the normalization computation in DataType::kFLOAT32
+    //! even in mixed precision mode regardless of builder flags. To override this default, use this method
+    //! to set the desired compute precision.
     //!
-    //! setPrecision() and setOutputPrecision() functions can still be called to control the input and output data types
-    //! to this layer.
+    //! For a weakly typed network:
+    //!
+    //! * Method setOutputType() can still be called to control the output data type.
+    //!
+    //! * Method setPrecision() can still be called. The input data is cast to that precision before
+    //!   being cast to the compute precision.
+    //!
+    //! Neither of these two methods are allowed for a strongly typed network.
     //!
     //! Only DataType::kFLOAT32 and DataType::kHALF are valid types for \p type.
     //!
@@ -8478,8 +8503,7 @@ public:
     //!
     //! \return The new normalization layer, or nullptr if it could not be created.
     //!
-    INormalizationLayer* addNormalization(
-        ITensor& input, ITensor& scale, ITensor& bias, uint32_t axesMask) noexcept
+    INormalizationLayer* addNormalization(ITensor& input, ITensor& scale, ITensor& bias, uint32_t axesMask) noexcept
     {
         return mImpl->addNormalization(input, scale, bias, axesMask);
     }
