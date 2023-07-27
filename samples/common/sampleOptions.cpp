@@ -1075,8 +1075,7 @@ void BuildOptions::parse(Arguments& arguments)
             {
                 flag = false;
                 sample::gLogWarning << "Invalid usage, setting " << mode
-                                    << " mode is not allowed when strongly typed mode is "
-                                       "enabled. Disabling BuilderFlag::"
+                                    << " mode is not allowed if graph is strongly typed. Disabling BuilderFlag::"
                                     << type << "." << std::endl;
             }
         };
@@ -1352,6 +1351,20 @@ void BuildOptions::parse(Arguments& arguments)
             throw std::invalid_argument(std::string("Unknown preview feature: ") + featureName);
         }
         previewFeatures[static_cast<int32_t>(feat)] = enable;
+    }
+
+    bool const fasterDynamicShapesEnabled{
+        previewFeatures[static_cast<int32_t>(PreviewFeature::kFASTER_DYNAMIC_SHAPES_0805)]};
+    if (best && !fasterDynamicShapesEnabled)
+    {
+        sample::gLogWarning
+            << "--best specified with fasterDynamicShapes0805 flag disabled; implicitly disabling bf16 support."
+            << std::endl;
+        bf16 = false;
+    }
+    else if (bf16 && !fasterDynamicShapesEnabled)
+    {
+        throw std::invalid_argument("--bf16 flag requires fasterDynamicShapes0805 flag to be enabled.");
     }
 
     getAndDelOption(arguments, "--tempdir", tempdir);
@@ -1929,7 +1942,8 @@ std::ostream& operator<<(std::ostream& os, const BuildOptions& options)
           "Calibration: "    << (options.int8 && options.calibration.empty() ? "Dynamic" : options.calibration.c_str()) << std::endl <<
           "Refit: "          << boolToEnabled(options.refittable)                                                       << std::endl <<
           "Version Compatible: " << boolToEnabled(options.versionCompatible)                                            << std::endl <<
-          "ONNX Native InstanceNorm: " << boolToEnabled(options.nativeInstanceNorm)                                     << std::endl <<
+          "ONNX Native InstanceNorm: " << boolToEnabled(options.nativeInstanceNorm || options.versionCompatible
+                || options.hardwareCompatibilityLevel != HardwareCompatibilityLevel::kNONE)                             << std::endl <<
           "TensorRT runtime: " << options.useRuntime                                                                    << std::endl <<
           "Lean DLL Path: " << options.leanDLLPath                                                                      << std::endl <<
           "Tempfile Controls: "; printTempfileControls(os, options.tempfileControls)                                    << std::endl <<
@@ -2226,7 +2240,7 @@ void BuildOptions::help(std::ostream& os)
           "  --int8                             Enable int8 precision, in addition to fp32 (default = disabled)"                                    "\n"
           "  --fp8                              Enable fp8 precision, in addition to fp32 (default = disabled)"                                     "\n"
           "  --best                             Enable all precisions to achieve the best performance (default = disabled)"                         "\n"
-          "  --stronglyTyped                    Create network with strongly typed mode (default = disabled)"                                       "\n"
+          "  --stronglyTyped                    Create a strongly typed network. (default = disabled)"                                              "\n"
           "  --directIO                         Avoid reformatting at network boundaries. (default = disabled)"                                     "\n"
           "  --precisionConstraints=spec        Control precision constraint setting. (default = none)"                                             "\n"
           R"(                                       Precision Constraints: spec ::= "none" | "obey" | "prefer")"                                    "\n"

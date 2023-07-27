@@ -22,15 +22,18 @@ import warnings
 
 
 # For standalone wheels, attempt to import the wheel containing the libraries.
+libs_wheel_imported = False
 try:
     import ##TENSORRT_MODULE##_libs
 except (ImportError, ModuleNotFoundError):
     pass
+else:
+    libs_wheel_imported = True
 
 
-if sys.platform.startswith("win"):
+if not libs_wheel_imported and sys.platform.startswith("win"):
     # On Windows, we need to manually open the TensorRT libraries - otherwise we are unable to
-    # load the bindings.
+    # load the bindings. If we imported the tensorrt_libs wheel, then that should have taken care of it for us.
     def find_lib(name):
         paths = os.environ["PATH"].split(os.path.pathsep)
         for path in paths:
@@ -42,22 +45,23 @@ if sys.platform.startswith("win"):
             "Could not find: {:}. Is it on your PATH?\nNote: Paths searched were:\n{:}".format(name, paths)
         )
 
-
     # Order matters here because of dependencies
-    LIBRARIES = {"tensorrt": [
-        "nvinfer.dll",
-        "cublas64_##CUDA_MAJOR##.dll",
-        "cublasLt64_##CUDA_MAJOR##.dll",
-        "cudnn64_##CUDNN_MAJOR##.dll",
-        "nvinfer_plugin.dll",
-        "nvonnxparser.dll",
-    ],
-    "tensorrt_dispatch": [
-        "nvinfer_dispatch.dll",
-    ],
-    "tensorrt_lean": [
-        "nvinfer_lean.dll",
-    ]}["##TENSORRT_MODULE##"]
+    LIBRARIES = {
+        "tensorrt": [
+            "nvinfer.dll",
+            "cublas64_##CUDA_MAJOR##.dll",
+            "cublasLt64_##CUDA_MAJOR##.dll",
+            "cudnn64_##CUDNN_MAJOR##.dll",
+            "nvinfer_plugin.dll",
+            "nvonnxparser.dll",
+        ],
+        "tensorrt_dispatch": [
+            "nvinfer_dispatch.dll",
+        ],
+        "tensorrt_lean": [
+            "nvinfer_lean.dll",
+        ],
+    }["##TENSORRT_MODULE##"]
 
     for lib in LIBRARIES:
         ctypes.CDLL(find_lib(lib))
@@ -124,6 +128,7 @@ Logger.Severity = ILogger.Severity
 
 for attr, value in ILogger.Severity.__members__.items():
     setattr(Logger, attr, value)
+
 
 # Computes the volume of an iterable.
 def volume(iterable):
