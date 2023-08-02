@@ -193,9 +193,9 @@ Dims castDimsFromPyIterable(PyIterable& in)
 }
 
 template <typename PyIterable>
-void setBindingDimensions(IExecutionContext& self, int32_t bindingIndex, PyIterable& in)
+bool setBindingDimensions(IExecutionContext& self, int32_t bindingIndex, PyIterable& in)
 {
-    self.setBindingDimensions(bindingIndex, castDimsFromPyIterable<PyIterable>(in));
+    return self.setBindingDimensions(bindingIndex, castDimsFromPyIterable<PyIterable>(in));
 }
 template <typename PyIterable>
 bool setInputShape(IExecutionContext& self, char const* tensorName, PyIterable& in)
@@ -1348,8 +1348,7 @@ void bindCore(py::module& m)
             IBuilderConfigDoc::set_tactic_sources)
         .def("get_tactic_sources", &IBuilderConfig::getTacticSources, IBuilderConfigDoc::get_tactic_sources)
         .def("create_timing_cache", lambdas::netconfig_create_timing_cache, "serialized_timing_cache"_a,
-            IBuilderConfigDoc::create_timing_cache, py::call_guard<py::gil_scoped_release>{},
-            py::return_value_policy::reference)
+            IBuilderConfigDoc::create_timing_cache, py::call_guard<py::gil_scoped_release>{})
         .def("set_timing_cache", &IBuilderConfig::setTimingCache, "cache"_a, "ignore_mismatch"_a,
             IBuilderConfigDoc::set_timing_cache, py::keep_alive<1, 2>{})
         .def("get_timing_cache", &IBuilderConfig::getTimingCache, IBuilderConfigDoc::get_timing_cache)
