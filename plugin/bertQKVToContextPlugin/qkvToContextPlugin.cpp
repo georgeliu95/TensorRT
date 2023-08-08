@@ -455,6 +455,7 @@ int32_t QKVToContextPluginDynamic::enqueue(PluginTensorDesc const* inputDesc, Pl
         else
         {
             PLUGIN_VALIDATE(unfusedDispatcher.get(), "The Unfused MHARunner is uninitialized, no MHARunner available!");
+            PLUGIN_VALIDATE(mType != DataType::kINT8, "The Unfused MHARunner does not support INT8!");
             unfusedDispatcher->run(
                 inputDesc[0], outputDesc[0], inputs[0], maskPtr, outputs[0], workspace, stream, mCublas);
         }
@@ -675,6 +676,7 @@ void QKVToContextVarSeqlenPlugin::createMHARunner()
     else
     {
         PLUGIN_ASSERT(!mUseVarSeqlen);
+        PLUGIN_ASSERT(mType != DataType::kINT8);
         dispatcher.reset(new UnfusedMHARunner(mType, mNumHeads, mHeadSize, mSM));
     }
 }

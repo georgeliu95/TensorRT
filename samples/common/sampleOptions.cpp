@@ -1353,8 +1353,13 @@ void BuildOptions::parse(Arguments& arguments)
         previewFeatures[static_cast<int32_t>(feat)] = enable;
     }
 
-    bool const fasterDynamicShapesEnabled{
-        previewFeatures[static_cast<int32_t>(PreviewFeature::kFASTER_DYNAMIC_SHAPES_0805)]};
+    int32_t fasterDynamicShapesFeat = static_cast<int32_t>(PreviewFeature::kFASTER_DYNAMIC_SHAPES_0805);
+
+    // kFASTER_DYNAMIC_SHAPES_0805 is default to turn on if not set.
+    bool const fasterDynamicShapesEnabled = previewFeatures.find(fasterDynamicShapesFeat) != previewFeatures.end()
+        ? previewFeatures.at(fasterDynamicShapesFeat)
+        : true;
+
     if (best && !fasterDynamicShapesEnabled)
     {
         sample::gLogWarning

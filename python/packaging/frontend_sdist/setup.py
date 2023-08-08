@@ -90,7 +90,11 @@ setup(
     name=tensorrt_module,
     version=tensorrt_version,
     description="A high performance deep learning inference library",
-    long_description="""A high performance deep learning inference library
+    long_description="""
+NVIDIA TensorRT is an SDK that facilitates high-performance machine learning inference. It is designed to work in a complementary fashion with training frameworks such as TensorFlow, PyTorch, and MXNet. It focuses specifically on running an already-trained network quickly and efficiently on NVIDIA hardware.
+
+**IMPORTANT:** This is a special release of TensorRT designed to work only with TensorRT-LLM. 
+Please refrain from upgrading to this version if you are not using TensorRT-LLM. 
 
 To install, please execute the following:
 ```
