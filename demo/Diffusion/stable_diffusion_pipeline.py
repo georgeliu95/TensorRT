@@ -449,7 +449,7 @@ class StableDiffusionPipeline:
             noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
             noise_pred = noise_pred_uncond + self.guidance_scale * (noise_pred_text - noise_pred_uncond)
 
-            latents = self.scheduler.step(noise_pred, latents, step_offset + step_index, timestep)
+            latents = self.scheduler.step(noise_pred, latents, step_offset + step_index, timestep, generator=self.generator)
 
             if self.nvtx_profile:
                 nvtx.end_range(nvtx_latent_step)

@@ -343,7 +343,7 @@ class LMSDiscreteScheduler():
             order = min(step_index + 1, order)
             self.lms_coeffs.append([get_lms_coefficient(order, step_index, curr_order) for curr_order in range(order)])
 
-    def step(self, output, latents, idx, timestep):
+    def step(self, output, latents, idx, timestep, generator=None):
         # compute the previous noisy sample x_t -> x_t-1
         # 1. compute predicted original sample (x_0) from sigma-scaled predicted noise
         sigma = self.sigmas[idx]
@@ -966,7 +966,7 @@ class DPMScheduler():
             )
         return x_t
 
-    def step(self, output, latents, step_index, timestep):
+    def step(self, output, latents, step_index, timestep, generator=None):
         if self.num_inference_steps is None:
             raise ValueError(
                 "Number of inference steps is 'None', you need to run 'set_timesteps' after creating the scheduler"
@@ -1083,7 +1083,7 @@ class PNDMScheduler():
         self.sample_coeff = self.sample_coeff[timesteps]
         self.model_output_denom_coeff = self.model_output_denom_coeff[timesteps]
 
-    def step(self, output, sample, idx, timestep):
+    def step(self, output, sample, idx, timestep, generator=None):
         # step_plms: propagate the sample with the linear multi-step method. This has one forward pass with multiple
         # times to approximate the solution.
 
