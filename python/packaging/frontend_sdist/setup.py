@@ -16,6 +16,7 @@
 #
 
 import os
+import platform
 import subprocess
 import sys
 
@@ -37,6 +38,15 @@ def run_pip_command(args, call_func):
         return call_func([sys.executable, "-m", "pip"] + args)
     except:
         return call_func([os.path.join(sys.exec_prefix, "bin", "pip")] + args)
+
+
+# check wheel availability using information from https://github.com/pypa/packaging/blob/23.1/src/packaging/markers.py#L175-L190
+if sys.platform not in ("linux", "win32"):
+    raise RuntimeError("TensorRT currently only builds wheels for Linux and Windows")
+if sys.implementation.name != "cpython":
+    raise RuntimeError("TensorRT currently only builds wheels for CPython")
+if platform.machine() not in ("x86_64", "AMD64"):
+    raise RuntimeError("TensorRT currently only builds wheels for x86_64 processors")
 
 
 class InstallCommand(install):
@@ -93,8 +103,8 @@ setup(
     long_description="""
 NVIDIA TensorRT is an SDK that facilitates high-performance machine learning inference. It is designed to work in a complementary fashion with training frameworks such as TensorFlow, PyTorch, and MXNet. It focuses specifically on running an already-trained network quickly and efficiently on NVIDIA hardware.
 
-**IMPORTANT:** This is a special release of TensorRT designed to work only with TensorRT-LLM. 
-Please refrain from upgrading to this version if you are not using TensorRT-LLM. 
+**IMPORTANT:** This is a special release of TensorRT designed to work only with TensorRT-LLM.
+Please refrain from upgrading to this version if you are not using TensorRT-LLM.
 
 To install, please execute the following:
 ```

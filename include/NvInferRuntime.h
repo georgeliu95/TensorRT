@@ -986,8 +986,8 @@ public:
     //!
     //! The behavior is undefined if the engine has pending enqueued work.
     //!
-    //! Extant IExecutionContexts associated with the engine should not be used afterwards.
-    //! Instead, create new IExecutionContexts after refitting.
+    //! Extant IExecutionContexts associated with the engine may continue
+    //! to be used afterwards.
     //!
     bool refitCudaEngine() noexcept
     {

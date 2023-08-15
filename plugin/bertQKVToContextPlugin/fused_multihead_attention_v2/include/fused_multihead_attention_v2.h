@@ -893,6 +893,13 @@ public:
                       {kSM_86, bert::DATA_TYPE_INT8, 192, 16},
                       {kSM_86, bert::DATA_TYPE_INT8, 256, 8},
                       {kSM_86, bert::DATA_TYPE_INT8, 384, 8},
+
+                      {kSM_89, bert::DATA_TYPE_FP16, 128, 4},
+                      {kSM_89, bert::DATA_TYPE_FP16, 256, 4},
+                      {kSM_89, bert::DATA_TYPE_INT8, 128, 4},
+                      {kSM_89, bert::DATA_TYPE_INT8, 192, 16},
+                      {kSM_89, bert::DATA_TYPE_INT8, 256, 8},
+                      {kSM_89, bert::DATA_TYPE_INT8, 384, 8},
 #endif
 #if CUDA_VERSION >= 11040
                       {kSM_87, bert::DATA_TYPE_FP16, 128, 4},

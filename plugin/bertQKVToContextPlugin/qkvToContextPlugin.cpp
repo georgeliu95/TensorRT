@@ -441,6 +441,7 @@ char const* QKVToContextPluginDynamic::getPluginNamespace() const noexcept
 int32_t QKVToContextPluginDynamic::enqueue(PluginTensorDesc const* inputDesc, PluginTensorDesc const* outputDesc,
     void const* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream) noexcept
 {
+    PLUGIN_VALIDATE(inputDesc != nullptr && outputDesc != nullptr && inputs != nullptr && outputs != nullptr);
     PLUGIN_ASSERT(mS == inputDesc->dims.d[SDIM]);
     PLUGIN_ASSERT(mB == inputDesc->dims.d[BDIM]);
 
@@ -852,8 +853,8 @@ void QKVToContextVarSeqlenPlugin::configurePlugin(
     }
 }
 
-size_t QKVToContextVarSeqlenPlugin::getWorkspaceSize(
-    PluginTensorDesc const* inputs, int32_t nbInputs, PluginTensorDesc const* outputs, int32_t nbOutputs) const noexcept
+size_t QKVToContextVarSeqlenPlugin::getWorkspaceSize(PluginTensorDesc const* inputs, int32_t /* nbInputs */,
+    PluginTensorDesc const* /* outputs */, int32_t /* nbOutputs */) const noexcept
 {
     size_t paddingWorkpaceSize = 0;
     if (patcher)
@@ -946,6 +947,7 @@ int32_t QKVToContextVarSeqlenPlugin::enqueue(nvinfer1::PluginTensorDesc const* i
     nvinfer1::PluginTensorDesc const* outputDesc, void const* const* inputs, void* const* outputs, void* workspace,
     cudaStream_t stream) noexcept
 {
+    PLUGIN_VALIDATE(inputDesc != nullptr && outputDesc != nullptr && inputs != nullptr && outputs != nullptr);
 
     if (mUseVarSeqlen)
     {
