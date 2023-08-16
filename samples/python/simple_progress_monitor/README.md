@@ -31,11 +31,6 @@ This sample demonstrates how to build an engine from an ONNX model file using th
 pip3 install -r requirements.txt
 ```
 
-On Jetson Nano, you will need nvcc in the `PATH` for installing pycuda:
-```bash
-export PATH=${PATH}:/usr/local/cuda/bin/
-```
-
 ## Running the sample
 
 1.  Run the sample from a terminal to create a TensorRT inference engine and run inference:

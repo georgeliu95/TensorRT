@@ -426,8 +426,8 @@ public:
         // sm_89 will reuse sm_80 and sm_86 kernels
         if (mSM == kSM_89)
         {
-            loadXMMAKernels(kSM_80);
             loadXMMAKernels(kSM_86);
+            loadXMMAKernels(kSM_80);
         }
     }
 

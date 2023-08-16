@@ -22,16 +22,16 @@ import warnings
 
 
 # For standalone wheels, attempt to import the wheel containing the libraries.
-libs_wheel_imported = False
+_libs_wheel_imported = False
 try:
     import ##TENSORRT_MODULE##_libs
 except (ImportError, ModuleNotFoundError):
     pass
 else:
-    libs_wheel_imported = True
+    _libs_wheel_imported = True
 
 
-if not libs_wheel_imported and sys.platform.startswith("win"):
+if not _libs_wheel_imported and sys.platform.startswith("win"):
     # On Windows, we need to manually open the TensorRT libraries - otherwise we are unable to
     # load the bindings. If we imported the tensorrt_libs wheel, then that should have taken care of it for us.
     def find_lib(name):
@@ -66,6 +66,7 @@ if not libs_wheel_imported and sys.platform.startswith("win"):
     for lib in LIBRARIES:
         ctypes.CDLL(find_lib(lib))
 
+del _libs_wheel_imported
 
 from .##TENSORRT_MODULE## import *
 

@@ -5431,13 +5431,13 @@ protected:
 //! Emit output
 //!
 //! Condition is a 0D boolean tensor (representing a scalar).
-//! trueSubgraph represents a network subgraph that is executed when condition is evaluated to True.
-//! falseSubgraph represents a network subgraph that is executed when condition is evaluated to False.
+//! trueSubgraph represents a network subgraph that is executed when condition evaluates to True.
+//! falseSubgraph represents a network subgraph that is executed when condition evaluates to False.
 //!
 //! The following constraints apply to If-conditionals:
 //! - Both the trueSubgraph and falseSubgraph must be defined.
 //! - The number of output tensors in both subgraphs is the same.
-//! - The type and shape of each output tensor from true/false subgraphs are the same.
+//! - Corresponding output tensors from the true/false subgraphs have the same type and shape.
 //!
 class IIfConditional : public INoCopy
 {
@@ -6156,13 +6156,16 @@ protected:
 //!
 //! The subgraph which terminates with the \p scale tensor must be a build-time constant.  The same restrictions apply
 //! to the \p zeroPt.
-//! The output type, if constrained, must be constrained to DataType::kINT8. The input type, if constrained, must be
-//! constrained to DataType::kFLOAT or DataType::kHALF.
-//! The output size is the same as the input size. The quantization axis is in reference to the input tensor's
-//! dimensions.
+//! The output type, if constrained, must be constrained to DataType::kINT8 or DataType::kFP8. The input type, if
+//! constrained, must be constrained to DataType::kFLOAT, DataType::kHALF, or DataType::kBF16. The output size is the
+//! same as the input size. The quantization axis is in reference to the input tensor's dimensions.
 //!
-//! IQuantizeLayer only supports DataType::kFLOAT precision and will default to this precision during instantiation.
-//! IQuantizeLayer only supports DataType::kINT8 output.
+//! IQuantizeLayer supports DataType::kFLOAT, DataType::kHALF, or DataType::kBF16 precision and will default to
+//! DataType::kFLOAT precision during instantiation. For strongly typed networks, \p input data type must be same as \p
+//! scale data type.
+//!
+//! IQuantizeLayer supports DataType::kINT8 or DataType::kFP8 output. For strongly typed networks, \p output data type
+//! is inferred from \p zeroPt data type.
 //!
 //! As an example of the operation of this layer, imagine a 4D NCHW activation input which can be quantized using a
 //! single scale coefficient (referred to as per-tensor quantization):
@@ -6272,12 +6275,15 @@ protected:
 //!
 //! The subgraph which terminates with the \p scale tensor must be a build-time constant.  The same restrictions apply
 //! to the \p zeroPt.
-//! The output type, if constrained, must be constrained to DataType::kFLOAT or DataType::kHALF. The input type, if
-//! constrained, must be constrained to DataType::kINT8. The output size is the same as the input size. The quantization
-//! axis is in reference to the input tensor's dimensions.
+//! The output type, if constrained, must be constrained to DataType::kFLOAT, DataType::kHALF, or DataType::kBF16. The
+//! input type, if constrained, must be constrained to DataType::kINT8 or DataType::kFP8. The output size is the same as
+//! the input size. The quantization axis is in reference to the input tensor's dimensions.
 //!
-//! IDequantizeLayer only supports DataType::kINT8 precision and will default to this precision during instantiation.
-//! IDequantizeLayer only supports DataType::kFLOAT or DataType::kHALF output.
+//! IDequantizeLayer supports DataType::kINT8 or DataType::kFP8 precision and will default to DataType::kINT8
+//! precision during instantiation. For strongly typed networks, \p input data type must be same as \p zeroPt data type.
+//!
+//! IDequantizeLayer supports DataType::kFLOAT, DataType::kHALF, or DataType::kBF16 output. For strongly typed
+//! networks, \p output data type is inferred from \p scale data type.
 //!
 //! As an example of the operation of this layer, imagine a 4D NCHW activation input which can be quantized using a
 //! single scale coefficient (referred to as per-tensor quantization):
@@ -6505,7 +6511,7 @@ constexpr inline int32_t EnumMax<ScatterMode>() noexcept
 //!             for c in [0,n)
 //!                 for h in [0,n)
 //!                     for w in [0,n)
-//!                         output[n,c,indices[n,c,h,w],w] = updates[n,c,h,w]]
+//!                         output[n,c,indices[n,c,h,w],w] = updates[n,c,h,w]
 //!
 //! Writes to the same output element cause undefined behavior.
 //!
@@ -6850,7 +6856,7 @@ protected:
 //!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
-class IReverseSequenceLayer: public ILayer
+class IReverseSequenceLayer : public ILayer
 {
 public:
     //!
@@ -8105,15 +8111,29 @@ public:
     //!
     //! An ILoop provides a way to specify a recurrent subgraph.
     //!
-    //! \return Pointer to ILoop that can be used to add loop boundary layers for the loop,
-    //!         or nullptr if network has an implicit batch dimension or this version
-    //!         of TensorRT does not support loops.
+    //! \return Pointer to ILoop that can be used to add loop-boundary layers for the loop,
+    //!         or nullptr if network has an implicit batch dimension.
     //!
-    //! The network must not have an implicit batch dimension.
+    //! \see ILoop
     //!
     ILoop* addLoop() noexcept
     {
         return mImpl->addLoop();
+    }
+
+    //!
+    //! \brief Add an if-then-else to the network.
+    //!
+    //! An IIfConditional provides a way to conditionally execute parts of the network.
+    //!
+    //! \return Pointer to the IIfConditional that can be used to add conditional-boundary layers
+    //!         for the if-then-else, or nullptr if network has an implicit batch dimension.
+    //!
+    //! \see IIfConditional
+    //!
+    IIfConditional* addIfConditional() noexcept
+    {
+        return mImpl->addIfConditional();
     }
 
     //! \brief Add a select layer to the network.
@@ -8400,21 +8420,6 @@ public:
     IQuantizeLayer* addQuantize(ITensor& input, ITensor& scale, DataType outputType) noexcept
     {
         return mImpl->addQuantizeV2(input, scale, outputType);
-    }
-
-    //!
-    //! \brief Add an If-conditional layer to the network.
-    //!
-    //! An IIfConditional provides a way to conditionally execute parts of the network.
-    //!
-    //! \see IIfConditional
-    //!
-    //! \return The new conditional layer, or nullptr if network has an implicit batch dimension
-    //!         or this version of TensorRT does not support conditional execution.
-    //!
-    IIfConditional* addIfConditional() noexcept
-    {
-        return mImpl->addIfConditional();
     }
 
     //! \brief Add an Einsum layer to the network.

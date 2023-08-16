@@ -89,8 +89,8 @@ nvinfer1::DataType stringToValue<nvinfer1::DataType>(const std::string& option)
 {
     const std::unordered_map<std::string, nvinfer1::DataType> strToDT{{"fp32", nvinfer1::DataType::kFLOAT},
         {"fp16", nvinfer1::DataType::kHALF}, {"bf16", nvinfer1::DataType::kBF16}, {"int8", nvinfer1::DataType::kINT8},
-        {"fp8", nvinfer1::DataType::kFP8}, {"int32", nvinfer1::DataType::kINT32}, {"bool", nvinfer1::DataType::kBOOL},
-        {"uint8", nvinfer1::DataType::kUINT8}};
+        {"fp8", nvinfer1::DataType::kFP8}, {"int32", nvinfer1::DataType::kINT32}, {"int64", nvinfer1::DataType::kINT64},
+        {"bool", nvinfer1::DataType::kBOOL}, {"uint8", nvinfer1::DataType::kUINT8}};
     const auto& dt = strToDT.find(option);
     if (dt == strToDT.end())
     {
@@ -190,8 +190,10 @@ std::pair<std::string, T> splitNameAndValue(const std::string& s)
     {
         if (quoteNameRange.size() != 3)
         {
-            throw std::invalid_argument(std::string("Found invalid number of \'s when parsing ") + s +
-                std::string(". Expected: 2, received: ") + std::to_string(quoteNameRange.size() -1));
+            std::string errorMsg = std::string("Found invalid number of \'s when parsing ") + s +
+                std::string(". Expected: 2, received: ") + std::to_string(quoteNameRange.size() -1) +
+                ". Please ensure that a singular comma is used within each comma-separated key-value pair for options like --inputIOFormats, --optShapes, --optShapesCalib, --layerPrecisions, etc.";
+            throw std::invalid_argument(errorMsg);
         }
         // Everything before the second "'" is the name.
         tensorName = quoteNameRange[0] + quoteNameRange[1];
@@ -712,6 +714,10 @@ std::ostream& printPrecision(std::ostream& os, BuildOptions const& options)
     if (options.fp8)
     {
         os << "+FP8";
+    }
+    if (options.stronglyTyped)
+    {
+        os << " (Strongly Typed)";
     }
     if (options.precisionConstraints == PrecisionConstraints::kOBEY)
     {
@@ -1789,7 +1795,7 @@ std::ostream& operator<<(std::ostream& os, nvinfer1::DataType dtype)
         os << "fp8";
         break;
     }
-    case nvinfer1::DataType::kINT64: ASSERT(false && "Unsupported data type");
+    case nvinfer1::DataType::kINT64: os << "int64"; break;
     }
     return os;
 }
@@ -2199,7 +2205,7 @@ void BuildOptions::help(std::ostream& os)
           "                                           needs specifying IO format) or set the type and format once for broadcasting."                "\n"
           R"(                                     IO Formats: spec  ::= IOfmt[","spec])"                                                            "\n"
           "                                                 IOfmt ::= type:fmt"                                                                     "\n"
-          R"(                                               type  ::= "fp32"|"fp16"|"bf16"|"int32"|"int8"|"uint8"|"bool")"                          "\n"
+          R"(                                               type  ::= "fp32"|"fp16"|"bf16"|"int32"|"int64"|"int8"|"uint8"|"bool")"                  "\n"
           R"(                                               fmt   ::= ("chw"|"chw2"|"chw4"|"hwc8"|"chw16"|"chw32"|"dhwc8"|)"                        "\n"
           R"(                                                          "cdhw32"|"hwc"|"dla_linear"|"dla_hwc4")["+"fmt])"                            "\n"
           "  --workspace=N                      Set workspace size in MiB."                                                                         "\n"
