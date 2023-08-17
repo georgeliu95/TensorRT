@@ -25,7 +25,7 @@ from stable_diffusion_pipeline import StableDiffusionPipeline
 
 class Txt2ImgPipeline(StableDiffusionPipeline):
     """
-    Application showcasing the acceleration of Stable Diffusion Txt2Img v1.4, v1.5, v2.0, v2.0-base, v2.1, v2.1-base pipeline using NVidia TensorRT w/ Plugins.
+    Application showcasing the acceleration of Stable Diffusion Txt2Img v1.4, v1.5, v2.0, v2.0-base, v2.1, v2.1-base pipeline using NVidia TensorRT.
     """
     def __init__(
         self,

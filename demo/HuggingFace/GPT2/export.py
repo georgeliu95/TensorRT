@@ -34,21 +34,23 @@ from Seq2Seq.export import (
 # https://github.com/pytorch/pytorch/pull/100575 is merged and is expected to fix this issue in the next PyTorch release.
 from transformers.models.gptj.modeling_gptj import rotate_every_two
 import unittest.mock as mock
+import torch
 
 def duplicate_interleave(m):
     """
     A simple version of `torch.repeat_interleave` for duplicating a matrix while interleaving the copy.
     """
-    dim0 = m.shape[1]
-    m = m.reshape(1,-1,1)  # flatten the matrix
-    m = m.repeat(1,1,2)  # repeat all elements into the 2nd dimension
-    m = m.view(dim0, 1, -1)  # reshape into a matrix, interleaving the copy
+    bs = m.shape[0]
+    seq_len = m.shape[1]
+    m = m.reshape(-1,1)  # flatten the matrix
+    m = m.repeat(1,2)  # repeat all elements into the last dimension
+    m = m.view(bs, seq_len, 1, -1)  # reshape into a matrix, interleaving the copy
     return m
 
-def apply_rotary_pos_emb(x, _sin, _cos):
-    sin = duplicate_interleave(_sin)[None,:,:,:]
-    cos = duplicate_interleave(_cos)[None,:,:,:]
-    return (x * cos) + (rotate_every_two(x) * sin)
+def apply_rotary_pos_emb(tensor, sin, cos):
+    sin = duplicate_interleave(sin[:, :, None, :])
+    cos = duplicate_interleave(cos[:, :, None, :])
+    return (tensor * cos) + (rotate_every_two(tensor) * sin)
 
 # Decoder File Encoding #
 class GPT2DecoderTorchFile(DecoderTorchFile):
@@ -72,8 +74,13 @@ class GPT2DecoderTorchFile(DecoderTorchFile):
             # generate position_ids is required as in https://github.com/huggingface/transformers/blob/v4.29.1/src/transformers/models/gpt2/modeling_gpt2.py#L1021
             # wrap position_ids generation inside
             if attention_mask is not None:
-                position_ids = attention_mask.long().cumsum(-1) - 1
+                # TODO: cumsum operation is known to have issue with TensorRT performance. Use an WAR, which assumes only left padding for GPT models.
+                # position_ids = attention_mask.long().cumsum(-1) - 1
+                num_paddings = torch.sum(attention_mask == 0, dim=1, keepdim=True).to(attention_mask.device)
+                position_ids = torch.arange(0, attention_mask.shape[-1]).expand(attention_mask.shape).to(attention_mask.device) - num_paddings
                 position_ids.masked_fill_(attention_mask == 0, 1)
+                position_ids = position_ids.long()
+
                 input_length = input_ids.shape[-1]
                 if past_key_values:
                     position_ids = position_ids[:, -input_length:].unsqueeze(-1)

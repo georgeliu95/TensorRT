@@ -32,20 +32,6 @@ from HuggingFace.NNDF.tensorrt_utils import TRTNativeRunner, CUASSERT
 from cuda import cudart
 
 
-def to_torch_dtype(np_type):
-    if np_type == np.int32:
-        return torch.int32
-    elif np_type == np.int64:
-        return torch.int64
-    elif np_type == np.float16:
-        return torch.float16
-    elif np_type == np.float or np_type == np.float32:
-        return torch.float32
-    elif np_type == np.bool or np_type == np.bool_:
-        return torch.bool
-    else:
-        raise ValueError(f"Got unexpected numpy dtype {np_type} in to_torch_dtype().")
-
 class GPTTRTDecoder(TRTNativeRunner):
 
     INPUT_IDS_INDEX = 0
@@ -56,12 +42,14 @@ class GPTTRTDecoder(TRTNativeRunner):
         self,
         trt_engine_file: TRTEngineFile,
         use_cache: bool,
+        use_fp8_storage: bool,
         cfg,
         network_metadata: NetworkMetadata = None,
         hf_config: PretrainedConfig = None,
     ):
         super().__init__(trt_engine_file, network_metadata, hf_config)
         self.use_cache = use_cache
+        self.use_fp8_storage = use_fp8_storage
         if self.use_cache:
             self._set_context_mode_trt_context()
         self.io_names = set()
@@ -74,8 +62,45 @@ class GPTTRTDecoder(TRTNativeRunner):
 
         self.cfg = cfg
         logits_size = self.cfg.batch_size * self.cfg.model.max_seq_len * self.cfg.model.vocab_size
+
+        self.batch_size = self.cfg.batch_size
+        self.max_seq_len = self.cfg.model.max_seq_len
+        self.num_layers = self.cfg.model.num_layers
+        self.nb_heads = self.cfg.model.nb_heads
+        self.head_size = self.cfg.model.head_size
+
         dtype = self.get_torch_type(self.get_output_name())
         self.logits = torch.zeros(logits_size, dtype=dtype).contiguous().cuda()
+
+
+        self.init_kv_cache()
+        self.past_decoder_length = 0
+
+        # Setting next input shape when executing gpu kernel.
+        # Use dict to record which inputs have changed.
+        self.input_shape_change_record = dict()
+
+    def init_kv_cache(self):
+        # kv cache buffer
+        self.attention_kv_cache_buffer = dict()
+        cache_dtype = torch.float16
+        if self.use_fp8_storage:
+            cache_dtype = torch.uint8
+        for i in range(self.num_layers):
+            for code in ["key", "value"]:
+                attention_kv_cache_name = self.make_kv_cache_name(i, code)
+                self.attention_kv_cache_buffer[attention_kv_cache_name] = torch.empty(
+                    self.max_seq_len,
+                    self.batch_size,
+                    self.nb_heads,
+                    self.head_size,
+                    dtype=cache_dtype,
+                    device=torch.cuda.current_device(),
+                ).contiguous().cuda()
+                
+
+    def make_kv_cache_name(self, layer, code):
+        return f"key_values.{layer}.decoder.{code}"
 
     def _set_context_mode_trt_context(self):
         # Create TRT context for context mode (1st decoder run) with optimization profile index = 1
@@ -127,18 +152,49 @@ class GPTTRTDecoder(TRTNativeRunner):
             return self.trt_engine.get_binding_name(self.ATTENTION_MASK_INDEX)
         return None
 
-    def run(self, output_name, io_descs, is_first_input=False):
+    def run(self, output_name, io_descs, seq_len, context_mode=False):
+        torch.cuda.nvtx.range_push("TRT Setup")
+        if self.use_cache:
+            if context_mode:
+                self.past_decoder_length = 0
+            else:
+                # When kv-cache is used, seq_len is always 1 in Generation phase.
+                seq_len = 1
+            cur_shape = (self.past_decoder_length, self.batch_size, self.nb_heads, self.head_size)
+            new_shape = (seq_len, self.batch_size, self.nb_heads, self.head_size)
+            assert self.past_decoder_length + seq_len < self.max_seq_len
+            offset = self.batch_size*self.nb_heads*self.head_size*self.past_decoder_length
+            for i in range(self.num_layers):
+                for code in ["key", "value"]:
+                    attention_kv_cache_name = self.make_kv_cache_name(i, code)
+                    cur_address = self.attention_kv_cache_buffer[attention_kv_cache_name].data_ptr()
+                    # new kv address start from the past kv-cache data end
+                    io_descs[f"past_{attention_kv_cache_name}"] = (cur_address, cur_shape)
+                    new_address = cur_address + offset*self.attention_kv_cache_buffer[attention_kv_cache_name].element_size()
+                    modifier = ""
+                    if self.use_fp8_storage:
+                        modifier = "_qfp8"
+                    new_kv_name = f"new_{attention_kv_cache_name}{modifier}"
+                    io_descs[new_kv_name] = (new_address, new_shape)
+            self.past_decoder_length += seq_len
+        else:
+            self.past_decoder_length = 0
         # Set active optimization profile and active execution context.
         self.trt_context.active_optimization_profile = self.profile_idx
         active_context = self.trt_context
-        if is_first_input and self.use_cache:
+        if context_mode and self.use_cache:
             active_context = self.context_trt_context
 
         # Set up input bindings.
         for name, tensor_shape in io_descs.items():
             active_context.set_tensor_address(name, tensor_shape[0])
             if name in self.input_tensor_names:
-                active_context.set_input_shape(name, tensor_shape[1])
+                if name in self.input_shape_change_record and \
+                    self.input_shape_change_record[name][0] == active_context and \
+                    self.input_shape_change_record[name][1] == tensor_shape[1]:
+                    continue
+                else:
+                    active_context.set_input_shape(name, tensor_shape[1])
             elif self.use_cache:
                 pass
             else:
@@ -155,7 +211,17 @@ class GPTTRTDecoder(TRTNativeRunner):
 
 
         # Execute inference.
+        torch.cuda.nvtx.range_pop() # "TRT Setup"
         active_context.execute_async_v3(self.stream)
+        if not context_mode and self.use_cache:
+            self.input_shape_change_record.clear()
+            for i in range(self.num_layers):
+                for code in ["key", "value"]:
+                    next_past_shape = (self.past_decoder_length, self.batch_size, self.nb_heads, self.head_size)
+                    attention_kv_cache_name = self.make_kv_cache_name(i, code)
+                    # set next iter input shape when cpu idle
+                    active_context.set_input_shape(f"past_{attention_kv_cache_name}", next_past_shape)
+                    self.input_shape_change_record[f"past_{attention_kv_cache_name}"] = [active_context, next_past_shape]
         CUASSERT(cudart.cudaStreamSynchronize(self.stream))
         if len(shape) != 3:
             raise ValueError("Output must have a dimension of 3.")
@@ -163,6 +229,6 @@ class GPTTRTDecoder(TRTNativeRunner):
         return output
 
 def load_trt_model(cfg):
-    G_LOGGER.info(f'Loading TensorRT engine from {cfg.trt_engine_file} with use_cache={cfg.use_cache}')
+    G_LOGGER.info(f'Loading TensorRT engine from {cfg.trt_engine_file} with use_cache={cfg.use_cache}, use_fp8_storage={cfg.onnx_export_options.use_fp8_storage} ')
     trt_engine_file = DecoderTRTEngine(cfg.trt_engine_file)
-    return GPTTRTDecoder(trt_engine_file, cfg.use_cache, cfg)
+    return GPTTRTDecoder(trt_engine_file, cfg.use_cache, cfg.onnx_export_options.use_fp8_storage, cfg)

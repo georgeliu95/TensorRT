@@ -25,7 +25,7 @@ from stable_diffusion_pipeline import StableDiffusionPipeline
 
 class Img2ImgPipeline(StableDiffusionPipeline):
     """
-    Application showcasing the acceleration of Stable Diffusion Img2Img v1.4, v1.5, v2.0-base, v2.0, v2.1-base, v2.1 pipeline using NVidia TensorRT w/ Plugins.
+    Application showcasing the acceleration of Stable Diffusion Img2Img v1.4, v1.5, v2.0-base, v2.0, v2.1-base, v2.1 pipeline using NVidia TensorRT.
     """
     def __init__(
         self,

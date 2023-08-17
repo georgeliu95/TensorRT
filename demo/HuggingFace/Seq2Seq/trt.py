@@ -1102,6 +1102,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
                 batch_size=self.config.batch_size,
                 max_length=self.config.max_length,
                 use_cuda=use_cuda,
+                use_mask=self.config.use_mask,
             )
         else:
             perplexity = calculate_perplexity_helper_decoder(
@@ -1111,10 +1112,10 @@ class Seq2SeqTRT(TRTInferenceCommand):
                 batch_size=self.config.batch_size,
                 max_length=self.config.max_length,
                 use_cuda=use_cuda,
+                use_mask=self.config.use_mask,
             )
 
-            G_LOGGER.info("Perplexity={}".format(perplexity))
-
+        G_LOGGER.info("Perplexity={}".format(perplexity))
         return perplexity
 
     def cleanup(self) -> None:

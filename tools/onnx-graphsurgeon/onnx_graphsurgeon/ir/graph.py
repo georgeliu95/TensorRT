@@ -670,7 +670,8 @@ class Graph(object):
                 def all_tensors_const(tensors):
                     return all([t.name in graph_constants for t in tensors])
 
-                if not all_tensors_const(node.inputs):
+                # Ignore omitted optional inputs.
+                if not all_tensors_const([inp for inp in node.inputs if not inp.is_empty()]):
                     return False
 
                 all_subgraph_foreign_tensors_const = True
@@ -1023,13 +1024,13 @@ class Graph(object):
 
         return self
 
-    def _generate_name(self, prefix : str, existing_names : set):
+    def _generate_name(self, prefix: str, existing_names: set):
         # `existing_names` will ensure that generated name does not clash existing names.
         # Generation is done by appending an index to the prefix.
         while True:
             name = "{}_{}".format(prefix, self.name_idx)
             self.name_idx += 1
-            if name not in existing_names: # Ensure generated name is unique
+            if name not in existing_names:  # Ensure generated name is unique
                 break
         return name
 
@@ -1097,13 +1098,12 @@ class Graph(object):
                     existing_names.add(new_io[-1].name)
             return new_io
 
-        existing_names = set(self.tensors().keys()) # set for fast lookup
+        existing_names = set(self.tensors().keys())  # set for fast lookup
         inputs = process_io(inputs, existing_names)
         outputs = process_io(outputs, existing_names)
 
         if "name" not in kwargs:
-            kwargs["name"] = self._generate_name("onnx_graphsurgeon_node",
-                                                {node.name for node in self.nodes})
+            kwargs["name"] = self._generate_name("onnx_graphsurgeon_node", {node.name for node in self.nodes})
 
         node = Node(*args, **kwargs, inputs=inputs, outputs=outputs)
         self.nodes.append(node)

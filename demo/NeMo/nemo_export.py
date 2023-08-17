@@ -35,7 +35,7 @@ import onnx
 import onnx_graphsurgeon as gs
 
 # polygraphy
-from polygraphy.backend.trt import Profile, CreateConfig, engine_from_network, network_from_onnx_path, save_engine
+from polygraphy.backend.trt import Profile, CreateConfig, engine_from_network, NetworkFromOnnxPath, save_engine
 from polygraphy.logger import G_LOGGER as PG_LOGGER
 
 # tensorrt
@@ -54,6 +54,7 @@ from GPT3.convert_te_onnx_to_trt_onnx import replace_customop_qdq_with_onnx_qdq
 
 # HuggingFace utils
 from NNDF.logger import G_LOGGER
+from NNDF.models import _calculate_polygraphy_verbosity
 
 # ONNX conversion script
 
@@ -183,10 +184,12 @@ def get_trtexec_cmd(onnx_fpath, cfg, bs):
     use_fp8 = cfg.trt_export_options.use_fp8
     use_fp16 = cfg.trt_export_options.use_fp16
     use_bf16 = cfg.trt_export_options.use_bf16
+    use_strongly_typed = cfg.trt_export_options.use_strongly_typed
     trtexec_cmd += " --noTF32" if not use_tf32 else ""
-    trtexec_cmd += " --fp8" if use_fp8 else ""
-    trtexec_cmd += " --fp16" if use_fp16 else ""
-    trtexec_cmd += " --bf16" if use_bf16 else ""
+    trtexec_cmd += " --fp8" if (use_fp8 and not use_strongly_typed) else ""
+    trtexec_cmd += " --fp16" if (use_fp16 and not use_strongly_typed) else ""
+    trtexec_cmd += " --bf16" if (use_bf16 and not use_strongly_typed) else ""
+    trtexec_cmd += " --stronglyTyped" if use_strongly_typed else ""
     trtexec_cmd += " --timingCacheFile=functional.cache --preview=+fasterDynamicShapes0805,+disableExternalTacticSourcesForCore0805"
     return trtexec_cmd
 
@@ -226,12 +229,12 @@ def get_new_value_name(layer_id: int):
 def get_new_shape(nbheads, headsize):
     return ("sequence", "batch", nbheads, headsize)
 
-def add_kvcache_for(g, layer_id, qkv_split, nbheads, headsize, dtype, kv_output_policy):
-    query_new, key_new, value_new = qkv_split.outputs
+def add_kvcache_for(g, layer_id, qkv_split, nbheads, headsize, dtype, kv_output_policy, hp_dtype, use_fp8_storage):
+    _, key_new, value_new = qkv_split.outputs
     key_consumers = [c for c in key_new.outputs]
     value_consumers = [c for c in value_new.outputs]
 
-    def add_graph_past_inputs():
+    def add_graph_past_inputs(use_fp8_storage):
         past_key = gs.Variable(
             name=get_past_key_name(layer_id),
             dtype=dtype,
@@ -242,6 +245,13 @@ def add_kvcache_for(g, layer_id, qkv_split, nbheads, headsize, dtype, kv_output_
             shape=get_past_shape(nbheads, headsize))
         g.inputs.append(past_key)
         g.inputs.append(past_value)
+
+        if use_fp8_storage:
+            past_key_dq = add_dq(layer_id, past_key, hp_dtype, onnx.TensorProto.FLOAT8E4M3FN)
+            past_value_dq = add_dq(layer_id, past_value, hp_dtype, onnx.TensorProto.FLOAT8E4M3FN)
+            
+            return past_key_dq, past_value_dq
+        
         return past_key, past_value
 
     def add_concat(concat_name, input0, input1, output_name):
@@ -256,7 +266,75 @@ def add_kvcache_for(g, layer_id, qkv_split, nbheads, headsize, dtype, kv_output_
         g.nodes.append(concat)
         return concat_out
 
-    def add_cache_outputs(kv_output_policy):
+    def add_zero_point(base_name, dtype):
+        _zp_fp8_value = onnx.helper.make_tensor(base_name + "_zp_fp8_value", dtype, (1,), [0.0])
+        zero_point_fp8 = gs.Variable(base_name + "_zero_point", dtype=dtype, shape=(1,))
+        zero_point_const = gs.Node(op="Constant", name= base_name + "_zero_point_const", inputs=[], outputs=[zero_point_fp8], attrs={"value": _zp_fp8_value})
+        g.nodes.append(zero_point_const)
+
+        return zero_point_fp8
+
+    def add_scale(base_name, dtype, value):
+        scale = gs.Variable(base_name + "_scale", dtype=dtype, shape=(1,))
+        scale_const = gs.Node(op="Constant", name=base_name + "_scale_const", inputs=[], outputs=[scale], attrs={"value_float": value})
+        g.nodes.append(scale_const)
+        return scale
+
+    def add_dq(layer_id, inp, hp_dtype, dq_dtype):
+        assert dq_dtype==onnx.TensorProto.FLOAT8E4M3FN
+        dq_name = f"{inp.name}_dq"
+        cast_from_name = f"{inp.name}_cast_from"
+
+        dq_out = gs.Variable(
+            dq_name,
+            dtype=onnx.TensorProto.FLOAT,
+            shape=get_present_shape(nbheads, headsize))
+
+        dq = gs.Node(op="DequantizeLinear", name=dq_name,
+            inputs=[inp, add_scale(inp.name, hp_dtype, 1.0), add_zero_point(inp.name, dq_dtype)], outputs=[dq_out])
+
+        cast_output_name = f"{inp.name}_{layer_id}_cast_from"
+        cast_from_out = gs.Variable(
+            cast_output_name,
+            dtype=hp_dtype,
+            shape=get_present_shape(nbheads, headsize))
+
+        cast_from = gs.Node(op="Cast", name=cast_from_name,
+            inputs=[dq_out], outputs=[cast_from_out],
+            attrs={"to": hp_dtype})
+
+        g.nodes.append(dq)
+        g.nodes.append(cast_from)
+        return cast_from_out
+
+    def add_q(output, q_dtype):
+        assert q_dtype==onnx.TensorProto.FLOAT8E4M3FN
+        cast_to_name = f"{output.name}_cast_to"
+        q_name = f"{output.name}_qfp8"
+
+        cast_to_out = gs.Variable(
+            cast_to_name,
+            dtype=onnx.TensorProto.FLOAT,
+            shape=get_present_shape(nbheads, headsize))
+
+        cast_to = gs.Node(op="Cast", name=cast_to_name,
+            inputs=[output], outputs=[cast_to_out],
+            attrs={"to": onnx.TensorProto.FLOAT})
+
+        q_out = gs.Variable(
+            q_name,
+            dtype=q_dtype,
+            shape=get_present_shape(nbheads, headsize))
+
+        q = gs.Node(op="QuantizeLinear", name=q_name,
+            inputs=[cast_to_out, add_scale(output.name, onnx.TensorProto.FLOAT, 1.0), add_zero_point(output.name, q_dtype)], outputs=[q_out])
+
+        g.nodes.append(cast_to)
+        g.nodes.append(q)
+        
+        return q_out
+    
+    def add_cache_outputs(kv_output_policy, use_fp8_storage):
         if kv_output_policy == "kv_cache_concat":
             g.outputs.append(key_concat_out)
             g.outputs.append(value_concat_out)
@@ -267,12 +345,18 @@ def add_kvcache_for(g, layer_id, qkv_split, nbheads, headsize, dtype, kv_output_
             value_new.dtype = dtype
             value_new.shape = get_new_shape(nbheads, headsize)
             value_new.name = get_new_value_name(layer_id)
-            g.outputs.append(key_new)
-            g.outputs.append(value_new)
+            if use_fp8_storage:
+                key_new_q = add_q(key_new, onnx.TensorProto.FLOAT8E4M3FN)
+                value_new_q = add_q(value_new, onnx.TensorProto.FLOAT8E4M3FN)
+                g.outputs.append(key_new_q)
+                g.outputs.append(value_new_q)
+            else:
+                g.outputs.append(key_new)
+                g.outputs.append(value_new)
         else:
             raise ValueError(f"Unsupported kv_output_policy: {kv_output_policy}")
 
-    past_key, past_value = add_graph_past_inputs()
+    past_key, past_value = add_graph_past_inputs(use_fp8_storage)
     key_concat_out = add_concat(f"key.{layer_id}.concat",
         past_key, key_new, get_present_key_name(layer_id))
     value_concat_out = add_concat(f"value.{layer_id}.concat",
@@ -283,16 +367,16 @@ def add_kvcache_for(g, layer_id, qkv_split, nbheads, headsize, dtype, kv_output_
     for c in value_consumers:
         c.inputs[0] = value_concat_out
 
-    add_cache_outputs(kv_output_policy)
+    add_cache_outputs(kv_output_policy, use_fp8_storage)
 
 
-def add_kvcache(g, nbheads, headsize, dtype, kv_output_policy):
+def add_kvcache(g, nbheads, headsize, dtype, kv_output_policy, hp_dtype, use_fp8_storage):
     """Add KV-cache to each Transformer layer's QKV split """
     qkv_split_nodes = [node for node in g.nodes if node.op == "Split"]
     G_LOGGER.debug(f"Found {len(qkv_split_nodes)} QKV-split nodes")
 
     for layer_id, qkv_split in enumerate(qkv_split_nodes):
-        add_kvcache_for(g, layer_id, qkv_split, nbheads, headsize, dtype, kv_output_policy)
+        add_kvcache_for(g, layer_id, qkv_split, nbheads, headsize, dtype, kv_output_policy, hp_dtype, use_fp8_storage)
     G_LOGGER.debug("Done adding cache operations")
     return len(qkv_split_nodes)
 
@@ -313,14 +397,14 @@ def process_onnx(
     onnx_input_fpath,
     onnx_output_fpath,
     separate_param_files,
-    nbheads, headsize, vocab_size, dtype):
+    nbheads, headsize, vocab_size, dtype, hp_dtype, use_fp8_storage):
     """
     Process an ONNX model, add KV cache inputs and output, save result model to a specified path.
     """
     G_LOGGER.info(f"Importing {onnx_input_fpath}... this will take some time")
     g = gs.import_onnx(onnx.load(onnx_input_fpath))
     normalize_dyn_axes_to_hf_names(g, vocab_size)
-    num_layers = add_kvcache(g, nbheads, headsize, dtype, kv_output_policy)
+    num_layers = add_kvcache(g, nbheads, headsize, dtype, kv_output_policy, hp_dtype, use_fp8_storage)
 
     g.cleanup().toposort()
     G_LOGGER.info(f"Exporting {onnx_output_fpath}")
@@ -350,6 +434,7 @@ class NeMoConverter():
         self.model_type = model_type
         self.cfg = cfg
         self.model = None
+        self.export_envvars()
 
     def export_envvars(self) -> None:
         if self.cfg.trt_export_options.use_fp8:
@@ -368,7 +453,7 @@ class NeMoConverter():
             self.model = load_nemo_model(self.cfg, self.model_type)
 
         if not isinstance(self.model, Exportable):
-            G_LOGGER.error("Your NeMo model class ({}) is not Exportable.".format(model.__class__.__name__))
+            G_LOGGER.error("Your NeMo model class ({}) is not Exportable.".format(self.model.__class__.__name__))
             sys.exit(1)
 
         if hasattr(self.model.cfg, "fp8") and self.model.cfg.fp8 == True:
@@ -402,8 +487,6 @@ class NeMoConverter():
             if not self.cfg.trt_export_options.use_fp8:
                 G_LOGGER.info("Exporting ONNX with attention_mask")
                 dynamic_axes['attention_mask'] = {2: "sequence", 3: "sequence"}
-
-            self.export_envvars()
 
             self.model.export(
                 onnx_out,
@@ -439,12 +522,14 @@ class NeMoConverter():
         assert os.path.splitext(onnx_output_fpath)[1] == ".onnx", "Output ONNX file must end with '.onnx'."
 
         nbheads, headsize = self.cfg.model.nb_heads, self.cfg.model.head_size
-        dtype = onnx.TensorProto.BFLOAT16 if self.cfg.trt_export_options.use_bf16 else onnx.TensorProto.FLOAT16
+        hp_dtype = onnx.TensorProto.BFLOAT16 if self.cfg.trt_export_options.use_bf16 else onnx.TensorProto.FLOAT16
+        dtype = hp_dtype
+        if self.cfg.onnx_export_options.use_fp8_storage:
+            dtype = onnx.TensorProto.FLOAT8E4M3FN
         assert nbheads * headsize == self.cfg.model.hidden_size, "Model hidden size does not match."
-        self.export_envvars()
         num_qkvs = process_onnx(kv_output_policy,
             onnx_input_fpath, onnx_output_fpath, separate_param_files=True,
-            nbheads=nbheads, headsize=headsize, vocab_size=self.cfg.model.vocab_size, dtype=dtype)
+            nbheads=nbheads, headsize=headsize, vocab_size=self.cfg.model.vocab_size, dtype=dtype, hp_dtype=hp_dtype, use_fp8_storage=self.cfg.onnx_export_options.use_fp8_storage)
 
         G_LOGGER.info(f"Number of QKV subgraphs = {num_qkvs}, number of layers = {self.cfg.model.num_layers}")
         if num_qkvs != self.cfg.model.num_layers:
@@ -462,6 +547,7 @@ class NeMoConverter():
         use_fp16 = self.cfg.trt_export_options.use_fp16
         use_fp8 = self.cfg.trt_export_options.use_fp8
         use_bf16 = self.cfg.trt_export_options.use_bf16
+        strongly_typed = self.cfg.trt_export_options.use_strongly_typed
 
         # Create optimization profiles
         bs = self.cfg.batch_size
@@ -512,14 +598,15 @@ class NeMoConverter():
         # Note that the precision args below *enable*, not *require*, the specified precision
         preview_features = [PreviewFeature.DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805,
                             PreviewFeature.FASTER_DYNAMIC_SHAPES_0805]
+
         trt_config = CreateConfig(
-            tf32=use_tf32,
-            fp16=use_fp16,
-            bf16=use_bf16,
+            tf32= use_tf32,
+            fp16=False if strongly_typed else use_fp16,
+            bf16=False if strongly_typed else use_bf16,
             profiles=profiles,
-            precision_constraints="obey",
+            precision_constraints=None if strongly_typed else "obey",
             preview_features=preview_features,
-            fp8=use_fp8,
+            fp8=False if strongly_typed else use_fp8,
             load_timing_cache=self.cfg.trt_export_options.timing_cache,
         )
 
@@ -527,12 +614,13 @@ class NeMoConverter():
         G_LOGGER.debug(" >>> trtexec command for debugging:")
         G_LOGGER.debug(get_trtexec_cmd(onnx_fpath, self.cfg, bs))
 
-        G_LOGGER.info(f"Reading ONNX file at {onnx_fpath}")
-        network = network_from_onnx_path(onnx_fpath)
-        G_LOGGER.info("Building TRT engine")
-        engine = engine_from_network(network, config=trt_config)
-        G_LOGGER.info(f"Saving TRT engine to {trt_fpath}")
-        save_engine(engine, trt_fpath)
+        with PG_LOGGER.verbosity(_calculate_polygraphy_verbosity()):
+            G_LOGGER.info(f"Reading ONNX file at {onnx_fpath}")
+            network = NetworkFromOnnxPath(onnx_fpath, strongly_typed=strongly_typed)
+            G_LOGGER.info("Building TRT engine")
+            engine = engine_from_network(network, config=trt_config)
+            G_LOGGER.info(f"Saving TRT engine to {trt_fpath}")
+            save_engine(engine, trt_fpath)
 
     @staticmethod
     def _resolve_opset19_paths(onnx_fpath, results_path: Optional[str] = None) -> str:
@@ -583,7 +671,14 @@ def parse_args():
         type=str,
     )
     parser.add_argument(
-        "--load-onnx",
+        "--nemo-checkpoint",
+        help="Set a NeMo checkpoint to be used.",
+        required=False,
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
+        "--onnx-model",
         help="A path to load an ONNX model for conversion.",
         required=False,
         default=None,
@@ -601,7 +696,7 @@ def parse_args():
         default=False
     )
     parser.add_argument(
-        "--use_cache",
+        "--use-cache",
         action="store_true",
         help="If set, the ONNX will have KV-cache inputs and outputs.",
         default=False
@@ -636,7 +731,7 @@ def parse_args():
         default=None,
         type=str,
     )
-    args, _ = parser.parse_known_args()
+    args = parser.parse_args()
     return args
 
 def main():
@@ -647,16 +742,15 @@ def main():
     G_LOGGER.info(f"Loaded configs = {cfg}")
 
     args = parse_args()
-    if args.nemo_model != None and args.load_onnx != None:
+    if (args.nemo_model != None or args.nemo_checkpoint != None) and args.onnx_model != None:
         G_LOGGER.error("NeMo model and ONNX model cannot be both set.")
         exit(1)
 
-    if args.nemo_model == None and args.load_onnx == None:
-        G_LOGGER.error("Either one of --nemo-model or --load-onnx needs to be set.")
+    if args.nemo_model == None and args.nemo_checkpoint == None and args.onnx_model == None:
+        G_LOGGER.error("Either one of --nemo-model, --nemo-checkpoint, or --onnx-model needs to be set.")
         exit(1)
 
     if args.extra_configs != None:
-        G_LOGGER.info(f"CFG={cfg}")
         kwargs = args.extra_configs.split(" ")
         for kwarg in kwargs:
             kw = kwarg.split("=")
@@ -673,6 +767,7 @@ def main():
 
             G_LOGGER.info(f"Setting {kw[0]} to {kw[1]}")
             nested_set(cfg, kw[0].split("."), kw[1])
+        G_LOGGER.info(f"Modified Configs = {cfg}")
 
     # Set precision for conversion
     if args.fp16:
@@ -695,13 +790,15 @@ def main():
 
     # Convert NeMo model to ONNX model
     converter = None
-    if args.nemo_model:
+    if args.nemo_model or args.nemo_checkpoint:
         cfg.gpt_model_file = args.nemo_model
+        cfg.checkpoint_dir = os.path.dirname(args.nemo_checkpoint)
+        cfg.checkpoint_name = os.path.basename(args.nemo_checkpoint)
         converter = NeMoConverter(cfg, MegatronGPTModel)
         onnx_name = converter.nemo_to_onnx()
         G_LOGGER.info(f"ONNX exported from NeMo {onnx_name}")
-    elif args.load_onnx:
-        onnx_name = args.load_onnx
+    elif args.onnx_model:
+        onnx_name = args.onnx_model
 
     # Convert Q/DQ nodes to use standard opset19 operators
     if args.opset19:

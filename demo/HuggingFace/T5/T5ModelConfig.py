@@ -49,5 +49,18 @@ class T5ModelTRTConfig(Seq2SeqModelTRTConfig):
         else:
             # Remove redundant t5 name
             metadata = metadata._replace(variant=metadata.variant.lstrip("t5-"))
-        
+
         return super().get_metadata_string(metadata)
+
+    def get_network_segments(self):
+        """
+        Returns exportable segments for T5. T5 is encoder/decoder
+        """
+
+        self.network_segments = [
+            self.NETWORK_ENCODER_SEGMENT_NAME,
+            self.NETWORK_DECODER_SEGMENT_NAME,
+            self.NETWORK_FULL_NAME,
+        ]
+
+        return self.network_segments

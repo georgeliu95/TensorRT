@@ -89,7 +89,7 @@ class GPT3NeMoOnnxRT(NeMoCommand):
             self.nemo_cfg.onnx_model_file = onnx_name
 
         # The ONNX model is in opset17 by default.
-        self.model.onnx = self.load_onnx_model()
+        self.model.onnxrt = self.load_onnx_model()
         self.tokenizer = self.model.tokenizer
         onnx_models = [
             NetworkModel(

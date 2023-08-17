@@ -87,12 +87,16 @@ class Seq2SeqModelTRTConfig(NNConfig):
             )
 
         self.use_mask = False
+        # Use this flag to load torch model if and only if benchmarking seqlen > model n_positions
+        self.ignore_mismatched_sizes = False
 
         super().__init__(network_name, variants=variants)
 
-    def from_hf_config(self, hf_config):
+    def from_hf_config(self, hf_config, model_max_len = None):
         """
         Set up config from HuggingFace Config.
+        Some model's n_positions is too long so TRT will build engines that is unrealistic for real-world cases.
+        Therefore we need to constrain the max output length for some models like GPT, BLOOM, OPT, etc.
         """
         user_define_variables = ["num_beams", "use_cache", "torch_dtype", "max_length", "min_length"]
         self.hf_config = hf_config
@@ -134,6 +138,9 @@ class Seq2SeqModelTRTConfig(NNConfig):
             self.max_length = self.n_positions
         if self.min_length == 65536:
             self.min_length = 0
+
+        if model_max_len:
+            self.max_length = min(self.max_length, model_max_len)
 
         # These variables are used to control generation.
         self.min_output_length = self.min_length
@@ -198,7 +205,7 @@ class Seq2SeqModelTRTConfig(NNConfig):
 
     def get_python_requirements(self):
         base_requirements = super().get_python_requirements()
-        base_requirements.append("transformers==4.27.0")
+        base_requirements.append("transformers==4.29.2")
         return base_requirements
 
     def get_network_segments(self):

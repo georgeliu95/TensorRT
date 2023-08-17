@@ -63,12 +63,16 @@ if __name__ == "__main__":
         mask_image = download_image(mask_url)
 
     image_width, image_height = input_image.size
-    mask_width, mask_height = mask_image.size
+    if image_height != args.height or image_width != args.width:
+        print(f"[I] Resizing input_image to {args.height}x{args.width}")
+        input_image = input_image.resize((args.height, args.width))
+        image_height, image_width = args.height, args.width
 
-    # Validate image dimensions
-    if mask_height != image_height or mask_width != image_width:
-        raise ValueError(f"Input image height and width {image_height} and {image_width} are not equal to "
-                         f"the respective dimensions of the mask image {mask_height} and {mask_width}")
+    mask_width, mask_height = mask_image.size
+    if mask_height != args.height or mask_width != args.width:
+        print(f"[I] Resizing mask_image to {args.height}x{args.width}")
+        mask_image = mask_image.resize((args.height, args.width))
+        mask_height, mask_width = args.height, args.width
 
     if image_height % 8 != 0 or image_width % 8 != 0:
         raise ValueError(f"Image height and width have to be divisible by 8 but specified as: {image_height} and {image_width}.")
@@ -90,13 +94,17 @@ if __name__ == "__main__":
     # Initialize demo
     demo = InpaintPipeline(
         scheduler=args.scheduler,
+        guidance_scale=args.guidance_scale,
         denoising_steps=args.denoising_steps,
         output_dir=args.output_dir,
         version=args.version,
         hf_token=args.hf_token,
         verbose=args.verbose,
         nvtx_profile=args.nvtx_profile,
-        max_batch_size=max_batch_size)
+        max_batch_size=max_batch_size,
+        use_cuda_graph=args.use_cuda_graph,
+        lora_scale=args.lora_scale,
+        lora_weights=args.lora_weights)
 
     # Load TensorRT engines and pytorch modules
     demo.loadEngines(args.engine_dir, args.framework_model_dir, args.onnx_dir, args.onnx_opset,
@@ -104,8 +112,13 @@ if __name__ == "__main__":
         force_export=args.force_onnx_export, force_optimize=args.force_onnx_optimize, \
         force_build=args.force_engine_build, \
         static_batch=args.build_static_batch, static_shape=not args.build_dynamic_shape, \
-        enable_preview=args.build_preview_features, enable_all_tactics=args.build_all_tactics, \
+        enable_all_tactics=args.build_all_tactics, \
         timing_cache=args.timing_cache)
+
+    max_device_memory = max(demo.calculateMaxDeviceMemory(), demo.calculateMaxDeviceMemory())
+    _, shared_device_memory = cudart.cudaMalloc(max_device_memory)
+    demo.activateEngines(shared_device_memory)
+
     demo.loadResources(image_height, image_width, batch_size, args.seed)
 
 

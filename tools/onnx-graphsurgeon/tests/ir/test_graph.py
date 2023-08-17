@@ -138,6 +138,14 @@ def quantize_linear(self, inp, out_scale, out_zero_point, axis=1):
     return out
 
 
+@gs.Graph.register()
+def pad(self, data, pads, constant_value=None):
+    constant_value = misc.default_value(constant_value, Variable.empty())
+    out = self.layer(op="Pad", inputs=[data, pads, constant_value], outputs=["pad_out"])[0]
+    out.dtype = data.dtype
+    return out
+
+
 # Generates a graph where an outer node has no outputs except
 # within the subgraph. ONNX-GS should recognize that the node
 # is being used, and should not remove it during cleanup().
@@ -1466,6 +1474,24 @@ class TestFoldConstants(object):
 
         graph.fold_constants(should_exclude_node=should_exclude_node_func).cleanup()
         assert [node.name for node in graph.nodes] == expected_node_names
+
+    def test_omitted_optional_inputs_ignored(self):
+        # An omitted optional input will show up as a `Variable` with no name.
+        # This should *not* prevent us from folding nodes where all other inputs are constants.
+        data = gs.Constant("data", np.ones(shape=(3, 5, 5), dtype=np.float32))
+        pads = gs.Constant("pads", np.zeros(shape=(6,), dtype=np.int64))
+        graph = Graph()
+
+        pad_0 = graph.pad(data, pads, constant_value=None)
+        graph.outputs = [pad_0]
+
+        assert pad_0.inputs[0].inputs[2] == Variable.empty()
+        assert len(graph.nodes) == 1
+
+        graph.fold_constants().cleanup()
+
+        assert len(graph.nodes) == 0
+        assert isinstance(graph.outputs[0], gs.Constant)
 
 
 class TestIO(object):

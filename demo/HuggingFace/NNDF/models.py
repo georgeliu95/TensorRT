@@ -392,6 +392,52 @@ class TorchModelFile(NNModelFile):
             rmtree(self.fpath)
 
 
+def _log_fake_perf_metrics(
+    build_time: float = 0.0,
+    peak_cpu_memory: int = 0,
+    peak_cpu_allocator_memory: int = 0,
+    peak_gpu_allocator_memory: int = 0,
+) -> None:
+    """Logs fake perf metrics for internal perf testing.
+
+    Logs "fake" perf metrics for detection in internal tests when engines built in earlier
+    tests (e.g. dynamic batch sized engines) are reused in another test.
+
+    Args:
+            build_time (float, optional): Defaults to 0.0.
+            peak_cpu_memory (int, optional): Defaults to 0.
+            peak_cpu_allocator_memory (int, optional): Defaults to 0.
+            peak_gpu_allocator_memory (int, optional): Defaults to 0.
+
+    Note:
+            This function needs to be modified in case the current TRT and internal perf test
+            specification changes.
+    """
+    pg_logger_verbosity = _calculate_polygraphy_verbosity()
+    perf_metrics = {
+        "BUILD_TIME": (
+            PG_LOGGER.EXTRA_VERBOSE,
+            "Engine generation completed in {} seconds".format(build_time),
+        ),
+        "PEAK_CPU_MEMORY": (
+            PG_LOGGER.VERBOSE,
+            "[MemUsageStats] Peak memory usage during Engine building and serialization: CPU: {} MiB".format(
+                peak_cpu_memory
+            ),
+        ),
+        "PEAK_GPU_MEMORY": (
+            PG_LOGGER.VERBOSE,
+            "[MemUsageStats] Peak memory usage of TRT CPU/GPU memory allocators: CPU {} MiB, GPU {} MiB".format(
+                peak_cpu_allocator_memory, peak_gpu_allocator_memory
+            ),
+        ),
+    }
+
+    with PG_LOGGER.verbosity(pg_logger_verbosity):
+        for metric_severity, metric_msg in perf_metrics.values():
+            PG_LOGGER.log(metric_msg, metric_severity, stack_depth=3, error_ok=True)
+
+
 class ONNXModelFile(NNModelFile):
     def __init__(
         self,
@@ -470,52 +516,6 @@ class ONNXModelFile(NNModelFile):
         workspace_path = os.path.split(self.fpath)[0]
         self._cleanup_onnx_folder(workspace_path)
 
-    def _log_fake_perf_metrics(
-        self,
-        build_time: float = 0.0,
-        peak_cpu_memory: int = 0,
-        peak_cpu_allocator_memory: int = 0,
-        peak_gpu_allocator_memory: int = 0,
-    ) -> None:
-        """Logs fake perf metrics for internal perf testing.
-
-        Logs "fake" perf metrics for detection in internal tests when engines built in earlier
-        tests (e.g. dynamic batch sized engines) are reused in another test.
-
-        Args:
-            build_time (float, optional): Defaults to 0.0.
-            peak_cpu_memory (int, optional): Defaults to 0.
-            peak_cpu_allocator_memory (int, optional): Defaults to 0.
-            peak_gpu_allocator_memory (int, optional): Defaults to 0.
-
-        Note:
-            This function needs to be modified in case the current TRT and internal perf test
-            specification changes.
-        """
-        pg_logger_verbosity = _calculate_polygraphy_verbosity()
-        perf_metrics = {
-            "BUILD_TIME": (
-                PG_LOGGER.EXTRA_VERBOSE,
-                "Engine generation completed in {} seconds".format(build_time),
-            ),
-            "PEAK_CPU_MEMORY": (
-                PG_LOGGER.VERBOSE,
-                "[MemUsageStats] Peak memory usage during Engine building and serialization: CPU: {} MiB".format(
-                    peak_cpu_memory
-                ),
-            ),
-            "PEAK_GPU_MEMORY": (
-                PG_LOGGER.VERBOSE,
-                "[MemUsageStats] Peak memory usage of TRT CPU/GPU memory allocators: CPU {} MiB, GPU {} MiB".format(
-                    peak_cpu_allocator_memory, peak_gpu_allocator_memory
-                ),
-            ),
-        }
-
-        with PG_LOGGER.verbosity(pg_logger_verbosity):
-            for metric_severity, metric_msg in perf_metrics.values():
-                PG_LOGGER.log(metric_msg, metric_severity, stack_depth=3, error_ok=True)
-
     def as_trt_engine(
         self,
         output_fpath: str,
@@ -545,7 +545,7 @@ class ONNXModelFile(NNModelFile):
         # TODO: Need to check if the old engine file is compatible with current setting
         if not force_overwrite and os.path.exists(output_fpath):
             G_LOGGER.debug("TRT Engine exists at location {}.".format(output_fpath))
-            self._log_fake_perf_metrics()
+            _log_fake_perf_metrics()
             return converter.trt_engine_class(output_fpath, self.network_metadata)
 
         return converter.onnx_to_trt(

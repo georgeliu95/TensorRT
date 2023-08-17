@@ -31,59 +31,6 @@ from GPT3.trt_utils import GPTTRTDecoder
 sys.path.append('../../HuggingFace') # Include HuggingFace
 from NNDF.logger import G_LOGGER
 
-class TRTKVCache:
-    def _allocate_memory(self):
-        return torch.empty(
-            self.max_seq_len,
-            self.bs,
-            self.nb_heads,
-            self.head_size,
-            dtype=self.type,
-            device=torch.cuda.current_device(),
-        ).contiguous().cuda()
-
-    def __init__(self, num_layers, max_seq_len, bs, nb_heads, head_size, type):
-        self.num_layers = num_layers
-        self.keys = []
-        self.values = []
-        self.cur_seq_len = 0
-        self.max_seq_len = max_seq_len
-        self.bs = bs
-        self.nb_heads = nb_heads
-        self.head_size = head_size
-        self.type = type
-        for _ in range(num_layers):
-            self.keys.append(self._allocate_memory())
-            self.values.append(self._allocate_memory())
-        self.element_size = self.keys[0].element_size()
-
-    def get_key(self, index):
-        assert index < len(self.keys)
-        return self.keys[index]
-
-    def get_value(self, index):
-        assert index < len(self.values)
-        return self.values[index]
-
-    def update_dict(self, tensor_dict, seq_len):
-        # Update KV input shapes every time before executing inference
-        cur_shape = (self.cur_seq_len, self.bs, self.nb_heads, self.head_size)
-        new_shape = (seq_len, self.bs, self.nb_heads, self.head_size)
-        assert self.cur_seq_len + seq_len < self.max_seq_len
-
-        offset = self.bs*self.nb_heads*self.head_size*self.cur_seq_len*self.element_size
-        for i in range(self.num_layers):
-            key_address = self.keys[i].data_ptr()
-            value_address = self.values[i].data_ptr()
-            # new kv address start from the past kv-cache data end
-            tensor_dict[f"past_key_values.{i}.decoder.key"] = (key_address, cur_shape)
-            tensor_dict[f"past_key_values.{i}.decoder.value"] = (value_address, cur_shape)
-
-            new_key_address = key_address + offset
-            new_value_address = value_address + offset
-            tensor_dict[f"new_key_values.{i}.decoder.key"] = (new_key_address, new_shape)
-            tensor_dict[f"new_key_values.{i}.decoder.value"] = (new_value_address, new_shape)
-        self.cur_seq_len += seq_len
 
 def sample_sequence_batch(
     model,
@@ -92,9 +39,7 @@ def sample_sequence_batch(
     context_lengths,
     tokens_to_generate,
     all_probs=False,
-    type_ids=None,
     temperature=None,
-    end_strings=['<|endoftext|>'],
     extra={},
 ):
     def repetition_penalty(logits, repetition_penalty, used_tokens):
@@ -152,32 +97,14 @@ def sample_sequence_batch(
 
         return logits
 
-    def end_of_generation_condition(
-        tokenizer, tokens: torch.Tensor, prev: torch.Tensor, eod_id: int, end_strings: List[str]
-    ) -> torch.Tensor:
-        """
-        return whether the generation should stop based on the previous token
-        Args:
-            tokens (torch.Tensor): the generated tokens so far
-            prev  (torch.Tensor): the previous token
-            eod_id (int): the end of document token id
-            end_strings (List[str]): the list of end of generation strings
-        returns:
-            a boolean tensor indicating whether the generation should stop
-        """
-        END_OF_SEQ = end_strings[0]
-        if len(end_strings) == 1 and end_strings[0] == END_OF_SEQ:
-            return prev == eod_id
-        assert False, "Not implemented error."
-
     app_state = AppState()
-    micro_batch_size = context_tokens.shape[0]
+    batch_size = context_tokens.shape[0]
     if not (hasattr(model, "trt") or hasattr(model, "onnx")):
         _reconfigure_microbatch_calculator(
             rank=app_state.global_rank,
             rampup_batch_size=None,
-            global_batch_size=micro_batch_size,
-            micro_batch_size=micro_batch_size,
+            global_batch_size=batch_size,
+            micro_batch_size=batch_size,
             data_parallel_size=1,
         )
 
@@ -185,14 +112,13 @@ def sample_sequence_batch(
     # initialize the batch
     with torch.no_grad():
         context_length = context_lengths.min().item()
+        context_lengths_cpu = context_lengths.cpu()
         inference_strategy.init_batch(context_tokens, context_length)
         # added eos_id to support the function generate_samples_eval that passes
         # eos_id as an argument and needs termination when that id id found.
         eod_id = tokenizer.eos_id
         counter = 0
 
-        batch_size = context_tokens.size(0)
-        is_done = torch.zeros([batch_size]).byte().cuda()
         tokens = context_tokens
         output_logits = None
         all_generated_indices = None  # used to track all generated indices
@@ -200,91 +126,109 @@ def sample_sequence_batch(
         maxlen = tokens_to_generate + context_lengths.max().item()
         maxlen = inference_strategy.clip_max_len(maxlen)
 
-        lengths = torch.ones([batch_size]).long().cuda() * maxlen
+        is_done = torch.zeros([batch_size]).byte()
+        lengths = torch.ones([batch_size]).long() * maxlen
 
-        kv_cache = None
-        if hasattr(model, "trt") and extra.get("use_cache", False):
-            kv_cache = TRTKVCache(model.cfg.num_layers, maxlen, batch_size, model.cfg.nb_heads, model.cfg.head_size, torch.float16)
+        use_cache = extra.get("use_cache", False)
+        is_onnx = hasattr(model, "onnx")
+        is_trt = hasattr(model, "trt")
 
+        if is_trt:
+            assert isinstance(model.trt, GPTTRTDecoder)
+            input_ids_name = model.trt.get_input_ids_name()
+            input_ids_type = model.trt.get_torch_type(input_ids_name)
+            position_ids_name = model.trt.get_position_ids_name()
+            position_ids_type =  model.trt.get_torch_type(position_ids_name)
+            attention_mask_name = model.trt.get_attention_mask_name()
+            if attention_mask_name != None:
+                attention_mask_type = model.trt.get_torch_type(attention_mask_name)
+
+            position_ids = inference_strategy.position_ids
+            attention_mask = inference_strategy.attention_mask
+
+        torch.cuda.nvtx.range_pop() # "Prepare Batch"
         while context_length < maxlen:
-            output = None
+            torch.cuda.nvtx.range_push("I/O Setup")
 
-            if hasattr(model, "onnx") and extra.get("use_cache", False):
+            output = None
+            if is_onnx and use_cache:
                 G_LOGGER.warn(f"ONNX runtime path does not support KV-cache.")
 
             # Modify counter based on using cache or not.
-            if not hasattr(model, "onnx") and extra.get("use_cache", False):
+            if is_trt:
+                # TRT input preprocessing doesn't use nemo function
+                pass
+            elif not is_onnx and use_cache:
                 batch, tensor_shape = inference_strategy.prepare_batch_at_step(
-                    tokens, maxlen, micro_batch_size, counter, context_length
+                    tokens, maxlen, batch_size, counter, context_length
                 )
             else:
                 batch, tensor_shape = inference_strategy.prepare_batch_at_step(
-                    tokens, maxlen, micro_batch_size, 0, context_length # step is always 0
+                    tokens, maxlen, batch_size, 0, context_length # step is always 0
                 )
 
-            # Choose which runtime to use
-            if hasattr(model, "trt") or hasattr(model, "onnx"):
+            # inputs input_ids: [BS, SEQ], position_ids: [BS, SEQ], attention_mask: [1, 1, SEQ, SEQ]
+            if is_trt:
+                context_mode = (use_cache and counter == 0) or not use_cache
+                if context_mode or not use_cache:
+                    # context mode
+                    batch_tokens = tokens[:, :context_length]
+                    batch_position_ids = position_ids[:, :context_length]
+                else:
+                    # generate mode
+                    batch_tokens = tokens[:, context_length - 1].view(batch_size, -1)
+                    batch_position_ids = position_ids[:, context_length - 1].view(batch_size, -1)
+                seq_len = batch_tokens.shape[1]
+                batch_attention_mask = attention_mask[0:1, 0:1, :seq_len, :seq_len]
+                input_ids = batch_tokens.type(input_ids_type).contiguous().cuda()
+                tensor_dict = {input_ids_name : (input_ids.data_ptr(), input_ids.shape)}
+                if position_ids_name != None:
+                    batch_position_ids = batch_position_ids.type(position_ids_type).contiguous().cuda()
+                    tensor_dict[position_ids_name] = (batch_position_ids.data_ptr(), batch_position_ids.shape)
+                if attention_mask_name != None:
+                    batch_attention_mask = batch_attention_mask.type(attention_mask_type).contiguous().cuda()
+                    tensor_dict[attention_mask_name] = (batch_attention_mask.data_ptr(), batch_attention_mask.shape)
+
+                logits_name = model.trt.get_output_name()
+                torch.cuda.nvtx.range_pop() # "I/O Setup"
+                output = model.trt.run(logits_name, tensor_dict, seq_len, context_mode)
+
+            elif is_onnx:
                 assert len(batch) == 5, "Length of batch must be 5."
                 (
                     batch_tokens,
                     attention_mask,
                     position_ids,
                     set_inference_key_value_memory,
-                    inference_max_sequence_len,
+                    _,
                 ) = batch
                 seq_len = batch_tokens.shape[1]
                 attention_mask = attention_mask[0:1, 0:1, 0:seq_len, 0:seq_len]
 
-                # inputs input_ids: [BS, SEQ], position_ids: [BS, SEQ], attention_mask: [1, 1, SEQ, SEQ]
-                if hasattr(model, "trt"):
-                    assert isinstance(model.trt, GPTTRTDecoder)
-                    input_ids_name = model.trt.get_input_ids_name()
-                    input_ids = batch_tokens.type(model.trt.get_torch_type(input_ids_name)).contiguous().cuda()
-                    tensor_dict = {input_ids_name : (input_ids.data_ptr(), input_ids.shape)}
-                    position_ids_name = model.trt.get_position_ids_name()
-                    if position_ids_name != None:
-                        position_ids = position_ids.type(model.trt.get_torch_type(position_ids_name)).contiguous().cuda()
-                        tensor_dict[position_ids_name] = (position_ids.data_ptr(), position_ids.shape)
-                    attention_mask_name = model.trt.get_attention_mask_name()
-                    if attention_mask_name != None:
-                        attention_mask = attention_mask.type(model.trt.get_torch_type(attention_mask_name)).contiguous().cuda()
-                        tensor_dict[attention_mask_name] = (attention_mask.data_ptr(), attention_mask.shape)
+                from onnxruntime import InferenceSession
+                assert isinstance(model.onnxrt, InferenceSession)
+                # Currently only support onnx runtime with cpu
+                # Our fp8 models don't currently use a user-provided attention_mask
+                tensor_dict = {'input_ids': batch_tokens.cpu().detach().numpy(),
+                                'position_ids': position_ids.cpu().detach().numpy()}
 
-                    is_first_input = False
-                    if extra.get("use_cache", False):
-                        if set_inference_key_value_memory[0].item():
-                            is_first_input = True
-                            kv_cache.update_dict(tensor_dict, seq_len)
-                        else:
-                            assert kv_cache != None
-                            kv_cache.update_dict(tensor_dict, 1)
+                def have_attention_mask(sess):
+                    return any(inp.name == 'attention_mask' for inp in all_inputs)
 
-                    logits_name = model.trt.get_output_name()
-                    output = model.trt.run(logits_name, tensor_dict, is_first_input)
-                else: # onnxrt path
-                    from onnxruntime import InferenceSession
-                    assert isinstance(model.onnx, InferenceSession)
-                    # Currently only support onnx runtime with cpu
-                    # Our fp8 models don't currently use attention_mask
-                    tensor_dict = {'input_ids': batch_tokens.cpu().detach().numpy(),
-                                   'position_ids': position_ids.cpu().detach().numpy()}
-                    def have_attention_mask(sess):
-                        all_inputs = sess.get_inputs()
-                        for input in all_inputs:
-                            if input.name == 'attention_mask':
-                                return True
-                        return False
-                    if have_attention_mask(model.onnx):
-                        tensor_dict['attention_mask'] = attention_mask.cpu().detach().numpy()
-                    output = model.onnx.run(['logits'], tensor_dict)[0]
-                    output = torch.Tensor(output).cuda()
+                if have_attention_mask(model.onnxrt):
+                    tensor_dict['attention_mask'] = attention_mask.cpu().detach().numpy()
+                torch.cuda.nvtx.range_pop() # "I/O Setup"
+                output = model.onnxrt.run(['logits'], tensor_dict)[0]
+                output = torch.Tensor(output).cuda()
                 # output logits: [BS, SEQ, 50304]
             else:
                 # nemo path
+                torch.cuda.nvtx.range_pop() # "I/O Setup"
                 output = inference_strategy.forward_step(batch, tensor_shape)
                 output = output[0]['logits'].float()
 
             assert output is not None
+            torch.cuda.nvtx.range_push("Output Sampling")
             output = output.float()
             logits = output[:, -1].view(batch_size, -1).contiguous()
 
@@ -298,7 +242,7 @@ def sample_sequence_batch(
             logits[:, tokenizer.vocab_size :] = -float('Inf')
 
             # started indicates whether the current token step passes the context_length, so we make sure not to overwrite the context tokens
-            started = context_lengths <= context_length
+            started = context_lengths_cpu <= context_length
             if extra.get('greedy', False):
                 prev = torch.argmax(logits, dim=-1).view(-1)
             else:
@@ -312,37 +256,45 @@ def sample_sequence_batch(
                 probs = F.softmax(logits, dim=-1)
                 prev = torch.multinomial(probs, num_samples=1).view(-1)
 
+            prev = prev.cpu()
             # Clamp the predicted out of vocabulary tokens
             prev = torch.clamp(prev, max=tokenizer.vocab_size - 1)
-            new_tokens = torch.where(started, prev, tokens[:, context_length].view(-1))
             # Replace sampled tokens w/ done token if EOD has already been sampled
-            new_tokens = torch.where(is_done, eod_id, new_tokens)
+            new_tokens = torch.where(is_done, eod_id, prev)
             # post process the inference tokens based on the strategy
             inference_strategy.post_process(tokens, new_tokens, context_length)
 
             # Insert either new predicted or next prompt token
-            tokens[:, context_length] = new_tokens
-
-            if output_logits is None:
-                output = F.log_softmax(output[:, :context_length, :], 2)
-                indices = torch.unsqueeze(tokens[:, 1 : context_length + 1], 2)
-                output_logits = torch.gather(output, 2, indices).squeeze(2)
-                all_generated_indices = indices[:, :, 0]
-                if all_probs:
-                    full_logits = output
+            if extra.get("accuracy_mode", False):
+                # We only update the last token for accuracy mode.
+                at_prediction_index = (context_lengths + tokens_to_generate - 1 == context_length)
+                tokens[:, context_length] = torch.where(at_prediction_index, new_tokens.cuda(), tokens[:, context_length])
             else:
-                output = F.log_softmax(output, 2)
-                indices = torch.unsqueeze(new_tokens, 1).unsqueeze(2)
-                new_output_logits = torch.gather(output, 2, indices).squeeze(2)
+                tokens[:, context_length] = torch.where(started.cuda(), new_tokens.cuda(), tokens[:, context_length])
 
-                # This copy can be optimized out by pre-allocating the memory.
-                output_logits = torch.cat([output_logits, new_output_logits], 1)
-                all_generated_indices = torch.cat([all_generated_indices, indices[:, :, 0]], 1)
-                if all_probs:
-                    full_logits = torch.cat([full_logits, output], 1)
+            if not extra.get("benchmark_mode", False):
+                if output_logits is None:
+                    output = F.log_softmax(output[:, :context_length, :], 2)
+                    indices = torch.unsqueeze(tokens[:, 1 : context_length + 1], 2)
+                    output_logits = torch.gather(output, 2, indices).squeeze(2)
+                    all_generated_indices = indices[:, :, 0]
+                    if all_probs:
+                        full_logits = output
+                else:
+                    output = F.log_softmax(output, 2)
+                    indices = torch.unsqueeze(new_tokens.cuda(), 1).unsqueeze(2)
+                    new_output_logits = torch.gather(output, 2, indices).squeeze(2)
 
-            done_token = end_of_generation_condition(tokenizer,
-                                                     tokens[:, : context_length + 1], prev, eod_id, end_strings)
+                    # This copy can be optimized out by pre-allocating the memory.
+                    output_logits = torch.cat([output_logits, new_output_logits], 1)
+                    all_generated_indices = torch.cat([all_generated_indices, indices[:, :, 0]], 1)
+                    if all_probs:
+                        if extra.get("use_cache", False):
+                            full_logits = torch.cat([full_logits, output], 1)
+                        else:
+                            full_logits = output
+
+            done_token = (prev == eod_id)
             done_token = done_token.byte() & started.byte()
 
             just_finished = (done_token & ~is_done).bool()
@@ -350,15 +302,16 @@ def sample_sequence_batch(
             is_done = is_done | done_token
 
             done = torch.all(is_done)
-            if all_probs:
-                yield tokens, lengths, output_logits, full_logits
-            else:
-                yield tokens, lengths, output_logits, None
+            torch.cuda.nvtx.range_pop() # "Output Sampling"
 
             context_length += 1
             counter += 1
             if done and not extra.get("benchmark_mode", False):
                 break
+
+        if all_probs:
+            return tokens, context_length, lengths, output_logits, full_logits
+        return tokens, context_length, lengths, output_logits, None
 
 def initialize_ddp(model, cfg):
     # check whether the DDP is initialized
@@ -372,57 +325,7 @@ def initialize_ddp(model, cfg):
         if model.cfg.get('transformer_engine', False):
             model.setup_transformer_engine_tp_groups()
 
-def full_inference(model, inputs, cfg):
-    initialize_ddp(model, cfg)
-
-    tokens_to_generate = cfg.inference.tokens_to_generate
-    min_tokens_to_generate = cfg.inference.min_tokens_to_generate
-    add_BOS = cfg.inference.add_BOS
-    all_probs = cfg.inference.all_probs
-    temperature = cfg.inference.temperature
-    end_strings = ['<|endoftext|>']
-    is_benchmark_mode = True if cfg.mode == "benchmark" else False
-
-    inference_strategy = GPTModelTextGenerationStrategy(model)
-    tokenizer = model.tokenizer
-    if isinstance(inputs, tuple):
-        context_tokens_tensor, context_length_tensor = inputs
-    else:
-        context_tokens_tensor, context_length_tensor = inference_strategy.tokenize_batch(
-            inputs, tokens_to_generate, add_BOS
-        )
-
-    context_length = context_length_tensor.min().item()
-
-    all_length = []
-    batch_token_iterator = sample_sequence_batch(
-        model,
-        inference_strategy,
-        context_tokens_tensor,
-        context_length_tensor,
-        tokens_to_generate,
-        all_probs,
-        temperature=temperature,
-        end_strings=end_strings,
-        extra={
-            "top_p": cfg.inference.top_p,
-            "top_k": cfg.inference.top_k,
-            "greedy": cfg.inference.greedy,
-            "repetition_penalty": cfg.inference.repetition_penalty,
-            "min_tokens_to_generate": min_tokens_to_generate,
-            "use_cache": cfg.use_cache,
-            "benchmark_mode": is_benchmark_mode
-        },
-    )
-
-    for tokens, lengths, output_logits, full_logits in batch_token_iterator:
-        all_length.append(lengths[0].item())
-        context_length += 1
-
-    output = None
-    if tokens is not None:
-        output = tokens[:, :context_length], output_logits, full_logits
-
+def get_special_tokens(tokenizer):
     special_tokens = set()
     if hasattr(tokenizer, 'pad_token') and tokenizer.pad_token is not None:
         special_tokens.add(tokenizer.pad_token)
@@ -438,40 +341,49 @@ def full_inference(model, inputs, cfg):
         special_tokens.add(tokenizer.sep_token)
     if hasattr(tokenizer, 'mask_token') and tokenizer.mask_token is not None:
         special_tokens.add(tokenizer.mask_token)
+    return special_tokens
+
+def process_output(model, output, return_segments=False):
+    torch.cuda.nvtx.range_push("Process Output")
+    inference_strategy = GPTModelTextGenerationStrategy(model)
+    tokenizer = model.tokenizer
     if output is not None:
         decode_tokens, output_logits, full_logits = output
-        resp_sentences = []
-        resp_sentences_seg = []
-
         decode_tokens = decode_tokens.cpu().numpy().tolist()
-        for decode_token in decode_tokens:
-            sentence = tokenizer.ids_to_text(decode_token)
-            resp_sentences.append(sentence)
-            words = []
-            for token in decode_token:
-                if not isinstance(token, Iterable):
-                    token = [token]
-                word = tokenizer.ids_to_tokens(token)
-                if isinstance(word, Iterable):
-                    word = word[0]
-                if hasattr(tokenizer.tokenizer, 'byte_decoder'):
-                    word = bytearray([tokenizer.tokenizer.byte_decoder[c] for c in word]).decode(
-                        'utf-8', errors='replace'
-                    )
-                words.append(word)
-            resp_sentences_seg.append(words)
 
-        # offsets calculation
+        # convert ids to text by applying tokenizer
+        resp_sentences = list(map(tokenizer.ids_to_text, decode_tokens))
+
         all_offsets = []
-        for item in resp_sentences_seg:
-            offsets = [0]
-            for index, token in enumerate(item):
-                if index != len(item) - 1:
-                    if token in special_tokens:
-                        offsets.append(offsets[-1])
-                    else:
-                        offsets.append(len(token) + offsets[-1])
-            all_offsets.append(offsets)
+        resp_sentences_seg = []
+        if return_segments:
+            # segments sentences into words.
+            for decode_token in decode_tokens:
+                words = []
+                for token in decode_token:
+                    if not isinstance(token, Iterable):
+                        token = [token]
+                    word = tokenizer.ids_to_tokens(token)
+                    if isinstance(word, Iterable):
+                        word = word[0]
+                    if hasattr(tokenizer.tokenizer, 'byte_decoder'):
+                        word = bytearray([tokenizer.tokenizer.byte_decoder[c] for c in word]).decode(
+                            'utf-8', errors='replace'
+                        )
+                    words.append(word)
+                resp_sentences_seg.append(words)
+
+            # offsets calculation
+            special_tokens = get_special_tokens(tokenizer)
+            for item in resp_sentences_seg:
+                offsets = [0]
+                for index, token in enumerate(item):
+                    if index != len(item) - 1:
+                        if token in special_tokens:
+                            offsets.append(offsets[-1])
+                        else:
+                            offsets.append(len(token) + offsets[-1])
+                all_offsets.append(offsets)
 
         output = {}
         output['sentences'] = resp_sentences
@@ -481,5 +393,61 @@ def full_inference(model, inputs, cfg):
         output['token_ids'] = decode_tokens
         output['offsets'] = all_offsets
         output = inference_strategy.post_generation_process(output)
+    torch.cuda.nvtx.range_pop() # "Process Output"
     return output
 
+def generate(model, inputs, cfg):
+    torch.cuda.nvtx.range_push("Prepare Batch")
+    initialize_ddp(model, cfg)
+
+    tokens_to_generate = cfg.inference.tokens_to_generate
+    min_tokens_to_generate = cfg.inference.min_tokens_to_generate
+    add_BOS = cfg.inference.add_BOS
+    all_probs = cfg.inference.all_probs
+    temperature = cfg.inference.temperature
+    is_benchmark_mode = True if cfg.mode == "benchmark" else False
+    is_accuracy_mode = True if cfg.mode == "accuracy" else False
+
+    inference_strategy = GPTModelTextGenerationStrategy(model)
+    if isinstance(inputs, tuple):
+        context_tokens_tensor, context_length_tensor = inputs
+    else:
+        context_tokens_tensor, context_length_tensor = inference_strategy.tokenize_batch(
+            inputs, tokens_to_generate, add_BOS
+        )
+
+    context_length = context_length_tensor.min().item()
+
+    batch_token_result = sample_sequence_batch(
+        model,
+        inference_strategy,
+        context_tokens_tensor,
+        context_length_tensor,
+        tokens_to_generate,
+        all_probs,
+        temperature=temperature,
+        extra={
+            "top_p": cfg.inference.top_p,
+            "top_k": cfg.inference.top_k,
+            "greedy": cfg.inference.greedy,
+            "repetition_penalty": cfg.inference.repetition_penalty,
+            "min_tokens_to_generate": min_tokens_to_generate,
+            "use_cache": cfg.use_cache,
+            "benchmark_mode": is_benchmark_mode,
+            "accuracy_mode": is_accuracy_mode,
+            "use_fp8_storage": cfg.onnx_export_options.use_fp8_storage,
+        },
+    )
+
+    tokens, context_length, _, output_logits, full_logits = batch_token_result
+
+    output = None
+    if tokens is not None:
+        output = tokens[:, :context_length], output_logits, full_logits
+    return output
+
+def full_inference(model, inputs, cfg):
+    output = generate(model, inputs, cfg)
+    if output is not None:
+        output = process_output(model, output, return_segments=(cfg.mode is not "benchmark"))
+    return output

@@ -39,18 +39,14 @@ class OPTModelTRTConfig(Seq2SeqModelTRTConfig):
         )
 
     def from_hf_config(self, hf_config):
-        super().from_hf_config(hf_config)
-        # Additional parameter to disable HF warning
-        self.pad_token_id = self.eos_token_id
-
         """
         OPT model's n_positions is too long (~2048). The model size for the models in the demo
         is not large enough to generate useful information and therefore will generate repetitive sentences.
         Truncate to 100 for useful informations.
         """
-        self.max_length = min(self.max_length, 100)
-        self.max_input_length = self.max_length
-        self.max_output_length = self.max_length
+        super().from_hf_config(hf_config, model_max_len=100)
+        # Additional parameter to disable HF warning
+        self.pad_token_id = self.eos_token_id
 
     def set_generation_config(self, generation_config):
         super().set_generation_config(generation_config)

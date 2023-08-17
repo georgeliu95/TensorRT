@@ -180,11 +180,7 @@ class BenchmarkAction(NetworkScriptAction):
 
 class ChatAction(NetworkScriptAction):
     def execute(self, args: argparse.Namespace):
-        print("Welcome to TensorRT HuggingFace Demo Chatbox! \
-            Please type your prompts. \
-            Type 'exit' to quit the chat."
-        )
-
+        print("Welcome to TensorRT HuggingFace Demo Chatbox! Please type your prompts. Type 'exit' to quit the chat.")
         module = None
         try:
             module = self.load_script(self.TRT_SCRIPT_NAME, args)
