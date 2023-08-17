@@ -35,8 +35,12 @@ __all__ = ['Lambada']
 
 class Lambada():
 
-    def __init__(self, base_dir, max_length = 2048):
+    def __init__(self, base_dir, tokens_to_generate, padding = -1, max_length = 2048):
+        assert tokens_to_generate >= 1
+        assert padding == -1 or tokens_to_generate == 1
         self.base_dir = base_dir
+        self.tokens_to_generate = tokens_to_generate
+        self.padding = padding
         self.max_length = max_length 
         self.download()
 
@@ -70,7 +74,10 @@ class Lambada():
         return "\n" + self._preprocess(doc["text"].rsplit(" ", 1)[0]).strip()
 
     def doc_to_target(self, doc):
-        return " " + self._preprocess(doc["text"].rsplit(" ", 1)[1])
+        split_text = doc["text"].rsplit(" ", 1)
+        if len(split_text) <= 1:
+            raise ValueError(f"Input doc '{doc}' does not have target.")
+        return " " + self._preprocess(split_text[1])
 
     def preprocess_input(self, tokenizer, docs):
         _Input = collections.namedtuple("_DS_Input", ["inputs", "inp_enc", "lens", "lens_pad", "conti_len"])
@@ -80,23 +87,30 @@ class Lambada():
         lens = []
         inp_encs = []
         for doc in docs:
-            text = self.doc_to_text(doc)
-            target = self.doc_to_target(doc)
+            # Handle padded text
+            if not doc["text"]:
+                inp_enc = [0]
+                conti_len = 0
+            else:
+                text = self.doc_to_text(doc)
+                target = self.doc_to_target(doc)
 
-            context_enc = tokenizer.text_to_ids(text)
-            continuation_enc = tokenizer.text_to_ids(target)
+                context_enc = tokenizer.text_to_ids(text)
+                continuation_enc = tokenizer.text_to_ids(target)
 
-            inp_enc = (context_enc + continuation_enc)[-(self.max_length + 1) :]
+                inp_enc = (context_enc + continuation_enc)[-(self.max_length + 1) :]
+                conti_len = len(continuation_enc)
+
             inp_encs.append(inp_enc)
-            conti_len = len(continuation_enc)
             conti_lens.append(conti_len)
             tokens.append(torch.tensor(inp_enc))
             lens.append(len(inp_enc) - 1)
         max_lens = max(lens)
 
         tokens_pad = pad_sequence(tokens, batch_first=False, padding_value=tokenizer.eos_id)
-        if max_lens % 8 != 0:
-            extra_pad_len = 8 - (max_lens % 8)
+        if self.padding != -1 and max_lens % self.padding != 0:
+            # We need align the context length to multiple of 8 for FP8 run using NeMo framework.
+            extra_pad_len = self.padding - (max_lens % self.padding)
 
             extra_pad = torch.ones(extra_pad_len, batch_size) * tokenizer.eos_id
             extra_pad = extra_pad.type_as(tokens_pad)
@@ -105,8 +119,7 @@ class Lambada():
             lens_pad = max_lens + extra_pad_len
         else:
             inp_enc_pad = tokens_pad.T
-
-            lens_pad = max_lens
+            lens_pad = max_lens + 1 - self.tokens_to_generate
 
         inputs = (torch.tensor(inp_enc_pad).cuda(), (torch.ones(batch_size, dtype=torch.int32) * lens_pad).cuda())
         return _Input(inputs=inputs, inp_enc=inp_encs, lens=lens, lens_pad=lens_pad, conti_len=conti_lens)

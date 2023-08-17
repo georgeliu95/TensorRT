@@ -41,3 +41,16 @@ class BARTModelTRTConfig(Seq2SeqModelTRTConfig):
         else:
             metadata = metadata._replace(variant=metadata.variant.replace("facebook/bart-",""))
         return super().get_metadata_string(metadata)
+
+    def get_network_segments(self):
+        """
+        Returns exportable segments for BART.
+        """
+
+        self.network_segments = [
+            self.NETWORK_ENCODER_SEGMENT_NAME,
+            self.NETWORK_DECODER_SEGMENT_NAME,
+            self.NETWORK_FULL_NAME,
+        ]
+
+        return self.network_segments

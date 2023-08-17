@@ -42,7 +42,7 @@ from NNDF.networks import (
     NetworkModels,
     NetworkModel,
 )
-from NNDF.networks import NNConfig
+from NNDF.networks import Precision, NNConfig
 from NNDF.tensorrt_utils import PolygraphyOnnxRunner
 from NNDF.general_utils import confirm_folder_delete
 from NNDF.logger import G_LOGGER
@@ -56,11 +56,11 @@ class OnnxEncoder(PolygraphyOnnxRunner):
         # Unoptimized unconditional transfer to numpy for interfacing with polygraphy
         input_ids = input_ids.cpu().numpy().astype("int64")
         input_dict = {"input_ids": input_ids}
-        if self.config.use_mask:
+        if attention_mask is not None:
             attention_mask = attention_mask.cpu().numpy().astype("int64")
             input_dict["attention_mask"] = attention_mask
 
-        return BaseModelOutput(last_hidden_state = torch.from_numpy(self.runner.infer()["encoder_hidden_states"]))
+        return BaseModelOutput(last_hidden_state = torch.from_numpy(self.runner.infer(input_dict)["encoder_hidden_states"]))
 
 class OnnxDecoder(PolygraphyOnnxRunner, GenerationMixin):
 
@@ -131,7 +131,7 @@ class Seq2SeqOnnxRT(OnnxRTCommand):
         if self.config.precision == torch.float16:
             G_LOGGER.warning("OnnxRT does not support fp16 ONNX yet. Ignored.")
             self.config.precision = torch.float32
-            self.metadata = self.metadata._replace(precision=torch.float32)
+            self.metadata = self.metadata._replace(precision=Precision(fp16=False))
 
         self.use_generator = False
 
@@ -182,6 +182,7 @@ class Seq2SeqOnnxRT(OnnxRTCommand):
                 batch_size=self.config.batch_size,
                 max_length=self.config.max_length,
                 use_cuda=use_cuda,
+                use_mask=self.config.use_mask,
             )
         else:
             perplexity = calculate_perplexity_helper_decoder(
@@ -191,6 +192,7 @@ class Seq2SeqOnnxRT(OnnxRTCommand):
                 batch_size=self.config.batch_size,
                 max_length=self.config.max_length,
                 use_cuda=use_cuda,
+                use_mask=self.config.use_mask,
             )
 
         G_LOGGER.info("Perplexity={}".format(perplexity))

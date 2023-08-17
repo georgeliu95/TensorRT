@@ -51,10 +51,14 @@ if __name__ == "__main__":
     if args.input_image:
         input_image = Image.open(args.input_image)
     else:
-        url = "https://pajoca.com/wp-content/uploads/2022/09/tekito-yamakawa-1.png"
+        url = "https://raw.githubusercontent.com/CompVis/stable-diffusion/main/assets/stable-samples/img2img/sketch-mountains-input.jpg"
         input_image = download_image(url)
 
     image_width, image_height = input_image.size
+    if image_height != args.height or image_width != args.width:
+        print(f"[I] Resizing input_image to {args.height}x{args.width}")
+        input_image = input_image.resize((args.height, args.width))
+        image_height, image_width = args.height, args.width
 
     # Validate image dimensions
     if image_height % 8 != 0 or image_width % 8 != 0:
@@ -80,13 +84,17 @@ if __name__ == "__main__":
     # Initialize demo
     demo = Img2ImgPipeline(
         scheduler=args.scheduler,
+        guidance_scale=args.guidance_scale,
         denoising_steps=args.denoising_steps,
         output_dir=args.output_dir,
         version=args.version,
         hf_token=args.hf_token,
         verbose=args.verbose,
         nvtx_profile=args.nvtx_profile,
-        max_batch_size=max_batch_size)
+        max_batch_size=max_batch_size,
+        use_cuda_graph=args.use_cuda_graph,
+        lora_scale=args.lora_scale,
+        lora_weights=args.lora_weights)
 
     # Load TensorRT engines and pytorch modules
     demo.loadEngines(args.engine_dir, args.framework_model_dir, args.onnx_dir, args.onnx_opset,
@@ -94,8 +102,13 @@ if __name__ == "__main__":
         force_export=args.force_onnx_export, force_optimize=args.force_onnx_optimize, \
         force_build=args.force_engine_build, \
         static_batch=args.build_static_batch, static_shape=not args.build_dynamic_shape, \
-        enable_refit=args.build_enable_refit, enable_preview=args.build_preview_features, enable_all_tactics=args.build_all_tactics, \
+        enable_refit=args.build_enable_refit, enable_all_tactics=args.build_all_tactics, \
         timing_cache=args.timing_cache, onnx_refit_dir=args.onnx_refit_dir)
+
+    max_device_memory = max(demo.calculateMaxDeviceMemory(), demo.calculateMaxDeviceMemory())
+    _, shared_device_memory = cudart.cudaMalloc(max_device_memory)
+    demo.activateEngines(shared_device_memory)
+
     demo.loadResources(image_height, image_width, batch_size, args.seed)
 
     if args.use_cuda_graph:

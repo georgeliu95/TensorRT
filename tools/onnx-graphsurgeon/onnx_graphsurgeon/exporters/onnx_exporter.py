@@ -34,6 +34,7 @@ def dtype_to_onnx(dtype: Union[np.dtype, "onnx.TensorProto.DataType"]) -> int:
         return dtype
     return onnx.mapping.NP_TYPE_TO_TENSOR_TYPE[np.dtype(dtype)]
 
+
 def check_duplicate_node_names(nodes: Sequence[Node], level=G_LOGGER.WARNING):
     # Check if node names are unique. If not, log based on severity.
 
@@ -45,11 +46,11 @@ def check_duplicate_node_names(nodes: Sequence[Node], level=G_LOGGER.WARNING):
             continue
         if node.name in name_map:
             msg = "Found distinct Nodes that share the same name:\n[id: {:}]:\n {:}---\n[id: {:}]:\n {:}\n".format(
-                            id(name_map[node.name]),
-                            name_map[node.name],
-                            id(node),
-                            node,
-                        )
+                id(name_map[node.name]),
+                name_map[node.name],
+                id(node),
+                node,
+            )
             G_LOGGER.log(msg, level)
         else:
             name_map[node.name] = node
@@ -79,8 +80,7 @@ class OnnxExporter(BaseExporter):
             )
 
         if tensor.dtype is not None:
-            shape = tensor.shape if tensor.shape is not None else [] # make sure `shape` field is present in value info
-            onnx_tensor = onnx.helper.make_tensor_value_info(tensor.name, dtype_to_onnx(tensor.dtype), shape)
+            onnx_tensor = onnx.helper.make_tensor_value_info(tensor.name, dtype_to_onnx(tensor.dtype), tensor.shape)
         else:
             onnx_tensor = onnx.helper.make_empty_tensor_value_info(tensor.name)
         return onnx_tensor

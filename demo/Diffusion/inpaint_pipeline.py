@@ -20,12 +20,12 @@ import nvtx
 import time
 import torch
 import tensorrt as trt
-from utilities import prepare_mask_and_masked_image, TRT_LOGGER
+from utilities import prepare_mask_and_masked_image, TRT_LOGGER, PIPELINE_TYPE
 from stable_diffusion_pipeline import StableDiffusionPipeline
 
 class InpaintPipeline(StableDiffusionPipeline):
     """
-    Application showcasing the acceleration of Stable Diffusion Inpainting v1.5, v2.0 pipeline using NVidia TensorRT w/ Plugins.
+    Application showcasing the acceleration of Stable Diffusion Inpainting v1.5, v2.0 pipeline using NVidia TensorRT.
     """
     def __init__(
         self,
@@ -44,7 +44,7 @@ class InpaintPipeline(StableDiffusionPipeline):
             raise ValueError(f"Inpainting only supports PNDM scheduler")
 
         super(InpaintPipeline, self).__init__(*args, **kwargs, \
-            inpaint=True, scheduler=scheduler, stages=[ 'vae_encoder', 'clip', 'unet', 'vae'])
+            pipeline_type=PIPELINE_TYPE.INPAINT, scheduler=scheduler, stages=[ 'vae_encoder', 'clip', 'unet', 'vae'])
 
     def infer(
         self,

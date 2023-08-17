@@ -173,27 +173,48 @@ class NetworkCommand(metaclass=ABCMeta):
             metadata = self.metadata
         )
 
-        def _n_positions_hint():
-            hint_cli_args = (
-                input_seq_len,
-                output_seq_len,
-                input_profile_max_len,
-                output_profile_max_len,
-            )
-            def consider_if_valid(x):
-                return x if x else -1
-
-            # Return supremum of a max value and valid user input values
-            N_POSITION_EMBEDDINGS_FALLBACK = 1024
-            return max(max(map(lambda x : consider_if_valid(x), hint_cli_args)),
-                       N_POSITION_EMBEDDINGS_FALLBACK)
-
-
         def get_hf_config():
             """Gets HF config with correct max sequence length limits in benchmarking mode."""
-            hf_config = AutoConfig.from_pretrained(variant, use_cache=use_cache)
+            hf_config = AutoConfig.from_pretrained(
+                variant,
+                use_cache=use_cache,
+                trust_remote_code=True,
+            )
 
             if benchmarking_mode:
+
+                # Return supremum of a max value and valid user input values
+                N_POSITION_EMBEDDINGS_FALLBACK = 1024
+
+                # Different models have different keyword names for max position embeddings.
+                # Loop over and see if HF consumes keyword.
+                possible_position_kw = ( "n_positions", "max_position_embeddings" )
+
+                original_n_positions = None
+                for k in possible_position_kw:
+                    if hasattr(hf_config, k):
+                        original_n_positions = getattr(hf_config, k)
+
+                if original_n_positions is None:
+                    G_LOGGER.warning("Unable to set n_positions for the model using {} as hints. "
+                                     "Overriding the field `n_positions` instead, assigning it "
+                                     "to {}".format(", ".join(possible_position_kw), N_POSITION_EMBEDDINGS_FALLBACK))
+                    setattr(hf_config, "n_positions", N_POSITION_EMBEDDINGS_FALLBACK)
+                    original_n_positions = N_POSITION_EMBEDDINGS_FALLBACK
+
+                def _n_positions_hint():
+                    hint_cli_args = (
+                        input_seq_len,
+                        output_seq_len,
+                        input_profile_max_len,
+                        output_profile_max_len,
+                        original_n_positions,
+                    )
+                    def consider_if_valid(x):
+                        return x if x else -1
+
+                    return max(map(lambda x : consider_if_valid(x), hint_cli_args))
+
                 n_positions_hints = _n_positions_hint()
                 n_positions = setup_benchmark_arg(
                     kwargs.get("n_positions"),
@@ -201,23 +222,9 @@ class NetworkCommand(metaclass=ABCMeta):
                     n_positions_hints
                 )
 
-                # Different models have different keyword names for max position embeddings.
-                # Loop over and see if HF consumes keyword.
-                possible_position_kw = ( "n_positions", "max_position_embeddings" )
-                original_n_positions = None
-                for k in possible_position_kw:
-                    if hasattr(hf_config, k):
-                        original_n_positions = getattr(hf_config, k)
-                        if original_n_positions < n_positions:
-                            setattr(hf_config, k, n_positions)
-
-                # If none of the possible keywords are consumed (for models such as bloom-560m)
-                # monkey patch a field `n_positions` which Seq2SeqConfig can then pick up.
-                if original_n_positions is None:
-                    G_LOGGER.warning("Unable to set n_positions for the model using {} as hints. "
-                                     "Overriding the field `n_positions` instead, assigning it "
-                                     "to {}".format(", ".join(possible_position_kw), n_positions))
-                    setattr(hf_config, "n_positions", n_positions)
+                if original_n_positions < n_positions:
+                    setattr(hf_config, k, n_positions)
+                    self.config.ignore_mismatched_sizes = True
 
             return hf_config
 
@@ -480,7 +487,10 @@ class NetworkCommand(metaclass=ABCMeta):
         if self.tokenizer:
             return self.tokenizer
 
-        tokenizer = AutoTokenizer.from_pretrained(self.config.variant)
+        tokenizer = AutoTokenizer.from_pretrained(
+            self.config.variant,
+            trust_remote_code=True,
+        )
         # Set pad_token = eos_token because eos token will be discarded by attention_mask
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = 'left'
@@ -495,7 +505,7 @@ class NetworkCommand(metaclass=ABCMeta):
             model(torch.Module): PyTorch model downloaded from HuggingFace
 
         """
-        ignore_mismatched_sizes = self.benchmarking_mode
+
         if self.torch_model:
             return self.torch_model
 
@@ -508,46 +518,50 @@ class NetworkCommand(metaclass=ABCMeta):
         hf_config = self.config.hf_config
         assert hf_config.use_cache == self.config.use_cache
 
-        if not os.path.exists(os.path.join(torch_dir, "config.json")):
+        # Use this flag to load torch model if and only if benchmarking seqlen > model n_positions
+        # There is a known issue in HuggingFace in ignore_mismatched_sizes that is fixed in 4.31.0
+        # https://github.com/huggingface/transformers/issues/22563.
 
+        ignore_mismatched_sizes = self.config.ignore_mismatched_sizes
+
+        def _load_torch_model_from_hf(model_loc):
+            if self.config.is_encoder_decoder:
+                _torch_model = AutoModelForSeq2SeqLM.from_pretrained(
+                    model_loc,
+                    config=hf_config,
+                    ignore_mismatched_sizes=ignore_mismatched_sizes,
+                    trust_remote_code=True,
+                )
+            else:
+                _torch_model = AutoModelForCausalLM.from_pretrained(
+                    model_loc,
+                    config=hf_config,
+                    ignore_mismatched_sizes=ignore_mismatched_sizes,
+                    trust_remote_code=True,
+                )
+            return _torch_model
+
+        def _download_and_save_torch_model_from_hf(variant):
             try:
-                if self.config.is_encoder_decoder:
-                    torch_model = AutoModelForSeq2SeqLM.from_pretrained(
-                        self.config.variant,
-                        config=hf_config,
-                        ignore_mismatched_sizes=ignore_mismatched_sizes,
-                    )
-                else:
-                    torch_model = AutoModelForCausalLM.from_pretrained(
-                        self.config.variant,
-                        config=hf_config,
-                        ignore_mismatched_sizes=ignore_mismatched_sizes,
-                    )
-            except:
-                raise RuntimeError("This model variant is not recognized by HuggingFace.")
+                _torch_model = _load_torch_model_from_hf(variant)
+            except Exception as e:
+                raise RuntimeError(f"Unable to download {self.config.variant} from HuggingFace Hub. Reason: {str(e)}")
 
-            torch_model.save_pretrained(torch_dir)
+            _torch_model.save_pretrained(torch_dir)
             G_LOGGER.info("Pytorch Model saved to {}".format(torch_dir))
+            return _torch_model
 
+        if not os.path.exists(os.path.join(torch_dir, "config.json")):
+            torch_model = _download_and_save_torch_model_from_hf(self.config.variant)
         else:
             G_LOGGER.info(
-                "Frameworks file already exists, skipping generation and loading from file instead."
+                "Frameworks file already exists, skipping download and loading from file instead."
             )
             try:
-                if self.config.is_encoder_decoder:
-                    torch_model = AutoModelForSeq2SeqLM.from_pretrained(
-                        torch_dir,
-                        config=hf_config,
-                        ignore_mismatched_sizes=ignore_mismatched_sizes,
-                    )
-                else:
-                    torch_model = AutoModelForCausalLM.from_pretrained(
-                        torch_dir,
-                        config=hf_config,
-                        ignore_mismatched_sizes=ignore_mismatched_sizes,
-                    )
+                torch_model = _load_torch_model_from_hf(torch_dir)
             except Exception as e:
-                raise RuntimeError(f"Fails to load model from {torch_dir}. Reason: {str(e)}")
+                G_LOGGER.warning(f"Fails to load model from {torch_dir}. Reason: {str(e)}. Attempt to redownload from HuggingFace.")
+                torch_model = _download_and_save_torch_model_from_hf(self.config.variant)
 
         G_LOGGER.info("PyTorch model loading time is {:.4f}s".format(time.time() - t0))
         return torch_model
@@ -567,7 +581,6 @@ class NetworkCommand(metaclass=ABCMeta):
             self.onnx_encoder: EncoderONNXFile if encoder_decoder, None otherwise
             self.onnx_cross_attn_cache_generator: CrossAttnCacheGeneratorONNXFile if encoder_decoder and use_cache, None otherwise
         """
-        t0 = time.time()
         G_LOGGER.info("Attempt to load ONNX models from arguments...")
         if self.check_onnx_inputs_valid():
             self.load_onnx_model_from_workspace()
@@ -586,6 +599,7 @@ class NetworkCommand(metaclass=ABCMeta):
         torch_model = self.load_torch_model()
         # For TRT, we try to always use CPU models to export to onnx as fp32.
         torch_model = torch_model.cpu()
+        t0 = time.time()
         torch_decoder = self.config.decoder_classes["torch"](torch_model, network_metadata = self.metadata)
         self.onnx_decoder = torch_decoder.as_onnx_model(
             self.workspace.decoder_onnx_path, force_overwrite=False, config=self.config
@@ -601,7 +615,7 @@ class NetworkCommand(metaclass=ABCMeta):
             self.onnx_cross_attn_cache_generator = torch_cross_attn_cache_generator.as_onnx_model(
                 self.workspace.cross_attn_generator_onnx_path, force_overwrite=False, config=self.config
             )
-        G_LOGGER.info("ONNX models successfully exported from PyTorch. Total time: {:.4f}s".format(time.time() - t0))
+        G_LOGGER.info("ONNX models successfully exported from PyTorch. ONNX export and post-processing time: {:.4f}s".format(time.time() - t0))
         return True
 
     def check_onnx_inputs_valid(self):
@@ -815,7 +829,8 @@ class NetworkCommand(metaclass=ABCMeta):
             if self.config.use_mask:
                 attention_mask = tokenizer_output.attention_mask
         else:
-            input_ids = torch.randint(0, self.config.vocab_size, (self.config.batch_size, self._args.input_seq_len))
+            # opt_input_length = input_seq_len in benchmarking mode
+            input_ids = torch.randint(0, self.config.vocab_size, (self.config.batch_size, self.config.opt_input_length))
             if self.config.use_mask:
                 attention_mask = torch.ones_like(input_ids)
 

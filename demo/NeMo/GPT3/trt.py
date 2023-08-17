@@ -37,6 +37,7 @@ import onnx
 sys.path.append('../../HuggingFace') # Include HuggingFace
 from NNDF.interface import FRAMEWORK_TENSORRT
 from NNDF.logger import G_LOGGER
+from NNDF.models import _log_fake_perf_metrics
 from NNDF.networks import (
     NetworkModel,
     NetworkModels,
@@ -139,6 +140,8 @@ class GPT3NeMoTRT(NeMoCommand):
         if self.nemo_cfg.use_cache and (not has_kv_cache_support(onnx_name)):
             G_LOGGER.info(f"Converting {onnx_name} with KV-cache support")
             new_dir = onnx_workpath + f"_{kv_output_policy}"
+            if self.nemo_cfg.onnx_export_options.use_fp8_storage:
+                new_dir += f"_fp8_storage"
             onnx_output_fpath = os.path.join(new_dir, onnx_name.split("/")[-1])
 
             if not os.path.isfile(onnx_output_fpath):
@@ -156,9 +159,15 @@ class GPT3NeMoTRT(NeMoCommand):
             suffixes.append("opt" + str(self.nemo_cfg.trt_export_options.opt_seq_len))
         if self.nemo_cfg.use_cache:
             suffixes.append("kv")
+        if self.nemo_cfg.onnx_export_options.use_fp8_storage:
+            suffixes.append("fp8_storage")
         suffix = "-".join(suffixes)
         trt_fpath = os.path.join(self.workspace.dpath, f"trt-{suffix}.plan")
-        if not os.path.isfile(trt_fpath):
+
+        if os.path.isfile(trt_fpath):
+            G_LOGGER.debug(f"TRT Engine plan exists at location {trt_fpath}.")
+            _log_fake_perf_metrics()
+        else:
             converter.onnx_to_trt(onnx_name, trt_fpath)
 
         self.nemo_cfg.trt_engine_file = trt_fpath

@@ -13,7 +13,7 @@ use_cache: True
 use_one_input: False # export ONNX model with only one input
 prompts: # prompts for GPT inference
   - "How are you?"
-  - "Tell me an interesting fact about TensorRT."
+  - "TensorRT is a Deep Learning compiler used for deep learning."
 
 mode: 'inference' # Could change to accuracy or benchmark
 
@@ -34,6 +34,7 @@ accuracy:
   dataset: Lambada
   metric: Perplexity
   top_n: 1,3,5
+  tokens_to_generate: 5
 
 benchmark:
   input_seq_len: 20
@@ -48,6 +49,7 @@ onnx_export_options:
   cache_support: False
   device: 'cuda'
   check_tolerance: 0.01
+  use_fp8_storage: False
 
 # for onnx to trt export
 trt_export_options:
@@ -56,6 +58,7 @@ trt_export_options:
   use_fp16: False
   use_fp8: False
   use_bf16: False
+  use_strongly_typed: False # enable strongly typed mode will invalidate `use_[fp8|fp16|bf16]` flags.
   timing_cache: 'functional.cache'
 
 trainer:
