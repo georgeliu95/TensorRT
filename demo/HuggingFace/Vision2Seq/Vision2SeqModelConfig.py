@@ -23,31 +23,26 @@ import os
 
 from NNDF.networks import Precision, NetworkMetadata, DeprecatedCache, NNConfig, Dims
 
+# Model config for text model in Vision2Seq
+from Seq2Seq.Seq2SeqModelConfig import Seq2SeqModelTRTConfig
+
 # Add syspath for custom library
 if __name__ == "__main__":
     filepath = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.join(filepath, os.pardir)
     sys.path.append(project_root)
 
-class Seq2SeqModelTRTConfig(NNConfig):
+class Vision2SeqModelTRTConfig(NNConfig):
 
     TARGET_MODELS = []
-
-    attribute_map = {
-        "num_heads": ['n_head', 'num_heads', 'decoder_attention_heads', 'num_attention_heads'],
-        "num_decoder_layers": ['n_layer', 'num_layers', 'decoder_layers', 'num_hidden_layers'],
-        "hidden_size": ['hidden_size', 'n_embd', 'd_model', 'n_embed'],
-        "n_positions": ['n_positions', "max_position_embeddings"],
-    }
 
     NETWORK_FULL_NAME = "full"
     NETWORK_DECODER_SEGMENT_NAME = "decoder"
     NETWORK_ENCODER_SEGMENT_NAME = "encoder"
-    NETWORK_CROSS_ATTENTION_CACHE_GENERATOR_NAME = "cross_attn_cache_generator"
 
     def __init__(
         self,
-        network_name = "Seq2Seq",
+        network_name = "Vision2Seq",
         metadata = None,
         **kwargs
     ):
@@ -85,74 +80,50 @@ class Seq2SeqModelTRTConfig(NNConfig):
                     other=DeprecatedCache(kv_cache=use_cache),
                 )
             )
-
+        
         self.use_mask = False
         # Use this flag to load torch model if and only if benchmarking seqlen > model n_positions
         self.ignore_mismatched_sizes = False
 
-        # Use this flag to control whether there are vision encoder outputs (named as image_embeds) consumed as inputs
-        self.consume_image_embeds = False
+        # To distinguish with Seq2Seq NLP models (Make sure set the flag after super().__init__)
+        # Vision2Seq consumes image embedding in its text model (the image embedding comes from its vision encoder)
+        self.consume_image_embeds = True
+
+        # Initialize text_config
+        self.text_config = Seq2SeqModelTRTConfig(metadata=self.metadata)
 
         super().__init__(network_name, variants=variants)
 
-    def from_hf_config(self, hf_config, model_max_len = None):
+    def from_hf_config(self, hf_config):
         """
         Set up config from HuggingFace Config.
-        Some model's n_positions is too long so TRT will build engines that is unrealistic for real-world cases.
-        Therefore we need to constrain the max output length for some models like GPT, BLOOM, OPT, etc.
         """
-        user_define_variables = ["num_beams", "use_cache", "torch_dtype", "max_length", "min_length"]
+        
         self.hf_config = hf_config
-        # Initialize all the fields from hf config.
-        hf_config_dict = self.hf_config.to_dict()
-        for k in hf_config_dict:
-            if k not in user_define_variables:
-                self.__setattr__(k, hf_config_dict[k])
+        self.text_config.from_hf_config(hf_config.text_config)
 
-        # Process required config to run TRT, but they may have different names in HuggingFace
-        for variable in Seq2SeqModelTRTConfig.attribute_map:
-            for name in Seq2SeqModelTRTConfig.attribute_map[variable]:
-                if hasattr(self.hf_config, name):
-                    self.__setattr__(variable, getattr(self.hf_config, name))
+        # There are vision encoder outputs (named as image_embeds) consumed as inputs to the text model
+        self.text_config.consume_image_embeds = True
 
-            if not hasattr(self, variable):
-                if variable == "n_positions":
-                    self.n_positions = self.hidden_size
-                else:
-                    raise ValueError("{} is not found in hf_config. Please ensure your model config has one of: {}".format(variable,", ".join(Seq2SeqModelTRTConfig.attribute_map[variable])))
+        self.hidden_size = self.text_config.hidden_size
+        self.d_kv = self.text_config.d_kv
+        self.num_heads = self.text_config.num_heads
+        self.num_decoder_layers = self.text_config.num_decoder_layers
 
-        # Parse min and max length from task_specific_params
-        self.min_length = 65536
-        self.max_length = 0
-        if hasattr(self.hf_config, "task_specific_params"):
-            task_specific_params = self.hf_config.task_specific_params
-            if task_specific_params is not None:
-                for task in task_specific_params:
-                    if "min_length" in task_specific_params[task]:
-                        self.min_length = min(self.min_length, task_specific_params[task]["min_length"])
-                    else:
-                        # If min length is not set, set to 0
-                        self.min_length = 0
+        self.vision_config = hf_config.vision_config
 
-                    if "max_length" in task_specific_params[task]:
-                        self.max_length = max(self.max_length, task_specific_params[task]["max_length"])
+        self.image_size = self.vision_config.image_size
 
-        if self.max_length == 0:
-            self.max_length = self.n_positions
-        if self.min_length == 65536:
-            self.min_length = 0
-
-        if model_max_len:
-            self.max_length = min(self.max_length, model_max_len)
+        self.max_length = self.text_config.max_length
 
         # These variables are used to control generation.
-        self.min_output_length = self.min_length
-        self.max_output_length = self.max_length
+        self.min_output_length = self.text_config.min_length
+        self.max_output_length = self.text_config.max_length
 
         # HuggingFace assume that max_length is for both input and output.
         # However, for benchmarking mode, they may have a difference.
         # These variables are used to control generated binding shapes
-        self.max_input_length = self.max_length
+        self.max_input_length = self.text_config.max_length
         self.opt_input_length = self.max_input_length // 2
         self.opt_output_length = self.max_output_length // 2
 
@@ -160,16 +131,14 @@ class Seq2SeqModelTRTConfig(NNConfig):
         self.max_input_profile_length = self.max_input_length
         self.max_output_profile_length = self.max_output_length
 
-        self.d_kv = hf_config_dict.pop("d_kv", self.hidden_size // self.num_heads)
-
         # For decoder-only models, we have context phase and generation phase, which will use different TRT profiles
         # So we need to maintain dynamic shape for onnx export, but we will fix seq len = 1 during TRT engine generation.
-        self.decoder_dims = 1 if (self.use_cache and self.is_encoder_decoder) else Dims.SEQUENCE
-        self.max_decoder_length = 1 if (self.use_cache and self.is_encoder_decoder) else self.max_output_length
+        # self.decoder_dims = 1 if (self.use_cache and self.is_encoder_decoder) else Dims.SEQUENCE
+        self.decoder_dims = Dims.SEQUENCE
+        self.max_decoder_length = 1 #if (self.use_cache and self.is_encoder_decoder) else self.max_output_length
         self.expand_size = self._compute_expand_size(self.batch_size, self.num_beams)
 
-        # Assume that all inputs have size 1, can adjust later.
-        self.input_case_size = 1
+        self.vocab_size = self.text_config.vocab_size
 
     def _compute_expand_size(self, batch_size, num_beams):
         """
@@ -185,13 +154,12 @@ class Seq2SeqModelTRTConfig(NNConfig):
 
         self.encoder_classes = model_classes.encoder_classes
         self.decoder_classes = model_classes.decoder_classes
-        self.cross_attn_cache_generator_classes = model_classes.cross_attn_cache_generator_classes
 
     def set_generation_config(self, generation_config):
         """
         Set generation config for using HF `generate` to decode.
         """
-        self.generation_config = generation_config
+        self.text_config.set_generation_config(generation_config)
 
     def to_dict(self):
         return self.hf_config.to_dict()
@@ -208,7 +176,7 @@ class Seq2SeqModelTRTConfig(NNConfig):
 
     def get_python_requirements(self):
         base_requirements = super().get_python_requirements()
-        base_requirements.append("transformers==4.29.2")
+        base_requirements.append("transformers==4.27.0")
         return base_requirements
 
     def get_network_segments(self):
@@ -218,9 +186,8 @@ class Seq2SeqModelTRTConfig(NNConfig):
         be exported into multiple parts.
         """
 
-        # TODO: Currently just measure decoder performance and full inference only.
-        # In current framework, it is hard to add encoder inference in a non-redundant way.
         self.network_segments = [
+            self.NETWORK_ENCODER_SEGMENT_NAME,
             self.NETWORK_DECODER_SEGMENT_NAME,
             self.NETWORK_FULL_NAME,
         ]
@@ -228,24 +195,16 @@ class Seq2SeqModelTRTConfig(NNConfig):
         return self.network_segments
 
     def _get_encoder_inputs(self):
-        encoder_inputs = OrderedDict({
-            "input_ids": (Dims.BATCH, Dims.SEQUENCE),
-        })
-        if self.use_mask:
-            encoder_inputs["attention_mask"] = (Dims.BATCH, Dims.SEQUENCE)
-        return encoder_inputs
+        return {"pixel_values": (Dims.BATCH, 3, self.image_size, self.image_size)}
 
     def _get_encoder_outputs(self):
-        return {"encoder_hidden_states":(Dims.BATCH, Dims.SEQUENCE, "encoder_hidden_size")}
+        return {"image_embeds":(Dims.BATCH, Dims.SEQUENCE, self.hidden_size)}
 
     def _get_cache_inputs(self):
         decoder_cache_inputs = OrderedDict({})
         for i in range(self.num_decoder_layers):
             decoder_cache_inputs["past_key_values.{}.self.key".format(i)] = (Dims.BATCH, self.num_heads, Dims.create_new_sequence_dim("past_decoder"), self.d_kv)
             decoder_cache_inputs["past_key_values.{}.self.value".format(i)] = (Dims.BATCH, self.num_heads, Dims.create_new_sequence_dim("past_decoder"), self.d_kv)
-            if self.is_encoder_decoder:
-                decoder_cache_inputs["past_key_values.{}.cross.key".format(i)] = (Dims.BATCH, self.num_heads, Dims.create_new_sequence_dim("encoder"), self.d_kv)
-                decoder_cache_inputs["past_key_values.{}.cross.value".format(i)] = (Dims.BATCH, self.num_heads, Dims.create_new_sequence_dim("encoder"), self.d_kv)
 
         return decoder_cache_inputs
 
@@ -263,8 +222,7 @@ class Seq2SeqModelTRTConfig(NNConfig):
         if self.use_mask:
             decoder_inputs["attention_mask"] = (Dims.BATCH, Dims.create_new_sequence_dim("past_attention_mask"))
 
-        if self.is_encoder_decoder:
-            decoder_inputs["encoder_hidden_states"] = (Dims.BATCH, Dims.create_new_sequence_dim("encoder"), "encoder_hidden_size")
+        decoder_inputs["image_embeds"] = (Dims.BATCH, self.num_positions, self.hidden_size)
 
         if self.use_cache:
             decoder_inputs.update(self._get_cache_inputs())
@@ -273,7 +231,7 @@ class Seq2SeqModelTRTConfig(NNConfig):
 
     def _get_decoder_outputs(self):
         decoder_outputs = OrderedDict({})
-        decoder_outputs["logits"] = (Dims.BATCH, self.decoder_dims, self.vocab_size)
+        decoder_outputs["logits"] = (Dims.BATCH, self.decoder_dims, self.text_config.vocab_size)
 
         if self.use_cache:
             decoder_outputs.update(self._get_self_attention_cache_outputs())
@@ -282,7 +240,7 @@ class Seq2SeqModelTRTConfig(NNConfig):
 
     # For encoder/decoder models, we need to generate cross attention separately
     def _get_cross_attention_cache_generator_inputs(self):
-        return {"encoder_hidden_states":(Dims.BATCH, Dims.create_new_sequence_dim("encoder"), "encoder_hidden_size")}
+        return {"image_embeds":(Dims.BATCH, self.num_positions, self.hidden_size)}
 
     def _get_cross_attention_cache_generator_outputs(self):
         cross_attention_cache_outputs = OrderedDict({})
@@ -300,13 +258,10 @@ class Seq2SeqModelTRTConfig(NNConfig):
             (Dict[str, Dims]): {"decoder": Dims, "encoder": Dims}
         """
         input_dims = {
-            Seq2SeqModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME: Dims(self._get_decoder_inputs())
+            Vision2SeqModelTRTConfig.NETWORK_DECODER_SEGMENT_NAME: Dims(self._get_decoder_inputs())
         }
 
-        if self.is_encoder_decoder:
-            input_dims[Seq2SeqModelTRTConfig.NETWORK_ENCODER_SEGMENT_NAME] = Dims(self._get_encoder_inputs())
-            if self.use_cache:
-                input_dims[Seq2SeqModelTRTConfig.NETWORK_CROSS_ATTENTION_CACHE_GENERATOR_NAME] = Dims(self._get_cross_attention_cache_generator_inputs())
+        input_dims[Vision2SeqModelTRTConfig.NETWORK_ENCODER_SEGMENT_NAME] = Dims(self._get_encoder_inputs())
 
         return input_dims
 
@@ -323,9 +278,6 @@ class Seq2SeqModelTRTConfig(NNConfig):
             self.NETWORK_DECODER_SEGMENT_NAME: Dims(self._get_decoder_outputs())
         }
 
-        if self.is_encoder_decoder:
-            output_dims[self.NETWORK_ENCODER_SEGMENT_NAME] = Dims(self._get_encoder_outputs())
-            if self.use_cache:
-                output_dims[self.NETWORK_CROSS_ATTENTION_CACHE_GENERATOR_NAME] = Dims(self._get_cross_attention_cache_generator_outputs())
+        output_dims[self.NETWORK_ENCODER_SEGMENT_NAME] = Dims(self._get_encoder_outputs())
 
         return output_dims

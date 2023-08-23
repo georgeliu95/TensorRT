@@ -69,6 +69,11 @@ Currently, this repository supports the following models with checkpoints:
     - bigscience/bloomz-3b
     - bigscience/bloomz-7b1
 
+1. [BLIP (image captioning task)](https://huggingface.co/docs/transformers/model_doc/blip). The sample supports following variants of BLIP:
+
+    - Salesforce/blip-image-captioning-base
+    - Salesforce/blip-image-captioning-large
+
 ## Setup
 
 
@@ -101,14 +106,17 @@ python run.py <args> # execute program
 │   ├── frameworks.py      # PyTorch inference script
 │   ├── onnxrt.py          # OnnxRT inference script
 │   ├── trt.py             # TensorRT inference script
+├── BLIP      # BLIP directory
+│   └── ...
 ├── BLOOM     # BLOOM directory
 │   └── ...
 ├── GPT2      # GPT2 directory
 │   └── ...
 ├── NNDF      # common high-level abstraction of classes and utilities
-├── Seq2Seq   # common concrete abstraction of classes and utilities
+├── Seq2Seq   # common concrete abstraction of classes and utilities for Sequence-to-Sequence models
 ├── T5        # T5 directory
 │   └── ...
+├── Vision2Seq  # common concrete abstraction of classes and utilities for Vision-to-Sequence models
 ├── notebooks # Jupyter notebooks
 │   ├── playground.ipynb # A new playground for users to run and benchmark selected HF model and configurations
 │   ├── GPT2.ipynb    # Jupyter notebooks for GPT2
