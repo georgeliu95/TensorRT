@@ -137,6 +137,7 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
         network_metadata: NetworkMetadata,
         config: Seq2SeqModelTRTConfig,
         nvtx_verbose: bool,
+        use_cuda_graph: bool,
     ):
         super().__init__(trt_engine_file, network_metadata, config, nvtx_verbose)
 
@@ -149,10 +150,16 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
         self.num_decoder_layers = config.num_decoder_layers
         self.expand_size = config.expand_size
         self.profile_idx = 0
-
         # Setting next input shape when execution
-        # Use dict to record which inputs have changed.
+        # Use dictionary to record which inputs have changed.
         self.input_shape_change_record = dict()
+
+        # CUDA Graph
+        self.stream_for_cuda_graph = CUASSERT(cudart.cudaStreamCreate())[0]
+        self.use_cuda_graph = use_cuda_graph
+        # two cuda graph ping-pong instance
+        self.cuda_graph_instances = [None, None]
+        self.cur_cuda_graph_instance = 0
 
         # Construct buffer for logits outputs
         self.logits = torch.zeros(
@@ -171,7 +178,10 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
                 device=self.device
             )
             self.trt_context.set_tensor_address("image_embeds", self.image_embeds.data_ptr())
-
+        if self.use_cuda_graph:
+            self.cuda_graph_input_data = torch.zeros(
+                (config.expand_size,1), dtype=torch.int32, device=self.device
+            )
         if config.is_encoder_decoder:
             self.encoder_hidden_states = torch.zeros(
                 config.expand_size*config.max_input_length*config.hidden_size,
@@ -340,7 +350,20 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
         if is_cpu_mode:
             input_ids = input_ids.cuda()
 
-        ctx.set_tensor_address(self.main_input_name, input_ids.data_ptr())
+        use_cuda_graph = self.use_cuda_graph
+        # Only enable CUDA graph in generate phase with kv_cache
+        if not self.config.use_cache or input_length != 1 and self.context_mode:
+            use_cuda_graph = False
+            for self.cur_cuda_graph_instance in range(len(self.cuda_graph_instances)):
+                if self.cuda_graph_instances[self.cur_cuda_graph_instance] is not None:
+                    CUASSERT(cudart.cudaGraphExecDestroy(self.cuda_graph_instances[self.cur_cuda_graph_instance]))
+                self.cuda_graph_instances[self.cur_cuda_graph_instance] = None
+
+        if use_cuda_graph:
+            self.cuda_graph_input_data[:,:] = input_ids[:,:]
+            ctx.set_tensor_address(self.main_input_name, self.cuda_graph_input_data.data_ptr())
+        else:
+            ctx.set_tensor_address(self.main_input_name, input_ids.data_ptr())
         ctx.set_input_shape(self.main_input_name, input_shape)
 
 
@@ -392,7 +415,16 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
 
         # Launch TRT inference.
         assert ctx.all_shape_inputs_specified
-        ctx.execute_async_v3(self.stream)
+
+        if self.use_cuda_graph:
+            if self.cuda_graph_instances[self.cur_cuda_graph_instance] is not None:
+                CUASSERT(cudart.cudaGraphLaunch(self.cuda_graph_instances[self.cur_cuda_graph_instance], self.stream))
+            else:
+                ctx.execute_async_v3(self.stream)
+        else:
+            ctx.execute_async_v3(self.stream)
+
+        early_switch = False
         if self.config.use_cache and self.past_decoder_length != 0:
             for i in range(self.num_decoder_layers):
                 next_self_attn_keys_shape = self._get_next_self_attn_keys_cache_shape()
@@ -403,16 +435,39 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
                 ctx.set_input_shape(f"past_key_values.{i}.self.value", next_self_attn_vals_shape)
                 key_record = self.input_shape_change_record["past_key_values.{i}.self.key"] = [ctx, next_self_attn_keys_shape]
                 value_record = self.input_shape_change_record["past_key_values.{i}.self.value"] = [ctx, next_self_attn_vals_shape]
+
+            if self.use_cuda_graph:
+                self._switch_cache()
+                early_switch = True
+
+                ctx.set_tensor_address(self.main_input_name, self.cuda_graph_input_data.data_ptr())
+                ctx.set_input_shape(self.main_input_name, input_shape)
+                # capture cuda graph
+                CUASSERT(cudart.cudaStreamBeginCapture(self.stream_for_cuda_graph, cudart.cudaStreamCaptureMode.cudaStreamCaptureModeThreadLocal))
+                ctx.execute_async_v3(self.stream_for_cuda_graph)
+                graph = CUASSERT(cudart.cudaStreamEndCapture(self.stream_for_cuda_graph))[0]
+                # instantiate cuda graph execution
+                self.cur_cuda_graph_instance = ((self.cur_cuda_graph_instance + 1) % 2)
+                if self.cuda_graph_instances[self.cur_cuda_graph_instance] is not None:
+                    err = cudart.cudaGraphExecUpdate(self.cuda_graph_instances[self.cur_cuda_graph_instance], graph)
+                    if err != cudart.cudaError_t.cudaSuccess:
+                        CUASSERT(cudart.cudaGraphExecDestroy(self.cuda_graph_instances[self.cur_cuda_graph_instance]))
+                        self.cuda_graph_instances[self.cur_cuda_graph_instance] = CUASSERT(cudart.cudaGraphInstantiate(graph, 0))[0]
+                    CUASSERT(cudart.cudaGraphUpload(self.cuda_graph_instances[self.cur_cuda_graph_instance], self.stream))
+                else:
+                    self.cuda_graph_instances[self.cur_cuda_graph_instance] = CUASSERT(cudart.cudaGraphInstantiate(graph, 0))[0]
+
+                CUASSERT(cudart.cudaGraphDestroy(graph))
+
         CUASSERT(cudart.cudaStreamSynchronize(self.stream))
 
-        # For bs > 1, this is required, so cannnot avoid this D2D copy
         logits_length = self.expand_size * input_length * self.config.vocab_size
         logits = self.logits[:logits_length].view(self.expand_size, input_length, self.config.vocab_size)
 
         present_key_values = None
         if self.config.use_cache:
-
-            self._switch_cache()
+            if not early_switch:
+                self._switch_cache()
 
             present_key_values = ()
             self.past_decoder_length += input_length
@@ -553,6 +608,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
         cache_generator_engine: str = None,
         use_timing_cache: bool = False,
         nvtx_verbose: bool = False,
+        use_cuda_graph: bool = False,
         **kwargs
     ):
         self.encoder_hidden_size = self.config.hidden_size
@@ -596,6 +652,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
 
         self.nvtx_verbose_inference = nvtx_verbose # In inference, nvtx verbose level may affect performance.
 
+        self.use_cuda_graph = use_cuda_graph
         if self.use_generator:
             self.cross_attn_cache_generator_engine = None
             self.onnx_cross_attn_cache_generator = None
@@ -685,7 +742,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
         try:
             self.decoder_engine = self.config.decoder_classes["engine"](decoder_engine_fpath, self.metadata)
             self.decoder = self.decoder_class(
-                self.decoder_engine, self.metadata, self.config, self.nvtx_verbose_inference
+                self.decoder_engine, self.metadata, self.config, self.nvtx_verbose_inference, self.use_cuda_graph
             )
 
             if self.config.is_encoder_decoder:
@@ -776,7 +833,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
         )
 
         self.decoder = self.decoder_class(
-            self.decoder_engine, self.metadata, self.config, self.nvtx_verbose_inference,
+            self.decoder_engine, self.metadata, self.config, self.nvtx_verbose_inference, self.use_cuda_graph
         )
         self.workspace.set_decoder_engine_path(decoder_engine_path)
 

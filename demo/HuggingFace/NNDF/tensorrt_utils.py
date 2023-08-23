@@ -209,12 +209,14 @@ class TRTNativeRunner:
         network_metadata: NetworkMetadata,
         config: NNConfig,
         nvtx_verbose: bool = False,
+        use_cuda_graph: bool = False,
     ):
         self.network_metadata = network_metadata
         self.trt_engine_file = trt_engine_file
         self.trt_logger = trt.Logger()
         self.config = config
         self.stream = CUASSERT(cudart.cudaStreamCreate())[0]
+        self.use_cuda_graph = use_cuda_graph
 
         if G_LOGGER.level == G_LOGGER.DEBUG:
             self.trt_logger.min_severity = trt.Logger.VERBOSE

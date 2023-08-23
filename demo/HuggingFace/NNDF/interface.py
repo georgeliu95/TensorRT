@@ -1240,6 +1240,13 @@ class TRTInferenceCommand(NetworkCommand):
         )
 
         engine_group.add_argument(
+            "--use-cuda-graph",
+            default=False,
+            help="Use CUDA graph to inference. Only available if --use-cache is also added",
+            action="store_true",
+        )
+
+        engine_group.add_argument(
             "--engine-postfix",
             default="",
             help="Postfix in engine file name to encode customized engine info, e.g. GPU, Platform, cuda, etc.",
