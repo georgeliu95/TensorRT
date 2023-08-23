@@ -1601,29 +1601,35 @@ bool timeRefit(INetworkDefinition const& network, nvinfer1::ICudaEngine& engine,
         return layerNames.empty();
     };
 
+    // Skip weights validation since we are confident that the new weights are similar to the weights used to build
+    // engine.
+    refitter->setWeightsValidation(false);
+
     // Warm up and report missing weights
+    // We only need to set weights for the first time and that can be reused in later refitting process.
     bool const success = setWeights() && reportMissingWeights() && refitter->refitCudaEngine();
     if (!success)
     {
         return false;
     }
 
-    constexpr int32_t loop = 5;
+    TrtCudaStream stream;
+    constexpr int32_t kLOOP = 10;
     time_point const refitStartTime{std::chrono::steady_clock::now()};
     {
-        for (int32_t l = 0; l < loop; l++)
+        for (int32_t l = 0; l < kLOOP; l++)
         {
-            bool const success = setWeights() && refitter->refitCudaEngine();
-            if (!success)
+            if (!refitter->refitCudaEngineAsync(stream.get()))
             {
                 return false;
             }
         }
     }
+    stream.synchronize();
     time_point const refitEndTime{std::chrono::steady_clock::now()};
 
     sample::gLogInfo << "Engine refitted"
-                     << " in " << durationMs(refitEndTime - refitStartTime).count() / loop << " ms." << std::endl;
+                     << " in " << durationMs(refitEndTime - refitStartTime).count() / kLOOP << " ms." << std::endl;
     return true;
 }
 

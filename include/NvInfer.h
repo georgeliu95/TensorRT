@@ -10156,6 +10156,19 @@ public:
     //! which is currently 5. Setting it to greater than the maximum level results in behavior identical to the
     //! maximum level.
     //!
+    //! Below are the descriptions about each builder optimization level:
+    //!
+    //! - Level 0: This enables the fastest compilation by disabling dynamic kernel generation and selecting the first
+    //!   tactic that succeeds in execution. This will also not respect a timing cache.
+    //! - Level 1: Available tactics are sorted by heuristics, but only the top are tested to select the best. If a
+    //!   dynamic kernel is generated its compile optimization is low.
+    //! - Level 2: Available tactics are sorted by heuristics, but only the fastest tactics are tested to select the
+    //!   best.
+    //! - Level 3: Apply heuristics to see if a static precompiled kernel is applicable or if a new one has to be
+    //!   compiled dynamically.
+    //! - Level 4: Always compiles a dynamic kernel.
+    //! - Level 5: Always compiles a dynamic kernel and compares it to static kernels.
+    //!
     //! \param level The optimization level to set to. Must be non-negative.
     //!
     //! \see getBuilderOptimizationLevel
