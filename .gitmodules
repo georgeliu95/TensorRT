@@ -9,7 +9,7 @@
 [submodule "parsers/onnx"]
 	path = parsers/onnx
 	url = https://gitlab-master.nvidia.com/TensorRT/Public/onnx.git
-	branch = release/8.6
+	branch = main
 [submodule "tools/Polygraphy"]
 	path = tools/Polygraphy
 	url = https://gitlab-master.nvidia.com/TensorRT/Infrastructure/Polygraphy.git
