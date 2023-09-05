@@ -34,7 +34,7 @@ inline void cudaCheck(cudaError_t ret, std::ostream& err = std::cerr)
     if (ret != cudaSuccess)
     {
         err << "Cuda failure: " << cudaGetErrorString(ret) << std::endl;
-        abort();
+        exit(EXIT_FAILURE);
     }
 }
 

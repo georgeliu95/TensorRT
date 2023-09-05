@@ -19,6 +19,7 @@ import os
 import platform
 import subprocess
 import sys
+import glob
 
 from setuptools import setup
 from setuptools.command.install import install
@@ -34,10 +35,26 @@ disable_internal_pip = os.environ.get("NVIDIA_TENSORRT_DISABLE_INTERNAL_PIP", Fa
 
 
 def run_pip_command(args, call_func):
+    env = os.environ.copy()
+    env["PYTHONPATH"] = sys.exec_prefix
     try:
-        return call_func([sys.executable, "-m", "pip"] + args)
-    except:
-        return call_func([os.path.join(sys.exec_prefix, "bin", "pip")] + args)
+        return call_func([sys.executable, "-m", "pip"] + args, env=env)
+    except subprocess.CalledProcessError:
+
+        def find_pip():
+            pip_name = "pip"
+            if sys.platform.startswith("win"):
+                pip_name = "pip.exe"
+            for path in glob.iglob(os.path.join(sys.exec_prefix, "**"), recursive=True):
+                if os.path.isfile(path) and os.path.basename(path) == pip_name:
+                    return path
+            return None
+
+        pip_path = find_pip()
+        if pip_path is None:
+            # Couldn't find `pip` in `sys.exec_prefix`, so we have no option but to abort.
+            raise
+        return call_func([pip_path] + args, env=env)
 
 
 # check wheel availability using information from https://github.com/pypa/packaging/blob/23.1/src/packaging/markers.py#L175-L190
@@ -67,12 +84,16 @@ class InstallCommand(install):
 
 def pip_config_list():
     """Get the current pip config (env vars, config file, etc)."""
-    return run_pip_command(["config", "list"], subprocess.check_output).decode()
+    try:
+        return run_pip_command(["config", "list"], subprocess.check_output).decode()
+    except:
+        return ""
 
 
 def parent_command_line():
     """Get the command line of the parent PID."""
     pid = os.getppid()
+
     # try retrieval using psutil
     try:
         import psutil
@@ -88,11 +109,11 @@ def parent_command_line():
 
 
 # use pip-inside-pip hack only if the nvidia index is not set in the environment
-if disable_internal_pip or nvidia_pip_index_url in pip_config_list() or nvidia_pip_index_url in parent_command_line():
-    install_requires = tensorrt_submodules
+install_requires = []
+if disable_internal_pip or nvidia_pip_index_url in parent_command_line() or nvidia_pip_index_url in pip_config_list():
+    install_requires.extend(tensorrt_submodules)
     cmdclass = {}
 else:
-    install_requires = []
     cmdclass = {"install": InstallCommand}
 
 
@@ -129,6 +150,7 @@ When the extra index url does not contain `{}`, a nested `pip install` will run 
     ],
     packages=[tensorrt_module],
     install_requires=install_requires,
+    setup_requires=["wheel"],
     python_requires=">=3.6",  # ref https://pypi.nvidia.com/tensorrt-bindings/
     cmdclass=cmdclass,
     extras_require={"numpy": "numpy"},

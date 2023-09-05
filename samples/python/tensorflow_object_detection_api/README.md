@@ -315,3 +315,9 @@ If you run this on COCO val2017 images, you may also add the parameter `--annota
 
 ![mrcnn_compare_tf](https://drive.google.com/uc?export=view&id=1kNnfJ2H5OY85Z2e6KNxZgiYk3Lo-sB9r)
 
+# Changelog
+
+August 2023: 
+  - Update ONNX version support to 1.14.0
+  - Update ONNX Runtime version support to 1.15.1 for Python>=3.8
+

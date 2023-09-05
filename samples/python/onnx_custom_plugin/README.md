@@ -151,9 +151,8 @@ The following resources provide a deeper understanding about getting started wit
 For terms and conditions for use, reproduction, and distribution, see the [TensorRT Software License Agreement](https://docs.nvidia.com/deeplearning/sdk/tensorrt-sla/index.html) documentation.
 
 # Changelog
-
-September 2022
-This `README.md` file was created and reviewed.
+August 2023: Update ONNX version support to 1.14.0
+September 2022: This `README.md` file was created and reviewed.
 
 # Known issues
 

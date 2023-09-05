@@ -20,6 +20,8 @@ These scripts help with conversion and execution of [Google EfficientDet](https:
 
 - August 2023:
   - Added support for TensorFlow 2.12.0
+  - Update ONNX version support to 1.14.0
+  - Update ONNX Runtime version support to 1.15.1 for Python>=3.8
 - January 2022:
   - Added support for EfficientDet Lite and AdvProp models.
   - Added dynamic batch support.
