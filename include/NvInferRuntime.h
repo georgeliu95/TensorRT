@@ -1351,7 +1351,7 @@ public:
     //!
     //! IExecutionContexts associated with the engine remain valid for use afterwards. There is no need to set the same
     //! weights repeatedly for multiple refit calls as the weights memory can be updated directly instead. The weights
-    //! updating task should use the the same stream as the one used for the refit call.
+    //! updating task should use the same stream as the one used for the refit call.
     //!
     bool refitCudaEngineAsync(cudaStream_t stream) noexcept
     {
