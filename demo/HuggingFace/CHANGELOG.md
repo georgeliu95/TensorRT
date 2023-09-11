@@ -20,6 +20,9 @@ Uses [semantic versioning](https://semver.org/).
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+# [2.0.5] - 2023-09-06
+- Added `accuracy` command for LAMBADA topN accuracy for HF Demo
+
 # [2.0.4] - 2023-08-15
 - Added support for BLIP models
 

@@ -189,7 +189,7 @@ class Vision2SeqTRT(TRTInferenceCommand):
         # self.tokenizer = self.download_tokenizer()
         processor = AutoProcessor.from_pretrained(self.config.metadata.variant)
         self.tokenizer = processor.tokenizer
-        
+
         t0 = time.time()
         # Check whether user passed engine
         if self.check_engine_inputs_valid() and self.setup_engines_from_path(
@@ -278,7 +278,7 @@ class Vision2SeqTRT(TRTInferenceCommand):
         #                    If no additional benchmarking flags are provided, it will just use n_positions for max coverage
 
         # Convert ONNX models to TRT engines.
-        if not self.benchmarking_mode:
+        if not self.action == "benchmark":
             engine_tag = "bs{}".format(self.config.batch_size)
         # When user does not input any profile_max_len, use seq as tag, both max are config max
         elif self.seq_tag:
@@ -304,7 +304,7 @@ class Vision2SeqTRT(TRTInferenceCommand):
                 engine_tag = "bs{}-inmax{}-outmax{}".format(self.config.batch_size,
                                                             self.config.max_input_profile_length,
                                                             self.config.max_output_profile_length)
-                
+
         if self.config.num_beams > 1:
             engine_tag += "-beam{}".format(self.config.num_beams)
 
@@ -471,7 +471,7 @@ class Vision2SeqTRT(TRTInferenceCommand):
 
         return decoder_profiles
 
-# Used to create decoder trtexec command string for debugging accuracy/performance.
+    # Used to create decoder trtexec command string for debugging accuracy/performance.
     def _decoder_trtexec_command(self, decoder_engine_path):
         command = f"trtexec --onnx={self.onnx_decoder.fpath} --verbose --saveEngine={decoder_engine_path} "
         min_shape = "--minShapes="
@@ -505,15 +505,14 @@ class Vision2SeqTRT(TRTInferenceCommand):
             opt_shape += f",'image_embeds':{self.opt_expand_size}x{self.config.num_positions}x{self.encoder_hidden_size}"
             max_shape += f",'image_embeds':{self.max_expand_size}x{self.config.num_positions}x{self.encoder_hidden_size}"
 
-            for i in range(self.config.num_decoder_layers):
-                k = f",'past_key_values.{i}.self.key'"
-                v = f",'past_key_values.{i}.self.value'"
-                kv_min_str = f":{self.min_expand_size}x{self.config.num_heads}x0x{self.embedding_size_per_head}"
-                kv_opt_str = f":{self.opt_expand_size}x{self.config.num_heads}x{self.opt_output_seq_len-1}x{self.embedding_size_per_head}"
-                kv_max_str = f":{self.max_expand_size}x{self.config.num_heads}x{self.config.max_output_profile_length-1}x{self.embedding_size_per_head}"
-                min_shape += k + kv_min_str + v + kv_min_str
-                opt_shape += k + kv_opt_str + v + kv_opt_str
-                max_shape += k + kv_max_str + v + kv_max_str
+            k = f",'past_key_values.*.self.key'"
+            v = f",'past_key_values.*.self.value'"
+            kv_min_str = f":{self.min_expand_size}x{self.config.num_heads}x0x{self.embedding_size_per_head}"
+            kv_opt_str = f":{self.opt_expand_size}x{self.config.num_heads}x{self.opt_output_seq_len-1}x{self.embedding_size_per_head}"
+            kv_max_str = f":{self.max_expand_size}x{self.config.num_heads}x{self.config.max_output_profile_length-1}x{self.embedding_size_per_head}"
+            min_shape += k + kv_min_str + v + kv_min_str
+            opt_shape += k + kv_opt_str + v + kv_opt_str
+            max_shape += k + kv_max_str + v + kv_max_str
 
             command += f"{min_shape} {opt_shape} {max_shape} "
 
