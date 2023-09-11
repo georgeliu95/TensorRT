@@ -178,7 +178,7 @@ class NeMoCommand(NetworkCommand):
         self.nemo_cfg = nemo_cfg
         super().__init__(config_class, description, **kwargs)
 
-    def validate_and_set_precision(self, fp8, fp16, bf16, use_fp8_storage):
+    def validate_and_set_precision(self, fp8, fp16, bf16, use_fp8_storage, quantize_bmms):
         if fp8:
             if fp16:
                 G_LOGGER.info("Use FP8-FP16 precision.")
@@ -197,6 +197,7 @@ class NeMoCommand(NetworkCommand):
         self.nemo_cfg.trt_export_options.use_fp16 = fp16
         self.nemo_cfg.trt_export_options.use_bf16 = bf16
         self.nemo_cfg.onnx_export_options.use_fp8_storage = use_fp8_storage
+        self.nemo_cfg.onnx_export_options.quantize_bmms = quantize_bmms
 
         if fp16:
             self.nemo_cfg.trainer.precision = "16"
@@ -235,6 +236,7 @@ class NeMoCommand(NetworkCommand):
         fp16: bool = False,
         bf16: bool = False,
         use_fp8_storage: bool = False,
+        quantize_bmms: bool = False,
         input_seq_len: int = None,
         output_seq_len: int = None,
         nemo_model: str = None,
@@ -246,7 +248,7 @@ class NeMoCommand(NetworkCommand):
         """
         Use Arguments from command line or user specified to setup config for the model.
         """
-        self.validate_and_set_precision(fp8, fp16, bf16, use_fp8_storage)
+        self.validate_and_set_precision(fp8, fp16, bf16, use_fp8_storage, quantize_bmms)
 
         if not torch.cuda.is_available():
             raise EnvironmentError("GPU is required for NeMo demo.")
@@ -697,6 +699,12 @@ class NeMoCommand(NetworkCommand):
             action="store_true",
             help="Use FP8 storage precision.",
             default=False
+        )
+        model_config_group.add_argument(
+            "--quantize-bmms",
+            help="Quantize attention BMMs",
+            action="store_true",
+            default=False,
         )
 
     def __call__(self):

@@ -10,4 +10,4 @@ tqdm
 torch==2.1.0.dev20230820
 torchaudio==2.1.0.dev20230821
 torchvision==0.16.0.dev20230821
-onnx-graphsurgeon==0.3.27
+onnx-graphsurgeon==0.3.28
