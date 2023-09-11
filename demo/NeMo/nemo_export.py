@@ -194,6 +194,111 @@ def get_trtexec_cmd(onnx_fpath, cfg, bs):
     return trtexec_cmd
 
 
+def add_zero_point(g, base_name, dtype):
+    """Add Q/DQ zero-point constant"""
+    _zp_fp8_value = onnx.helper.make_tensor(base_name + "_zp_fp8_value", dtype, (1,), [0.0])
+    zero_point_fp8 = gs.Variable(base_name + "_zero_point", dtype=dtype, shape=(1,))
+    zero_point_const = gs.Node(op="Constant", name= base_name + "_zero_point_const", inputs=[], outputs=[zero_point_fp8], attrs={"value": _zp_fp8_value})
+    g.nodes.append(zero_point_const)
+    return zero_point_fp8
+
+
+def add_scale(g, base_name, dtype, value):
+    """Add Q/DQ scale constant"""
+    scale = gs.Variable(base_name + "_scale", dtype=dtype, shape=(1,))
+    scale_const = gs.Node(op="Constant", name=base_name + "_scale_const", inputs=[], outputs=[scale], attrs={"value_float": value})
+    g.nodes.append(scale_const)
+    return scale
+
+
+def add_cast(g, inp, outp_dtype, cast_name):
+    """Add Cast operator """
+    cast_outp = gs.Variable(cast_name+"_out", dtype=outp_dtype)
+    new_cast = gs.Node(
+        op="Cast",
+        name=cast_name,
+        inputs=[inp],
+        outputs=[cast_outp],
+        attrs={"to": outp_dtype}
+    )
+    g.nodes.append(new_cast)
+    return cast_outp
+
+
+def add_q(g, inp, hp_dtype, q_dtype, q_name=None):
+    """Add QuantizeLinear operator"""
+    scale_dtype = hp_dtype
+    q_name = q_name or f"{inp.name}_qfp8"
+    q_out = gs.Variable(q_name, dtype=q_dtype)
+    q = gs.Node(op="QuantizeLinear", name=q_name,
+        inputs=[
+            inp,
+            add_scale(g, inp.name, scale_dtype, 1.0),
+            add_zero_point(g, inp.name, q_dtype)
+        ],
+        outputs=[q_out])
+    g.nodes.append(q)
+    return q_out
+
+
+def add_dq(g, inp, hp_dtype, dq_dtype):
+    """Add DequantizeLinear operator"""
+    dq_name = f"{inp.name}_dqfp8"
+    scale_dtype = hp_dtype
+    dq_out = gs.Variable(dq_name, dtype=hp_dtype)
+    dq = gs.Node(op="DequantizeLinear", name=dq_name,
+        inputs=[
+            inp,
+            add_scale(g, inp.name, scale_dtype, 1.0),
+            add_zero_point(g, inp.name, dq_dtype)],
+        outputs=[dq_out])
+    g.nodes.append(dq)
+    return dq_out
+
+
+def quantize_all_bmms(g, dtype_high_prec, use_fp8_storage):
+    """Quantize the inputs of all batched matmul operators"""
+
+    def quantize_bmm(g, bmm, dtype_high_prec):
+        assert len(bmm.inputs) == 2
+        dq_outputs = []
+        for i in range(len(bmm.inputs)):
+            if i == 0 or not use_fp8_storage:
+                q_outp = add_q(g, bmm.inputs[i], dtype_high_prec, onnx.TensorProto.FLOAT8E4M3FN)
+                dq_out = add_dq(g, q_outp, dtype_high_prec, onnx.TensorProto.FLOAT8E4M3FN)
+            else:
+                # mm.inputs[1] is the input from K or V which we don't quantize if is stored
+                # in the cache in quantized type.
+                dq_out = add_dq(g, bmm.inputs[i], dtype_high_prec, onnx.TensorProto.FLOAT8E4M3FN)
+            dq_outputs.append(dq_out)
+        bmm.inputs = dq_outputs
+
+        cast_bmm_output = True
+        if cast_bmm_output:
+            bmm_consumers = bmm.outputs[0].outputs
+            cast_from_name = f"{bmm.name}_cast_from"
+            cast_bmm_out = add_cast(g, bmm.outputs[0], dtype_high_prec, cast_from_name)
+
+            # Reroute the inputs of all BMM consumers.
+            for bmm_consumer in bmm_consumers:
+                new_inps = []
+                for inp in bmm_consumer.inputs:
+                    if inp == bmm.outputs[0]:
+                        new_inps.append(cast_bmm_out)
+                    else:
+                        new_inps.append(inp)
+                bmm_consumer.inputs = new_inps
+
+    bmm_nodes = [node for node in g.nodes if node.op == "MatMul"]
+    G_LOGGER.info("Quantizing attention BMMs")
+    G_LOGGER.info(f"Found {len(bmm_nodes)} MatMul operator nodes")
+    for bmm in bmm_nodes:
+        # Do not quantize the Matmul at the head of GPT3 (it is used )
+        if bmm.name == "/model/module/MatMul":
+            continue
+        quantize_bmm(g, bmm, dtype_high_prec)
+
+
 # Use ONNX graphsurgeon to add KV-cache to ONNX file
 # Reusing the HF demo names.
 def get_past_key_name(layer_id):
@@ -229,7 +334,15 @@ def get_new_value_name(layer_id: int):
 def get_new_shape(nbheads, headsize):
     return ("sequence", "batch", nbheads, headsize)
 
-def add_kvcache_for(g, layer_id, qkv_split, nbheads, headsize, dtype, kv_output_policy, hp_dtype, use_fp8_storage):
+def quantize_new_k_v(g, key_new, value_new, hp_dtype):
+    key_new_q_outp = add_q(g, key_new, hp_dtype, onnx.TensorProto.FLOAT8E4M3FN)
+    key_new_dq_out = add_dq(g, key_new_q_outp, hp_dtype, onnx.TensorProto.FLOAT8E4M3FN)
+    value_new_q_outp = add_q(g, value_new, hp_dtype, onnx.TensorProto.FLOAT8E4M3FN)
+    value_new_dq_out = add_dq(g, value_new_q_outp, hp_dtype, onnx.TensorProto.FLOAT8E4M3FN)
+    return key_new_dq_out, value_new_dq_out
+
+def add_kvcache_for(
+    g, layer_id, qkv_split, nbheads, headsize, dtype, kv_output_policy, hp_dtype, use_fp8_storage, quantize_bmms):
     _, key_new, value_new = qkv_split.outputs
     key_consumers = [c for c in key_new.outputs]
     value_consumers = [c for c in value_new.outputs]
@@ -246,12 +359,11 @@ def add_kvcache_for(g, layer_id, qkv_split, nbheads, headsize, dtype, kv_output_
         g.inputs.append(past_key)
         g.inputs.append(past_value)
 
-        if use_fp8_storage:
-            past_key_dq = add_dq(layer_id, past_key, hp_dtype, onnx.TensorProto.FLOAT8E4M3FN)
-            past_value_dq = add_dq(layer_id, past_value, hp_dtype, onnx.TensorProto.FLOAT8E4M3FN)
-            
+        if use_fp8_storage and not quantize_bmms:
+            past_key_dq = add_dq(g, past_key, hp_dtype, onnx.TensorProto.FLOAT8E4M3FN)
+            past_value_dq = add_dq(g, past_value, hp_dtype, onnx.TensorProto.FLOAT8E4M3FN)
             return past_key_dq, past_value_dq
-        
+
         return past_key, past_value
 
     def add_concat(concat_name, input0, input1, output_name):
@@ -266,78 +378,9 @@ def add_kvcache_for(g, layer_id, qkv_split, nbheads, headsize, dtype, kv_output_
         g.nodes.append(concat)
         return concat_out
 
-    def add_zero_point(base_name, dtype):
-        _zp_fp8_value = onnx.helper.make_tensor(base_name + "_zp_fp8_value", dtype, (1,), [0.0])
-        zero_point_fp8 = gs.Variable(base_name + "_zero_point", dtype=dtype, shape=(1,))
-        zero_point_const = gs.Node(op="Constant", name= base_name + "_zero_point_const", inputs=[], outputs=[zero_point_fp8], attrs={"value": _zp_fp8_value})
-        g.nodes.append(zero_point_const)
-
-        return zero_point_fp8
-
-    def add_scale(base_name, dtype, value):
-        scale = gs.Variable(base_name + "_scale", dtype=dtype, shape=(1,))
-        scale_const = gs.Node(op="Constant", name=base_name + "_scale_const", inputs=[], outputs=[scale], attrs={"value_float": value})
-        g.nodes.append(scale_const)
-        return scale
-
-    def add_dq(layer_id, inp, hp_dtype, dq_dtype):
-        assert dq_dtype==onnx.TensorProto.FLOAT8E4M3FN
-        dq_name = f"{inp.name}_dq"
-        cast_from_name = f"{inp.name}_cast_from"
-
-        dq_out = gs.Variable(
-            dq_name,
-            dtype=onnx.TensorProto.FLOAT,
-            shape=get_present_shape(nbheads, headsize))
-
-        dq = gs.Node(op="DequantizeLinear", name=dq_name,
-            inputs=[inp, add_scale(inp.name, hp_dtype, 1.0), add_zero_point(inp.name, dq_dtype)], outputs=[dq_out])
-
-        cast_output_name = f"{inp.name}_{layer_id}_cast_from"
-        cast_from_out = gs.Variable(
-            cast_output_name,
-            dtype=hp_dtype,
-            shape=get_present_shape(nbheads, headsize))
-
-        cast_from = gs.Node(op="Cast", name=cast_from_name,
-            inputs=[dq_out], outputs=[cast_from_out],
-            attrs={"to": hp_dtype})
-
-        g.nodes.append(dq)
-        g.nodes.append(cast_from)
-        return cast_from_out
-
-    def add_q(output, q_dtype):
-        assert q_dtype==onnx.TensorProto.FLOAT8E4M3FN
-        cast_to_name = f"{output.name}_cast_to"
-        q_name = f"{output.name}_qfp8"
-
-        cast_to_out = gs.Variable(
-            cast_to_name,
-            dtype=onnx.TensorProto.FLOAT,
-            shape=get_present_shape(nbheads, headsize))
-
-        cast_to = gs.Node(op="Cast", name=cast_to_name,
-            inputs=[output], outputs=[cast_to_out],
-            attrs={"to": onnx.TensorProto.FLOAT})
-
-        q_out = gs.Variable(
-            q_name,
-            dtype=q_dtype,
-            shape=get_present_shape(nbheads, headsize))
-
-        q = gs.Node(op="QuantizeLinear", name=q_name,
-            inputs=[cast_to_out, add_scale(output.name, onnx.TensorProto.FLOAT, 1.0), add_zero_point(output.name, q_dtype)], outputs=[q_out])
-
-        g.nodes.append(cast_to)
-        g.nodes.append(q)
-        
-        return q_out
-    
-    def add_cache_outputs(kv_output_policy, use_fp8_storage):
+    def add_cache_outputs(kv_output_policy, use_fp8_storage, hp_dtype):
         if kv_output_policy == "kv_cache_concat":
-            g.outputs.append(key_concat_out)
-            g.outputs.append(value_concat_out)
+            new_key_output, new_value_output = key_concat_out, value_concat_out
         elif kv_output_policy == "kv_new":
             key_new.dtype = dtype
             key_new.shape = get_new_shape(nbheads, headsize)
@@ -345,18 +388,30 @@ def add_kvcache_for(g, layer_id, qkv_split, nbheads, headsize, dtype, kv_output_
             value_new.dtype = dtype
             value_new.shape = get_new_shape(nbheads, headsize)
             value_new.name = get_new_value_name(layer_id)
+
             if use_fp8_storage:
-                key_new_q = add_q(key_new, onnx.TensorProto.FLOAT8E4M3FN)
-                value_new_q = add_q(value_new, onnx.TensorProto.FLOAT8E4M3FN)
-                g.outputs.append(key_new_q)
-                g.outputs.append(value_new_q)
+                key_new_q = add_q(g, key_new, hp_dtype, onnx.TensorProto.FLOAT8E4M3FN,
+                    f"{key_new.name}_qfp8")
+                value_new_q = add_q(g, value_new, hp_dtype, onnx.TensorProto.FLOAT8E4M3FN,
+                    f"{value_new.name}_qfp8")
+                new_key_output, new_value_output = key_new_q, value_new_q
             else:
-                g.outputs.append(key_new)
-                g.outputs.append(value_new)
+                new_key_output, new_value_output = key_new, value_new
         else:
             raise ValueError(f"Unsupported kv_output_policy: {kv_output_policy}")
+        g.outputs.append(new_key_output)
+        g.outputs.append(new_value_output)
+        return new_key_output, new_value_output
 
     past_key, past_value = add_graph_past_inputs(use_fp8_storage)
+    new_key_output, new_value_output = add_cache_outputs(kv_output_policy, use_fp8_storage, hp_dtype)
+
+    if quantize_bmms:
+        if use_fp8_storage:
+            key_new = new_key_output
+            value_new = new_value_output
+        else:
+            key_new, value_new = quantize_new_k_v(g, key_new, value_new, hp_dtype)
     key_concat_out = add_concat(f"key.{layer_id}.concat",
         past_key, key_new, get_present_key_name(layer_id))
     value_concat_out = add_concat(f"value.{layer_id}.concat",
@@ -367,16 +422,17 @@ def add_kvcache_for(g, layer_id, qkv_split, nbheads, headsize, dtype, kv_output_
     for c in value_consumers:
         c.inputs[0] = value_concat_out
 
-    add_cache_outputs(kv_output_policy, use_fp8_storage)
 
-
-def add_kvcache(g, nbheads, headsize, dtype, kv_output_policy, hp_dtype, use_fp8_storage):
+def add_kvcache(g, nbheads, headsize, dtype, kv_output_policy, hp_dtype, use_fp8_storage, quantize_bmms):
     """Add KV-cache to each Transformer layer's QKV split """
+    G_LOGGER.info("Adding KV-cache")
     qkv_split_nodes = [node for node in g.nodes if node.op == "Split"]
     G_LOGGER.debug(f"Found {len(qkv_split_nodes)} QKV-split nodes")
 
     for layer_id, qkv_split in enumerate(qkv_split_nodes):
-        add_kvcache_for(g, layer_id, qkv_split, nbheads, headsize, dtype, kv_output_policy, hp_dtype, use_fp8_storage)
+        add_kvcache_for(
+            g, layer_id, qkv_split, nbheads, headsize, dtype, kv_output_policy, hp_dtype, use_fp8_storage, quantize_bmms)
+
     G_LOGGER.debug("Done adding cache operations")
     return len(qkv_split_nodes)
 
@@ -397,6 +453,8 @@ def process_onnx(
     onnx_input_fpath,
     onnx_output_fpath,
     separate_param_files,
+    use_cache,
+    quantize_bmms,
     nbheads, headsize, vocab_size, dtype, hp_dtype, use_fp8_storage):
     """
     Process an ONNX model, add KV cache inputs and output, save result model to a specified path.
@@ -404,9 +462,15 @@ def process_onnx(
     G_LOGGER.info(f"Importing {onnx_input_fpath}... this will take some time")
     g = gs.import_onnx(onnx.load(onnx_input_fpath))
     normalize_dyn_axes_to_hf_names(g, vocab_size)
-    num_layers = add_kvcache(g, nbheads, headsize, dtype, kv_output_policy, hp_dtype, use_fp8_storage)
+    num_layers = 0
+    if use_cache:
+        num_layers = add_kvcache(g, nbheads, headsize, dtype, kv_output_policy, hp_dtype, use_fp8_storage, quantize_bmms)
+        g.cleanup().toposort()
 
-    g.cleanup().toposort()
+    if quantize_bmms:
+        quantize_all_bmms(g, hp_dtype, use_fp8_storage)
+        g.cleanup().toposort()
+
     G_LOGGER.info(f"Exporting {onnx_output_fpath}")
     model = gs.export_onnx(g)
     G_LOGGER.info(f"Saving {onnx_output_fpath}")
@@ -513,14 +577,17 @@ class NeMoConverter():
         return onnx_out
 
 
-    def create_kv_onnx(self, onnx_input_fpath, onnx_output_fpath, kv_output_policy="kv_new"):
+    def create_onnx(self, onnx_input_fpath, onnx_output_fpath, kv_output_policy="kv_new"):
         """
-        Create an ONNX model with KV cache from `onnx_input_fpath`, save the ONNX model to `onnx_output_fpath`.
+        Create an ONNX model with modifications from `onnx_input_fpath`, save the ONNX model to `onnx_output_fpath`.
+        The ONNX is modified to use a KV-Cache and/or quantize the attention batched matrix-multiplication ops.
         No return value for this function.
         """
         assert os.path.splitext(onnx_input_fpath)[1] == ".onnx", "Input ONNX file must end with '.onnx'."
         assert os.path.splitext(onnx_output_fpath)[1] == ".onnx", "Output ONNX file must end with '.onnx'."
 
+        quantize_bmms = self.cfg.onnx_export_options.quantize_bmms
+        use_cache = self.cfg.use_cache
         nbheads, headsize = self.cfg.model.nb_heads, self.cfg.model.head_size
         hp_dtype = onnx.TensorProto.BFLOAT16 if self.cfg.trt_export_options.use_bf16 else onnx.TensorProto.FLOAT16
         dtype = hp_dtype
@@ -529,12 +596,13 @@ class NeMoConverter():
         assert nbheads * headsize == self.cfg.model.hidden_size, "Model hidden size does not match."
         num_qkvs = process_onnx(kv_output_policy,
             onnx_input_fpath, onnx_output_fpath, separate_param_files=True,
+            use_cache=use_cache, quantize_bmms=quantize_bmms,
             nbheads=nbheads, headsize=headsize, vocab_size=self.cfg.model.vocab_size, dtype=dtype, hp_dtype=hp_dtype, use_fp8_storage=self.cfg.onnx_export_options.use_fp8_storage)
 
         G_LOGGER.info(f"Number of QKV subgraphs = {num_qkvs}, number of layers = {self.cfg.model.num_layers}")
         if num_qkvs != self.cfg.model.num_layers:
             raise ValueError("Number of QKV subgraphs must be the same as number of layers in the model.")
-        G_LOGGER.info(f"Saved KV-cache onnx to {onnx_output_fpath}.")
+        G_LOGGER.info(f"Saved KV-cache onnx to {onnx_output_fpath}")
 
 
     # Reads an onnx file and creates a trt engine file
@@ -702,6 +770,12 @@ def parse_args():
         default=False
     )
     parser.add_argument(
+        "--quantize-bmms",
+        help="Quantize attention BMMs",
+        action="store_true",
+        default=False,
+    )
+    parser.add_argument(
         "--save-engine",
         required=False,
         help="If set to a path, a TensorRT engine will be built from ONNX and save to the path.",
@@ -782,6 +856,8 @@ def main():
     if args.fp8:
         cfg.trt_export_options.use_fp8 = True
 
+    if args.quantize_bmms:
+        cfg.onnx_export_options.quantize_bmms = True
     if os.path.exists(args.save_onnx_dir) and not os.path.isdir(args.save_onnx_dir):
         raise ValueError(f"{args.save_onnx_dir} is not a directory.")
 
@@ -816,7 +892,7 @@ def main():
         create_dir_if_not_exist(onnx_output_fpath)
         if not converter:
             converter = NeMoConverter(cfg, MegatronGPTModel)
-        converter.create_kv_onnx(onnx_name, onnx_output_fpath, kv_output_policy)
+        converter.create_onnx(onnx_name, onnx_output_fpath, kv_output_policy)
         onnx_name = onnx_output_fpath
 
     # Convert ONNX model to TRT engine

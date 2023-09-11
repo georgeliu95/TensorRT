@@ -146,7 +146,7 @@ class GPT3NeMoTRT(NeMoCommand):
 
             if not os.path.isfile(onnx_output_fpath):
                 create_dir_if_not_exist(onnx_output_fpath)
-                converter.create_kv_onnx(onnx_name, onnx_output_fpath, kv_output_policy)
+                converter.create_onnx(onnx_name, onnx_output_fpath, kv_output_policy)
             onnx_name = onnx_output_fpath
 
         # Convert ONNX model to TRT engine

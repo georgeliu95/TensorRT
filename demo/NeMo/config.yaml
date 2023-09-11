@@ -50,6 +50,7 @@ onnx_export_options:
   device: 'cuda'
   check_tolerance: 0.01
   use_fp8_storage: False
+  quantize_bmms: False
 
 # for onnx to trt export
 trt_export_options:
