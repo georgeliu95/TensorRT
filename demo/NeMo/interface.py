@@ -228,7 +228,6 @@ class NeMoCommand(NetworkCommand):
         number: int = None,
         duration: int = None,
         percentile: int = None,
-        benchmarking_mode: bool = False,
         cleanup: bool = False,
         action: str = None,
         max_seq_len: int = None,
@@ -399,7 +398,6 @@ class NeMoCommand(NetworkCommand):
         )
 
         self.config.from_nemo_config(self.nemo_cfg)
-        self.benchmarking_mode = benchmarking_mode
 
         self.workspace = NNFolderWorkspace(
             self.config, working_dir
@@ -717,7 +715,6 @@ class NeMoCommand(NetworkCommand):
 
         self.setup_environment(
             **vars(self._args),
-            benchmarking_mode=(self._args.action == "benchmark"),
         )
         t1 = time.time()
         G_LOGGER.info("Set up environment takes {:.4f}s.".format(t1 - t0))
