@@ -224,7 +224,7 @@ constexpr char const* set_tiling_assignment = R"trtdoc(
     :arg tile: The tile to set the instance mapping of.
     :arg instance: The instance to assign to the tile.
 )trtdoc";
-constexpr char const* add_tiling = R"trtdoc(
+constexpr char const* set_tiling = R"trtdoc(
     Set the tiling pattern and assignment.
 
     :arg pattern: The tiling pattern to assign to the tensor.

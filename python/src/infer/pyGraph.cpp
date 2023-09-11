@@ -273,7 +273,7 @@ namespace tensorrt
 
 #if ENABLE_MDTRT
         // Used for setting the tiling based on a python list.
-        static auto add_tiling(ITensor& self, std::vector<int64_t> const& pattern,
+        static auto set_tiling(ITensor& self, std::vector<int64_t> const& pattern,
                 std::vector<int64_t> const& assignment)
         {
             Dims d;
@@ -390,7 +390,7 @@ namespace tensorrt
             .def_property_readonly("num_tiles", &nvinfer1GetNbTiles)
             .def("set_tile_assignment", &nvinfer1SetTilingAssignment, "tile"_a, "instance"_a, ITensorDoc::set_tiling_assignment)
             .def("get_tile_assignment", &nvinfer1GetTilingAssignment, "tile"_a, ITensorDoc::get_tiling_assignment)
-            .def("add_tiling", lambdas::add_tiling, "pattern"_a, "assignment"_a, ITensorDoc::add_tiling)
+            .def("set_tiling", lambdas::set_tiling, "pattern"_a, "assignment"_a, ITensorDoc::set_tiling)
 #endif // ENABLE_MDTRT
         ;
 

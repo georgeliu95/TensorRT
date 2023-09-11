@@ -82,7 +82,7 @@
         if (!(condition))                                                   \
         {                                                                   \
             sample::gLogError << "Assertion failure: " << #condition << std::endl;  \
-            abort();                                                        \
+            exit(EXIT_FAILURE);                                                       \
         }                                                                   \
     } while (0)
 
