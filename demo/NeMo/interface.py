@@ -126,6 +126,9 @@ def _hf_hub_metadata(variant: str, fp8: bool) -> Dict[str, str]:
 def download_model(dst_dir: str, cache_dir: str, *args, **kwargs) -> str:
     from huggingface_hub import hf_hub_download
 
+    os.makedirs(dst_dir, exist_ok=True)
+    os.makedirs(cache_dir, exist_ok=True)
+
     model_metadata = _hf_hub_metadata(*args, **kwargs)
     return hf_hub_download(
         local_dir=str(dst_dir),
