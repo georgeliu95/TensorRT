@@ -205,8 +205,9 @@ def add_zero_point(g, base_name, dtype):
 
 def add_scale(g, base_name, dtype, value):
     """Add Q/DQ scale constant"""
+    _scale_value = onnx.helper.make_tensor(base_name + "_scale_value", dtype, (1,), [value])
     scale = gs.Variable(base_name + "_scale", dtype=dtype, shape=(1,))
-    scale_const = gs.Node(op="Constant", name=base_name + "_scale_const", inputs=[], outputs=[scale], attrs={"value_float": value})
+    scale_const = gs.Node(op="Constant", name=base_name + "_scale_const", inputs=[], outputs=[scale], attrs={"value": _scale_value})
     g.nodes.append(scale_const)
     return scale
 
@@ -272,22 +273,6 @@ def quantize_all_bmms(g, dtype_high_prec, use_fp8_storage):
                 dq_out = add_dq(g, bmm.inputs[i], dtype_high_prec, onnx.TensorProto.FLOAT8E4M3FN)
             dq_outputs.append(dq_out)
         bmm.inputs = dq_outputs
-
-        cast_bmm_output = True
-        if cast_bmm_output:
-            bmm_consumers = bmm.outputs[0].outputs
-            cast_from_name = f"{bmm.name}_cast_from"
-            cast_bmm_out = add_cast(g, bmm.outputs[0], dtype_high_prec, cast_from_name)
-
-            # Reroute the inputs of all BMM consumers.
-            for bmm_consumer in bmm_consumers:
-                new_inps = []
-                for inp in bmm_consumer.inputs:
-                    if inp == bmm.outputs[0]:
-                        new_inps.append(cast_bmm_out)
-                    else:
-                        new_inps.append(inp)
-                bmm_consumer.inputs = new_inps
 
     bmm_nodes = [node for node in g.nodes if node.op == "MatMul"]
     G_LOGGER.info("Quantizing attention BMMs")
