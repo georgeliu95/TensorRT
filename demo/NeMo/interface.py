@@ -47,7 +47,6 @@ sys.path.append('../HuggingFace') # Include HuggingFace
 from NNDF.general_utils import NNFolderWorkspace
 from NNDF.logger import G_LOGGER
 from NNDF.networks import (
-    DeprecatedCache,
     Precision,
     NetworkMetadata,
     TimingProfile,
@@ -348,8 +347,7 @@ class NeMoCommand(NetworkCommand):
                         precision=Precision(fp16=self.fp16),
                         use_cache=use_cache,
                         num_beams=num_beams,
-                        batch_size=batch_size,
-                        other=DeprecatedCache(kv_cache=use_cache),
+                        batch_size=batch_size
                     )
 
                     download_config = self.config_class(metadata=download_metadata)
@@ -389,8 +387,7 @@ class NeMoCommand(NetworkCommand):
             precision=Precision(fp16=self.fp16),
             use_cache=use_cache,
             num_beams=num_beams,
-            batch_size=batch_size,
-            other=DeprecatedCache(kv_cache=use_cache)
+            batch_size=batch_size
         )
 
         self.config = self.config_class(
