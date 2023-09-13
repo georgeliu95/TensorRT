@@ -16,6 +16,8 @@
 #
 
 import argparse
+import subprocess as sp
+import shlex
 import omegaconf
 import os
 import sys
@@ -185,11 +187,13 @@ def get_trtexec_cmd(onnx_fpath, cfg, bs):
     use_fp16 = cfg.trt_export_options.use_fp16
     use_bf16 = cfg.trt_export_options.use_bf16
     use_strongly_typed = cfg.trt_export_options.use_strongly_typed
+    sparse = cfg.trt_export_options.sparse
     trtexec_cmd += " --noTF32" if not use_tf32 else ""
     trtexec_cmd += " --fp8" if (use_fp8 and not use_strongly_typed) else ""
     trtexec_cmd += " --fp16" if (use_fp16 and not use_strongly_typed) else ""
     trtexec_cmd += " --bf16" if (use_bf16 and not use_strongly_typed) else ""
     trtexec_cmd += " --stronglyTyped" if use_strongly_typed else ""
+    trtexec_cmd += " --sparsity=enable" if sparse else ""
     trtexec_cmd += " --timingCacheFile=functional.cache --preview=+fasterDynamicShapes0805,+disableExternalTacticSourcesForCore0805"
     return trtexec_cmd
 
@@ -561,6 +565,27 @@ class NeMoConverter():
         os.rename(onnx_names[0], onnx_out)
         return onnx_out
 
+    def prune_onnx(self, input_path) -> str:
+        """
+        Prune the input ONNX model to be structured sparsity pattern by using polygraphy.
+        """
+        if not self.cfg.trt_export_options.sparse:
+            G_LOGGER.warning(f"Model pruning is enabled but sparsity is not enabled for TRT engine builder.")
+
+        ibname = os.path.basename(input_path)
+        obname = "pruned." + ibname
+        opath = os.path.join(os.path.dirname(input_path), obname)
+        o_data_real_path = opath + "_data"
+        if os.path.exists(opath) and os.path.exists(o_data_real_path):
+            return opath
+
+        o_data_bname = os.path.basename(o_data_real_path)
+        cmds = f"polygraphy surgeon prune {input_path} -o {opath} --save-external-data {o_data_bname}"
+        G_LOGGER.info(f"Prune ONNX model with: {cmds}")
+        G_LOGGER.info(f"This may take a while...")
+        sp.run(shlex.split(cmds), check=True, stdout=sp.PIPE, stderr=sp.STDOUT)
+        return opath
+
 
     def create_onnx(self, onnx_input_fpath, onnx_output_fpath, kv_output_policy="kv_new"):
         """
@@ -601,6 +626,9 @@ class NeMoConverter():
         use_fp8 = self.cfg.trt_export_options.use_fp8
         use_bf16 = self.cfg.trt_export_options.use_bf16
         strongly_typed = self.cfg.trt_export_options.use_strongly_typed
+        sparse = self.cfg.trt_export_options.sparse
+        if sparse and not self.cfg.onnx_export_options.prune:
+            G_LOGGER.warning("Sparsity for TRT engine builder is enabled, but model pruning is not.")
 
         # Create optimization profiles
         bs = self.cfg.batch_size
@@ -656,6 +684,7 @@ class NeMoConverter():
             tf32= use_tf32,
             fp16=False if strongly_typed else use_fp16,
             bf16=False if strongly_typed else use_bf16,
+            sparse_weights=sparse,
             profiles=profiles,
             precision_constraints=None if strongly_typed else "obey",
             preview_features=preview_features,
@@ -843,6 +872,7 @@ def main():
 
     if args.quantize_bmms:
         cfg.onnx_export_options.quantize_bmms = True
+
     if os.path.exists(args.save_onnx_dir) and not os.path.isdir(args.save_onnx_dir):
         raise ValueError(f"{args.save_onnx_dir} is not a directory.")
 
@@ -879,6 +909,9 @@ def main():
             converter = NeMoConverter(cfg, MegatronGPTModel)
         converter.create_onnx(onnx_name, onnx_output_fpath, kv_output_policy)
         onnx_name = onnx_output_fpath
+
+    if cfg.onnx_export_options.prune:
+        onnx_name = converter.prune_onnx(onnx_name)
 
     # Convert ONNX model to TRT engine
     if args.save_engine:
