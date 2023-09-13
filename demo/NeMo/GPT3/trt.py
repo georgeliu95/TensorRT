@@ -149,6 +149,9 @@ class GPT3NeMoTRT(NeMoCommand):
                 converter.create_onnx(onnx_name, onnx_output_fpath, kv_output_policy)
             onnx_name = onnx_output_fpath
 
+        if self.nemo_cfg.onnx_export_options.prune:
+            onnx_name = converter.prune_onnx(onnx_name)
+
         # Convert ONNX model to TRT engine
         self.nemo_cfg.trt_export_options.timing_cache = self.timing_cache
         self.nemo_cfg.trt_export_options.opt_seq_len = self.opt_seq_len
@@ -161,6 +164,8 @@ class GPT3NeMoTRT(NeMoCommand):
             suffixes.append("kv")
         if self.nemo_cfg.onnx_export_options.use_fp8_storage:
             suffixes.append("fp8_storage")
+        if self.nemo_cfg.trt_export_options.sparse:
+            suffixes.append("sp")
         suffix = "-".join(suffixes)
         trt_fpath = os.path.join(self.workspace.dpath, f"trt-{suffix}.plan")
 
