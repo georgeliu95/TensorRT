@@ -15,13 +15,24 @@
 # limitations under the License.
 #
 
-ARG CUDA_VERSION=12.0.1
+ARG CUDA_VERSION=12.2.0
 
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos7
+# TODO: Update - unused in 22.09
+FROM nvidia/cuda:${CUDA_VERSION}-devel-centos7
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.6.1.6
+ENV NV_CUDNN_VERSION 8.9.4.25-1
+ENV NV_CUDNN_PACKAGE libcudnn8-${NV_CUDNN_VERSION}.cuda12.2
+ENV NV_CUDNN_PACKAGE_DEV libcudnn8-devel-${NV_CUDNN_VERSION}.cuda12.2
+
+ENV TRT_VERSION 9.0.1.4
 SHELL ["/bin/bash", "-c"]
+
+RUN yum install -y \
+    ${NV_CUDNN_PACKAGE} \
+    ${NV_CUDNN_PACKAGE_DEV} \
+    && yum clean all \
+    && rm -rf /var/cache/yum/*
 
 # Setup user account
 ARG uid=1000
@@ -51,22 +62,19 @@ RUN yum install -y python36 python3-devel
 RUN sed -i "1s/python/python2/" /usr/bin/yum
 
 # Install TensorRT
-RUN if [ "${CUDA_VERSION}" = "10.2" ] ; then \
-    v="${TRT_VERSION%.*}-1.cuda${CUDA_VERSION}" &&\
-    yum-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel7/x86_64/cuda-rhel7.repo &&\
-    yum -y install libnvinfer8-${v} libnvparsers8-${v} libnvonnxparsers8-${v} libnvinfer-plugin8-${v} \
-        libnvinfer-devel-${v} libnvparsers-devel-${v} libnvonnxparsers-devel-${v} libnvinfer-plugin-devel-${v} \
-        python3-libnvinfer-=${v} libnvinfer-dispatch8-=${v} libnvinfer-dispatch-devel-=${v} libnvinfer-lean8-=${v} \
-        libnvinfer-lean-devel-=${v} libnvinfer-vc-plugin8-=${v} libnvinfer-vc-plugin-devel-=${v} \
-        libnvinfer-headers-devel-=${v} libnvinfer-headers-plugin-devel-=${v}; \
+RUN if [ "${CUDA_VERSION:0:2}" = "11" ]; then \
+    wget https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/secure/9.0.1/tars/tensorrt-9.0.1.4.linux.x86_64-gnu.cuda-11.8.tar.gz \ 
+        && tar -xf tensorrt-9.0.1.4.linux.x86_64-gnu.cuda-11.8.tar.gz \
+        && cp -a TensorRT-9.0.1.4/lib/*.so* /usr/lib64 \
+        && pip install TensorRT-9.0.1.4/python/tensorrt-9.0.1.post11.dev4-cp36-none-linux_x86_64.whl ;\
+elif [ "${CUDA_VERSION:0:2}" = "12" ]; then \
+    wget https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/secure/9.0.1/tars/tensorrt-9.0.1.4.linux.x86_64-gnu.cuda-12.2.tar.gz \ 
+        && tar -xf tensorrt-9.0.1.4.linux.x86_64-gnu.cuda-12.2.tar.gz \
+        && cp -a TensorRT-9.0.1.4/lib/*.so* /usr/lib64 \
+        && pip install TensorRT-9.0.1.4/python/tensorrt-9.0.1.post12.dev4-cp36-none-linux_x86_64.whl ;\
 else \
-    v="${TRT_VERSION}-1.cuda${CUDA_VERSION%.*}" &&\
-    yum-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/rhel7/x86_64/cuda-rhel7.repo &&\
-    yum -y install libnvinfer8-${v} libnvparsers8-${v} libnvonnxparsers8-${v} libnvinfer-plugin8-${v} \
-        libnvinfer-devel-${v} libnvparsers-devel-${v} libnvonnxparsers-devel-${v} libnvinfer-plugin-devel-${v} \
-        python3-libnvinfer-=${v} libnvinfer-dispatch8-=${v} libnvinfer-dispatch-devel-=${v} libnvinfer-lean8-=${v} \
-        libnvinfer-lean-devel-=${v} libnvinfer-vc-plugin8-=${v} libnvinfer-vc-plugin-devel-=${v} \
-        libnvinfer-headers-devel-=${v} libnvinfer-headers-plugin-devel-=${v}; \
+    echo "Invalid CUDA_VERSION"; \
+    exit 1; \
 fi
 
 # Install dev-toolset-8 for g++ version that supports c++14
@@ -93,7 +101,7 @@ RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.
 RUN rm /usr/bin/python && ln -s /usr/bin/python3 /usr/bin/python
 
 # Set environment and working directory
-ENV TRT_LIBPATH /usr/lib/x86_64-linux-gnu
+ENV TRT_LIBPATH /usr/lib64
 ENV TRT_OSSPATH /workspace/TensorRT
 ENV PATH="${PATH}:/usr/local/bin/ngc-cli"
 ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${TRT_OSSPATH}/build/out:${TRT_LIBPATH}"

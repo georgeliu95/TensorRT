@@ -16,26 +16,32 @@
 # limitations under the License.
 #
 
+import os
+import random
 from collections import OrderedDict
+from enum import Enum, auto
+from io import BytesIO
 from typing import List
-from copy import copy
+
 import numpy as np
 import onnx
 import onnx_graphsurgeon as gs
-import os
-import math
-from PIL import Image
-from polygraphy.backend.common import bytes_from_path
-from polygraphy.backend.trt import CreateConfig, ModifyNetworkOutputs, Profile
-from polygraphy.backend.trt import engine_from_bytes, engine_from_network, network_from_onnx_path, save_engine
-import random
-from scipy import integrate
+import requests
 import tensorrt as trt
 import torch
-import requests
-from io import BytesIO
 from cuda import cudart
-from enum import Enum, auto
+from PIL import Image
+from polygraphy.backend.common import bytes_from_path
+from polygraphy.backend.trt import (
+    CreateConfig,
+    ModifyNetworkOutputs,
+    Profile,
+    engine_from_bytes,
+    engine_from_network,
+    network_from_onnx_path,
+    save_engine
+)
+from scipy import integrate
 
 TRT_LOGGER = trt.Logger(trt.Logger.ERROR)
 
@@ -72,8 +78,9 @@ class PIPELINE_TYPE(Enum):
     TXT2IMG = auto()
     IMG2IMG = auto()
     INPAINT = auto()
-    SD_XL_BASE = auto()
-    SD_XL_REFINER = auto()
+    CONTROLNET = auto()
+    XL_BASE = auto()
+    XL_REFINER = auto()
 
     def is_txt2img(self):
         return self == self.TXT2IMG
@@ -84,11 +91,14 @@ class PIPELINE_TYPE(Enum):
     def is_inpaint(self):
         return self == self.INPAINT
 
+    def is_controlnet(self):
+        return self == self.CONTROLNET
+
     def is_sd_xl_base(self):
-        return self == self.SD_XL_BASE
+        return self == self.XL_BASE
 
     def is_sd_xl_refiner(self):
-        return self == self.SD_XL_REFINER
+        return self == self.XL_REFINER
 
     def is_sd_xl(self):
         return self.is_sd_xl_base() or self.is_sd_xl_refiner()
@@ -1634,10 +1644,12 @@ def add_arguments(parser):
     parser.add_argument('--version', type=str, default="1.5", choices=["1.4", "1.5", "2.0-base", "2.0", "2.1-base", "2.1", "xl-1.0"], help="Version of Stable Diffusion")
     parser.add_argument('prompt', nargs = '*', help="Text prompt(s) to guide image generation")
     parser.add_argument('--negative-prompt', nargs = '*', default=[''], help="The negative prompt(s) to guide the image generation.")
-    parser.add_argument('--repeat-prompt', type=int, default=1, choices=[1, 2, 4, 8, 16], help="Number of times to repeat the prompt (batch size multiplier)")
+    parser.add_argument('--batch-size', type=int, default=1, choices=[1, 2, 4], help="Batch size (repeat prompt)")
+    parser.add_argument('--batch-count', type=int, default=1, help="Number of images to generate in sequence, one at a time.")
     parser.add_argument('--height', type=int, default=512, help="Height of image to generate (must be multiple of 8)")
     parser.add_argument('--width', type=int, default=512, help="Height of image to generate (must be multiple of 8)")
     parser.add_argument('--denoising-steps', type=int, default=50, help="Number of denoising steps")
+    parser.add_argument('--scheduler', type=str, default="DDIM", choices=["DDIM", "DPM", "EulerA", "LMSD", "PNDM"], help="Scheduler for diffusion process")
     parser.add_argument('--guidance_scale', type=float, default=7.5, help="Value of classifier-free guidance scale (must be greater than 1)")
     parser.add_argument('--lora-scale', type=float, default=1, help="Scale of LoRA weights, default 1 (must between 0 and 1)")
     parser.add_argument('--lora-weights', type=str, default='', help="LoRA weights to apply in the base model")
@@ -1663,13 +1675,60 @@ def add_arguments(parser):
 
     # TensorRT inference
     parser.add_argument('--num-warmup-runs', type=int, default=5, help="Number of warmup runs before benchmarking performance")
-    parser.add_argument('--nvtx-profile', action='store_true', help="Enable NVTX markers for performance profiling")
-    parser.add_argument('--seed', type=int, default=None, help="Seed for random generator to get consistent results")
     parser.add_argument('--use-cuda-graph', action='store_true', help="Enable cuda graph")
+    parser.add_argument('--nvtx-profile', action='store_true', help="Enable NVTX markers for performance profiling")
+    parser.add_argument('--torch-inference', default='', help="Run inference with PyTorch (using specified compilation mode) instead of TensorRT.")
 
+    parser.add_argument('--seed', type=int, default=None, help="Seed for random generator to get consistent results")
     parser.add_argument('--output-dir', default='output', help="Output directory for logs and image artifacts")
     parser.add_argument('--hf-token', type=str, help="HuggingFace API access token for downloading model checkpoints")
     parser.add_argument('-v', '--verbose', action='store_true', help="Show verbose output")
     return parser
 
+def process_pipeline_args(args):
+    if args.height % 8 != 0 or args.width % 8 != 0:
+        raise ValueError(f"Image height and width have to be divisible by 8 but specified as: {args.image_height} and {args.width}.")
+    
+    max_batch_size = 4
+    if args.batch_size > max_batch_size:
+        raise ValueError(f"Batch size {args.batch_size} is larger than allowed {max_batch_size}.")
 
+    if args.use_cuda_graph and (not args.build_static_batch or args.build_dynamic_shape):
+        raise ValueError(f"Using CUDA graph requires static dimensions. Enable `--build-static-batch` and do not specify `--build-dynamic-shape`")
+
+    kwargs_init_pipeline = {
+        'version': args.version,
+        'max_batch_size': max_batch_size,
+        'denoising_steps': args.denoising_steps,
+        'scheduler': args.scheduler,
+        'guidance_scale': args.guidance_scale,
+        'output_dir': args.output_dir,
+        'hf_token': args.hf_token,
+        'verbose': args.verbose,
+        'nvtx_profile': args.nvtx_profile,
+        'use_cuda_graph': args.use_cuda_graph,
+        'lora_scale': args.lora_scale,
+        'lora_weights': args.lora_weights,
+        'framework_model_dir': args.framework_model_dir,
+        'torch_inference': args.torch_inference,
+    }
+
+    kwargs_load_engine = {
+        'onnx_opset': args.onnx_opset,
+        'opt_batch_size': args.batch_size,
+        'opt_image_height': args.height, 
+        'opt_image_width': args.width,
+        'force_build': args.force_engine_build,
+        'force_export': args.force_onnx_export,
+        'force_optimize': args.force_onnx_optimize,
+        'static_batch': args.build_static_batch,
+        'static_shape': not args.build_dynamic_shape,
+        'enable_all_tactics': args.build_all_tactics,
+        'enable_refit': args.build_enable_refit,
+        'timing_cache': args.timing_cache,
+        'onnx_refit_dir': args.onnx_refit_dir,
+    }
+
+    args_run_demo = (args.prompt, args.negative_prompt, args.height, args.width, args.batch_size, args.batch_count, args.num_warmup_runs, args.use_cuda_graph)
+
+    return kwargs_init_pipeline, kwargs_load_engine, args_run_demo

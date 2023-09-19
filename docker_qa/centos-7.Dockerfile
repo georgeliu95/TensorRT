@@ -14,14 +14,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-ARG CUDA_VERSION=12.0.1
+ARG CUDA_VERSION=12.2.0
 
 # TODO: Update - unused in 22.09
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-centos7
+FROM nvidia/cuda:${CUDA_VERSION}-devel-centos7
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.6.1.6
+ENV NV_CUDNN_VERSION 8.9.4.25-1
+ENV NV_CUDNN_PACKAGE libcudnn8-${NV_CUDNN_VERSION}.cuda12.2
+ENV NV_CUDNN_PACKAGE_DEV libcudnn8-devel-${NV_CUDNN_VERSION}.cuda12.2
+
+ENV TRT_VERSION 9.0.1.4
 SHELL ["/bin/bash", "-c"]
+
+RUN yum install -y \
+    ${NV_CUDNN_PACKAGE} \
+    ${NV_CUDNN_PACKAGE_DEV} \
+    && yum clean all \
+    && rm -rf /var/cache/yum/*
 
 # Setup user account
 ARG uid=1000
@@ -75,7 +85,7 @@ RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.
 RUN rm /usr/bin/python && ln -s /usr/bin/python3 /usr/bin/python
 
 # Set environment and working directory
-ENV TRT_LIBPATH /usr/lib/x86_64-linux-gnu
+ENV TRT_LIBPATH /usr/lib64
 ENV TRT_OSSPATH /workspace/TensorRT
 ENV PATH="${PATH}:/usr/local/bin/ngc-cli"
 ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${TRT_OSSPATH}/build/out:${TRT_LIBPATH}"
