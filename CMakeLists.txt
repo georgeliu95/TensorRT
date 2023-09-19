@@ -115,8 +115,8 @@ endif()
 ############################################################################################
 # Dependencies
 
-set(DEFAULT_CUDA_VERSION 12.0.1)
-set(DEFAULT_CUDNN_VERSION 8.8)
+set(DEFAULT_CUDA_VERSION 12.2.0)
+set(DEFAULT_CUDNN_VERSION 8.9)
 set(DEFAULT_PROTOBUF_VERSION 3.20.1)
 
 # Dependency Version Resolution

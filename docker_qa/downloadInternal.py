@@ -12,55 +12,39 @@ def parse_arguments():
 # This order needs to be preserved for dependency tracking.
 
 DEB_PACKAGES_CENTOS=[
-"libnvinfer8-8.6.1.6-1.cuda{ver}.x86_64.rpm",
-"libnvonnxparsers8-8.6.1.6-1.cuda{ver}.x86_64.rpm",
-"libnvparsers8-8.6.1.6-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-plugin8-8.6.1.6-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-vc-plugin8-8.6.1.6-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-headers-devel-8.6.1.6-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-headers-plugin-devel-8.6.1.6-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-devel-8.6.1.6-1.cuda{ver}.x86_64.rpm",
-"libnvparsers-devel-8.6.1.6-1.cuda{ver}.x86_64.rpm",
-"libnvonnxparsers-devel-8.6.1.6-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-plugin-devel-8.6.1.6-1.cuda{ver}.x86_64.rpm",
-"python3-libnvinfer-8.6.1.6-1.cuda{ver}.x86_64.rpm",
+"libnvinfer9-9.0.1.4-1.cuda{ver}.x86_64.rpm",
+"libnvonnxparsers9-9.0.1.4-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-plugin9-9.0.1.4-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-vc-plugin9-9.0.1.4-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-headers-devel-9.0.1.4-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-headers-plugin-devel-9.0.1.4-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-devel-9.0.1.4-1.cuda{ver}.x86_64.rpm",
+"libnvonnxparsers-devel-9.0.1.4-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-plugin-devel-9.0.1.4-1.cuda{ver}.x86_64.rpm",
+"python3-libnvinfer-9.0.1.4-1.cuda{ver}.x86_64.rpm",
 ]
 
 DEB_PACKAGES_UBUNTU=[
-    "libnvinfer8_8.6.1.6-1{ext}",
-    "libnvonnxparsers8_8.6.1.6-1{ext}",
-    "libnvparsers8_8.6.1.6-1{ext}",
-    "libnvinfer-plugin8_8.6.1.6-1{ext}",
-    "libnvinfer-vc-plugin8_8.6.1.6-1{ext}",
-    "libnvinfer-headers-dev_8.6.1.6-1{ext}",
-    "libnvinfer-headers-plugin-dev_8.6.1.6-1{ext}",
-    "libnvinfer-dev_8.6.1.6-1{ext}",
-    "libnvonnxparsers-dev_8.6.1.6-1{ext}",
-    "libnvparsers-dev_8.6.1.6-1{ext}",
-    "libnvinfer-plugin-dev_8.6.1.6-1{ext}",
-    "python3-libnvinfer_8.6.1.6-1{ext}",
+    "libnvinfer9_9.0.1.4-1{ext}",
+    "libnvonnxparsers9_9.0.1.4-1{ext}",
+    "libnvinfer-plugin9_9.0.1.4-1{ext}",
+    "libnvinfer-vc-plugin9_9.0.1.4-1{ext}",
+    "libnvinfer-headers-dev_9.0.1.4-1{ext}",
+    "libnvinfer-headers-plugin-dev_9.0.1.4-1{ext}",
+    "libnvinfer-dev_9.0.1.4-1{ext}",
+    "libnvonnxparsers-dev_9.0.1.4-1{ext}",
+    "libnvinfer-plugin-dev_9.0.1.4-1{ext}",
+    "python3-libnvinfer_9.0.1.4-1{ext}",
 ]
 
-DEB_PACKAGES_CROSS_SBSA=[
-    "libnvinfer8-cross-sbsa_8.6.1.6-1+cuda12.0_all.deb",
-    "libnvinfer-headers-dev-cross-sbsa_8.6.1.6-1+cuda12.0_all.deb",
-    "libnvinfer-headers-plugin-dev-cross-sbsa_8.6.1.6-1+cuda12.0_all.deb",
-    "libnvinfer-dev-cross-sbsa_8.6.1.6-1+cuda12.0_all.deb",
-    "libnvinfer-plugin8-cross-sbsa_8.6.1.6-1+cuda12.0_all.deb",
-    "libnvinfer-vc-plugin8-cross-sbsa_8.6.1.6-1+cuda12.0_all.deb",
-    "libnvinfer-plugin-dev-cross-sbsa_8.6.1.6-1+cuda12.0_all.deb",
-    "libnvonnxparsers8-cross-sbsa_8.6.1.6-1+cuda12.0_all.deb",
-    "libnvonnxparsers-dev-cross-sbsa_8.6.1.6-1+cuda12.0_all.deb",
-    "libnvparsers8-cross-sbsa_8.6.1.6-1+cuda12.0_all.deb",
-    "libnvparsers-dev-cross-sbsa_8.6.1.6-1+cuda12.0_all.deb",
-]
-
-ROOT_URL = "http://cuda-repo/release-candidates/Libraries/TensorRT/v8.6/8.6.1.6-558ddbb6/"
+ROOT_URL = "http://cuda-repo.nvidia.com/release-candidates/Libraries/TensorRT/v9.0/9.0.1.4-acb7ff04/"
 
 def get_cuda_props(cuda_ver):
     assert len(cuda_ver) >= 4
     cuda = cuda_ver[:4]
-    if (cuda == "12.0"):
+    if (cuda == "12.2"):
+        return cuda, cuda+"-r535"
+    elif (cuda == "12.0"):
         return cuda, cuda+"-r525"
     elif (cuda == "11.8"):
         return cuda, cuda+"-r520"
@@ -92,17 +76,7 @@ if __name__ == "__main__":
     with tempfile.TemporaryDirectory() as tmp:
         URL = ROOT_URL + "{cuda}/{url}/{ext}/".format(cuda=cuda_url, url=url, ext=ext)
 
-        if args.os == "cross-sbsa":
-            for package in DEB_PACKAGES_CROSS_SBSA:
-                full_url = URL+package
-                print("Downloading from {URL}...".format(URL=full_url))
-                try:
-                    urllib.request.urlretrieve(full_url, package)
-                except urllib.error.HTTPError as e:
-                    print("Request returned a 404! Does the aritfact path exist?")
-                    exit(-1)
-                os.system("dpkg -i {package}".format(package=package))
-        elif is_centos:
+        if is_centos:
             for package in DEB_PACKAGES_CENTOS:
                 package = package.format(ver=cuda)
                 full_url = URL+package

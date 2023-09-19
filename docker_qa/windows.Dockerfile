@@ -28,8 +28,8 @@ RUN Set-ExecutionPolicy Bypass -Scope Process -Force; \
 # Download Visual Studio, CUDA and cuDNN
 RUN (New-Object System.Net.WebClient).DownloadFile('https://aka.ms/vs/17/release/vs_buildtools.exe', 'C:\vs2022_BuildTools.exe')
 RUN (New-Object System.Net.WebClient).DownloadFile('https://aka.ms/vs/17/release/channel', 'C:\VisualStudio.17.Release.chman')
-RUN (New-Object System.Net.WebClient).DownloadFile('http://cuda-repo.nvidia.com/release-candidates/kitpicks/cuda-r12-0/12.0.0/031/local_installers/cuda_12.0.0_527.41_windows.exe', 'C:\cuda_install.exe')
-RUN (New-Object System.Net.WebClient).DownloadFile('http://cuda-repo.nvidia.com/release-candidates/kitpicks/cudnn-v8-8-cuda-12-0/8.8.1.4/001/redist/cudnn/cudnn/windows-x86_64/cudnn-windows-x86_64-8.8.1.4_cuda12-archive.zip', 'C:\cudnn.zip')
+RUN (New-Object System.Net.WebClient).DownloadFile('http://cuda-repo.nvidia.com/release-candidates/kitpicks/cuda-r12-2/12.2.0/039/local_installers/cuda_12.2.0_536.25_windows.exe', 'C:\cuda_install.exe')
+RUN (New-Object System.Net.WebClient).DownloadFile('http://cuda-repo.nvidia.com/release-candidates/kitpicks/cudnn-v8-9-cuda-12-2/8.9.4.25/001/redist/cudnn/cudnn/windows-x86_64/cudnn-windows-x86_64-8.9.4.25_cuda12-archive.zip', 'C:\cudnn.zip')
 
 # Install Visual Studio VCTools
 RUN C:\vs2022_BuildTools.exe --quiet --wait --norestart --nocache install \
@@ -43,7 +43,7 @@ RUN Remove-Item -Force 'C:\vs2022_BuildTools.exe'; \
     Remove-Item -Force 'C:\VisualStudio.17.Release.chman'
 
 # Install CUDA (selected components)
-RUN Start-Process -Wait -FilePath "C:\cuda_install.exe" -ArgumentList '-s','cuda_profiler_api_12.0 cudart_12.0 nvcc_12.0 nvrtc_12.0 nvrtc_dev_12.0 nvtx_12.0 cublas_12.0 cublas_dev_12.0 thrust_12.0 visual_studio_integration_12.0'; \
+RUN Start-Process -Wait -FilePath "C:\cuda_install.exe" -ArgumentList '-s','cuda_profiler_api_12.2 cudart_12.2 nvcc_12.2 nvrtc_12.2 nvrtc_dev_12.2 nvtx_12.2 cublas_12.2 cublas_dev_12.2 thrust_12.2 visual_studio_integration_12.2'; \
     Remove-Item -Force "C:\cuda_install.exe"
 
 # Install CuDNN
@@ -58,7 +58,7 @@ RUN choco install cmake -y; \
     choco install python --version 3.10.0 -y
 
 # Set environment variables
-ENV CUDA_PATH="C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.0"
+ENV CUDA_PATH="C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.2"
 ENV CUDNN_PATH='C:\cudnn'
 ENV VS_ROOT_PATH='C:\Program Files\Microsoft Visual Studio\2022\BuildTools'
 ENV MS_BUILD_PATH='C:\Program Files\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin'

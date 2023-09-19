@@ -15,13 +15,25 @@
 # limitations under the License.
 #
 
-ARG CUDA_VERSION=12.0.1
+ARG CUDA_VERSION=12.2.0
 
-FROM nvidia/cuda:${CUDA_VERSION}-cudnn8-devel-ubuntu22.04
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV TRT_VERSION 8.6.1.6
+ENV NV_CUDNN_VERSION 8.9.4.25
+ENV NV_CUDNN_PACKAGE_NAME "libcudnn8"
+
+ENV NV_CUDNN_PACKAGE "libcudnn8=$NV_CUDNN_VERSION-1+cuda12.2"
+ENV NV_CUDNN_PACKAGE_DEV "libcudnn8-dev=$NV_CUDNN_VERSION-1+cuda12.2"
+
+ENV TRT_VERSION 9.0.1.4
 SHELL ["/bin/bash", "-c"]
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ${NV_CUDNN_PACKAGE} \
+    ${NV_CUDNN_PACKAGE_DEV} \
+    && apt-mark hold ${NV_CUDNN_PACKAGE_NAME} \
+    && rm -rf /var/lib/apt/lists/*
 
 # Setup user account
 ARG uid=1000
