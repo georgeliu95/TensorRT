@@ -461,9 +461,9 @@ class Graph(object):
             mode (str):
                     Whether to reorder this graph's list of nodes, list of functions, or both.
                     Possible values:
-                        "full": Topologically sort the list of nodes and the list of functions.
-                        "nodes": Only sort the list of nodes.
-                        "functions": Only sort the list of functions.
+                    - "full": Topologically sort the list of nodes and the list of functions.
+                    - "nodes": Only sort the list of nodes.
+                    - "functions": Only sort the list of functions.
                     Defaults to "full".
 
         Returns:
