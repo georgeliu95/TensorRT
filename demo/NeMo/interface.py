@@ -724,5 +724,4 @@ class NeMoCommand(NetworkCommand):
             network_results=network_results,
             accuracy=0,
             perplexity=0,
-            models=self.models
         )

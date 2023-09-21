@@ -153,6 +153,7 @@ class GPT3NeMoTRT(NeMoCommand):
             onnx_name = converter.prune_onnx(onnx_name)
 
         # Convert ONNX model to TRT engine
+        self.nemo_cfg.trt_export_options.use_strongly_typed = self.use_strongly_typed
         self.nemo_cfg.trt_export_options.timing_cache = self.timing_cache
         self.nemo_cfg.trt_export_options.opt_seq_len = self.opt_seq_len
 
@@ -166,6 +167,8 @@ class GPT3NeMoTRT(NeMoCommand):
             suffixes.append("fp8_storage")
         if self.nemo_cfg.trt_export_options.sparse:
             suffixes.append("sp")
+        if not self.nemo_cfg.trt_export_options.use_strongly_typed:
+            suffixes.append("no_strongly_typed")
         suffix = "-".join(suffixes)
         trt_fpath = os.path.join(self.workspace.dpath, f"trt-{suffix}.plan")
 
@@ -200,15 +203,23 @@ class GPT3NeMoTRT(NeMoCommand):
             help="Set to not use timing cache for speeding up engine building",
             action="store_true",
         )
+        engine_group.add_argument(
+            "--no-strongly-typed",
+            default=False,
+            help="Disable strongly typed mode in engine building",
+            action="store_true",
+        )
 
     def process_framework_specific_arguments(
         self,
         opt_seq_len: int = None,
-        no_timing_cache : bool = False,
+        no_timing_cache: bool = False,
+        no_strongly_typed: bool = False,
         **kwargs
     ):
         self.opt_seq_len = opt_seq_len
         self.use_timing_cache = not no_timing_cache
+        self.use_strongly_typed = not no_strongly_typed
         self.timing_cache = self.workspace.get_timing_cache() if self.use_timing_cache else None
 
 # Entry point
