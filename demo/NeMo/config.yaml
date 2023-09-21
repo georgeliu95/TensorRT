@@ -60,7 +60,7 @@ trt_export_options:
   use_fp16: False
   use_fp8: False
   use_bf16: False
-  use_strongly_typed: False # enable strongly typed mode will invalidate `use_[fp8|fp16|bf16]` flags.
+  use_strongly_typed: True # enable strongly typed mode will invalidate `use_[fp8|fp16|bf16]` flags.
   sparse: False # enable sparse in TRT engine builder
   timing_cache: 'functional.cache'
 
