@@ -77,6 +77,8 @@ The following resources provide a deeper understanding about importing a model i
 For terms and conditions for use, reproduction, and distribution, see the [TensorRT Software License Agreement](https://docs.nvidia.com/deeplearning/sdk/tensorrt-sla/index.html) documentation.
 
 # Changelog
+Auguest 2023
+Removed support for Python versions < 3.8.
 
 Auguest 2022
 Removed options for Caffe and UFF parsers.

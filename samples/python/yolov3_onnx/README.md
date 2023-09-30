@@ -102,7 +102,8 @@ For terms and conditions for use, reproduction, and distribution, see the [Tenso
 
 # Changelog
 August 2023
-- This sample was updated to support protobuf 3.20.3 for Python>=3.7
+- Removed support for Python versions < 3.8.
+- This sample was updated to support protobuf 3.20.3 for Python>=3.8
 - Update ONNX version support to 1.14.0
 
 March 2019

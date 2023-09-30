@@ -2163,6 +2163,7 @@ To implement a custom allocator, ensure that you explicitly instantiate the base
 
         ...
 
+Note that all methods below (allocate, reallocate, deallocate, free) must be overridden in the custom allocator, or else pybind11 would not be able to call the method from a custom allocator.
 )trtdoc";
 
 constexpr char const* allocate = R"trtdoc(

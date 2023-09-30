@@ -318,6 +318,7 @@ If you run this on COCO val2017 images, you may also add the parameter `--annota
 # Changelog
 
 August 2023: 
+  - Removed support for Python versions < 3.8.
   - Update ONNX version support to 1.14.0
   - Update ONNX Runtime version support to 1.15.1 for Python>=3.8
 

@@ -1197,9 +1197,12 @@ bool networkToSerializedEngine(
     SMP_RETVAL_IF_FALSE(profileStream != nullptr, "Cuda stream creation failed", false, err);
     config->setProfileStream(*profileStream);
 
+    auto const tBegin = std::chrono::high_resolution_clock::now();
     std::unique_ptr<IHostMemory> serializedEngine{builder.buildSerializedNetwork(*env.network, *config)};
     SMP_RETVAL_IF_FALSE(serializedEngine != nullptr, "Engine could not be created from network", false, err);
-
+    auto const tEnd = std::chrono::high_resolution_clock::now();
+    float const buildTime = std::chrono::duration<float>(tEnd - tBegin).count();
+    sample::gLogInfo << "Engine built in " << buildTime << " sec." << std::endl;
     sample::gLogInfo << "Created engine with size: " << (serializedEngine->size() / 1.0_MiB) << " MiB" << std::endl;
 
     if (build.safe && build.consistency)
@@ -1321,6 +1324,7 @@ std::pair<std::vector<std::string>, std::vector<WeightsRole>> getMissingLayerWei
 
 bool loadEngineToBuildEnv(std::string const& engine, bool enableConsistency, BuildEnvironment& env, std::ostream& err)
 {
+    auto const tBegin = std::chrono::high_resolution_clock::now();
     std::ifstream engineFile(engine, std::ios::binary);
     SMP_RETVAL_IF_FALSE(engineFile.good(), "", false, err << "Error opening engine file: " << engine);
     engineFile.seekg(0, std::ifstream::end);
@@ -1330,7 +1334,9 @@ bool loadEngineToBuildEnv(std::string const& engine, bool enableConsistency, Bui
     std::vector<uint8_t> engineBlob(fsize);
     engineFile.read(reinterpret_cast<char*>(engineBlob.data()), fsize);
     SMP_RETVAL_IF_FALSE(engineFile.good(), "", false, err << "Error loading engine file: " << engine);
-
+    auto const tEnd = std::chrono::high_resolution_clock::now();
+    float const loadTime = std::chrono::duration<float>(tEnd - tBegin).count();
+    sample::gLogInfo << "Engine loaded in " << loadTime << " sec." << std::endl;
     sample::gLogInfo << "Loaded engine with size: " << (fsize / 1.0_MiB) << " MiB" << std::endl;
 
     if (enableConsistency)
@@ -1644,7 +1650,8 @@ void* initSafeRuntime()
 #if SANITIZER_BUILD
     handle = dlopen(dllName.c_str(), RTLD_LAZY | RTLD_NODELETE);
 #else
-    handle = dlopen(dllName.c_str(), RTLD_LAZY);
+    // RTLD_GLOBAL is used for symbol resolution of subsequently loaded plugin libraries
+    handle = dlopen(dllName.c_str(), RTLD_LAZY | RTLD_GLOBAL);
 #endif
 #endif
     return handle;

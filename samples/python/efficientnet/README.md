@@ -18,7 +18,9 @@ These scripts help with conversion and execution of Google [EfficientNet V1](htt
 
 # Changelog
 
-August 2023: Update ONNX version support to 1.14.0
+August 2023: 
+  - Update ONNX version support to 1.14.0
+  - Removed support for Python versions < 3.8.
 
 ## Setup
 
