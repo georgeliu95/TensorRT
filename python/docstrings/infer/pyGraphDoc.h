@@ -1227,6 +1227,8 @@ constexpr const char* descr = R"trtdoc(
     This layer casts the element of a given input tensor to a specified data type and returns an output tensor of the same shape in the converted type.
 
     Conversions between all types except FP8 is supported.
+    
+    :ivar to_type: :class:`DataType` The specified data type of the output tensor.
 )trtdoc";
 } // namespace ICastLayerDoc
 
@@ -1701,6 +1703,18 @@ namespace IFillLayerDoc
 {
 constexpr const char* descr = R"trtdoc(
     A fill layer in an :class:`INetworkDefinition` .
+
+    The data type of the output tensor can be specified by :attr:`to_type`. Supported output types for each fill operation is as follows.
+
+    ================   =====================
+    Operation          to_type
+    ================   =====================
+    kLINSPACE          int32, int64, float32
+    kRANDOM_UNIFORM    float16, float32
+    kRANDOM_NORMAL     float16, float32
+    ================   =====================
+    
+    :ivar to_type: :class:`DataType` The specified data type of the output tensor. Defaults to tensorrt.float32.
 )trtdoc";
 
 constexpr const char* set_dimensions = R"trtdoc(
@@ -1832,14 +1846,16 @@ constexpr const char* descr = R"trtdoc(
 
     The subgraph which terminates with the scale tensor must be a build-time constant.  The same restrictions apply
     to the zeroPt.
-    The output type, if constrained, must be constrained to tensorrt.int8. The input type, if constrained, must be
-    constrained to tensorrt.float32 (FP16 input is not supported).
+    The output type, if constrained, must be constrained to tensorrt.int8 or tensorrt.fp8. The input type, if constrained, must be
+    constrained to tensorrt.float32, tensorrt.float16 or tensorrt.bfloat16.
     The output size is the same as the input size.
 
-    IQuantizeLayer only supports tensorrt.float32 precision and will default to this precision during instantiation.
-    IQuantizeLayer only supports tensorrt.int8 output.
+    IQuantizeLayer supports tensorrt.float32, tensorrt.float16 and tensorrt.bfloat16 precision and will default to tensorrt.float32 precision during instantiation.
+    IQuantizeLayer supports tensorrt.int8 and tensorrt.float8 output.
 
     :ivar axis: :class:`int` The axis along which quantization occurs. The quantization axis is in reference to the input tensor's dimensions.
+
+    :ivar to_type: :class:`DataType` The specified data type of the output tensor. Must be tensorrt.int8 or tensorrt.float8.
 )trtdoc";
 } // namespace IQuantizeLayerDoc
 
@@ -1865,15 +1881,16 @@ constexpr const char* descr = R"trtdoc(
 
     The subgraph which terminates with the scale tensor must be a build-time constant.  The same restrictions apply
     to the zeroPt.
-    The output type, if constrained, must be constrained to tensorrt.int8. The input type, if constrained, must be
-    constrained to tensorrt.float32 (FP16 input is not supported).
+    The output type, if constrained, must be constrained to tensorrt.int8 or tensorrt.fp8. The input type, if constrained, must be
+    constrained to tensorrt.float32, tensorrt.float16 or tensorrt.bfloat16.
     The output size is the same as the input size.
 
-    IDequantizeLayer only supports tensorrt.int8 precision and will default to this precision during instantiation.
-    IDequantizeLayer only supports tensorrt.float32 output.
+    IDequantizeLayer supports tensorrt.int8 and tensorrt.float8 precision and will default to tensorrt.int8 precision during instantiation.
+    IDequantizeLayer supports tensorrt.float32, tensorrt.float16 and tensorrt.bfloat16 output.
 
     :ivar axis: :class:`int` The axis along which dequantization occurs. The dequantization axis is in reference to the input tensor's dimensions.
 
+    :ivar to_type: :class:`DataType` The specified data type of the output tensor. Must be tensorrt.float32 or tensorrt.float16.
 )trtdoc";
 } // namespace IDequantizeLayerDoc
 

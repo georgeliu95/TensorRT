@@ -54,7 +54,7 @@ static const auto error_code_str = [](ErrorCode self) {
 };
 
 static const auto parser_error_str = [](IParserError& self) {
-    return "In node " + std::to_string(self.node()) + "with name: " + self.nodeName() + "and operator: "
+    return "In node " + std::to_string(self.node()) + " with name: " + self.nodeName() + " and operator: "
         + self.nodeOperator() + " (" + self.func() + "): " + error_code_str(self.code()) + ": " + self.desc();
 };
 
@@ -151,8 +151,8 @@ void bindOnnx(py::module& m)
         .def("line", &IParserError::line, ParserErrorDoc::line)
         .def("func", &IParserError::func, ParserErrorDoc::func)
         .def("node", &IParserError::node, ParserErrorDoc::node)
-        .def("nodeName", &IParserError::nodeName, ParserErrorDoc::nodeName)
-        .def("nodeOperator", &IParserError::nodeOperator, ParserErrorDoc::nodeOperator)
+        .def("node_name", &IParserError::nodeName, ParserErrorDoc::node_name)
+        .def("node_operator", &IParserError::nodeOperator, ParserErrorDoc::node_operator)
         .def("__str__", lambdas::parser_error_str)
         .def("__repr__", lambdas::parser_error_str);
 

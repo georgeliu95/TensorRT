@@ -336,15 +336,25 @@ struct DynamicPluginTensorDesc
 //!
 //! Clients should override the public methods, including the following inherited methods:
 //!
-//!     virtual int32_t getNbOutputs() const noexcept = 0;
-//!     virtual nvinfer1::DataType getOutputDataType(int32_t index, nvinfer1::DataType const* inputTypes, int32_t
-//!     nbInputs) const noexcept = 0; virtual size_t getSerializationSize() const noexcept = 0; virtual void
-//!     serialize(void* buffer) const noexcept = 0; virtual void destroy() noexcept = 0; virtual void
-//!     setPluginNamespace(char const* pluginNamespace) noexcept = 0; virtual char const* getPluginNamespace() const
-//!     noexcept = 0;
+//! * virtual int32_t getNbOutputs() const noexcept = 0;
 //!
-//! For getOutputDataType, the inputTypes will always be DataType::kFLOAT or DataType::kINT32,
+//! * virtual DataType getOutputDataType(int32_t index, DataType const* inputTypes,
+//!                                      int32_t nbInputs) const noexcept = 0;
+//!
+//! * virtual size_t getSerializationSize() const noexcept = 0;
+//!
+//! * virtual void serialize(void* buffer) const noexcept = 0;
+//!
+//! * virtual void destroy() noexcept = 0;
+//!
+//! * virtual void setPluginNamespace(char const* pluginNamespace) noexcept = 0;
+//!
+//! * virtual char const* getPluginNamespace() const noexcept = 0;
+//!
+//! For weakly typed networks, the inputTypes will always be DataType::kFLOAT or DataType::kINT32,
 //! and the returned type is canonicalized to DataType::kFLOAT if it is DataType::kHALF or DataType:kINT8.
+//! For strongly typed networks, inputTypes are inferred from previous operations, and getOutputDataType
+//! specifies the returned type based on the inputTypes.
 //! Details about the floating-point precision are elicited later by method supportsFormatCombination.
 //!
 class IPluginV2DynamicExt : public nvinfer1::IPluginV2Ext

@@ -84,6 +84,9 @@ For terms and conditions for use, reproduction, and distribution, see the [Tenso
 
 # Changelog
 
+August 2023
+Removed support for Python versions < 3.8.
+
 June 2023
 This `README.md` file was created and reviewed.
 

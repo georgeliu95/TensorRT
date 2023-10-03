@@ -455,7 +455,7 @@ public:
 
     void* reallocate(void* baseAddr, uint64_t alignment, uint64_t newSize) noexcept override
     {
-        return allocHelper("reallocate", false, reinterpret_cast<size_t>(baseAddr), alignment, newSize);
+        return allocHelper("reallocate", true, reinterpret_cast<size_t>(baseAddr), alignment, newSize);
     }
 
     void free(void* memory) noexcept override
@@ -1067,7 +1067,7 @@ void bindCore(py::module& m)
         .def("get_profile_shape_input",
             utils::deprecate(lambdas::engine_get_profile_shape_input_str, "get_tensor_profile_shape"),
             "profile_index"_a, "binding"_a, ICudaEngineDoc::get_profile_shape_input)
-        .def("is_shape_binding", utils::deprecateMember(&ICudaEngine::isShapeBinding, "get_tensor_location"),
+        .def("is_shape_binding", utils::deprecateMember(&ICudaEngine::isShapeBinding, "is_shape_inference_io"),
             "binding"_a, ICudaEngineDoc::is_shape_binding)
         .def("is_execution_binding", utils::deprecateMember(&ICudaEngine::isExecutionBinding, "get_tensor_location"),
             "binding"_a, ICudaEngineDoc::is_execution_binding)
