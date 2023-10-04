@@ -1174,7 +1174,7 @@ void bindCore(py::module& m)
 // remove md
 #if ENABLE_MDTRT
         .def_property_readonly("instance_id", &nvinfer1GetInstanceID)
-        .def_property_readonly("num_instances", &nvinfer1GetNbInstances)
+        .def_property_readonly("num_instances", &nvinfer1ICudaEngineGetNbInstances)
 #endif // ENABLE_MDTRT
         .def("__del__", &utils::doNothingDel<ICudaEngine>);
 
@@ -1372,7 +1372,7 @@ void bindCore(py::module& m)
 // remove md
 #if ENABLE_MDTRT
         // This gets flipped to the C++ API's with TRT-17558
-        .def_property("num_instances", &nvinfer1GetNbInstances, &nvinfer1SetNbInstances)
+        .def_property("num_instances", &nvinfer1IBuilderConfigGetNbInstances, &nvinfer1SetNbInstances)
         .def("insert_instance_group", &nvinfer1InsertInstanceGroup, "instance"_a, "group"_a,
             IBuilderConfigDoc::insert_instance_group)
         .def("remove_instance_group", &nvinfer1RemoveInstanceGroup, "instance"_a, "group"_a,
