@@ -271,6 +271,7 @@ namespace tensorrt
                 return py::cast(self.getBeta());
         };
 
+// remove md
 #if ENABLE_MDTRT
         // Used for setting the tiling based on a python list.
         static auto set_tiling(ITensor& self, std::vector<int64_t> const& pattern,
@@ -933,6 +934,15 @@ namespace tensorrt
             .def_property("compute_precision", &INormalizationLayer::getComputePrecision, &INormalizationLayer::setComputePrecision)
         ;
 
+// remove md
+#if ENABLE_MDTRT
+        py::class_<IInstanceSplitLayer, ILayer, std::unique_ptr<IInstanceSplitLayer, py::nodelete>>(m, "IInstanceSplitLayer", IInstanceSplitLayerDoc::descr, py::module_local())
+        ;
+
+        py::class_<IInstanceJoinLayer, ILayer, std::unique_ptr<IInstanceJoinLayer, py::nodelete>>(m, "IInstanceJoinLayer", IInstanceJoinLayerDoc::descr, py::module_local())
+        ;
+#endif // ENABLE_MDTRT
+
         // Weights must be kept alive for the duration of the network. py::keep_alive is critical here!
         // Additionally, we use reference_internal so that pybind11 does not free layers when they go out of scope.
         py::class_<INetworkDefinition>(m, "INetworkDefinition", INetworkDefinitionDoc::descr, py::module_local())
@@ -1078,7 +1088,15 @@ namespace tensorrt
                 py::return_value_policy::reference)
             .def_property_readonly("flags", &INetworkDefinition::getFlags)
             .def("get_flag", &INetworkDefinition::getFlag, "flag"_a, INetworkDefinitionDoc::get_flag)
-
+// remove md
+#if ENABLE_MDTRT
+#if 0
+            .def("add_instance_split", &nvinfer1AddInstanceSplit, "input"_a, INetworkDefinitionDoc::add_instance_split,
+                py::return_value_policy::reference_internal)
+            .def("add_instance_join", &nvinfer1AddInstanceJoin, "input"_a, "num_inputs"_a, INetworkDefinitionDoc::add_instance_join,
+                py::return_value_policy::reference_internal)
+#endif
+#endif // ENABLE_MDTRT
 #if ENABLE_INETWORK_SERIALIZE
             // Serialization
             .def("serialize", lambdas::network_serialize, INetworkDefinitionDoc::serialize)

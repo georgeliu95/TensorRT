@@ -208,7 +208,15 @@ constexpr const char* descr = R"trtdoc(
     :ivar dynamic_range: :class:`Tuple[float, float]` A tuple containing the [minimum, maximum] of the dynamic range, or :class:`None` if the range was not set.
     :ivar is_shape: :class:`bool` Whether the tensor is a shape tensor.
     :ivar allowed_formats: :class:`int32` The allowed set of TensorFormat candidates. This should be an integer consisting of one or more :class:`TensorFormat` s, combined via bitwise OR after bit shifting. For example, ``1 << int(TensorFormat.CHW4) | 1 << int(TensorFormat.CHW32)``.
-)trtdoc";
+)trtdoc"
+// remove md
+#if ENABLE_MDTRT
+                              R"trtdoc(
+    :ivar tiling_pattern: :class:`Dims` Multi-device tensor tile shape.
+    :ivar num_tiles: :class:`int64` The number of tiles for this tensor.
+)trtdoc"
+#endif // ENABLE_MDTRT
+;
 
 // remove md
 #if ENABLE_MDTRT
@@ -2060,6 +2068,29 @@ constexpr const char* descr = R"trtdoc(
 )trtdoc";
 } // namespace INormalizationLayerDoc
 
+// remove md
+#if ENABLE_MDTRT
+namespace IInstanceSplitLayerDoc
+{
+constexpr const char* descr = R"trtdoc(
+    A IInstanceSplit layer in an :class:`INetworkDefinition` .
+
+    Splits an input TensorDictionary into multiple Tensors with the same tile pattern but with the i`th output have its i`th tile assignment copied from the input Tensor and the rest of the tile assignments suppressed. 
+    All resulting tensors will have the same split pattern and the same tensor dimensions.
+)trtdoc";
+} // namespace IInstanceSplitLayerDoc
+
+namespace IInstanceJoinLayerDoc
+{
+constexpr const char* descr = R"trtdoc(
+    A IInstanceJoin layer in an :class:`INetworkDefinition` .
+
+    Converts multiple Tensors or TensorDictionaries into a TensorDictionary where the output TensorDictionary has the instances assigned linearly from  the inputs tile assignments.
+    All Tensors in the inputs must have the same split pattern, tensor dimensions, and cannot have overlapping or duplicate tile assignments.
+)trtdoc";
+} // namespace IInstanceJoinLayerDoc
+#endif // ENABLE_MDTRT
+
 namespace INetworkDefinitionDoc
 {
 constexpr const char* descr = R"trtdoc(
@@ -2080,7 +2111,7 @@ constexpr const char* get_flag = R"trtdoc(
 
     :arg flag: The ``NetworkDefinitionCreationFlag`` .
 
-    :returns: Whether the flag is set. 
+    :returns: Whether the flag is set.
 )trtdoc";
 
 constexpr const char* add_input = R"trtdoc(
@@ -2788,6 +2819,32 @@ constexpr char const* add_normalization = R"trtdoc(
 
     :returns: the new Normalization layer, or :class:`None` if it could not be created.
 )trtdoc";
+
+// remove md
+#if ENABLE_MDTRT
+constexpr char const* add_instance_split = R"trtdoc(
+    Adds a InstanceSplit layer to the network.
+    See :class:`InstanceSplit` for more information.
+
+    :arg input: The input tensor to split across instances.
+        Creates a layer that splits a Tensor with N instance assignments into N Tensors with 1 instance assignment.
+
+    :returns: the new InstanceSplit layer, or :class:`None` if it could not be created.
+)trtdoc";
+
+constexpr char const* add_instance_join = R"trtdoc(
+    Adds a InstanceJoin layer to the network.
+    See :class:`InstanceJoin` for more information.
+
+    :arg input: The input tensors to the layer.
+    :arg mun_inputs: The number of input tensors.
+        Creates a layer that takes N Tensors with instances assigned, and converts them to a single
+        tensor with N instances assigned. The N tensors must have the same split pattern and tensor
+        dimensions.
+
+    :returns: the new InstanceJoin layer, or :class:`None` if it could not be created.
+)trtdoc";
+#endif // ENABLE_MDTRT
 
 } // namespace INetworkDefinitionDoc
 
