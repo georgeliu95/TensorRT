@@ -12,32 +12,32 @@ def parse_arguments():
 # This order needs to be preserved for dependency tracking.
 
 DEB_PACKAGES_CENTOS=[
-"libnvinfer9-9.0.1.4-1.cuda{ver}.x86_64.rpm",
-"libnvonnxparsers9-9.0.1.4-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-plugin9-9.0.1.4-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-vc-plugin9-9.0.1.4-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-headers-devel-9.0.1.4-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-headers-plugin-devel-9.0.1.4-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-devel-9.0.1.4-1.cuda{ver}.x86_64.rpm",
-"libnvonnxparsers-devel-9.0.1.4-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-plugin-devel-9.0.1.4-1.cuda{ver}.x86_64.rpm",
-"python3-libnvinfer-9.0.1.4-1.cuda{ver}.x86_64.rpm",
+"libnvinfer9-9.1.0.3-1.cuda{ver}.x86_64.rpm",
+"libnvonnxparsers9-9.1.0.3-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-plugin9-9.1.0.3-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-vc-plugin9-9.1.0.3-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-headers-devel-9.1.0.3-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-headers-plugin-devel-9.1.0.3-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-devel-9.1.0.3-1.cuda{ver}.x86_64.rpm",
+"libnvonnxparsers-devel-9.1.0.3-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-plugin-devel-9.1.0.3-1.cuda{ver}.x86_64.rpm",
+"python3-libnvinfer-9.1.0.3-1.cuda{ver}.x86_64.rpm",
 ]
 
 DEB_PACKAGES_UBUNTU=[
-    "libnvinfer9_9.0.1.4-1{ext}",
-    "libnvonnxparsers9_9.0.1.4-1{ext}",
-    "libnvinfer-plugin9_9.0.1.4-1{ext}",
-    "libnvinfer-vc-plugin9_9.0.1.4-1{ext}",
-    "libnvinfer-headers-dev_9.0.1.4-1{ext}",
-    "libnvinfer-headers-plugin-dev_9.0.1.4-1{ext}",
-    "libnvinfer-dev_9.0.1.4-1{ext}",
-    "libnvonnxparsers-dev_9.0.1.4-1{ext}",
-    "libnvinfer-plugin-dev_9.0.1.4-1{ext}",
-    "python3-libnvinfer_9.0.1.4-1{ext}",
+    "libnvinfer9_9.1.0.3-1{ext}",
+    "libnvonnxparsers9_9.1.0.3-1{ext}",
+    "libnvinfer-plugin9_9.1.0.3-1{ext}",
+    "libnvinfer-vc-plugin9_9.1.0.3-1{ext}",
+    "libnvinfer-headers-dev_9.1.0.3-1{ext}",
+    "libnvinfer-headers-plugin-dev_9.1.0.3-1{ext}",
+    "libnvinfer-dev_9.1.0.3-1{ext}",
+    "libnvonnxparsers-dev_9.1.0.3-1{ext}",
+    "libnvinfer-plugin-dev_9.1.0.3-1{ext}",
+    "python3-libnvinfer_9.1.0.3-1{ext}",
 ]
 
-ROOT_URL = "http://cuda-repo.nvidia.com/release-candidates/Libraries/TensorRT/v9.0/9.0.1.4-acb7ff04/"
+ROOT_URL = "http://cuda-repo.nvidia.com/release-candidates/Libraries/TensorRT/v9.1/9.1.0.3-04908a66/"
 
 def get_cuda_props(cuda_ver):
     assert len(cuda_ver) >= 4
