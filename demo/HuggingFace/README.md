@@ -155,7 +155,7 @@ AccuracyResult(topN=[TopNAccuracy(n=1, accuracy=0.326), TopNAccuracy(n=10, accur
 
 Notes:
 * Perplexity will be very high for some t5 variants because it tends to have very large perplexity between logits and token if they do not match.
-* The `perplexity` field for each sample is actually log_perplexity, but the final reported results is an exponential over the mean of all log_perplexity for each sample. 
+* The `perplexity` field for each sample is actually log_perplexity, but the final reported results is an exponential over the mean of all log_perplexity for each sample.
 * We will not calculate `perplexity` for beam search, but we will report TopN accuracy for beam search.
 
 ### How to run fixed-length performance test
@@ -206,7 +206,7 @@ models=NetworkModels(torch=None, onnx=None,trt=[NetworkModel(name='gpt2_decoder'
 ```
 
 Notes:
-* We will not be maintaining checkpoint.toml files, and will not be responsible for any discrepency between outputs and checkpoint.toml file. Please only report if you get unexpected accuracy from `accuracy` command. 
+* We will not be maintaining checkpoint.toml files, and will not be responsible for any discrepency between outputs and checkpoint.toml file. Please only report if you get unexpected accuracy from `accuracy` command.
 
 ### How to run comparison script
 
@@ -243,7 +243,7 @@ Notes:
 
 ### How to run with K-V cache
 
-For all the models, use `--use-cache` option to get the same effect of HuggingFace's `use_cache` option. The old `--enable-kv-cache` flag has been deprecated. For encoder-decoder models, this option will use key & value cache in decoder for uni-directional self-attention and encoder-decoder cross-attention. KV cache could reduce the size of `input_ids` and improve runtime performance when `input_ids` is long. Current benchmarking result shows that at `input_seq_len = 1024` and `output_seq_len = 1024`, t5-large model with kv cache could achieve 3x faster than without kv cache in single NVIDIA A100 GPU. Therefore, it is **always** recommended to enable `--use-cache` flag. 
+For all the models, use `--use-cache` option to get the same effect of HuggingFace's `use_cache` option. The old `--enable-kv-cache` flag has been deprecated. For encoder-decoder models, this option will use key & value cache in decoder for uni-directional self-attention and encoder-decoder cross-attention. KV cache could reduce the size of `input_ids` and improve runtime performance when `input_ids` is long. Current benchmarking result shows that at `input_seq_len = 1024` and `output_seq_len = 1024`, t5-large model with kv cache could achieve 3x faster than without kv cache in single NVIDIA A100 GPU. Therefore, it is **always** recommended to enable `--use-cache` flag.
 
 ```python
 python3 run.py run BART [frameworks | trt] --variant facebook/bart-base --working-dir temp --use-cache
@@ -395,4 +395,4 @@ torch.cuda.OutOfMemoryError: CUDA out of memory. Tried to allocate ... MiB (GPU 
 
 As a rough but not guaranteed estimate, you should have at least `4*num_parameters` bytes of GPU memory in order to run in `--fp16` mode and at least `8*num_parameters` bytes of GPU memory in order to run in fp32 precision. You should also have at least `12*num_parameters` bytes of CPU memory for model loading and engine building and serialization. For example, for a 6B model, you should have >=24GB GPU memory for `--fp16`, or >=32GB GPU memory for fp32, and >=72GB CPU memory. It is recommended to run `--fp16 --use-cache` to optimize engine build and inference.
 
-Furthermore, we have identified an issue with `torch.onnx.export` that causes it to increase memory usage by `4*num_parameters`, so in the case of CPU OOM, please ensure you are running with a cached ONNX model. This can be achieved by simply rerunning the exact same command after the ONNX model has been saved.
+Furthermore, we have identified an issue with `torch.onnx.export` that causes it to increase memory usage by `4*num_parameters`, so in the case of CPU OOM, please ensure you are running with a cached ONNX model. This can be achieved by simply rerunning the exact same command after the ONNX model has been saved. Alternatively, this memory leak bug has been fixed in the latest PyTorch (2.1.0). You may also update your PyTorch version, but it is untested and TRT team does not guarantee its accuracy nor its performance.

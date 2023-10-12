@@ -799,35 +799,24 @@ class Seq2SeqTRT(TRTInferenceCommand):
         #                    If no additional benchmarking flags are provided, it will just use n_positions for max coverage
 
         # Convert ONNX models to TRT engines.
-        if not self.action == "benchmark":
-            engine_tag = "bs{}".format(self.config.batch_size)
-        # When user does not input any profile_max_len, use seq as tag, both max are config max
-        elif self.seq_tag:
-            # When user inputs dynamic batch, enable engine reuse in future with different batch size.
-            if self.dynamic_batch:
-                engine_tag = "minbs{}-maxbs{}-inseq{}-outseq{}".format(self.min_dynamic_batch,
-                                                                       self.max_dynamic_batch,
-                                                                       self.opt_input_seq_len,
-                                                                       self.opt_output_seq_len)
-            else:
-                engine_tag = "bs{}-inseq{}-outseq{}".format(self.config.batch_size,
-                                                            self.opt_input_seq_len,
-                                                            self.opt_output_seq_len)
-        # When user input profile_max_len, reuse the engine for future use with different seq_len
+        # bs tag first
+        if self.dynamic_batch:
+            engine_tag = f"minbs{self.min_dynamic_batch}-maxbs{self.max_dynamic_batch}"
         else:
-            # When user inputs dynamic batch, enable engine reuse in future with different batch size.
-            if self.dynamic_batch:
-                engine_tag = "minbs{}-maxbs{}-inmax{}-outmax{}".format(self.min_dynamic_batch,
-                                                                       self.max_dynamic_batch,
-                                                                       self.config.max_input_profile_length,
-                                                                       self.config.max_output_profile_length)
+            engine_tag = f"bs{self.config.batch_size}"
+
+        if self.action == "benchmark":
+            # When user does not input any profile_max_len, use seq as tag, both max are config max
+            if self.seq_tag:
+                engine_tag += f"-inseq{self.opt_input_seq_len}-outseq{self.opt_output_seq_len}"
+
+            # When user input profile_max_len, reuse the engine for future use with different seq_len
             else:
-                engine_tag = "bs{}-inmax{}-outmax{}".format(self.config.batch_size,
-                                                            self.config.max_input_profile_length,
-                                                            self.config.max_output_profile_length)
+                # When user inputs dynamic batch, enable engine reuse in future with different batch size.
+                engine_tag += f"-inmax{self.config.max_input_profile_length}-outmax{self.config.max_output_profile_length}"
 
         if self.config.num_beams > 1:
-            engine_tag += "-beam{}".format(self.config.num_beams)
+            engine_tag += f"-beam{self.config.num_beams}"
 
         preview_features = [PreviewFeature.DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805]
 

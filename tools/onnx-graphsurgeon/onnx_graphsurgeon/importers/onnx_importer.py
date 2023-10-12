@@ -109,9 +109,20 @@ def get_onnx_tensor_dtype(
     onnx_tensor: Union[onnx.ValueInfoProto, onnx.TensorProto]
 ) -> Union[np.dtype, "onnx.TensorProto.DataType"]:
     if isinstance(onnx_tensor, onnx.TensorProto):
-        onnx_type = onnx_tensor.data_type
+        onnx_dtype = onnx_tensor.data_type
     else:
-        onnx_type = onnx_tensor.type.tensor_type.elem_type
+        if onnx_tensor.type.HasField("tensor_type"):
+            onnx_dtype = onnx_tensor.type.tensor_type.elem_type
+        elif onnx_tensor.type.HasField("sequence_type"):
+            onnx_dtype = onnx_tensor.type.sequence_type.elem_type.tensor_type.elem_type
+        elif onnx_tensor.type.HasField("map_type"):
+            onnx_dtype = onnx_tensor.type.map_type.value_type
+        elif onnx_tensor.type.HasField("optional_type"):
+            onnx_dtype = onnx_tensor.type.optional_type.elem_type
+        elif onnx_tensor.type.HasField("sparse_tensor_type"):
+            onnx_dtype = onnx_tensor.type.sparse_tensor_type.elem_type
+        else:
+            onnx_dtype = onnx_tensor.type.opaque_type
 
     dtype = get_numpy_type(onnx_type)
     if dtype is not None:
@@ -122,6 +133,30 @@ def get_onnx_tensor_dtype(
         f"The original ONNX type will be preserved. ",
         mode=LogMode.ONCE,
     )
+    return onnx_type
+
+
+def get_onnx_tensor_type(
+    onnx_tensor: Union[onnx.ValueInfoProto, onnx.TensorProto]
+) -> str:
+    if isinstance(onnx_tensor, onnx.TensorProto):
+        onnx_type = "tensor_type"
+    else:
+        if onnx_tensor.type.HasField("tensor_type"):
+            onnx_type = "tensor_type"
+        elif onnx_tensor.type.HasField("sequence_type"):
+            onnx_type = "sequence_type"
+        elif onnx_tensor.type.HasField("map_type"):
+            onnx_type = "map_type"
+        elif onnx_tensor.type.HasField("optional_type"):
+            onnx_type = "optional_type"
+        elif onnx_tensor.type.HasField("opaque_type"):
+            onnx_type = "opaque_type"
+        elif onnx_tensor.type.HasField("sparse_tensor_type"):
+            onnx_type = "sparse_tensor_type"
+        else:
+            onnx_type = None
+
     return onnx_type
 
 
@@ -154,6 +189,7 @@ class OnnxImporter(BaseImporter):
             if onnx_tensor.type.ByteSize() > 0:
                 tensor.dtype = get_onnx_tensor_dtype(onnx_tensor)
                 tensor.shape = get_onnx_tensor_shape(onnx_tensor)
+                tensor.type = get_onnx_tensor_type(onnx_tensor)
             return tensor
 
     @staticmethod

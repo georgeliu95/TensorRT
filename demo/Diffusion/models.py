@@ -195,6 +195,10 @@ def fuse_lora_weights(model, lora_weights, lora_scale):
         if "lora" in key:
             assert "transformer_blocks" in key
             attn_processor_key, sub_key = ".".join(key.split(".")[:-4]), ".".join(key.split(".")[-4:])
+            # Combine `key`.to_out keys with `key`.
+            if (attn_processor_key.endswith(".to_out")):
+                    attn_processor_key = attn_processor_key[:-7]
+                    assert lora_dict.get(attn_processor_key, None) is not None
             if attn_processor_key not in lora_dict:
                 lora_dict[attn_processor_key] = []
             lora_dict[attn_processor_key].append(sub_key)
@@ -218,8 +222,17 @@ def fuse_lora_weights(model, lora_weights, lora_scale):
         for subkey in lora_dict[key]:
             if not "lora" in subkey:
                 original_name = "{}.{}".format(key, subkey)
-                lora_down_name = "{}.processor.{}_lora.down.weight".format(key, subkey.split(".")[0])
-                lora_up_name = "{}.processor.{}_lora.up.weight".format(key, subkey.split(".")[0])
+
+                splits = subkey.split(".")
+                assert len(splits) == 2 or len(splits) == 3
+
+                # Handle `.to_out` keys differently
+                if len(splits) == 2:
+                    lora_down_name = "{}.{}.lora_layer.down.weight".format(key, splits[0])
+                    lora_up_name = "{}.{}.lora_layer.up.weight".format(key, splits[0])
+                else:
+                    lora_down_name = "{}.{}.{}.lora_layer.down.weight".format(key, splits[0], splits[1])
+                    lora_up_name = "{}.{}.{}.lora_layer.up.weight".format(key, splits[0], splits[1])
 
                 original_tensor = sd[original_name]
                 lora_down_tensor = sd[lora_down_name]
@@ -768,10 +781,16 @@ class VAE(BaseModel):
     def get_model(self, framework_model_dir, torch_inference=''):
         vae_decoder_model_path = get_checkpoint_dir(framework_model_dir, self.version, self.pipeline, self.subfolder, torch_inference)
         if not os.path.exists(vae_decoder_model_path):
-            model = AutoencoderKL.from_pretrained(self.path,
-                subfolder=self.subfolder,
-                use_safetensors=self.hf_safetensor,
-                use_auth_token=self.hf_token).to(self.device)
+            # FIXME: WAR for accuracy issue in VAE fp16 checkpoint from Stability.ai
+            if self.version == 'xl-1.0':
+                model = AutoencoderKL.from_pretrained(
+                    "madebyollin/sdxl-vae-fp16-fix",
+                    torch_dtype=torch.float16).to(self.device)
+            else:
+                model = AutoencoderKL.from_pretrained(self.path,
+                    subfolder=self.subfolder,
+                    use_safetensors=self.hf_safetensor,
+                    use_auth_token=self.hf_token).to(self.device)
             model.save_pretrained(vae_decoder_model_path)
         else:
             print(f"[I] Load VAE decoder pytorch model from: {vae_decoder_model_path}")

@@ -39,7 +39,7 @@ import numpy as np
 
 # NNDF
 from NNDF.networks import NetworkMetadata, NNConfig
-from NNDF.models import TRTEngineFile
+from NNDF.models import TRTEngineFile, _calculate_polygraphy_verbosity
 from NNDF.logger import G_LOGGER
 
 # PyTorch
@@ -304,13 +304,7 @@ class TRTPolygraphyRunner:
 
     def __call__(self, *args, **kwargs):
         # hook polygraphy verbosity for inference
-        g_logger_verbosity = (
-            G_LOGGER.EXTRA_VERBOSE
-            if G_LOGGER.root.level == G_LOGGER.DEBUG
-            else G_LOGGER.WARNING
-        )
-
-        with PG_LOGGER.verbosity(g_logger_verbosity):
+        with PG_LOGGER.verbosity(_calculate_polygraphy_verbosity()):
             return self.forward(*args, **kwargs)
 
     def release(self):

@@ -58,7 +58,7 @@ from transformers import (
     GenerationMixin,
 )
 
-import os
+import os, gc
 import torch
 
 # Program-wide constants for passing in valid frameworks.
@@ -648,6 +648,12 @@ class NetworkCommand:
             self.onnx_cross_attn_cache_generator = torch_cross_attn_cache_generator.as_onnx_model(
                 self.workspace.cross_attn_generator_onnx_path, force_overwrite=False, config=self.config
             )
+
+        # torch_model is no longer used. We need to remove it from CPU otherwise it takes 1xfp32 model size and thus affect TRT memory comsumption
+        torch_model.cpu()
+        del torch_model
+        gc.collect()
+
         G_LOGGER.info("ONNX models successfully exported from PyTorch. ONNX export and post-processing time: {:.4f}s".format(time.time() - t0))
         return True
 
@@ -878,9 +884,7 @@ class NetworkCommand:
 
         # If no input_ids, use input_str to tokenize
         if input_ids is None:
-            if isinstance(input, list):
-                assert len(input) == self.config.batch_size, "The length of provided input does not match batch size"
-            else:
+            if not isinstance(input, list):
                 input = [input] * self.config.batch_size
 
             tokenizer_output = self.tokenizer(input, padding=True, return_tensors="pt")
@@ -897,6 +901,21 @@ class NetworkCommand:
 
         elif self.config.use_mask and attention_mask is None:
             attention_mask = torch.ones_like(input_ids)
+
+        if self.config.use_mask:
+            assert input_ids.shape[0] == attention_mask.shape[0], "batch_size of input_ids and attention_mask does not match."
+
+        bs = input_ids.shape[0]
+        if bs != self.config.batch_size:
+            G_LOGGER.warning(f"Input bs {bs} != desired bs {self.config.batch_size}."
+                " Please make sure you are running with framework or with --dynamic-batch with batch_size=max_dynamic_batch."
+                " This behavior may lead to mismatched size or tensor OOM error."
+                " Attempt to cast batch size."
+            )
+
+            self.decoder.config.batch_size = bs
+            self.decoder.config.expand_size = bs * self.decoder.config.num_beams
+            self.decoder.expand_size = bs * self.decoder.config.num_beams
 
         if use_cuda:
             input_ids = input_ids.to("cuda")

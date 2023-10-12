@@ -26,7 +26,7 @@ ENV NV_CUDNN_PACKAGE_NAME "libcudnn8"
 ENV NV_CUDNN_PACKAGE "libcudnn8=$NV_CUDNN_VERSION-1+cuda12.2"
 ENV NV_CUDNN_PACKAGE_DEV "libcudnn8-dev=$NV_CUDNN_VERSION-1+cuda12.2"
 
-ENV TRT_VERSION 9.0.1.4
+ENV TRT_VERSION 9.1.0.3
 SHELL ["/bin/bash", "-c"]
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -102,6 +102,28 @@ RUN cd /tmp && \
     chmod +x cmake-3.14.4-Linux-x86_64.sh && \
     ./cmake-3.14.4-Linux-x86_64.sh --prefix=/usr/local --exclude-subdir --skip-license && \
     rm ./cmake-3.14.4-Linux-x86_64.sh
+
+######## Cross Compilation Set-up ##########
+# Install cross-compilation toolchains
+RUN apt-get install -y g++-8-aarch64-linux-gnu
+
+# Install cross-compilation CUDA packages
+RUN wget http://cuda-repo/release-candidates/kitpicks/cuda-r12-2/12.2.0/039/local_installers/cuda-repo-cross-sbsa-ubuntu2004-12-2-local_12.2.0-1_all.deb &&\
+    dpkg -i cuda-repo-cross-sbsa-ubuntu2004-12-2-local_12.2.0-1_all.deb &&\
+    cp /var/cuda-repo-cross-sbsa-ubuntu2004-12-2-local/cuda-*-keyring.gpg /usr/share/keyrings/ &&\
+    apt-get update && \
+    apt-get -y install cuda-cross-sbsa &&\
+    rm cuda-repo-cross*
+
+# Install cross-compilation CUDNN packages
+RUN wget http://cuda-repo/release-candidates/kitpicks/cudnn-v8-9-cuda-12-2/8.9.5.29/001/local_installers/cudnn-local-repo-cross-sbsa-ubuntu2004-8.9.5.29_1.0-1_all.deb &&\
+dpkg -i cudnn-local-repo*.deb &&\
+sudo cp /var/cudnn-local-repo-cross-sbsa-ubuntu2004*/cudnn-local-*-keyring.gpg /usr/share/keyrings/ &&\
+apt-get update &&\
+apt-get install -y libcudnn8-cross-sbsa&&\
+rm -rf cudnn-local-repo-cross*
+
+######## Cross Compilation Set-up End ##########
 
 # Download NGC client
 RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.zip && unzip ngccli_cat_linux.zip && chmod u+x ngc-cli/ngc && rm ngccli_cat_linux.zip ngc-cli.md5 && echo "no-apikey\nascii\n" | ngc-cli/ngc config set

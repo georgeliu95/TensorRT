@@ -184,7 +184,6 @@ class StableDiffusionPipeline:
 
         self.config = {}
         if self.pipeline_type.is_sd_xl():
-            self.config['vae_torch_fallback'] = True
             self.config['clip_hidden_states'] = True
         self.torch_inference = torch_inference
         self.use_cuda_graph = use_cuda_graph
@@ -221,8 +220,6 @@ class StableDiffusionPipeline:
 
         # Allocate buffers for TensorRT engine bindings
         for model_name, obj in self.models.items():
-            if model_name == 'vae' and self.config.get('vae_torch_fallback', False):
-                continue
             self.engine[model_name].allocate_buffers(shape_dict=obj.get_shape_dict(batch_size, image_height, image_width), device=self.device)
 
     def teardown(self):
@@ -351,8 +348,6 @@ class StableDiffusionPipeline:
             for k, v in self.models.items():
                 self.torch_models[k] = v.get_model(framework_model_dir, torch_inference=self.torch_inference)
             return
-        elif 'vae' in self.stages and self.config.get('vae_torch_fallback', False):
-            self.torch_models['vae'] = self.models['vae'].get_model(framework_model_dir)
 
         # setup models to export, optimize and refit.
         force_export_models = []
@@ -381,8 +376,6 @@ class StableDiffusionPipeline:
 
         # Export models to ONNX
         for model_name, obj in self.models.items():
-            if model_name == 'vae' and self.config.get('vae_torch_fallback', False):
-                continue
             enable_refit = model_name in enable_refit_models
             engine_path = self.getEnginePath(model_name, engine_dir, enable_refit)
             force_export = model_name in force_export_models
@@ -429,8 +422,6 @@ class StableDiffusionPipeline:
 
         # Build TensorRT engines
         for model_name, obj in self.models.items():
-            if model_name == 'vae' and self.config.get('vae_torch_fallback', False):
-                continue
             enable_refit = model_name in enable_refit_models
             engine_path = self.getEnginePath(model_name, engine_dir, enable_refit)
             engine = Engine(engine_path)
@@ -453,8 +444,6 @@ class StableDiffusionPipeline:
 
         # Load TensorRT engines
         for model_name, obj in self.models.items():
-            if model_name == 'vae' and self.config.get('vae_torch_fallback', False):
-                continue
             self.engine[model_name].load()
             if onnx_refit_dir and model_name in enable_refit_models:
                 onnx_refit_path = self.getOnnxPath(model_name, onnx_refit_dir)
@@ -672,10 +661,6 @@ class StableDiffusionPipeline:
     def decode_latent(self, latents):
         self.profile_start('vae', color='red')
         if self.torch_inference:
-            images = self.torch_models['vae'](latents)['sample']
-        elif self.config.get('vae_torch_fallback', False):
-            latents = latents.to(dtype=torch.float32)
-            self.torch_models["vae"] = self.torch_models["vae"].to(dtype=torch.float32)
             images = self.torch_models['vae'](latents)['sample']
         else:
             images = self.runEngine('vae', {'latent': latents})['images']
