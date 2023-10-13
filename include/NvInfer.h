@@ -6013,7 +6013,7 @@ public:
     //!
     //! Using the corresponding setter resets the input to null.
     //!
-    //! If either inputs 1 or 2, is non-null, then both must be non-null and have the same data type.
+    //! If either inputs 1 or 2 is non-null, then both must be non-null and have the same data type.
     //!
     //! If this function is called for an index greater or equal to getNbInputs(),
     //! then afterwards getNbInputs() returns index + 1, and any missing intervening
