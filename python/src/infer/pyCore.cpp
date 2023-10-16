@@ -405,6 +405,13 @@ void context_set_device_memory(IExecutionContext& self, size_t memory)
 {
     self.setDeviceMemory(reinterpret_cast<void*>(memory));
 }
+// remove md
+#if ENABLE_MDTRT
+static auto set_num_instances_with_check = [](IBuilderConfig& self, int64_t instanceCount) {
+    PY_ASSERT_VALUE_ERROR(nvinfer1SetNbInstances(self, instanceCount), "Provided number of instances is incorrect");
+};
+#endif // ENABLE_MDTRT
+
 } // namespace lambdas
 
 class PyGpuAllocator : public IGpuAllocator
@@ -1372,7 +1379,7 @@ void bindCore(py::module& m)
 // remove md
 #if ENABLE_MDTRT
         // This gets flipped to the C++ API's with TRT-17558
-        .def_property("num_instances", &nvinfer1IBuilderConfigGetNbInstances, &nvinfer1SetNbInstances)
+        .def_property("num_instances", &nvinfer1IBuilderConfigGetNbInstances, lambdas::set_num_instances_with_check)
         .def("insert_instance_group", &nvinfer1InsertInstanceGroup, "instance"_a, "group"_a,
             IBuilderConfigDoc::insert_instance_group)
         .def("remove_instance_group", &nvinfer1RemoveInstanceGroup, "instance"_a, "group"_a,

@@ -281,12 +281,20 @@ namespace tensorrt
             d.nbDims = pattern.size();
             std::fill(d.d, d.d + Dims::MAX_DIMS, 1);
             std::copy_n(pattern.begin(), d.nbDims, d.d);
-            nvinfer1SetTilingPattern(self, d);
+            PY_ASSERT_VALUE_ERROR(nvinfer1SetTilingPattern(self, d), "Provided tiling pattern is incorrect");
             for (int64_t i = 0, e = assignment.size(); i < e; ++i)
             {
-                nvinfer1SetTilingAssignment(self, i, assignment[i]);
+                PY_ASSERT_VALUE_ERROR(nvinfer1SetTilingAssignment(self, i, assignment[i]), "Provided tiling assignment is incorrect");
             }
         }
+
+        static auto set_tiling_pattern_with_check = [](ITensor& self, Dims const& d) {
+            PY_ASSERT_VALUE_ERROR(nvinfer1SetTilingPattern(self, d), "Provided tiling pattern is incorrect");
+        };
+
+        static auto set_tiling_assignment_with_check = [](ITensor& self, int64_t tileID, int64_t instanceID) {
+            PY_ASSERT_VALUE_ERROR(nvinfer1SetTilingAssignment(self, tileID, instanceID), "Provided tiling assignment is incorrect");
+        };
 #endif
 
     } /* lambdas */
@@ -387,9 +395,9 @@ namespace tensorrt
             .def("get_dimension_name", &ITensor::getDimensionName, "index"_a, ITensorDoc::get_dimension_name)
 // remove md
 #if ENABLE_MDTRT
-            .def_property("tile_pattern", &nvinfer1SetTilingPattern, &nvinfer1GetTilingPattern)
+            .def_property("tiling_pattern", &nvinfer1GetTilingPattern, lambdas::set_tiling_pattern_with_check)
             .def_property_readonly("num_tiles", &nvinfer1GetNbTiles)
-            .def("set_tile_assignment", &nvinfer1SetTilingAssignment, "tile"_a, "instance"_a, ITensorDoc::set_tiling_assignment)
+            .def("set_tile_assignment", lambdas::set_tiling_assignment_with_check, "tile"_a, "instance"_a, ITensorDoc::set_tiling_assignment)
             .def("get_tile_assignment", &nvinfer1GetTilingAssignment, "tile"_a, ITensorDoc::get_tiling_assignment)
             .def("set_tiling", lambdas::set_tiling, "pattern"_a, "assignment"_a, ITensorDoc::set_tiling)
 #endif // ENABLE_MDTRT
