@@ -636,6 +636,7 @@ inline uint32_t getElementSize(nvinfer1::DataType t) noexcept
     case nvinfer1::DataType::kUINT8:
     case nvinfer1::DataType::kINT8:
     case nvinfer1::DataType::kFP8: return 1;
+    case nvinfer1::DataType::kINT4: ASSERT(false && "Element size is not implemented for sub-byte data-types (INT4)");
     }
     return 0;
 }

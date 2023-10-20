@@ -385,6 +385,7 @@ bool SampleINT8API::setDynamicRange(SampleUniquePtr<nvinfer1::INetworkDefinition
                     case DataType::kUINT8: val = static_cast<uint8_t const*>(wts.values)[wb]; break;
                     case DataType::kFP8: ASSERT(!"FP8 is not supported"); break;
                     case DataType::kBF16:
+                    case DataType::kINT4:
                     case DataType::kINT64: ASSERT(false && "Unsupported data type");
                     }
                     max = std::max(max, std::abs(val));

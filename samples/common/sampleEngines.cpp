@@ -717,7 +717,8 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
                 // User did not specify a floating-point format.  Default to kFLOAT.
                 input->setType(DataType::kFLOAT);
                 break;
-            case DataType::kFP8: ASSERT(!"FP8 is not supported"); break;
+            case DataType::kFP8: ASSERT(false && "FP8 is not supported");
+            case DataType::kINT4: ASSERT(false && "INT4 is not supported");
             }
             input->setAllowedFormats(1U << static_cast<int>(TensorFormat::kLINEAR));
         }
@@ -911,6 +912,11 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
     if (build.refittable)
     {
         config.setFlag(BuilderFlag::kREFIT);
+    }
+
+    if (build.weightless)
+    {
+        config.setFlag(BuilderFlag::kWEIGHTLESS);
     }
 
     if (build.versionCompatible)
@@ -1471,6 +1477,7 @@ std::vector<std::pair<WeightsRole, Weights>> getAllRefitWeightsForLayer(const IL
         case DataType::kBOOL:
         case DataType::kUINT8:
         case DataType::kFP8:
+        case DataType::kINT4:
             // Refit not supported for these types.
             break;
         }

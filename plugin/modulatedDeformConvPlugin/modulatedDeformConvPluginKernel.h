@@ -34,11 +34,11 @@
 #include <cuda_fp16.h>
 
 template <typename T>
-__device__ T dmcnIm2colBilinear(
+__device__ __forceinline__ T dmcnIm2colBilinear(
     T const* input, int32_t const dataWidth, int32_t const height, int32_t const width, float h, float w);
 
 template <>
-__device__ __half dmcnIm2colBilinear(
+__device__ __forceinline__ __half dmcnIm2colBilinear(
     __half const* input, int32_t const dataWidth, int32_t const height, int32_t const width, float h, float w);
 
 template <typename T>

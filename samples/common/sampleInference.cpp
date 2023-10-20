@@ -1372,7 +1372,8 @@ void Binding::fill()
         fillBuffer<uint8_t>(buffer->getHostBuffer(), volume, 0, 255);
         break;
     }
-    case nvinfer1::DataType::kFP8: ASSERT(!"FP8 is not supported");
+    case nvinfer1::DataType::kFP8: ASSERT(false && "FP8 is not supported");
+    case nvinfer1::DataType::kINT4: ASSERT(false && "INT4 is not supported");
     }
 }
 
@@ -1430,7 +1431,8 @@ void Binding::dump(std::ostream& os, Dims dims, Dims strides, int32_t vectorDim,
         dumpBuffer<int64_t>(outputBuffer, separator, os, dims, strides, vectorDim, spv);
         break;
     }
-    case nvinfer1::DataType::kFP8: ASSERT(!"FP8 is not supported");
+    case nvinfer1::DataType::kFP8: ASSERT(false && "FP8 is not supported");
+    case nvinfer1::DataType::kINT4: ASSERT(false && "INT4 is not supported");
     }
 }
 
