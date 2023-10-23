@@ -156,6 +156,9 @@ enum class DataType : int32_t
 
     //! Signed 64-bit integer type.
     kINT64 = 8,
+
+    //! Signed 4-bit integer type.
+    kINT4 = 9,
 };
 
 namespace impl
@@ -165,7 +168,7 @@ template <>
 struct EnumMaxImpl<DataType>
 {
     // Declaration of kVALUE that represents maximum number of elements in DataType enum
-    static constexpr int32_t kVALUE = 9;
+    static constexpr int32_t kVALUE = 10;
 };
 } // namespace impl
 

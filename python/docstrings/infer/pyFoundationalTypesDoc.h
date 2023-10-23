@@ -56,6 +56,7 @@ constexpr char const* fp8 = R"trtdoc(
     .. warning::
        fp8 is not supported yet and will result in an error or undefined behavior.
 )trtdoc";
+constexpr char const* int4 = R"trtdoc(Signed 4-bit integer representing a quantized floating-point value.)trtdoc";
 
 } // namespace DataTypeDoc
 

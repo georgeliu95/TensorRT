@@ -428,7 +428,7 @@ constexpr char const* execute_async = R"trtdoc(
 
     :arg batch_size: The batch size. This is at most the value supplied when the :class:`ICudaEngine` was built. This has no effect if the engine is built from a network with explicit batch dimension mode enabled.
     :arg bindings: A list of integers representing input and output buffer addresses for the network.
-    :arg stream_handle: A handle for a CUDA stream on which the inference kernels will be executed.
+    :arg stream_handle: A handle for a CUDA stream on which the inference kernels will be executed. Using default stream may lead to performance issues due to additional cudaDeviceSynchronize() calls by TensorRT to ensure correct synchronizations. Please use non-default stream instead.
     :arg input_consumed: An optional event which will be signaled when the input buffers can be refilled with new data
 
     :returns: True if the kernels were executed successfully.
@@ -450,7 +450,7 @@ constexpr char const* execute_async_v2 = R"trtdoc(
     This method only works for execution contexts built from networks with no implicit batch dimension.
 
     :arg bindings: A list of integers representing input and output buffer addresses for the network.
-    :arg stream_handle: A handle for a CUDA stream on which the inference kernels will be executed.
+    :arg stream_handle: A handle for a CUDA stream on which the inference kernels will be executed. Using default stream may lead to performance issues due to additional cudaDeviceSynchronize() calls by TensorRT to ensure correct synchronizations. Please use non-default stream instead.
     :arg input_consumed: An optional event which will be signaled when the input buffers can be refilled with new data
 
     :returns: True if the kernels were executed successfully.
@@ -664,7 +664,7 @@ constexpr char const* execute_async_v3 = R"trtdoc(
 
     Input tensors can be released after the :func:`set_input_consumed_event` whereas output tensors require stream synchronization.
 
-    :arg stream_handle: The cuda stream on which the inference kernels will be enqueued.
+    :arg stream_handle: The cuda stream on which the inference kernels will be enqueued. Using default stream may lead to performance issues due to additional cudaDeviceSynchronize() calls by TensorRT to ensure correct synchronizations. Please use non-default stream instead.
 )trtdoc";
 
 constexpr char const* set_aux_streams = R"trtdoc(
@@ -1099,6 +1099,14 @@ constexpr char const* get_tensor_profile_shape = R"trtdoc(
     :arg name: The tensor name.
     :arg profile_index: The index of the profile.
 )trtdoc";
+
+constexpr char const* create_serialization_config = R"trtdoc(
+    Create a serialization configuration object.
+)trtdoc";
+
+constexpr char const* serialize_with_config = R"trtdoc(
+    Serialize the network to a stream.
+)trtdoc";
 } // namespace ICudaEngineDoc
 
 namespace OutputAllocatorDoc
@@ -1182,6 +1190,8 @@ constexpr char const* ERROR_ON_TIMING_CACHE_MISS
     = R"trtdoc(Emit error when a tactic being timed is not present in the timing cache.)trtdoc";
 constexpr char const* DISABLE_COMPILATION_CACHE
     = R"trtdoc(Disable caching JIT compilation results during engine build.)trtdoc";
+constexpr char const* WEIGHTLESS
+    = R"trtdoc(Enable build without saving weights in the final plan file with no impact to runtime performance.)trtdoc";
 } // namespace BuilderFlagDoc
 
 namespace MemoryPoolTypeDoc
@@ -1282,6 +1292,15 @@ constexpr char const* EXPLICIT_PRECISION = R"trtdoc([DEPRECATED] This flag has n
 constexpr char const* STRONGLY_TYPED
     = R"trtdoc(Specify that every tensor in the network has a data type defined in the network following only type inference rules and the inputs/operator annotations. Setting layer precision and layer output types is not allowed, and the network output types will be inferred based on the input types and the type inference rules)trtdoc";
 } // namespace NetworkDefinitionCreationFlagDoc
+
+namespace ISerializationConfigDoc
+{
+constexpr char const* descr
+    = R"trtdoc(Class to hold properties for configuring an engine to serialize the binary.)trtdoc";
+constexpr char const* clear_flag = R"trtdoc(Clears the serialization flag from the config.)trtdoc";
+constexpr char const* get_flag = R"trtdoc(Check if a serialization flag is set.)trtdoc";
+constexpr char const* set_flag = R"trtdoc(Add the input serialization flag to the already enabled flags.)trtdoc";
+} // namespace ISerializationConfigDoc
 
 namespace DeviceTypeDoc
 {
@@ -1748,6 +1767,13 @@ constexpr char const* get_instance_group = R"trtdoc(
 #endif // ENABLE_MDTRT
 } // namespace IBuilderConfigDoc
 
+namespace SerializationFlagDoc
+{
+constexpr char const* descr = R"trtdoc(Valid flags that can be use to creating binary file from engine.)trtdoc";
+constexpr char const* EXCLUDE_WEIGHTS = R"trtdoc(Exclude weights that can be refitted.)trtdoc";
+constexpr char const* EXCLUDE_LEAN_RUNTIME = R"trtdoc(Exclude lean runtime from the plan.)trtdoc";
+} // namespace SerializationFlagDoc
+
 namespace BuilderDoc
 {
 constexpr char const* descr = R"trtdoc(
@@ -2024,19 +2050,19 @@ constexpr char const* set_named_weights_with_location = R"trtdoc(
 
 constexpr char const* get_named_weights = R"trtdoc(
     Get weights associated with the given name.
-    
+
     If the weights were never set, returns null weights and reports an error to the refitter errorRecorder.
-    
+
     :arg weights_name: The name of the weights to be refitted.
-    
+
     :returns: Weights associated with the given name.
 )trtdoc";
 
 constexpr char const* get_weights_location = R"trtdoc(
     Get location for the weights associated with the given name.
-    
+
     If the weights were never set, returns TensorLocation.HOST and reports an error to the refitter errorRecorder.
-    
+
     :arg weights_name: The name of the weights to be refitted.
 
     :returns: Location for the weights associated with the given name.
@@ -2044,25 +2070,25 @@ constexpr char const* get_weights_location = R"trtdoc(
 
 constexpr char const* unset_named_weights = R"trtdoc(
     Unset weights associated with the given name.
-    
+
     Unset weights before releasing them.
-    
+
     :arg weights_name: The name of the weights to be refitted.
-    
+
     :returns: ``False`` if the weights were never set, returns ``True`` otherwise.
 )trtdoc";
 
 constexpr char const* refit_cuda_engine = R"trtdoc(
    Refits associated engine.
-   
+
    If ``False`` is returned, a subset of weights may have been refitted.
 
    The behavior is undefined if the engine has pending enqueued work.
    Provided weights on CPU or GPU can be unset and released, or updated after refit_cuda_engine returns.
-   
+
    IExecutionContexts associated with the engine remain valid for use afterwards. There is no need to set the same
    weights repeatedly for multiple refit calls as the weights memory can be updated directly instead.
-    
+
    :returns: ``True`` on success, or ``False`` if new weights validation fails or get_missing_weights() != 0 before the call.
 )trtdoc";
 
@@ -2070,7 +2096,7 @@ constexpr char const* refit_cuda_engine_async = R"trtdoc(
     Enqueue weights refitting of the associated engine on the given stream.
 
     If ``False`` is returned, a subset of weights may have been refitted.
-    
+
     The behavior is undefined if the engine has pending enqueued work on a different stream from the provided one.
     Provided weights on CPU can be unset and released, or updated after refit_cuda_engine_async returns.
     Freeing or updating of the provided weights on GPU can be enqueued on the same stream after refit_cuda_engine_async returns.
@@ -2078,9 +2104,9 @@ constexpr char const* refit_cuda_engine_async = R"trtdoc(
     IExecutionContexts associated with the engine remain valid for use afterwards. There is no need to set the same
     weights repeatedly for multiple refit calls as the weights memory can be updated directly instead. The weights
     updating task should use the the same stream as the one used for the refit call.
-    
+
     :arg stream: The stream to enqueue the weights updating task.
-    
+
     :returns: ``True`` on success, or ``False`` if new weights validation fails or get_missing_weights() != 0 before the call.
 )trtdoc";
 

@@ -405,6 +405,14 @@ void context_set_device_memory(IExecutionContext& self, size_t memory)
 {
     self.setDeviceMemory(reinterpret_cast<void*>(memory));
 }
+
+void serialization_config_set_flags(ISerializationConfig& self, uint32_t flags)
+{
+    if (!self.setFlags(flags))
+    {
+        utils::throwPyError(PyExc_RuntimeError, "Provided serialization flags is incorrect");
+    }
+}
 // remove md
 #if ENABLE_MDTRT
 static auto set_num_instances_with_check = [](IBuilderConfig& self, int64_t instanceCount) {
@@ -1050,6 +1058,10 @@ void bindCore(py::module& m)
                 "network created with NetworkDefinitionCreationFlag::EXPLICIT_BATCH flag"))
         .def_property_readonly("num_layers", &ICudaEngine::getNbLayers)
         .def("serialize", &ICudaEngine::serialize, ICudaEngineDoc::serialize, py::call_guard<py::gil_scoped_release>{})
+        .def("create_serialization_config", &ICudaEngine::createSerializationConfig,
+            ICudaEngineDoc::create_serialization_config, py::keep_alive<0, 1>{})
+        .def("serialize_with_config", &ICudaEngine::serializeWithConfig, ICudaEngineDoc::serialize_with_config,
+            py::call_guard<py::gil_scoped_release>{})
         .def("create_execution_context", &ICudaEngine::createExecutionContext, ICudaEngineDoc::create_execution_context,
             py::keep_alive<0, 1>{}, py::call_guard<py::gil_scoped_release>{})
         .def("get_location", utils::deprecateMember(&ICudaEngine::getLocation, "get_tensor_location"), "index"_a,
@@ -1183,7 +1195,7 @@ void bindCore(py::module& m)
         .def_property_readonly("instance_id", &nvinfer1GetInstanceID)
         .def_property_readonly("num_instances", &nvinfer1ICudaEngineGetNbInstances)
 #endif // ENABLE_MDTRT
-        .def("__del__", &utils::doNothingDel<ICudaEngine>);
+                .def("__del__", &utils::doNothingDel<ICudaEngine>);
 
     py::enum_<AllocatorFlag>(m, "AllocatorFlag", py::arithmetic{}, AllocatorFlagDoc::descr, py::module_local())
         .value("RESIZABLE", AllocatorFlag::kRESIZABLE, AllocatorFlagDoc::RESIZABLE);
@@ -1232,7 +1244,14 @@ void bindCore(py::module& m)
         .value("ERROR_ON_TIMING_CACHE_MISS", BuilderFlag::kERROR_ON_TIMING_CACHE_MISS,
             BuilderFlagDoc::ERROR_ON_TIMING_CACHE_MISS)
         .value("DISABLE_COMPILATION_CACHE", BuilderFlag::kDISABLE_COMPILATION_CACHE,
-            BuilderFlagDoc::DISABLE_COMPILATION_CACHE);
+            BuilderFlagDoc::DISABLE_COMPILATION_CACHE)
+        .value("WEIGHTLESS", BuilderFlag::kWEIGHTLESS, BuilderFlagDoc::WEIGHTLESS);
+
+    py::enum_<SerializationFlag>(
+        m, "SerializationFlag", py::arithmetic{}, SerializationFlagDoc::descr, py::module_local())
+        .value("EXCLUDE_WEIGHTS", SerializationFlag::kEXCLUDE_WEIGHTS, SerializationFlagDoc::EXCLUDE_WEIGHTS)
+        .value("EXCLUDE_LEAN_RUNTIME", SerializationFlag::kEXCLUDE_LEAN_RUNTIME,
+            SerializationFlagDoc::EXCLUDE_LEAN_RUNTIME);
 
     py::enum_<MemoryPoolType>(m, "MemoryPoolType", MemoryPoolTypeDoc::descr, py::module_local())
         .value("WORKSPACE", MemoryPoolType::kWORKSPACE, MemoryPoolTypeDoc::WORKSPACE)
@@ -1388,8 +1407,14 @@ void bindCore(py::module& m)
             IBuilderConfigDoc::get_num_instance_groups)
         .def("get_instance_group", &nvinfer1GetInstanceGroup, "instance"_a, "num"_a,
             IBuilderConfigDoc::get_instance_group)
-#endif  // ENABLE_MDTRT
-                .def("__del__", &utils::doNothingDel<IBuilderConfig>);
+#endif // ENABLE_MDTRT
+               .def("__del__", &utils::doNothingDel<IBuilderConfig>);
+
+    py::class_<ISerializationConfig>(m, "ISerializationConfig", ISerializationConfigDoc::descr, py::module_local())
+        .def_property("flags", &ISerializationConfig::getFlags, &lambdas::serialization_config_set_flags)
+        .def("clear_flag", &ISerializationConfig::clearFlag, "flag"_a, ISerializationConfigDoc::clear_flag)
+        .def("set_flag", &ISerializationConfig::setFlag, "flag"_a, ISerializationConfigDoc::set_flag)
+        .def("get_flag", &ISerializationConfig::getFlag, "flag"_a, ISerializationConfigDoc::get_flag);
 
     py::enum_<NetworkDefinitionCreationFlag>(m, "NetworkDefinitionCreationFlag", py::arithmetic{},
         NetworkDefinitionCreationFlagDoc::descr, py::module_local())

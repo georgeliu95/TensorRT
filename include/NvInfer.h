@@ -9156,6 +9156,9 @@ enum class BuilderFlag : int32_t
     //! the cache size. Setting this flag prevents the code from being serialized. This flag has an effect only when
     //! BuilderFlag::DISABLE_TIMING_CACHE is not set.
     kDISABLE_COMPILATION_CACHE = 20,
+
+    //! Build engine without saving weights in the final plan file with no impact to runtime performance.
+    kWEIGHTLESS = 21,
 };
 
 //!
@@ -9166,7 +9169,7 @@ enum class BuilderFlag : int32_t
 template <>
 constexpr inline int32_t EnumMax<BuilderFlag>() noexcept
 {
-    return 21;
+    return 22;
 }
 
 //!

@@ -185,7 +185,8 @@ void bindFoundationalTypes(py::module& m)
         .value("INT64", DataType::kINT64, DataTypeDoc::int64)
         .value("BOOL", DataType::kBOOL, DataTypeDoc::boolean)
         .value("UINT8", DataType::kUINT8, DataTypeDoc::uint8)
-        .value("FP8", DataType::kFP8, DataTypeDoc::fp8); // DataType
+        .value("FP8", DataType::kFP8, DataTypeDoc::fp8)
+        .value("INT4", DataType::kINT4, DataTypeDoc::int4); // DataType
 
     // Also create direct mappings (so we can call trt.float32, for example).
     m.attr("float32") = DataType::kFLOAT;
@@ -197,6 +198,7 @@ void bindFoundationalTypes(py::module& m)
     m.attr("bool") = DataType::kBOOL;
     m.attr("uint8") = DataType::kUINT8;
     m.attr("fp8") = DataType::kFP8;
+    m.attr("int4") = DataType::kINT4;
 
     py::enum_<WeightsRole>(m, "WeightsRole", WeightsRoleDoc::descr, py::module_local())
         .value("KERNEL", WeightsRole::kKERNEL, WeightsRoleDoc::KERNEL)
