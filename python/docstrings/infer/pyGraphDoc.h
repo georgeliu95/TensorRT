@@ -227,10 +227,10 @@ constexpr char const* get_tiling_assignment = R"trtdoc(
     :returns: The instance associated with the tile or -1 for unassigned.
 )trtdoc";
 constexpr char const* set_tiling_assignment = R"trtdoc(
-    set the instance id associated with the tile.
+    Specify that the tile belongs to a specific instance.
 
-    :arg tile: The tile to set the instance mapping of.
-    :arg instance: The instance to assign to the tile.
+    :arg tile: The tile ID of this tensor.
+    :arg instance: The tile ID of this tensor.
 )trtdoc";
 constexpr char const* set_tiling = R"trtdoc(
     Set the tiling pattern and assignment.
@@ -2075,7 +2075,7 @@ namespace IInstanceSplitLayerDoc
 constexpr const char* descr = R"trtdoc(
     A IInstanceSplit layer in an :class:`INetworkDefinition` .
 
-    Splits an input TensorDictionary into multiple Tensors with the same tile pattern but with the i`th output have its i`th tile assignment copied from the input Tensor and the rest of the tile assignments suppressed. 
+    Splits an input TensorDictionary into multiple Tensors with the same tile pattern but with the i`th output having it's i`th tile assignment copied from the input Tensor and the rest of the tile assignments being suppressed.
     All resulting tensors will have the same split pattern and the same tensor dimensions.
 )trtdoc";
 } // namespace IInstanceSplitLayerDoc
@@ -2085,7 +2085,7 @@ namespace IInstanceJoinLayerDoc
 constexpr const char* descr = R"trtdoc(
     A IInstanceJoin layer in an :class:`INetworkDefinition` .
 
-    Converts multiple Tensors or TensorDictionaries into a TensorDictionary where the output TensorDictionary has the instances assigned linearly from  the inputs tile assignments.
+    Converts multiple Tensors or TensorDictionaries into a TensorDictionary where the output TensorDictionary has the instances assigned linearly from the inputs tile assignments.
     All Tensors in the inputs must have the same split pattern, tensor dimensions, and cannot have overlapping or duplicate tile assignments.
 )trtdoc";
 } // namespace IInstanceJoinLayerDoc
