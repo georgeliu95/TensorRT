@@ -24,15 +24,15 @@ secondary = true
 python = ">=3.8,<4"
 numpy = "^1.24.4"
 transformers = "4.31.0"
-torch = {version = "^2.1.0+cu121", source = "torch_"}
+torch = {version = "2.1.0+cu121", source = "torch_"}
 tabulate = "^0.9.0"
 toml = "^0.10.2"
-polygraphy = ">=0.42.2"
-onnx = "^1.14.1"
-onnx-graphsurgeon = ">=0.3.24"
+polygraphy = {version = "0.47.1", source = "ngc_"}
+onnx = "1.13.1"
+onnx-graphsurgeon = {version = "0.3.27", source = "ngc_"}
 sentencepiece = "*"
 protobuf = "*"
-cuda-python = "^12.1.0"
+cuda-python = "*"
 Pillow = "^10.0.0"
 datasets = "^2.14.4"
 
