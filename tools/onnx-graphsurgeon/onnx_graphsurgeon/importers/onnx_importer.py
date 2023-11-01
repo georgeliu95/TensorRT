@@ -124,16 +124,16 @@ def get_onnx_tensor_dtype(
         else:
             onnx_dtype = onnx_tensor.type.opaque_type
 
-    dtype = get_numpy_type(onnx_type)
+    dtype = get_numpy_type(onnx_dtype)
     if dtype is not None:
         return dtype
 
     G_LOGGER.warning(
-        f"Could not convert: {get_dtype_name(onnx_type)} to a corresponding NumPy type. "
+        f"Could not convert: {get_dtype_name(onnx_dtype)} to a corresponding NumPy type. "
         f"The original ONNX type will be preserved. ",
         mode=LogMode.ONCE,
     )
-    return onnx_type
+    return onnx_dtype
 
 
 def get_onnx_tensor_type(
