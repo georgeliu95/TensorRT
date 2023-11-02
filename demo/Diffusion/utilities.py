@@ -1711,6 +1711,7 @@ def process_pipeline_args(args):
         'lora_weights': args.lora_weights,
         'framework_model_dir': args.framework_model_dir,
         'torch_inference': args.torch_inference,
+        'tome_merge_ratio': args.tome_merge_ratio,
     }
 
     kwargs_load_engine = {

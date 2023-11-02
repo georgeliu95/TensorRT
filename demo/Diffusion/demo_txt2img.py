@@ -21,10 +21,24 @@ from cuda import cudart
 
 from stable_diffusion_pipeline import StableDiffusionPipeline
 from utilities import PIPELINE_TYPE, TRT_LOGGER, add_arguments, process_pipeline_args
+class Range(object):
+    def __init__(self, start, end):
+        self.start = start
+        self.end = end
+    def __eq__(self, other):
+        return self.start <= other < self.end
 
 def parseArgs():
     parser = argparse.ArgumentParser(description="Options for Stable Diffusion Txt2Img Demo")
     parser = add_arguments(parser)
+    parser.add_argument('--tome-merge-ratio', type=float, choices=[Range(0.0, 0.75)], default=None, 
+                        help="Ratio of tokens merged in Token Merging method. Use None instead of 0 "
+                        "to disable merging and avoid merging overhead. "
+                        "Increasing the ratio can help accelerate the execution while the accuracy drops. "
+                        "With current merging strategy it is possible to merge up to 75%% of tokens")
+    parser.add_argument('--force_engine_build', action='store_true')
+    parser.add_argument('--force_onnx_export', action='store_true')
+    parser.add_argument('--force_onnx_optimize', action='store_true')
     return parser.parse_args()
 
 if __name__ == "__main__":

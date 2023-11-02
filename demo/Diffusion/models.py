@@ -18,6 +18,8 @@
 import os
 import tempfile
 
+from collections import OrderedDict
+import numpy as np
 import onnx
 import onnx_graphsurgeon as gs
 import torch
@@ -104,6 +106,117 @@ class Optimizer():
                     onnx_graph.graph.node[i].input[j] = "hidden_states"
         if return_onnx:
             return onnx_graph
+
+    def insert_tome(self, r=0.5, sx=2, sy=2, version="1.5"):
+        nToMePlugin = 0
+        if version == "1.5":
+            for node in self.graph.nodes:
+                if node.op == "LayerNormalization" and node.i().op == "Cast" and node.i().i().op == "Reshape" and node.i().i().i().op == "Transpose" and node.inputs[1].values.shape[0] == 320:
+
+                    beforeLayerNormX = node.i().i().outputs[0]  #cast's input
+                    beforeReshapeX = node.i().i().i().i().outputs[0]
+
+                    q_matmul = node.o().o(0)
+                    k_matmul = node.o().o(1)
+                    v_matmul = node.o().o(2)
+                    if q_matmul.op != "MatMul" or k_matmul.op != "MatMul" or v_matmul.op != "MatMul":
+                        print(q_matmul.name, q_matmul.op)
+                        print(k_matmul.name, k_matmul.op)
+                        print(v_matmul.name, v_matmul.op)
+                        raise RuntimeError("bad pattern")
+
+                    srcIdxTensor = gs.Variable("srcIdxV-" + str(nToMePlugin), np.dtype(np.int32))
+                    dstIdxTensor = gs.Variable("dstIdxV-" + str(nToMePlugin), np.dtype(np.int32))
+                    unmIdxTensor = gs.Variable("unmIdxV-" + str(nToMePlugin), np.dtype(np.int32))
+                    mergedTokensTensor = gs.Variable("mergedTokensV-" + str(nToMePlugin), np.dtype(np.float16))
+                    unmergedTokensTensor = gs.Variable("unmergedTokensV-" + str(nToMePlugin), np.dtype(np.float16))
+
+                    q_matmul.inputs[0] = mergedTokensTensor
+                    k_matmul.inputs[0] = mergedTokensTensor
+                    v_matmul.inputs[0] = mergedTokensTensor
+                    afterLayerNormX = node.o().outputs[0]
+
+                    add_bias_node = v_matmul.o().o().o().o().o().o().o().o().o().o().o().o().o().o().o().o().o().o().o().o()
+                    if add_bias_node.op != "Add":
+                        print(add_bias_node.name, add_bias_node.op)
+                        raise RuntimeError("bad pattern")
+
+                    afterProjX = add_bias_node.outputs[0]
+                    add_bias_node.o().inputs[0] = unmergedTokensTensor
+
+                    mergeIndicesNode = gs.Node("MergeIndices", "MergeIndicesN-" + str(nToMePlugin), inputs=[beforeLayerNormX, beforeReshapeX], attrs=OrderedDict([('r', r), ('sx', sx), ('sy', sy)]), outputs=[srcIdxTensor, dstIdxTensor, unmIdxTensor])
+                    mergeTokensNode = gs.Node("MergeTokens", "MergeTokensN-" + str(nToMePlugin), inputs=[afterLayerNormX, unmIdxTensor, beforeReshapeX], attrs=OrderedDict([('r', r), ('sx', sx), ('sy', sy)]), outputs=[mergedTokensTensor])
+                    unmergeTokensNode = gs.Node("UnmergeTokens", "UnmergeTokensN-" + str(nToMePlugin), inputs=[afterProjX, srcIdxTensor, dstIdxTensor, unmIdxTensor, beforeReshapeX], attrs=OrderedDict([('r', r), ('sx', sx), ('sy', sy)]), outputs=[unmergedTokensTensor])
+
+                    self.graph.nodes.append(mergeIndicesNode)
+                    self.graph.nodes.append(mergeTokensNode)
+                    self.graph.nodes.append(unmergeTokensNode)
+
+                    # shape_node = node.outputs[0].outputs[0]
+                    # if shape_node.op != "Shape":
+                    #     print(shape_node.name, shape_node.op)
+                    #     raise RuntimeError("bad pattern")
+
+                    # shape_node.inputs[0] = mergedTokensTensor
+
+                    nToMePlugin += 1
+        elif version == "2.0-base" or version == "2.0" or version == '2.1':
+            for node in self.graph.nodes:
+                if node.op == "LayerNormalization" and node.i().op == "Cast" and node.i().i().op == "Add" and node.i().i().i(1).op == "MatMul" \
+                   and node.i().i().i(1).i().op == "Cast" and node.i().i().i(1).i().i().op == "Reshape" and node.inputs[1].values.shape[0] == 320:
+
+                    beforeLayerNormX = node.i().i().outputs[0]  #cast's input
+                    beforeTransposeX = node.i().i().i(1).i().i().i().inputs[0]
+
+                    q_matmul = node.o().o(0)
+                    k_matmul = node.o().o(1)
+                    v_matmul = node.o().o(2)
+                    if q_matmul.op != "MatMul" or k_matmul.op != "MatMul" or v_matmul.op != "MatMul":
+                        print(q_matmul.name, q_matmul.op)
+                        print(k_matmul.name, k_matmul.op)
+                        print(v_matmul.name, v_matmul.op)
+                        raise RuntimeError("bad pattern")
+
+                    srcIdxTensor = gs.Variable("srcIdxV-" + str(nToMePlugin), np.dtype(np.int32))
+                    dstIdxTensor = gs.Variable("dstIdxV-" + str(nToMePlugin), np.dtype(np.int32))
+                    unmIdxTensor = gs.Variable("unmIdxV-" + str(nToMePlugin), np.dtype(np.int32))
+                    mergedTokensTensor = gs.Variable("mergedTokensV-" + str(nToMePlugin), np.dtype(np.float16))
+                    unmergedTokensTensor = gs.Variable("unmergedTokensV-" + str(nToMePlugin), np.dtype(np.float16))
+
+                    q_matmul.inputs[0] = mergedTokensTensor
+                    k_matmul.inputs[0] = mergedTokensTensor
+                    v_matmul.inputs[0] = mergedTokensTensor
+                    afterLayerNormX = node.o().outputs[0]
+
+                    add_bias_node = v_matmul.o().o().o().o().o().o().o().o().o().o().o().o().o().o().o().o().o().o().o().o()
+                    if add_bias_node.op != "Add":
+                        print(add_bias_node.name, add_bias_node.op)
+                        raise RuntimeError("bad pattern")
+
+                    afterProjX = add_bias_node.outputs[0]
+                    add_bias_node.o().inputs[0] = unmergedTokensTensor
+
+                    mergeIndicesNode = gs.Node("MergeIndices", "MergeIndicesN-" + str(nToMePlugin), inputs=[beforeLayerNormX, beforeTransposeX], attrs=OrderedDict([('r', r), ('sx', sx), ('sy', sy)]), outputs=[srcIdxTensor, dstIdxTensor, unmIdxTensor])
+                    mergeTokensNode = gs.Node("MergeTokens", "MergeTokensN-" + str(nToMePlugin), inputs=[afterLayerNormX, unmIdxTensor, beforeTransposeX], attrs=OrderedDict([('r', r), ('sx', sx), ('sy', sy)]), outputs=[mergedTokensTensor])
+                    unmergeTokensNode = gs.Node("UnmergeTokens", "UnmergeTokensN-" + str(nToMePlugin), inputs=[afterProjX, srcIdxTensor, dstIdxTensor, unmIdxTensor, beforeTransposeX], attrs=OrderedDict([('r', r), ('sx', sx), ('sy', sy)]), outputs=[unmergedTokensTensor])
+
+                    self.graph.nodes.append(mergeIndicesNode)
+                    self.graph.nodes.append(mergeTokensNode)
+                    self.graph.nodes.append(unmergeTokensNode)
+
+                    # shape_node = node.outputs[0].outputs[0]
+                    # if shape_node.op != "Shape":
+                    #     print(shape_node.name, shape_node.op)
+                    #     raise RuntimeError("bad pattern")
+
+                    # shape_node.inputs[0] = mergedTokensTensor
+
+                    nToMePlugin += 1
+        else:
+            self.info(f"ToMe can not support version {version}")
+
+        self.cleanup()
+        return nToMePlugin
 
 def get_controlnets_path(controlnet_list):
     '''
@@ -522,6 +635,7 @@ class UNet(BaseModel):
         text_maxlen=77,
         unet_dim=4,
         controlnet=None,
+        tome_merge_ratio=None,
         lora_weights=None,
         lora_scale=1,
     ):
@@ -532,6 +646,7 @@ class UNet(BaseModel):
         self.controlnet = controlnet
         self.lora_weights=lora_weights
         self.lora_scale=lora_scale
+        self.tome_merge_ratio=tome_merge_ratio
 
     def get_model(self, framework_model_dir, torch_inference=''):
         model_opts = {'variant': 'fp16', 'torch_dtype': torch.float16} if self.fp16 else {}
@@ -648,12 +763,33 @@ class UNet(BaseModel):
                 torch.randn(len(self.controlnet), batch_size, 3, image_height, image_width, dtype=dtype, device=self.device),
                 torch.randn(len(self.controlnet), dtype=dtype, device=self.device)
             )
+        
+    def optimize(self, onnx_graph):
+        opt = Optimizer(onnx_graph, verbose=self.verbose)
+        opt.info(self.name + ': original')
+        opt.cleanup()
+        opt.info(self.name + ': cleanup')
+        opt.fold_constants()
+        opt.info(self.name + ': fold constants')
+        opt.infer_shapes()
+        opt.info(self.name + ': shape inference')
+        n_inserted = 0
+        if self.tome_merge_ratio is not None:
+            opt.cleanup()
+            n_inserted = opt.insert_tome(r=self.tome_merge_ratio, version=self.version)
+        opt.info(self.name + f": {n_inserted} ToMe inserted")
+        onnx_opt_graph = opt.cleanup(return_onnx=True)
+        opt.info(self.name + ': finished')
+        return onnx_opt_graph
 
-def make_UNet(version, pipeline, hf_token, device, verbose, max_batch_size, controlnet=None, lora_weights=None, lora_scale=1):
+def make_UNet(version, pipeline, hf_token, device, verbose, max_batch_size, controlnet=None, tome_merge_ratio=None, lora_weights=None, lora_scale=1):
+    # Disable torch SDPA
+    if hasattr(F, "scaled_dot_product_attention"):
+        delattr(F, "scaled_dot_product_attention")
     return UNet(version, pipeline, hf_token, fp16=True, device=device, verbose=verbose,
             max_batch_size=max_batch_size, unet_dim=(9 if pipeline.is_inpaint() else 4),
-            controlnet=get_controlnets_path(controlnet), lora_weights=lora_weights,
-            lora_scale=lora_scale)
+            controlnet=get_controlnets_path(controlnet), tome_merge_ratio=tome_merge_ratio, 
+            lora_weights=lora_weights, lora_scale=lora_scale)
 
 class UNetXL(BaseModel):
     def __init__(self,

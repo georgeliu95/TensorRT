@@ -53,6 +53,9 @@
 #include "specialSlicePlugin/specialSlicePlugin.h"
 #include "splitPlugin/split.h"
 #include "voxelGeneratorPlugin/voxelGenerator.h"
+#include "mergeTokensPlugin/mergeTokensPlugin.h"
+#include "mergeIndicesPlugin/mergeIndicesPlugin.h"
+#include "unmergeTokensPlugin/unmergeTokensPlugin.h"
 
 #include <algorithm>
 #include <array>
@@ -218,6 +221,9 @@ extern "C"
         initializePlugin<nvinfer1::plugin::SpecialSlicePluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::SplitPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::VoxelGeneratorPluginCreator>(logger, libNamespace);
+        initializePlugin<nvinfer1::plugin::MergeIndicesPluginCreator>(logger, libNamespace);
+        initializePlugin<nvinfer1::plugin::MergeTokensPluginCreator>(logger, libNamespace);
+        initializePlugin<nvinfer1::plugin::UnmergeTokensPluginCreator>(logger, libNamespace);
         return true;
     }
 } // extern "C"

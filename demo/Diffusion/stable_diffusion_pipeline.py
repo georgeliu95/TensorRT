@@ -72,6 +72,7 @@ class StableDiffusionPipeline:
         vae_scaling_factor=0.18215,
         framework_model_dir='pytorch_model',
         controlnet=None,
+        tome_merge_ratio=None,
         lora_scale=1,
         lora_weights=None,
         return_latents=False,
@@ -140,6 +141,7 @@ class StableDiffusionPipeline:
 
         self.version = version
         self.controlnet = controlnet
+        self.tome_merge_ratio = tome_merge_ratio
 
         # Schedule options
         sched_opts = {'num_train_timesteps': 1000, 'beta_start': 0.00085, 'beta_end': 0.012}
@@ -244,13 +246,14 @@ class StableDiffusionPipeline:
             model_name += '_inpaint'
         return model_name
 
-    def getOnnxPath(self, model_name, onnx_dir, opt=True):
+    def getOnnxPath(self, model_name, onnx_dir, opt=True, suffix=None):
         onnx_model_dir = os.path.join(onnx_dir, self.cachedModelName(model_name)+('.opt' if opt else ''))
         os.makedirs(onnx_model_dir, exist_ok=True)
-        return os.path.join(onnx_model_dir, 'model.onnx')
+        return os.path.join(onnx_model_dir, 'model.onnx' if suffix is None else f'model_{suffix}.onnx')
 
-    def getEnginePath(self, model_name, engine_dir, enable_refit):
-        return os.path.join(engine_dir, self.cachedModelName(model_name)+('.refit' if enable_refit else '')+'.trt'+trt.__version__+'.plan')
+    def getEnginePath(self, model_name, engine_dir, enable_refit, suffix=None):
+        return os.path.join(engine_dir, self.cachedModelName(model_name)+('.refit' if enable_refit else '')+
+                            ('' if suffix is None else f'_{suffix}')+'.trt'+trt.__version__+'.plan')
 
     def loadEngines(
         self,
@@ -335,7 +338,7 @@ class StableDiffusionPipeline:
         if 'unet' in self.stages:
             models_args['lora_scale'] = self.lora_scale
             models_args['lora_weights'] = self.lora_weights
-            self.models['unet'] = make_UNet(controlnet=self.controlnet, **models_args)
+            self.models['unet'] = make_UNet(controlnet=self.controlnet, tome_merge_ratio=self.tome_merge_ratio, **models_args)
             models_args.pop('lora_scale')
             models_args.pop('lora_weights')
         if 'unetxl' in self.stages:
@@ -384,11 +387,13 @@ class StableDiffusionPipeline:
             if model_name == 'vae' and self.config.get('vae_torch_fallback', False):
                 continue
             enable_refit = model_name in enable_refit_models
-            engine_path = self.getEnginePath(model_name, engine_dir, enable_refit)
+            engine_path = self.getEnginePath(model_name, engine_dir, enable_refit, 
+                                             suffix=None if self.tome_merge_ratio is None else 'tome')
             force_export = model_name in force_export_models
             if force_export or force_build or not os.path.exists(engine_path):
                 onnx_path = self.getOnnxPath(model_name, onnx_dir, opt=False)
-                onnx_opt_path = self.getOnnxPath(model_name, onnx_dir)
+                onnx_opt_path = self.getOnnxPath(model_name, onnx_dir, 
+                                                 suffix=None if self.tome_merge_ratio is None else 'tome')
                 if force_export or not os.path.exists(onnx_opt_path):
                     if force_export or not os.path.exists(onnx_path):
                         print(f"Exporting model: {onnx_path}")
