@@ -26,7 +26,7 @@ from onnx_graphsurgeon.importers.onnx_importer import OnnxImporter
 from onnx_graphsurgeon.ir.tensor import Constant, Tensor, Variable
 from onnx_graphsurgeon.ir.function import Function
 from onnx_graphsurgeon.ir.node import Node
-from onnx_graphsurgeon.logger.logger import G_LOGGER
+from onnx_graphsurgeon.logger import G_LOGGER
 
 from onnx_models import (
     dim_param_model,

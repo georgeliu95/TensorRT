@@ -23,7 +23,7 @@ import onnx
 import onnx_graphsurgeon as gs
 import onnxruntime
 import pytest
-from onnx_graphsurgeon.logger.logger import G_LOGGER
+from onnx_graphsurgeon.logger import G_LOGGER
 from onnx_graphsurgeon.util import misc
 
 ROOT_DIR = os.path.realpath(os.path.join(os.path.dirname(__file__), os.path.pardir))

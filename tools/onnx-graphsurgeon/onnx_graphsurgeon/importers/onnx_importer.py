@@ -27,7 +27,7 @@ from onnx_graphsurgeon.ir.function import Function
 from onnx_graphsurgeon.ir.graph import Graph
 from onnx_graphsurgeon.ir.node import Node
 from onnx_graphsurgeon.ir.tensor import Constant, LazyValues, Tensor, Variable
-from onnx_graphsurgeon.logger.logger import G_LOGGER, LogMode
+from onnx_graphsurgeon.logger import G_LOGGER, LogMode
 from onnx_graphsurgeon.util import misc
 
 # Maps values from the AttributeType enum to their string representations, e.g., {1: "FLOAT"}
@@ -124,16 +124,16 @@ def get_onnx_tensor_dtype(
         else:
             onnx_dtype = onnx_tensor.type.opaque_type
 
-    dtype = get_numpy_type(onnx_type)
+    dtype = get_numpy_type(onnx_dtype)
     if dtype is not None:
         return dtype
 
     G_LOGGER.warning(
-        f"Could not convert: {get_dtype_name(onnx_type)} to a corresponding NumPy type. "
+        f"Could not convert: {get_dtype_name(onnx_dtype)} to a corresponding NumPy type. "
         f"The original ONNX type will be preserved. ",
         mode=LogMode.ONCE,
     )
-    return onnx_type
+    return onnx_dtype
 
 
 def get_onnx_tensor_type(
