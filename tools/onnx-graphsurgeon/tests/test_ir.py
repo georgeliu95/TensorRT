@@ -25,7 +25,7 @@ import pytest
 from onnx_graphsurgeon.ir.node import Node
 from onnx_graphsurgeon.ir.graph import Graph
 from onnx_graphsurgeon.ir.tensor import Constant, LazyValues, Variable
-from onnx_graphsurgeon.logger.logger import G_LOGGER
+from onnx_graphsurgeon.logger import G_LOGGER
 from onnx_graphsurgeon.util.misc import SynchronizedList
 
 G_LOGGER.severity = G_LOGGER.ULTRA_VERBOSE
