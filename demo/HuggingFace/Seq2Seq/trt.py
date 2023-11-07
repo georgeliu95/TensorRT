@@ -461,6 +461,7 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
                                     "The specified --use-cuda-graph flag has been ignored. The inference will be launched without using CUDA graph launch")
                     self.use_cuda_graph = False
                 graph = CUASSERT(cudart.cudaStreamEndCapture(self.stream_for_cuda_graph))[0]
+
                 # instantiate cuda graph execution
                 self.cur_cuda_graph_instance = ((self.cur_cuda_graph_instance + 1) % 2)
                 if self.cuda_graph_instances[self.cur_cuda_graph_instance] is not None:

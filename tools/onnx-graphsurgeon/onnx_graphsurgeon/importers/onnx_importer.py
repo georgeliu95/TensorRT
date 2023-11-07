@@ -160,6 +160,30 @@ def get_onnx_tensor_type(
     return onnx_type
 
 
+def get_onnx_tensor_type(
+    onnx_tensor: Union[onnx.ValueInfoProto, onnx.TensorProto]
+) -> str:
+    if isinstance(onnx_tensor, onnx.TensorProto):
+        onnx_type = "tensor_type"
+    else:
+        if onnx_tensor.type.HasField("tensor_type"):
+            onnx_type = "tensor_type"
+        elif onnx_tensor.type.HasField("sequence_type"):
+            onnx_type = "sequence_type"
+        elif onnx_tensor.type.HasField("map_type"):
+            onnx_type = "map_type"
+        elif onnx_tensor.type.HasField("optional_type"):
+            onnx_type = "optional_type"
+        elif onnx_tensor.type.HasField("opaque_type"):
+            onnx_type = "opaque_type"
+        elif onnx_tensor.type.HasField("sparse_tensor_type"):
+            onnx_type = "sparse_tensor_type"
+        else:
+            onnx_type = None
+
+    return onnx_type
+
+
 class OnnxImporter(BaseImporter):
     @staticmethod
     def get_opset(model_or_func: Union[onnx.ModelProto, onnx.FunctionProto]):

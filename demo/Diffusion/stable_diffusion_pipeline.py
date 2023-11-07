@@ -184,6 +184,7 @@ class StableDiffusionPipeline:
 
         self.config = {}
         if self.pipeline_type.is_sd_xl():
+            self.config['vae_torch_fallback'] = True
             self.config['clip_hidden_states'] = True
         self.torch_inference = torch_inference
         self.use_cuda_graph = use_cuda_graph
@@ -220,6 +221,8 @@ class StableDiffusionPipeline:
 
         # Allocate buffers for TensorRT engine bindings
         for model_name, obj in self.models.items():
+            if model_name == 'vae' and self.config.get('vae_torch_fallback', False):
+                continue
             self.engine[model_name].allocate_buffers(shape_dict=obj.get_shape_dict(batch_size, image_height, image_width), device=self.device)
 
     def teardown(self):
@@ -348,6 +351,8 @@ class StableDiffusionPipeline:
             for k, v in self.models.items():
                 self.torch_models[k] = v.get_model(framework_model_dir, torch_inference=self.torch_inference)
             return
+        elif 'vae' in self.stages and self.config.get('vae_torch_fallback', False):
+            self.torch_models['vae'] = self.models['vae'].get_model(framework_model_dir)
 
         # setup models to export, optimize and refit.
         force_export_models = []
@@ -376,6 +381,8 @@ class StableDiffusionPipeline:
 
         # Export models to ONNX
         for model_name, obj in self.models.items():
+            if model_name == 'vae' and self.config.get('vae_torch_fallback', False):
+                continue
             enable_refit = model_name in enable_refit_models
             engine_path = self.getEnginePath(model_name, engine_dir, enable_refit)
             force_export = model_name in force_export_models
@@ -422,6 +429,8 @@ class StableDiffusionPipeline:
 
         # Build TensorRT engines
         for model_name, obj in self.models.items():
+            if model_name == 'vae' and self.config.get('vae_torch_fallback', False):
+                continue
             enable_refit = model_name in enable_refit_models
             engine_path = self.getEnginePath(model_name, engine_dir, enable_refit)
             engine = Engine(engine_path)
@@ -444,6 +453,8 @@ class StableDiffusionPipeline:
 
         # Load TensorRT engines
         for model_name, obj in self.models.items():
+            if model_name == 'vae' and self.config.get('vae_torch_fallback', False):
+                continue
             self.engine[model_name].load()
             if onnx_refit_dir and model_name in enable_refit_models:
                 onnx_refit_path = self.getOnnxPath(model_name, onnx_refit_dir)
@@ -599,13 +610,7 @@ class StableDiffusionPipeline:
             timesteps = self.scheduler.timesteps
         for step_index, timestep in enumerate(timesteps):
             # Expand the latents if we are doing classifier free guidance
-            latent_model_input = torch.cat([latents] * 2)
-
-            if type(self.scheduler) == UniPCMultistepScheduler:
-                latent_model_input = self.scheduler.scale_model_input(latent_model_input, step_offset + step_index, timestep)
-            else:
-                latent_model_input = self.scheduler.scale_model_input(latent_model_input, timestep)
-            
+            latent_model_input = self.scheduler.scale_model_input(torch.cat([latents] * 2), step_offset + step_index, timestep)
             if isinstance(mask, torch.Tensor):
                 latent_model_input = torch.cat([latent_model_input, mask, masked_image_latents], dim=1)
 
@@ -661,6 +666,10 @@ class StableDiffusionPipeline:
     def decode_latent(self, latents):
         self.profile_start('vae', color='red')
         if self.torch_inference:
+            images = self.torch_models['vae'](latents)['sample']
+        elif self.config.get('vae_torch_fallback', False):
+            latents = latents.to(dtype=torch.float32)
+            self.torch_models["vae"] = self.torch_models["vae"].to(dtype=torch.float32)
             images = self.torch_models['vae'](latents)['sample']
         else:
             images = self.runEngine('vae', {'latent': latents})['images']
@@ -765,7 +774,10 @@ class StableDiffusionPipeline:
                 image_latents = input_image if input_image.shape[1] == 4 else self.encode_image(input_image)
                 # Add noise to latents using timesteps
                 noise = torch.randn(image_latents.shape, generator=self.generator, device=self.device, dtype=torch.float32)
-                latents = self.scheduler.add_noise(image_latents, noise, t_start, latent_timestep)
+                if type(self.scheduler) == UniPCMultistepScheduler:
+                    latents = self.scheduler.add_noise(image_latents, noise, latent_timestep)
+                else:
+                    latents = self.scheduler.add_noise(image_latents, noise, t_start, latent_timestep)
             elif self.pipeline_type.is_inpaint():
                 mask, mask_image = self.preprocess_images(batch_size, prepare_mask_and_masked_image(input_image, mask_image))
                 mask = torch.nn.functional.interpolate(mask, size=(latent_height, latent_width))
