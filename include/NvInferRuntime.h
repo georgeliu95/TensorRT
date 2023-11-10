@@ -73,9 +73,6 @@ enum class EngineCapability : int32_t
     //!
     kSTANDARD = 0,
 
-    //! \deprecated Deprecated in TensorRT 8.0. Superseded by kSTANDARD.
-    kDEFAULT TRT_DEPRECATED_ENUM = kSTANDARD,
-
     //!
     //! Safety: TensorRT flow with restrictions targeting the safety runtime.
     //! See safety documentation for list of supported layers and formats.
@@ -84,18 +81,12 @@ enum class EngineCapability : int32_t
     //! This flag is only supported in NVIDIA Drive(R) products.
     kSAFETY = 1,
 
-    //! \deprecated Deprecated in TensorRT 8.0. Superseded by kSAFETY.
-    kSAFE_GPU TRT_DEPRECATED_ENUM = kSAFETY,
-
     //!
     //! DLA Standalone: TensorRT flow with restrictions targeting external, to TensorRT, DLA runtimes.
     //! See DLA documentation for list of supported layers and formats.
     //! This flow supports only DeviceType::kDLA.
     //!
     kDLA_STANDALONE = 2,
-
-    //! \deprecated Deprecated in TensorRT 8.0. Superseded by kDLA_STANDALONE.
-    kSAFE_DLA TRT_DEPRECATED_ENUM = kDLA_STANDALONE,
 };
 
 namespace impl
@@ -1598,25 +1589,18 @@ protected:
 //!
 //! \brief List of tactic sources for TensorRT.
 //!
-//! \see TacticSources, IBuilderConfig::setTacticSources(), IBuilderConfig::getTacticSources(),
-//! PreviewFeature::kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805
+//! \see TacticSources, IBuilderConfig::setTacticSources(), IBuilderConfig::getTacticSources()
 //!
 enum class TacticSource : int32_t
 {
     //! cuBLAS tactics. Enabled by default.
     //! \note Disabling kCUBLAS will cause the cuBLAS handle passed to plugins in attachToContext to be null.
-    //! \note Setting kCUBLAS tactic source takes no effect for core library if
-    //! PreviewFeature::kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805 is on.
     kCUBLAS = 0,
     //! cuBLAS LT tactics. Enabled by default.
-    //! \note Setting kCUBLAS_LT tactic source takes no effect for core library if
-    //! PreviewFeature::kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805 is on.
     //! \deprecated Deprecated in TensorRT 9.0.
     kCUBLAS_LT TRT_DEPRECATED_ENUM = 1,
     //! cuDNN tactics. Enabled by default.
     //! \note Disabling kCUDNN will cause the cuDNN handle passed to plugins in attachToContext to be null.
-    //! \note Setting kCUDNN tactic source takes no effect for core library if
-    //! PreviewFeature::kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805 is on.
     kCUDNN = 2,
 
     //! Enables convolution tactics implemented with edge mask tables. These tactics tradeoff memory for performance by
@@ -1657,11 +1641,6 @@ enum class ProfilingVerbosity : int32_t
     kLAYER_NAMES_ONLY = 0, //!< Print only the layer names. This is the default setting.
     kNONE = 1,             //!< Do not print any layer information.
     kDETAILED = 2,         //!< Print detailed layer information including layer names and layer parameters.
-
-    //! \deprecated Deprecated in TensorRT 8.0. Superseded by kLAYER_NAMES_ONLY.
-    kDEFAULT TRT_DEPRECATED_ENUM = kLAYER_NAMES_ONLY,
-    //! \deprecated Deprecated in TensorRT 8.0. Superseded by kDETAILED.
-    kVERBOSE TRT_DEPRECATED_ENUM = kDETAILED
 };
 
 //! Maximum number of profile verbosity levels in ProfilingVerbosity enum. \see ProfilingVerbosity
@@ -2278,9 +2257,9 @@ public:
     //! The description includes the order, vectorization, data type, and strides.
     //! Examples are shown as follows:
     //!   Example 1: kCHW + FP32
-    //!     "Row major linear FP32 format"
+    //!     "Row-major linear FP32 format"
     //!   Example 2: kCHW2 + FP16
-    //!     "Two wide channel vectorized row major FP16 format"
+    //!     "Two-wide channel vectorized row-major FP16 format"
     //!   Example 3: kHWC8 + FP16 + Line Stride = 32
     //!     "Channel major FP16 format where C % 8 == 0 and H Stride % 32 == 0"
     //!
@@ -2302,9 +2281,9 @@ public:
     //! The description includes the order, vectorization, data type, and strides.
     //! Examples are shown as follows:
     //!   Example 1: kCHW + FP32
-    //!     "Row major linear FP32 format"
+    //!     "Row-major linear FP32 format"
     //!   Example 2: kCHW2 + FP16
-    //!     "Two wide channel vectorized row major FP16 format"
+    //!     "Two-wide channel vectorized row-major FP16 format"
     //!   Example 3: kHWC8 + FP16 + Line Stride = 32
     //!     "Channel major FP16 format where C % 8 == 0 and H Stride % 32 == 0"
     //!
@@ -2326,9 +2305,9 @@ public:
     //! The description includes the order, vectorization, data type, and strides.
     //! Examples are shown as follows:
     //!   Example 1: kCHW + FP32
-    //!     "Row major linear FP32 format"
+    //!     "Row-major linear FP32 format"
     //!   Example 2: kCHW2 + FP16
-    //!     "Two wide channel vectorized row major FP16 format"
+    //!     "Two-wide channel vectorized row-major FP16 format"
     //!   Example 3: kHWC8 + FP16 + Line Stride = 32
     //!     "Channel major FP16 format where C % 8 == 0 and H Stride % 32 == 0"
     //!

@@ -47,7 +47,7 @@ static constexpr int32_t kPLUGIN_VERSION_PYTHON_BIT = 0x40;
 //! \brief Fields that a plugin might see for an input or output.
 //!
 //! Scale is only valid when data type is DataType::kINT8. TensorRT will set
-//! the value to -1.0f if it is invalid.
+//! the value to -1.0F if it is invalid.
 //!
 //! \see IPluginV2IOExt::supportsFormatCombination
 //! \see IPluginV2IOExt::configurePlugin
@@ -133,7 +133,7 @@ public:
     //! \brief Return the plugin type. Should match the plugin name returned by the corresponding plugin creator
     //! \see IPluginCreator::getPluginName()
     //!
-    //! \warning The string returned must be NULL terminated and have a length of 1024 bytes or less including the
+    //! \warning The string returned must be NULL-terminated and have a length of 1024 bytes or less including the
     //! NULL terminator.
     //!
     //! \usage
@@ -147,7 +147,7 @@ public:
     //! \brief Return the plugin version. Should match the plugin version returned by the corresponding plugin creator
     //! \see IPluginCreator::getPluginVersion()
     //!
-    //! \warning The string returned must be NULL terminated and have a length of 1024 bytes or less including the
+    //! \warning The string returned must be NULL-terminated and have a length of 1024 bytes or less including the
     //! NULL terminator.
     //!
     //! \usage
@@ -389,7 +389,7 @@ public:
     //!
     //! \param pluginNamespace The namespace for the plugin object.
     //!
-    //! \warning The string pluginNamespace will be NULL terminated and have a length of 1024 bytes or less including the
+    //! \warning The string pluginNamespace will be NULL-terminated and have a length of 1024 bytes or less including the
     //! NULL terminator.
     //!
     //! \usage
@@ -432,7 +432,7 @@ protected:
 //!
 //! Plugins are a mechanism for applications to implement custom layers. This
 //! interface provides additional capabilities to the IPluginV2 interface by
-//! supporting different output data types and broadcast across batch.
+//! supporting different output data types and broadcast across batches.
 //!
 //! \see IPluginV2
 //!
@@ -592,7 +592,7 @@ public:
     //!
     //! \brief Detach the plugin object from its execution context.
     //!
-    //! This function is called automatically for each plugin when a execution context is destroyed or the context
+    //! This function is called automatically for each plugin when an execution context is destroyed or the context
     //! resources are unassigned from the context.
     //!
     //! If the plugin owns per-context resource, it can be released here.
@@ -889,7 +889,7 @@ public:
     //!
     //! \brief Return the plugin name.
     //!
-    //! \warning The string returned must be NULL terminated and have a length of 1024 bytes or less including
+    //! \warning The string returned must be NULL-terminated and have a length of 1024 bytes or less including
     //! the NULL terminator.
     //!
     //! \usage
@@ -903,7 +903,7 @@ public:
     //!
     //! \brief Return the plugin version.
     //!
-    //! \warning The string returned must be NULL terminated and have a length of 1024 bytes or less including
+    //! \warning The string returned must be NULL-terminated and have a length of 1024 bytes or less including
     //! the NULL terminator.
     //!
     //! \usage
@@ -915,7 +915,7 @@ public:
     virtual AsciiChar const* getPluginVersion() const noexcept = 0;
 
     //!
-    //! \brief Return a list of fields that needs to be passed to createPlugin.
+    //! \brief Return a list of fields that need to be passed to createPlugin.
     //! \see PluginFieldCollection
     //!
     //! \usage
@@ -977,7 +977,7 @@ public:
     //!
     //! \brief Return the namespace of the plugin creator object.
     //!
-    //! \warning The string returned must be NULL terminated and have a length of 1024 bytes or less including the
+    //! \warning The string returned must be NULL-terminated and have a length of 1024 bytes or less including the
     //! NULL terminator.
     //!
     //! \usage

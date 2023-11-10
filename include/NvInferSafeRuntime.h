@@ -147,118 +147,6 @@ class ICudaEngine
 {
 public:
     //!
-    //! \brief Get the number of binding indices.
-    //!
-    //! \return The number of binding indices.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getNbIOTensors.
-    //!
-    //! \see getBindingIndex()
-    //!
-    //! \usage
-    //! - Allowed context for the API call
-    //!   - Thread-safe: Yes
-    //!
-    TRT_DEPRECATED virtual std::int32_t getNbBindings() const noexcept = 0;
-
-    //!
-    //! \brief Retrieve the binding index for a named tensor.
-    //!
-    //! safe::IExecutionContext::enqueueV2() requires an array of buffers.
-    //! Engine bindings map from tensor names to indices in this array.
-    //! Binding indices are assigned at engine build time, and take values in the range [0 ... n-1] where n is the total
-    //! number of input and output bindings.
-    //!
-    //! \warning Strings passed to the runtime must be NULL terminated and have a length of 1024 bytes or less
-    //! including the NULL terminator.
-    //!
-    //! \param name The tensor name.
-    //! \return The binding index for the named tensor, or -1 if the name is not found. Return values will lie between
-    //! -1 and getNbBindings()-1 inclusive.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by name-based methods. Use them instead of binding-index
-    //! based methods.
-    //!
-    //! \usage
-    //! - Allowed context for the API call
-    //!   - Thread-safe: Yes
-    //!
-    TRT_DEPRECATED virtual std::int32_t getBindingIndex(AsciiChar const* const name) const noexcept = 0;
-
-    //!
-    //! \brief Retrieve the name corresponding to a binding index.
-    //!
-    //! This is the reverse mapping to that provided by getBindingIndex().
-    //!
-    //! \param bindingIndex The binding index.
-    //! \return The name corresponding to the index if the index is in the range (between 0 and nbBindings()-1).
-    //! nullptr is returned if the index is out of range.
-    //! If a string is returned, it will have a length of 1024 bytes or less including the NULL terminator.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by name-based methods. Use them instead of binding-index
-    //! based methods.
-    //!
-    //! \see getBindingIndex()
-    //!
-    //! \usage
-    //! - Allowed context for the API call
-    //!   - Thread-safe: Yes
-    //!
-    TRT_DEPRECATED virtual AsciiChar const* getBindingName(std::int32_t const bindingIndex) const noexcept = 0;
-
-    //!
-    //! \brief Determine whether a binding is an input binding.
-    //!
-    //! \param bindingIndex The binding index.
-    //! \return True if the index corresponds to an input binding and the index is in the range (between 0 and
-    //! getNbBindings()-1). False if the index is out of range or does not correspond
-    //! to an input binding.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by tensorIOMode().
-    //!
-    //! \see safe::ICudaEngine::tensorIOMode()
-    //!
-    //! \usage
-    //! - Allowed context for the API call
-    //!   - Thread-safe: Yes
-    //!
-    TRT_DEPRECATED virtual bool bindingIsInput(std::int32_t const bindingIndex) const noexcept = 0;
-
-    //!
-    //! \brief Get the dimensions of a binding.
-    //!
-    //! \param bindingIndex The binding index.
-    //! \return The dimensions of the binding if the index is in the range (between 0 and getNbBindings()-1).
-    //! The invalid value Dims{} is returned if the index is out of range.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getTensorShape().
-    //!
-    //! \see safe::ICudaEngine::getTensorShape()
-    //!
-    //! \usage
-    //! - Allowed context for the API call
-    //!   - Thread-safe: Yes
-    //!
-    TRT_DEPRECATED virtual Dims getBindingDimensions(std::int32_t const bindingIndex) const noexcept = 0;
-
-    //!
-    //! \brief Determine the required data type for a buffer from its binding index.
-    //!
-    //! \param bindingIndex The binding index.
-    //! \return The tensor data type for the binding if the index is in range (between 0 and getNbBindings()-1).
-    //! The default value kFLOAT is returned if the index is out of range.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getTensorDataType().
-    //!
-    //! \see safe::ICudaEngine::getTensorDataType()
-    //!
-    //! \usage
-    //! - Allowed context for the API call
-    //!   - Thread-safe: Yes
-    //!
-    TRT_DEPRECATED virtual DataType getBindingDataType(std::int32_t const bindingIndex) const noexcept = 0;
-
-    //!
     //! \brief Create an execution context.
     //!
     //! \see safe::IExecutionContext.
@@ -311,86 +199,6 @@ public:
     //!   - Thread-safe: Yes
     //!
     virtual size_t getDeviceMemorySize() const noexcept = 0;
-
-    //!
-    //! \brief Return the number of bytes per component of an element.
-    //!
-    //! \param bindingIndex The binding index.
-    //!
-    //! \return The size of the tensor data type in bytes (4 for float and int32, 2 for half, 1 for int8) if the
-    //! binding index is in range (between 0 and getNbBindings()-1) and corresponds to a vectorized tensor.
-    //! The value 0 is returned if
-    //! - bindingIndex is out of range, or
-    //! - bindingIndex corresponds to a scalar tensor.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getTensorBytesPerComponent().
-    //!
-    //! \see safe::ICudaEngine::getTensorBytesPerComponent()
-    //!
-    //! \usage
-    //! - Allowed context for the API call
-    //!   - Thread-safe: Yes
-    //!
-    TRT_DEPRECATED virtual std::int32_t getBindingBytesPerComponent(std::int32_t const bindingIndex) const noexcept = 0;
-
-    //!
-    //! \brief Return the number of components included in one element.
-    //!
-    //! \param bindingIndex The binding index.
-    //!
-    //! \return The vector length in scalars if the binding index is in range (between 0 and getNbBindings()-1) and
-    //! corresponds to a vectorized tensor (getBindingVectorizedDim() != -1). Return 1 if the binding index
-    //! corresponds to a scalar tensor (getBindingVectorizedDim() == -1). The invalid value -1 is returned if
-    //! - the binding index is out of range, or
-    //! - the vector length does not fit in a signed int32 (integer overflow).
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getTensorComponentsPerElement().
-    //!
-    //! \see safe::ICudaEngine::getTensorComponentsPerElement()
-    //!
-    //! \usage
-    //! - Allowed context for the API call
-    //!   - Thread-safe: Yes
-    //!
-    TRT_DEPRECATED virtual std::int32_t getBindingComponentsPerElement(std::int32_t const bindingIndex) const noexcept = 0;
-
-    //!
-    //! \brief Return the binding format.
-    //!
-    //! \param bindingIndex The binding index.
-    //!
-    //! \return The tensor format if bindingIndex is in range (between 0 and getNbBindings()-1).
-    //! The default value TensorFormat::kLINEAR is returned if bindingIndex is out of range.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getTensorFormat().
-    //!
-    //! \see safe::ICudaEngine::getTensorFormat()
-    //!
-    //! \usage
-    //! - Allowed context for the API call
-    //!   - Thread-safe: Yes
-    //!
-    TRT_DEPRECATED virtual TensorFormat getBindingFormat(std::int32_t const bindingIndex) const noexcept = 0;
-
-    //!
-    //! \brief Return the vector dimension index for a vectorized binding.
-    //!
-    //! \param bindingIndex The binding index.
-    //!
-    //! \return The vector dimension index if bindingIndex is in range (between 0 and getNbBindings()-1).
-    //! The value -1 is returned if
-    //! - bindingIndex is out of range, or
-    //! - bindingIndex corresponds to a scalar tensor.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getTensorVectorizedDim().
-    //!
-    //! \see safe::ICudaEngine::getTensorVectorizedDim()
-    //!
-    //! \usage
-    //! - Allowed context for the API call
-    //!   - Thread-safe: Yes
-    //!
-    TRT_DEPRECATED virtual std::int32_t getBindingVectorizedDim(std::int32_t const bindingIndex) const noexcept = 0;
 
     //!
     //! \brief Returns the name of the network associated with the engine.
@@ -743,24 +551,6 @@ public:
     virtual void setDeviceMemory(void* const memory) noexcept = 0;
 
     //!
-    //! \brief Return the strides of the buffer for the given binding.
-    //!
-    //! \param bindingIndex The binding index, which must be in the range (between 0 and getEngine().getNbBindings()-1).
-    //!
-    //! \return The strides of the tensor corresponding to bindingIndex if the index is in range, or an invalid value
-    //! of Dims{-1, {}} if it is out of range.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getTensorStrides().
-    //!
-    //! \see safe::IExecutionContext::getTensorStrides()
-    //!
-    //! \usage
-    //! - Allowed context for the API call
-    //!   - Thread-safe: Yes
-    //!
-    TRT_DEPRECATED virtual Dims getStrides(std::int32_t const bindingIndex) const noexcept = 0;
-
-    //!
     //! \brief Set the ErrorRecorder for this interface.
     //!
     //! Assigns the ErrorRecorder to this interface. The ErrorRecorder will track all errors during execution.
@@ -795,41 +585,6 @@ public:
     //!   - Thread-safe: Yes
     //!
     virtual IErrorRecorder* getErrorRecorder() const noexcept = 0;
-
-    //!
-    //! \brief Enqueue inference of a batch on a stream.
-    //!
-    //! This method requires an array of input and output buffers. The mapping from tensor names to indices can be
-    //! queried using safe::ICudaEngine::getBindingIndex().
-    //! This method only works for an execution context built from a network without an implicit batch dimension.
-    //!
-    //! \param bindings An array of device memory pointers to input and output buffers for the network, which must be of
-    //!                 length getEngine().getNbBindings(). Users are responsible for ensuring that the buffer size for
-    //!                 each binding has at least the expected length, which is the product of the tensor dimensions
-    //!                 (with the vectorized dimension padded to a multiple of the vector length) times the data type
-    //!                 size.
-    //!
-    //! \param stream A CUDA stream on which the inference kernels will be enqueued. Must be a valid CUDA stream.
-    //!
-    //! \param inputConsumed An optional event that will be signaled when the input buffers can be refilled with new
-    //! data. Must be either nullptr or a valid CUDA event.
-    //!
-    //! \return True if the kernels were enqueued successfully, else false.
-    //! Errors may include but not be limited to:
-    //! - Internal errors during executing one engine layer
-    //! - CUDA errors
-    //! - Invalid input parameters such as nullptr being passed for the bindings.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by enqueueV3().
-    //!
-    //! \see safe::IExecutionContext::enqueueV3()
-    //!
-    //! \usage
-    //! - Allowed context for the API call
-    //!   - Thread-safe: No
-    //!
-    TRT_DEPRECATED virtual bool enqueueV2(
-        void* const* const bindings, cudaStream_t const stream, cudaEvent_t const* const inputConsumed) noexcept = 0;
 
     IExecutionContext() = default;
     virtual ~IExecutionContext() noexcept = default;

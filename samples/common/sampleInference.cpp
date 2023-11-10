@@ -60,7 +60,9 @@ bool validateTensorNames(MapType const& map, EngineType const* engine, int32_t c
         bool tensorNameFound{false};
         for (int32_t b = 0; b < endBindingIndex; ++b)
         {
-            if (engine->bindingIsInput(b) && matchStringWithOneWildcard(item.first, engine->getBindingName(b)))
+            auto const tensorName = engine->getIOTensorName(b);
+            auto const tensorIOMode = engine->getTensorIOMode(tensorName);
+            if (tensorIOMode == nvinfer1::TensorIOMode::kINPUT && matchStringWithOneWildcard(item.first, tensorName))
             {
                 tensorNameFound = true;
                 break;
@@ -246,10 +248,10 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
             iEnv.safeContexts.emplace_back(ec);
             iEnv.bindings.emplace_back(new Bindings(useManagedMemory));
         }
-        int32_t const nbBindings = safeEngine->getNbBindings();
+        int32_t const nbIOTensor = safeEngine->getNbIOTensors();
         auto const* safeContext = iEnv.safeContexts.front().get();
         // batch is set to 1 because safety only support explicit batch.
-        return FillSafeBindings(safeEngine, safeContext, inference.inputs, iEnv.bindings, 1, nbBindings, 0)();
+        return FillSafeBindings(safeEngine, safeContext, inference.inputs, iEnv.bindings, 1, nbIOTensor, 0)();
     }
 
     using FillStdBindings = FillBindingClosure<nvinfer1::ICudaEngine, nvinfer1::IExecutionContext>;
@@ -1541,8 +1543,8 @@ void Bindings::dumpBindingValues<nvinfer1::IExecutionContext>(nvinfer1::IExecuti
     int32_t binding, std::ostream& os, std::string const& separator /*= " "*/, int32_t batch /*= 1*/) const
 {
     Dims dims = context.getBindingDimensions(binding);
-    Dims strides = context.getStrides(binding);
     auto const tensorName = context.getEngine().getIOTensorName(binding);
+    Dims strides = context.getTensorStrides(tensorName);
     int32_t vectorDim = context.getEngine().getTensorVectorizedDim(tensorName);
     int32_t const spv = context.getEngine().getTensorComponentsPerElement(tensorName);
 
@@ -1599,13 +1601,6 @@ Dims getBindingDimensions(nvinfer1::IExecutionContext const& context, int32_t bi
 {
     return context.getBindingDimensions(binding);
 }
-
-template <>
-Dims getBindingDimensions(nvinfer1::safe::IExecutionContext const& context, int32_t binding)
-{
-    return context.getEngine().getBindingDimensions(binding);
-}
-
 } // namespace
 
 template <typename ContextType>
@@ -1669,7 +1664,8 @@ template <>
 void Bindings::dumpBindingDimensions<nvinfer1::safe::IExecutionContext>(
     int binding, nvinfer1::safe::IExecutionContext const& context, std::ostream& os) const
 {
-    auto const dims = context.getEngine().getBindingDimensions(binding);
+    auto const tensorName = context.getEngine().getIOTensorName(binding);
+    auto const dims = context.getEngine().getTensorShape(tensorName);
     // Do not add a newline terminator, because the caller may be outputting a JSON string.
     os << dims;
 }
@@ -1678,9 +1674,9 @@ template <>
 void Bindings::dumpBindingValues<nvinfer1::safe::IExecutionContext>(nvinfer1::safe::IExecutionContext const& context,
     int32_t binding, std::ostream& os, std::string const& separator /*= " "*/, int32_t batch /*= 1*/) const
 {
-    Dims const dims = context.getEngine().getBindingDimensions(binding);
-    Dims const strides = context.getStrides(binding);
     auto const tensorName = context.getEngine().getIOTensorName(binding);
+    Dims const strides = context.getTensorStrides(tensorName);
+    auto const dims = context.getEngine().getTensorShape(tensorName);
     int32_t const vectorDim = context.getEngine().getTensorVectorizedDim(tensorName);
     int32_t const spv = context.getEngine().getTensorComponentsPerElement(tensorName);
 

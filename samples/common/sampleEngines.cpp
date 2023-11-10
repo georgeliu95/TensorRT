@@ -632,8 +632,6 @@ void setPreviewFeatures(IBuilderConfig& config, BuildOptions const& build)
             config.setPreviewFeature(feat, build.previewFeatures.at(featVal));
         }
     };
-    setFlag(PreviewFeature::kFASTER_DYNAMIC_SHAPES_0805);
-    setFlag(PreviewFeature::kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805);
     setFlag(PreviewFeature::kPROFILE_SHARING_0806);
 }
 

@@ -473,29 +473,6 @@ public:
         return allocHelper("reallocate", true, reinterpret_cast<size_t>(baseAddr), alignment, newSize);
     }
 
-    void free(void* memory) noexcept override
-    {
-        try
-        {
-            py::gil_scoped_acquire gil{};
-            py::function pyFree = utils::getOverride(static_cast<IGpuAllocator*>(this), "free");
-            if (!pyFree)
-            {
-                return;
-            }
-
-            pyFree(reinterpret_cast<size_t>(memory));
-        }
-        catch (std::exception const& e)
-        {
-            std::cerr << "[ERROR] Exception caught in free(): " << e.what() << std::endl;
-        }
-        catch (...)
-        {
-            std::cerr << "[ERROR] Exception caught in free()" << std::endl;
-        }
-    }
-
     bool deallocate(void* memory) noexcept override
     {
         try
@@ -572,11 +549,11 @@ public:
         }
         catch (std::exception const& e)
         {
-            std::cerr << "[ERROR] Exception caught in free(): " << e.what() << std::endl;
+            std::cerr << "[ERROR] Exception caught in notifyShape(): " << e.what() << std::endl;
         }
         catch (...)
         {
-            std::cerr << "[ERROR] Exception caught in free()" << std::endl;
+            std::cerr << "[ERROR] Exception caught in notifyShape()" << std::endl;
         }
     }
 };
@@ -1205,7 +1182,6 @@ void bindCore(py::module& m)
         .def("allocate", &IGpuAllocator::allocate, "size"_a, "alignment"_a, "flags"_a, GpuAllocatorDoc::allocate)
         .def("reallocate", &IGpuAllocator::reallocate, "address"_a, "alignment"_a, "new_size"_a,
             GpuAllocatorDoc::reallocate)
-        .def("free", &IGpuAllocator::free, "memory"_a, GpuAllocatorDoc::free)
         .def("deallocate", &IGpuAllocator::deallocate, "memory"_a, GpuAllocatorDoc::deallocate);
 
     py::class_<IOutputAllocator, PyOutputAllocator>(
@@ -1265,11 +1241,6 @@ void bindCore(py::module& m)
             QuantizationFlagDoc::CALIBRATE_BEFORE_FUSION);
 
     py::enum_<PreviewFeature>(m, "PreviewFeature", PreviewFeatureDoc::descr, py::module_local())
-        .value("FASTER_DYNAMIC_SHAPES_0805", PreviewFeature::kFASTER_DYNAMIC_SHAPES_0805,
-            PreviewFeatureDoc::FASTER_DYNAMIC_SHAPES_0805)
-        .value("DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805",
-            PreviewFeature::kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805,
-            PreviewFeatureDoc::DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805)
         .value("PROFILE_SHARING_0806", PreviewFeature::kPROFILE_SHARING_0806, PreviewFeatureDoc::PROFILE_SHARING_0806);
 
     py::enum_<HardwareCompatibilityLevel>(
@@ -1291,9 +1262,7 @@ void bindCore(py::module& m)
     py::enum_<ProfilingVerbosity>(m, "ProfilingVerbosity", ProfilingVerbosityDoc::descr, py::module_local())
         .value("LAYER_NAMES_ONLY", ProfilingVerbosity::kLAYER_NAMES_ONLY, ProfilingVerbosityDoc::LAYER_NAMES_ONLY)
         .value("DETAILED", ProfilingVerbosity::kDETAILED, ProfilingVerbosityDoc::DETAILED)
-        .value("NONE", ProfilingVerbosity::kNONE, ProfilingVerbosityDoc::NONE)
-        .value("DEFAULT", ProfilingVerbosity::kDEFAULT, ProfilingVerbosityDoc::DEFAULT)
-        .value("VERBOSE", ProfilingVerbosity::kVERBOSE, ProfilingVerbosityDoc::VERBOSE);
+        .value("NONE", ProfilingVerbosity::kNONE, ProfilingVerbosityDoc::NONE);
 
     py::enum_<TensorIOMode>(m, "TensorIOMode", TensorIOModeDoc::descr, py::module_local())
         .value("NONE", TensorIOMode::kNONE, TensorIOModeDoc::NONE)
@@ -1308,9 +1277,6 @@ void bindCore(py::module& m)
         .value("JIT_CONVOLUTIONS", TacticSource::kJIT_CONVOLUTIONS, TacticSourceDoc::JIT_CONVOLUTIONS);
 
     py::enum_<EngineCapability>(m, "EngineCapability", py::arithmetic{}, EngineCapabilityDoc::descr, py::module_local())
-        .value("DEFAULT", EngineCapability::kDEFAULT, EngineCapabilityDoc::DEFAULT)
-        .value("SAFE_GPU", EngineCapability::kSAFE_GPU, EngineCapabilityDoc::SAFE_GPU)
-        .value("SAFE_DLA", EngineCapability::kSAFE_DLA, EngineCapabilityDoc::SAFE_DLA)
         .value("STANDARD", EngineCapability::kSTANDARD, EngineCapabilityDoc::STANDARD)
         .value("SAFETY", EngineCapability::kSAFETY, EngineCapabilityDoc::SAFETY)
         .value("DLA_STANDALONE", EngineCapability::kDLA_STANDALONE, EngineCapabilityDoc::DLA_STANDALONE);

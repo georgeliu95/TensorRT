@@ -398,7 +398,7 @@ public:
 
     //!
     //! \brief Set allowed formats for this tensor. By default all formats are allowed.
-    //!        Shape tensors (for which isShapeTensor() returns true) may only have row major linear format.
+    //!        Shape tensors (for which isShapeTensor() returns true) may only have row-major linear format.
     //!
     //! When running network on DLA and the build option kGPU_FALLBACK is not specified, if DLA format(kCHW4 with Int8,
     //! kCHW4 with FP16, kCHW16 with FP16, kCHW32 with Int8) is set, the input format is treated as native DLA format with
@@ -417,7 +417,7 @@ public:
 
     //!
     //! \brief Get a bitmask of TensorFormat values that the tensor supports.
-    //!        For a shape tensor, only row major linear format is allowed.
+    //!        For a shape tensor, only row-major linear format is allowed.
     //!
     //! \return The value specified by setAllowedFormats or all possible formats.
     //!
@@ -3481,7 +3481,7 @@ public:
     //! The DataType for this structure must be DataType::kFLOAT or DataType::kHALF, and must be the same
     //! datatype as the input tensor.
     //!
-    //! Each parameter matrix is row-major in memory, and has the following dimensions:
+    //! Each parameter matrix is row major in memory, and has the following dimensions:
     //!
     //! ~~~
     //!     Let K := { ::kUNIDIRECTION => 1
@@ -9310,34 +9310,6 @@ constexpr inline int32_t EnumMax<MemoryPoolType>() noexcept
 //!
 enum class PreviewFeature : int32_t
 {
-    //!
-    //! Optimize runtime dimensions with TensorRT's DL Compiler.
-    //! Potentially reduces run time and decreases device memory usage and engine size.
-    //! Models most likely to benefit from enabling kFASTER_DYNAMIC_SHAPES_0805 are transformer-based models,
-    //! and models containing dynamic control flows.
-    //!
-    //! The default value for this flag is on.
-    //!
-    //! \deprecated Turning it off is deprecated in TensorRT 8.6.
-    //!
-    kFASTER_DYNAMIC_SHAPES_0805 TRT_DEPRECATED_ENUM = 0,
-
-    //!
-    //! Disable usage of cuDNN/cuBLAS/cuBLASLt tactics in the TensorRT core library.
-    //!
-    //! When the flag is enabled, TensorRT core will not use these tactics even if they are specified in
-    //! \ref IBuilderConfig::setTacticSources(), but cudnnContext and cublasContext handles will still be passed to
-    //! plugins via IPluginV2Ext::attachToContext() if the appropriate tactic sources are set.
-    //!
-    //! This allows users to experiment with disabling external library tactics without having to modify their
-    //! application's plugins to support nullptr handles.
-    //!
-    //! The default value for this flag is on.
-    //!
-    //! \see TacticSource
-    //!
-    kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805 = 1,
-
     //!
     //! Allows optimization profiles to be shared across execution contexts.
     //! This flag defaults to false and will become the default behavior in TensorRT 10.0.
