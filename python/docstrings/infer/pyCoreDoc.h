@@ -1242,22 +1242,7 @@ namespace PreviewFeatureDoc
 constexpr char const* descr = R"trtdoc(
     List of Preview Features that can be enabled. Preview Features have been fully tested but are not yet as stable as other features in TensorRT.
     They are provided as opt-in features for at least one release.
-    For example, to enable faster dynamic shapes, call :func:`set_preview_feature` with ``PreviewFeature.FASTER_DYNAMIC_SHAPES_0805``
-)trtdoc";
-constexpr char const* FASTER_DYNAMIC_SHAPES_0805 = R"trtdoc(
-    [DEPRECATED] Optimize runtime dimensions with TensorRT's DL Compiler.
-    Potentially reduces run time and decreases device memory usage and engine size.
-    Models most likely to benefit from enabling ``FASTER_DYNAMIC_SHAPES_0805`` are transformer-based models, and models containing dynamic control flows.
-    The default value for this flag is on. Turning it off is deprecated.
-)trtdoc";
-constexpr char const* DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805 = R"trtdoc(
-    Disable usage of cuDNN/cuBLAS/cuBLASLt tactics in the TensorRT core library.
-    When the flag is enabled, TensorRT core will not use these tactics even if they are specified in
-    set_tactic_sources, but cudnnContext and cublasContext handles will still be passed to
-    plugins via IPluginV2::attachToContext() if the appropriate tactic sources are set.
-    This allows users to experiment with disabling external library tactics without having to modify their
-    application's plugins to support None handles.
-    The default value for this flag is on.
+    For example, to enable faster dynamic shapes, call :func:`set_preview_feature` with ``PreviewFeature.PROFILE_SHARING_0806``
 )trtdoc";
 constexpr char const* PROFILE_SHARING_0806 = R"trtdoc(
     Allows optimization profiles to be shared across execution contexts. This will become the default behavior in TensorRT 9.0 and the flag defaults to false.
@@ -1343,9 +1328,6 @@ constexpr char const* LAYER_NAMES_ONLY = R"trtdoc(Print only the layer names. Th
 constexpr char const* DETAILED
     = R"trtdoc(Print detailed layer information including layer names and layer parameters.)trtdoc";
 constexpr char const* NONE = R"trtdoc(Do not print any layer information.)trtdoc";
-
-constexpr char const* DEFAULT = R"trtdoc([DEPRECATED] Same as LAYER_NAMES_ONLY.)trtdoc";
-constexpr char const* VERBOSE = R"trtdoc([DEPRECATED] Same as DETAILED.)trtdoc";
 } // namespace ProfilingVerbosityDoc
 
 namespace TensorIOModeDoc
@@ -1364,18 +1346,15 @@ constexpr char const* descr = R"trtdoc(Tactic sources that can provide tactics f
 constexpr char const* CUBLAS = R"trtdoc(
         Enables cuBLAS tactics. Enabled by default.
         **NOTE:** Disabling CUBLAS tactic source will cause the cuBLAS handle passed to plugins in attachToContext to be null.
-        **NOTE:** Setting CUBLAS tactic source takes no effect for core library if PreviewFeature.DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805 is on.
     )trtdoc";
 constexpr char const* CUBLAS_LT = R"trtdoc(
         Enables CUBLAS_LT tactics. Enabled by default.
-        **NOTE:** Setting CUBLAS_LT tactic source takes no effect for core library if PreviewFeature.DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805 is on.
         [DEPRECATED] Deprecated in TensorRT 9.0.
 
     )trtdoc";
 constexpr char const* CUDNN = R"trtdoc(
         Enables cuDNN tactics. Enabled by default.
         **NOTE:** Disabling CUDNN tactic source will cause the cuDNN handle passed to plugins in attachToContext to be null.
-        **NOTE:** Setting CUDNN tactic source takes no effect for core library if PreviewFeature.DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805 is on.
     )trtdoc";
 constexpr char const* EDGE_MASK_CONVOLUTIONS = R"trtdoc(
         Enables convolution tactics implemented with edge mask tables. These tactics tradeoff memory for performance
@@ -1399,15 +1378,6 @@ constexpr char const* descr = R"trtdoc(
     EngineCapability.DLA_STANDALONE provides a restricted subset of network operations that are DLA compatible and
     the resulting serialized engine can be executed using standalone DLA runtime APIs. See sampleCudla for an
     example of integrating cuDLA APIs with TensorRT APIs.)trtdoc";
-
-constexpr char const* DEFAULT
-    = R"trtdoc([DEPRECATED] Unrestricted: TensorRT mode without any restrictions using TensorRT nvinfer1 APIs.)trtdoc";
-
-constexpr char const* SAFE_GPU
-    = R"trtdoc([DEPRECATED] Safety-restricted: TensorRT mode for GPU devices using TensorRT safety APIs. See safety documentation for list of supported layers and formats.)trtdoc";
-
-constexpr char const* SAFE_DLA
-    = R"trtdoc([DEPRECATED] DLA-restricted: TensorRT mode for DLA devices using cuDLA APIs. Only FP16 and Int8 modes are supported.)trtdoc";
 
 constexpr char const* STANDARD
     = R"trtdoc(Standard: TensorRT flow without targeting the standard runtime. This flow supports both DeviceType::kGPU and DeviceType::kDLA.)trtdoc";
@@ -2206,14 +2176,6 @@ constexpr char const* allocate = R"trtdoc(
     :arg flags: Allocation flags. See :class:`AllocatorFlag`
 
     :returns: The address of the allocated memory
-)trtdoc";
-
-constexpr char const* free = R"trtdoc(
-    A callback implemented by the application to handle release of GPU memory.
-
-    TensorRT may pass a 0 to this function if it was previously returned by ``allocate()``.
-
-    :arg memory: The memory address of the memory to release.
 )trtdoc";
 
 constexpr char const* reallocate = R"trtdoc(

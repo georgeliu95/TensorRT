@@ -63,13 +63,13 @@
 //! NvInferSafeRuntime.h (for the safety runtime).
 //!
 
-// forward declare some CUDA types to avoid an include dependency
+//! Forward declare some CUDA types to avoid an include dependency.
 
 extern "C"
 {
-    //! Forward declaration of cublasContext to use in other interfaces
+    //! Forward declaration of cublasContext to use in other interfaces.
     struct cublasContext;
-    //! Forward declaration of cudnnContext to use in other interfaces
+    //! Forward declaration of cudnnContext to use in other interfaces.
     struct cudnnContext;
 }
 
@@ -83,14 +83,13 @@ namespace nvinfer1
 {
 
 static constexpr int32_t kNV_TENSORRT_VERSION_IMPL
-    = (NV_TENSORRT_MAJOR * 1000) + (NV_TENSORRT_MINOR * 100) + NV_TENSORRT_PATCH; // major, minor, patch
+    = (NV_TENSORRT_MAJOR * 1000) + (NV_TENSORRT_MINOR * 100) + NV_TENSORRT_PATCH; //!< major, minor, patch
 
 //! char_t is the type used by TensorRT to represent all valid characters.
 using char_t = char;
 
 //! AsciiChar is the type used by TensorRT to represent valid ASCII characters.
-//! This type is used by IPluginV2, PluginField, IPluginCreator, IPluginRegistry, and
-//! ILogger due to their use in automotive safety context.
+//! This type is widely used in automotive safety context.
 using AsciiChar = char_t;
 
 //! Forward declare IErrorRecorder for use in other interfaces.
@@ -143,7 +142,7 @@ enum class DataType : int32_t
     //! to equivalent floating point values.
     //! {kFLOAT, kHALF} to kUINT8 conversion will convert the floating point values
     //! to integer values by truncating towards zero. This conversion has undefined behavior for
-    //! floating point values outside the range [0.0f, 256.0f) after truncation.
+    //! floating point values outside the range [0.0F, 256.0F) after truncation.
     //! kUINT8 conversions are not supported for {kINT8, kINT32, kBOOL}.
     kUINT8 = 5,
 
@@ -167,7 +166,7 @@ namespace impl
 template <>
 struct EnumMaxImpl<DataType>
 {
-    // Declaration of kVALUE that represents maximum number of elements in DataType enum
+    //! Declaration of kVALUE that represents the maximum number of elements in the DataType enum.
     static constexpr int32_t kVALUE = 10;
 };
 } // namespace impl
@@ -214,7 +213,7 @@ using Dims = Dims32;
 //!
 enum class TensorFormat : int32_t
 {
-    //! Row major linear format.
+    //! Row-major linear format.
     //! For a tensor with dimensions {N, C, H, W} or {numbers, channels,
     //! columns, rows}, the dimensional index corresponds to {3, 2, 1, 0}
     //! and thus the order is W minor.
@@ -223,7 +222,7 @@ enum class TensorFormat : int32_t
     //!
     kLINEAR = 0,
 
-    //! Two wide channel vectorized row major format. This format is bound to
+    //! Two-wide channel vectorized row-major format. This format is bound to
     //! FP16. It is only available for dimensions >= 3.
     //! For a tensor with dimensions {N, C, H, W},
     //! the memory layout is equivalent to a C array with dimensions
@@ -231,7 +230,7 @@ enum class TensorFormat : int32_t
     //! mapping to array subscript [n][c/2][h][w][c%2].
     kCHW2 = 1,
 
-    //! Eight channel format where C is padded to a multiple of 8. This format
+    //! Eight-channel format where C is padded to a multiple of 8. This format
     //! is bound to FP16. It is only available for dimensions >= 3.
     //! For a tensor with dimensions {N, C, H, W},
     //! the memory layout is equivalent to the array with dimensions
@@ -239,7 +238,7 @@ enum class TensorFormat : int32_t
     //! mapping to array subscript [n][h][w][c].
     kHWC8 = 2,
 
-    //! Four wide channel vectorized row major format. This format is bound to
+    //! Four-wide channel vectorized row-major format. This format is bound to
     //! INT8 or FP16. It is only available for dimensions >= 3.
     //! For INT8, the C dimension must be a build-time constant.
     //! For a tensor with dimensions {N, C, H, W},
@@ -250,13 +249,13 @@ enum class TensorFormat : int32_t
     //! Deprecated usage:
     //!
     //! If running on the DLA, this format can be used for acceleration
-    //! with the caveat that C must be equal or lesser than 4.
+    //! with the caveat that C must be less than or equal to 4.
     //! If used as DLA input and the build option kGPU_FALLBACK is not specified,
     //! it needs to meet line stride requirement of DLA format. Column stride in bytes must
     //! be a multiple of 32 on Xavier and 64 on Orin.
     kCHW4 = 3,
 
-    //! Sixteen wide channel vectorized row major format. This format is bound
+    //! Sixteen-wide channel vectorized row-major format. This format is bound
     //! to FP16. It is only available for dimensions >= 3.
     //! For a tensor with dimensions {N, C, H, W},
     //! the memory layout is equivalent to a C array with dimensions
@@ -268,7 +267,7 @@ enum class TensorFormat : int32_t
     //!
     kCHW16 = 4,
 
-    //! Thirty-two wide channel vectorized row major format. This format is
+    //! Thirty-two wide channel vectorized row-major format. This format is
     //! only available for dimensions >= 3.
     //! For a tensor with dimensions {N, C, H, W},
     //! the memory layout is equivalent to a C array with dimensions
@@ -279,7 +278,7 @@ enum class TensorFormat : int32_t
     //! and the tensor sizes are limited to C,H,W in the range [1,8192].
     kCHW32 = 5,
 
-    //! Eight channel format where C is padded to a multiple of 8. This format
+    //! Eight-channel format where C is padded to a multiple of 8. This format
     //! is bound to FP16, and it is only available for dimensions >= 4.
     //! For a tensor with dimensions {N, C, D, H, W},
     //! the memory layout is equivalent to an array with dimensions
@@ -287,7 +286,7 @@ enum class TensorFormat : int32_t
     //! mapping to array subscript [n][d][h][w][c].
     kDHWC8 = 6,
 
-    //! Thirty-two wide channel vectorized row major format. This format is
+    //! Thirty-two wide channel vectorized row-major format. This format is
     //! bound to FP16 and INT8 and is only available for dimensions >= 4.
     //! For a tensor with dimensions {N, C, D, H, W},
     //! the memory layout is equivalent to a C array with dimensions
@@ -324,7 +323,7 @@ enum class TensorFormat : int32_t
     //! subscript [n][h][w][c].
     kDLA_HWC4 = 10,
 
-    //! Sixteen channel format where C is padded to a multiple of 16. This format
+    //! Sixteen-channel format where C is padded to a multiple of 16. This format
     //! is bound to FP16. It is only available for dimensions >= 3.
     //! For a tensor with dimensions {N, C, H, W},
     //! the memory layout is equivalent to the array with dimensions
@@ -343,14 +342,15 @@ namespace impl
 template <>
 struct EnumMaxImpl<TensorFormat>
 {
-    //! Declaration of kVALUE that represents maximum number of elements in TensorFormat enum
+    //! Declaration of kVALUE that represents the maximum number of elements in the TensorFormat enum.
     static constexpr int32_t kVALUE = 13;
 };
 } // namespace impl
 
 enum class AllocatorFlag : int32_t
 {
-    kRESIZABLE = 0, //!< TensorRT may call realloc() on this allocation
+    //! TensorRT may call realloc() on this allocation.
+    kRESIZABLE = 0,
 };
 
 namespace impl
@@ -359,7 +359,8 @@ namespace impl
 template <>
 struct EnumMaxImpl<AllocatorFlag>
 {
-    static constexpr int32_t kVALUE = 1;        //!< maximum number of elements in AllocatorFlag enum
+    //! Declaration of kVALUE that represents the maximum number of elements in the AllocatorFlag enum.
+    static constexpr int32_t kVALUE = 1;
 };
 } // namespace impl
 
@@ -390,7 +391,7 @@ public:
     //! If an allocation request cannot be satisfied, nullptr must be returned.
     //! If a non-null address is returned, it is guaranteed to have the specified alignment.
     //!
-    //! \note The implementation must guarantee thread safety for concurrent allocate/free/reallocate/deallocate
+    //! \note The implementation must guarantee thread safety for concurrent allocate/reallocate/deallocate
     //! requests.
     //!
     //! \usage
@@ -398,27 +399,6 @@ public:
     //!   - Thread-safe: Yes, this method is required to be thread-safe and may be called from multiple threads.
     //!
     virtual void* allocate(uint64_t const size, uint64_t const alignment, AllocatorFlags const flags) noexcept = 0;
-
-    //!
-    //! A thread-safe callback implemented by the application to handle release of GPU memory.
-    //!
-    //! TensorRT may pass a nullptr to this function if it was previously returned by allocate().
-    //!
-    //! \param memory A memory address that was previously returned by calling allocate() or reallocate() on the same
-    //!        allocator object, or nullptr.
-    //!
-    //! \note The implementation must guarantee thread safety for concurrent allocate/free/reallocate/deallocate
-    //! requests.
-    //!
-    //! \see deallocate()
-    //!
-    //! \deprecated Deprecated in TensorRT 8.0. Superseded by deallocate.
-    //!
-    //! \usage
-    //! - Allowed context for the API call
-    //!   - Thread-safe: Yes, this method is required to be thread-safe and may be called from multiple threads.
-    //!
-    TRT_DEPRECATED virtual void free(void* const memory) noexcept = 0;
 
     //!
     //! Destructor declared virtual as general good practice for a class with virtual methods.
@@ -456,7 +436,7 @@ public:
     //! \return The address of the reallocated memory, or nullptr. If a non-null address is returned, it is
     //!         guaranteed to have the specified alignment.
     //!
-    //! \note The implementation must guarantee thread safety for concurrent allocate/free/reallocate/deallocate
+    //! \note The implementation must guarantee thread safety for concurrent allocate/reallocate/deallocate
     //! requests.
     //!
     //! \usage
@@ -477,23 +457,14 @@ public:
     //!        object.
     //! \return True if the acquired memory is released successfully.
     //!
-    //! \note The implementation must guarantee thread safety for concurrent allocate/free/reallocate/deallocate
+    //! \note The implementation must guarantee thread safety for concurrent allocate/reallocate/deallocate
     //! requests.
-    //!
-    //! \note If user-implemented free() might hit an error condition, the user must override deallocate() as the
-    //! primary implementation and override free() to call deallocate() for backwards compatibility.
-    //!
-    //! \see free()
     //!
     //! \usage
     //! - Allowed context for the API call
     //!   - Thread-safe: Yes, this method is required to be thread-safe and may be called from multiple threads.
     //!
-    virtual bool deallocate(void* const memory) noexcept
-    {
-        this->free(memory);
-        return true;
-    }
+    virtual bool deallocate(void* const memory) noexcept = 0;
 
 protected:
 // @cond SuppressDoxyWarnings
@@ -576,7 +547,7 @@ namespace impl
 template <>
 struct EnumMaxImpl<ILogger::Severity>
 {
-    //! Declaration of kVALUE that represents maximum number of elements in ILogger::Severity enum
+    //! Declaration of kVALUE that represents the maximum number of elements in the ILogger::Severity enum.
     static constexpr int32_t kVALUE = 5;
 };
 } // namespace impl
@@ -665,7 +636,7 @@ enum class ErrorCode : int32_t
 
     //!
     //! An error occurred due to the network not being supported on the device due to constraints of the hardware or
-    //! system. An example is running a unsafe layer in a safety certified context, or a resource requirement for the
+    //! system. An example is running an unsafe layer in a safety certified context, or a resource requirement for the
     //! current network is greater than the capabilities of the target device. The network is otherwise correct, but
     //! the network and hardware combination is problematic. This can be recoverable.
     //! Examples:
@@ -693,7 +664,7 @@ struct EnumMaxImpl<ErrorCode>
 //!
 //! \brief Reference counted application-implemented error reporting interface for TensorRT objects.
 //!
-//! The error reporting mechanism is a user defined object that interacts with the internal state of the object
+//! The error reporting mechanism is a user-defined object that interacts with the internal state of the object
 //! that it is assigned to in order to determine information about abnormalities in execution. The error recorder
 //! gets both an error enum that is more descriptive than pass/fail and also a string description that gives more
 //! detail on the exact failure modes. In the safety context, the error strings are all limited to 128 bytes
@@ -729,7 +700,7 @@ public:
     static constexpr size_t kMAX_DESC_LENGTH{127U};
 
     //!
-    //! A typedef of a 32bit integer for reference counting.
+    //! A typedef of a 32-bit integer for reference counting.
     //!
     using RefCount = int32_t;
 
@@ -743,7 +714,7 @@ public:
     //!
     //! Determines the number of errors that occurred between the current point in execution
     //! and the last time that the clear() was executed. Due to the possibility of asynchronous
-    //! errors occuring, a TensorRT API can return correct results, but still register errors
+    //! errors occurring, a TensorRT API can return correct results, but still register errors
     //! with the Error Recorder. The value of getNbErrors() must increment by 1 after each reportError()
     //! call until clear() is called, or the maximum number of errors that can be stored is exceeded.
     //!

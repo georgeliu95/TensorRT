@@ -798,8 +798,6 @@ std::string previewFeatureToString(PreviewFeature feature)
     // clang-format off
     switch (feature)
     {
-    case PreviewFeature::kFASTER_DYNAMIC_SHAPES_0805: return "kFASTER_DYNAMIC_SHAPES_0805";
-    case PreviewFeature::kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805: return "kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805";
     case PreviewFeature::kPROFILE_SHARING_0806: return "kPROFILE_SHARING_0806";
     }
     return "Invalid Preview Feature";
@@ -821,9 +819,6 @@ std::ostream& printPreviewFlags(std::ostream& os, BuildOptions const& options)
             os << previewFeatureToString(feat) << (options.previewFeatures.at(featVal) ? " [ON], " : " [OFF], ");
         }
     };
-
-    addFlag(PreviewFeature::kFASTER_DYNAMIC_SHAPES_0805);
-    addFlag(PreviewFeature::kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805);
     addFlag(PreviewFeature::kPROFILE_SHARING_0806);
 
     return os;
@@ -1346,38 +1341,11 @@ void BuildOptions::parse(Arguments& arguments)
         {
             feat = PreviewFeature::kPROFILE_SHARING_0806;
         }
-        else if (featureName == "fasterDynamicShapes0805")
-        {
-            feat = PreviewFeature::kFASTER_DYNAMIC_SHAPES_0805;
-        }
-        else if (featureName == "disableExternalTacticSourcesForCore0805")
-        {
-            feat = PreviewFeature::kDISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805;
-        }
         else
         {
             throw std::invalid_argument(std::string("Unknown preview feature: ") + featureName);
         }
         previewFeatures[static_cast<int32_t>(feat)] = enable;
-    }
-
-    int32_t fasterDynamicShapesFeat = static_cast<int32_t>(PreviewFeature::kFASTER_DYNAMIC_SHAPES_0805);
-
-    // kFASTER_DYNAMIC_SHAPES_0805 is default to turn on if not set.
-    bool const fasterDynamicShapesEnabled = previewFeatures.find(fasterDynamicShapesFeat) != previewFeatures.end()
-        ? previewFeatures.at(fasterDynamicShapesFeat)
-        : true;
-
-    if (best && !fasterDynamicShapesEnabled)
-    {
-        sample::gLogWarning
-            << "--best specified with fasterDynamicShapes0805 flag disabled; implicitly disabling bf16 support."
-            << std::endl;
-        bf16 = false;
-    }
-    else if (bf16 && !fasterDynamicShapesEnabled)
-    {
-        throw std::invalid_argument("--bf16 flag requires fasterDynamicShapes0805 flag to be enabled.");
     }
 
     getAndDelOption(arguments, "--tempdir", tempdir);
@@ -2324,9 +2292,7 @@ void BuildOptions::help(std::ostream& os)
           "  --preview=features                 Specify preview feature to be used by adding (+) or removing (-) preview features from the default" "\n"
           R"(                                   Preview Features: features ::= [","feature])"                                                       "\n"
           "                                                       feature  ::= (+|-)flag"                                                           "\n"
-          R"(                                                     flag     ::= "fasterDynamicShapes0805")"                                          "\n"
-          R"(                                                                  |"disableExternalTacticSourcesForCore0805")"                         "\n"
-          R"(                                                                  |"profileSharing0806")"                                              "\n"
+          R"(                                                     flag     ::= "profileSharing0806")"                                               "\n"
           "  --builderOptimizationLevel         Set the builder optimization level. (default is 3)"                                                 "\n"
           "                                     Higher level allows TensorRT to spend more building time for more optimization options."            "\n"
           "                                     Valid values include integers from 0 to the maximum optimization level, which is currently 5."      "\n"

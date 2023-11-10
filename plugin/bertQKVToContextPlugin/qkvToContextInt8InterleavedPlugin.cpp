@@ -204,7 +204,8 @@ void QKVToContextInterleavedPlugin::terminate() noexcept {}
 size_t QKVToContextInterleavedPlugin::getSerializationSize() const noexcept
 {
     return sizeof(mNumHeads) + sizeof(mHeadSize) + sizeof(mHiddenSize) + sizeof(mSM) + sizeof(mS) + sizeof(mB)
-        + sizeof(mDqProbs) + sizeof(mUseInt8ScaleMax);
+        + sizeof(mDqProbs) + sizeof(mUseInt8ScaleMax) + sizeof(mUseExplicitInt8) + sizeof(mQkvScale)
+        + sizeof(mCtxScale);
 }
 
 void QKVToContextInterleavedPlugin::serialize(void* buffer) const noexcept
