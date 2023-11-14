@@ -1,51 +1,39 @@
 # Default group
 [Default][2]
-* @asfiyab @isherstyuk @kevinch @rajerao @shuyuel @simengl @skarunaratne @vincenth @yuanyao @svc_tensorrt
+* @asfiyab @isherstyuk @kevinch @rajerao @shuyuel @simengl @skarunaratne @vincenth @yuanyao @mguzek @svc_tensorrt
 
 [API][3]
 /include/ @asfiyab @isherstyuk @kevinch @rajerao @shuyuel @simengl @skarunaratne @vincenth @yuanyao @svc_tensorrt
 /contrib/TensorRT-Lite/include/ @asfiyab @isherstyuk @kevinch @rajerao @shuyuel @simengl @skarunaratne @vincenth @yuanyao @svc_tensorrt
+/python/ @asfiyab @isherstyuk @kevinch @rajerao @shuyuel @simengl @skarunaratne @vincenth @yuanyao @svc_tensorrt
 
 [Infra][1]
-/cmake/ @kevinch @vincenth @svc_tensorrt
-/docker/ @kevinch @vincenth @svc_tensorrt
-/docker_qa/ @kevinch @vincenth @svc_tensorrt
+/cmake/ @kevinch @vincenth @simengl @skarunaratne @rajerao @svc_tensorrt
+/docker/ @kevinch @vincenth @simengl @skarunaratne @rajerao @svc_tensorrt
+/docker_qa/ @kevinch @vincenth @simengl @skarunaratne @rajerao @svc_tensorrt
 
 [Demo][1]
-/demo/ @vincenth @rajerao @svc_tensorrt
+/demo/ @vincenth @kevinch @shuyuel @asfiyab @rajerao @svc_tensorrt
 
 # Parsers Gatekeeper
-[Parsers PIC][1]
-/parsers/ @kevinch @yuanyao @svc_tensorrt
-
-[Parsers Backup][1]
-/parsers/ @rajerao @yuanyao @svc_tensorrt
+[Parsers][2]
+/parsers/ @kevinch @yuanyao @simengl @mguzek @rajerao @svc_tensorrt
 
 # Plugins Gatekeeper
-[Plugins PIC][1]
-/plugin/ @skarunaratne @svc_tensorrt
-
-[Plugins Backup][1]
-/plugin/ @isherstyuk @rajerao @vincenth @svc_tensorrt
-
-[Python][1]
-/python/ @rajerao @skarunaratne @svc_tensorrt
+[Plugins][2]
+/plugin/ @skarunaratne @isherstyuk @vincenth @simengl @rajerao @svc_tensorrt
 
 [Quickstart][1]
-/quickstart/ @kevinch @rajerao @shuyuel @svc_tensorrt
+/quickstart/ @kevinch @shuyuel @isherstyuk @skarunaratne @rajerao @svc_tensorrt
 
-# Samples Gatekeeper
-[Samples PIC][1]
-/samples/ @shuyuel @svc_tensorrt
-
-[Samples Backup][1]
-/samples/ @vincenth @yuanyao @svc_tensorrt
+[Samples][2]
+/samples/ @shuyuel @vincenth @yuanyao @kevinch @rajerao @svc_tensorrt
 
 [Third Party][1]
-/third_party/ @kevinch @vincenth @svc_tensorrt
+/third_party/ @kevinch @vincenth @simengl @asfiyab @rajerao @svc_tensorrt
 
 [Scripts][1]
-/scripts/ @vincenth @rajerao @svc_tensorrt
+/scripts/ @vincenth @simengl @isherstyuk @kevinch @rajerao @svc_tensorrt
 
 [Tools][1]
-/tools/ @asfiyab @simengl @svc_tensorrt
+/tools/ @asfiyab @simengl @vincenth @shuyuel @rajerao @svc_tensorrt
