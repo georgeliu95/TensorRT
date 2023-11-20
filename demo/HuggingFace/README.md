@@ -305,18 +305,6 @@ The demo defaults to reuse existing engine in the workspace to save space and ti
 python3 run.py run GPT2 trt --variant gpt2 --working-dir temp --engine-postfix A100-PCIE-80GB
 ```
 
-### How to run without the TensorRT `FASTER_DYNAMIC_SHAPES_0805` preview feature
-
-`FASTER_DYNAMIC_SHAPES_0805` significantly improves TensorRT engine build time and is enabled by default in TRT 8.6+. Use the `--disable-preview-dynamic-shapes` option to disable this preview feature for any models. In rare cases, the runtime may increase, so we provide an option to disable it:
-
-```python
-python3 run.py run BART trt --variant facebook/bart-base --working-dir temp --disable-preview-dynamic-shapes
-```
-
-Notes:
-* Preview argument is only for TensorRT runs. Hence, please avoid using `compare` action with `--disable-preview-dynamic-shapes` since the syntax doesn't exist for `frameworks` and `onnxrt` runs. Instead, it is recommended to test TensorRT `run` command seperately to obtain the performance without this preview feature.
-
-
 ## Advanced Topics
 
 ### How to run TensorRT Engine only

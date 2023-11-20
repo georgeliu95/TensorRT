@@ -1480,12 +1480,6 @@ class TRTInferenceCommand(NetworkCommand):
     def add_args(self):
         super().add_args()
         trt_group = self._parser.add_argument_group("trt")
-        trt_group.add_argument(
-            "--disable-preview-dynamic-shapes",
-            help="Disable the FASTER_DYNAMIC_SHAPES_0805 preview feature when building the TensorRT engine",
-            action="store_true",
-            default=False,
-        )
 
         trt_group.add_argument(
             "--dynamic-batch",
