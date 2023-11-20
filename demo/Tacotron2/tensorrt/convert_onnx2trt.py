@@ -59,7 +59,6 @@ def parse_args(parser):
     parser.add_argument("-tcf", "--timing-cache-file", default=None, type=str,
                         help="Path to tensorrt build timeing cache file, only available for tensorrt 8.0 and later. The cache file is assumed to be used exclusively. It's the users' responsibility to create file lock to prevent accessing conflict.",
                         required=False)
-    parser.add_argument("--disable-preview-dynamic-shapes", action="store_true", help="Disable dynamic shape preview feature.")
     parser.set_defaults(loop=int(trt.__version__[0]) >= 8)
     return parser
 
@@ -86,7 +85,7 @@ def main():
             {"name": "sequence_lengths", "min": (bs_min,),  "opt": (bs_opt,),    "max": (bs_max,)}]
     if args.encoder != "":
         print("Building Encoder ...")
-        encoder_engine = build_engine(args.encoder, shapes=shapes, fp16=args.fp16, timing_cache=args.timing_cache_file, disable_preview_dynamic_shapes=args.disable_preview_dynamic_shapes)
+        encoder_engine = build_engine(args.encoder, shapes=shapes, fp16=args.fp16, timing_cache=args.timing_cache_file)
         if encoder_engine is not None:
             with open(encoder_path, 'wb') as f:
                 f.write(encoder_engine.serialize())

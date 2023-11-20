@@ -20,6 +20,9 @@ Uses [semantic versioning](https://semver.org/).
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+# [2.0.7] - 2023-11-15
+- Removed FASTER_DYNAMIC_SHAPES_0805 preview feature because it is enabled by default and removed
+
 # [2.0.6] - 2023-10-10
 - Added runtime dynamic batch support for `generate` function
 

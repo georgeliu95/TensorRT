@@ -38,9 +38,6 @@ import torch
 from transformers import GenerationMixin
 from transformers.modeling_outputs import BaseModelOutput, Seq2SeqLMOutput
 
-# tensorrt
-from tensorrt import PreviewFeature
-
 # TRT-HuggingFace
 from NNDF.interface import TRTInferenceCommand
 from NNDF.networks import (
@@ -626,7 +623,6 @@ class Seq2SeqTRT(TRTInferenceCommand):
 
     def process_framework_specific_arguments(
         self,
-        disable_preview_dynamic_shapes: bool = False,
         dynamic_batch: bool = False,
         min_dynamic_batch: int = None,
         max_dynamic_batch: int = None,
@@ -639,7 +635,6 @@ class Seq2SeqTRT(TRTInferenceCommand):
         **kwargs
     ):
         self.encoder_hidden_size = self.config.hidden_size
-        self.disable_preview_dynamic_shapes = disable_preview_dynamic_shapes
         self.dynamic_batch = dynamic_batch
         self.opt_input_seq_len = self.config.opt_input_length
         self.opt_output_seq_len = self.config.opt_output_length
@@ -823,12 +818,7 @@ class Seq2SeqTRT(TRTInferenceCommand):
         if self.config.num_beams > 1:
             engine_tag += f"-beam{self.config.num_beams}"
 
-        preview_features = [PreviewFeature.DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805]
-
-        if self.disable_preview_dynamic_shapes:
-            engine_tag += "-noPreviewFasterDynamicShapes"
-        else:
-            preview_features.append(PreviewFeature.FASTER_DYNAMIC_SHAPES_0805)
+        preview_features = []
 
         # Set up decoder engine
         decoder_profiles = self._setup_decoder_profiles()

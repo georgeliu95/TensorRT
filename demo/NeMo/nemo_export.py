@@ -40,8 +40,6 @@ import onnx_graphsurgeon as gs
 from polygraphy.backend.trt import Profile, CreateConfig, engine_from_network, NetworkFromOnnxPath, save_engine
 from polygraphy.logger import G_LOGGER as PG_LOGGER
 
-# tensorrt
-from tensorrt import PreviewFeature
 import torch
 import transformer_engine
 
@@ -194,7 +192,7 @@ def get_trtexec_cmd(onnx_fpath, cfg, bs):
     trtexec_cmd += " --bf16" if (use_bf16 and not use_strongly_typed) else ""
     trtexec_cmd += " --stronglyTyped" if use_strongly_typed else ""
     trtexec_cmd += " --sparsity=enable" if sparse else ""
-    trtexec_cmd += " --timingCacheFile=functional.cache --preview=+fasterDynamicShapes0805,+disableExternalTacticSourcesForCore0805"
+    trtexec_cmd += " --timingCacheFile=functional.cache"
     return trtexec_cmd
 
 
@@ -677,8 +675,7 @@ class NeMoConverter():
         # Read about these arguments here:
         # https://github.com/NVIDIA/TensorRT/blob/main/tools/Polygraphy/polygraphy/backend/trt/config.py
         # Note that the precision args below *enable*, not *require*, the specified precision
-        preview_features = [PreviewFeature.DISABLE_EXTERNAL_TACTIC_SOURCES_FOR_CORE_0805,
-                            PreviewFeature.FASTER_DYNAMIC_SHAPES_0805]
+        preview_features = []
 
         trt_config = CreateConfig(
             tf32= use_tf32,

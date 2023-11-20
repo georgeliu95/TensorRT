@@ -150,6 +150,5 @@ Please specify `--help` to see more options.
 [2023-07-28 00:15:03,016][OSS][INFO] This may take a while...
 ...
 
-[2023-07-28 03:36:52,307][OSS][DEBUG] trtexec --onnx=${OSS_ROOT}/demo/NeMo/temp/gpt-5b/GPT3-gpt-5b-fp8-fp16-ms256/onnx/pruned.model-16.opset19.onnx --minShapes=input_ids:1x1,position_ids:1x1 --optShapes=input_ids:1x128,position_ids:1x128 --maxShapes=input_ids:1x256,position_ids:1x256 --fp8 --fp16 --sparsity=enable --timingCacheFile=functional.cache --preview=+fasterDynamicShapes0805,+disableExternalTacticSourcesForCore0805
+[2023-07-28 03:36:52,307][OSS][DEBUG] trtexec --onnx=${OSS_ROOT}/demo/NeMo/temp/gpt-5b/GPT3-gpt-5b-fp8-fp16-ms256/onnx/pruned.model-16.opset19.onnx --minShapes=input_ids:1x1,position_ids:1x1 --optShapes=input_ids:1x128,position_ids:1x128 --maxShapes=input_ids:1x256,position_ids:1x256 --fp8 --fp16 --sparsity=enable --timingCacheFile=functional.cache
 ```
-
