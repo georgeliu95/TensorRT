@@ -400,7 +400,9 @@ def build_engine(batch_sizes, workspace_size, sequence_lengths, config, weights_
                 builder_config.set_quantization_flag(trt.QuantizationFlag.CALIBRATE_BEFORE_FUSION)
                 builder_config.int8_calibrator = calibrator
         if config.use_strict:
-            builder_config.set_flag(trt.BuilderFlag.STRICT_TYPES)
+            builder_config.set_flag(trt.BuilderFlag.PREFER_PRECISION_CONSTRAINTS)
+            builder_config.set_flag(trt.BuilderFlag.DIRECT_IO)
+            builder_config.set_flag(trt.BuilderFlag.REJECT_EMPTY_ALGORITHMS)
 
         if verbose:
             builder_config.profiling_verbosity = trt.ProfilingVerbosity.DETAILED
@@ -457,7 +459,7 @@ def build_engine(batch_sizes, workspace_size, sequence_lengths, config, weights_
 
         if config.use_int8 and not config.use_qat:
             calibrator.free()
-        return serialized_engine 
+        return serialized_engine
 
 def generate_calibration_cache(sequence_lengths, workspace_size, config, weights_dict, squad_json, vocab_file, calibrationCacheFile, calib_num):
     """
