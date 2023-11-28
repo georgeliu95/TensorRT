@@ -277,7 +277,7 @@ def build_engine():
         print(f'Building {precision} engine of {MODEL_NAME} model on {gpu_name} GPU...')
 
         ## parse ONNX model
-        network = TRT_BUILDER.create_network(1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
+        network = TRT_BUILDER.create_network()
         onnx_parser = trt.OnnxParser(network, TRT_LOGGER)
         parse_success = onnx_parser.parse_from_file(ONNX_MODEL)
         for idx in range(onnx_parser.num_errors):
@@ -296,11 +296,7 @@ def build_engine():
         profile.set_shape("input_ids", (1,seq_len), (1,seq_len), (1,seq_len))
         profile.set_shape("attention_mask", (1,seq_len), (1,seq_len), (1,seq_len))
         config.add_optimization_profile(profile)
-
-        if TRT_VERSION >= 84:
-            config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 4096 * (1 << 20)) # 4096 MiB, syntax after TRT 8.4
-        else:
-            config.max_workspace_size = 4096 * (1 << 20) # syntax before TRT 8.4
+        config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 4096 * (1 << 20)) # 4096 MiB
 
         # precision
         if precision == 'fp32':

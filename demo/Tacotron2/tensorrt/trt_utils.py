@@ -84,12 +84,11 @@ def engine_info(engine_filepath):
                     "DataType.BOOL" : "TYPE_BOOL"}
 
     print("engine name", engine.name)
-    print("has_implicit_batch_dimension", engine.has_implicit_batch_dimension)
-    start_dim = 0 if engine.has_implicit_batch_dimension else 1
+    start_dim = 1
     print("num_optimization_profiles", engine.num_optimization_profiles)
     print("max_batch_size:", engine.max_batch_size)
     print("device_memory_size:", engine.device_memory_size)
-    print("max_workspace_size:", engine.max_workspace_size)
+    print("max_workspace_size:", engine.get_memory_pool_limit(trt.MemoryPoolType.WORKSPACE))
     print("num_layers:", engine.num_layers)
 
     for i in range(engine.num_bindings):
@@ -113,7 +112,7 @@ def build_engine(model_file, shapes, max_ws=512*1024*1024, fp16=False, timing_ca
     builder = trt.Builder(TRT_LOGGER)
 
     config = builder.create_builder_config()
-    config.max_workspace_size = max_ws
+    config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, max_ws)
     if fp16:
         config.flags |= 1 << int(trt.BuilderFlag.FP16)
     profile = builder.create_optimization_profile()
@@ -132,15 +131,14 @@ def build_engine(model_file, shapes, max_ws=512*1024*1024, fp16=False, timing_ca
             cache = config.create_timing_cache(b"")
             config.set_timing_cache(cache, ignore_mismatch = False)
 
-    explicit_batch = 1 << (int)(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
-    network = builder.create_network(explicit_batch)
+    network = builder.create_network()
 
     with trt.OnnxParser(network, TRT_LOGGER) as parser:
         with open(model_file, 'rb') as model:
             parsed = parser.parse(model.read())
             for i in range(parser.num_errors):
                 print("TensorRT ONNX parser error:", parser.get_error(i))
-            engine = builder.build_engine(network, config=config)
+            engine = builder.build_serialized_network(network, config=config)
 
             # save global timing cache
             if timing_cache_available:
