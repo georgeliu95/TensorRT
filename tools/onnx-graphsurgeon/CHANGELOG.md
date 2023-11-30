@@ -2,6 +2,11 @@
 
 Dates are in YYYY-MM-DD format.
 
+## vNext ()
+### Fixed
+- Fixed a bug where toposort would not correctly memoize intermediate values, leading to long runtimes.
+
+
 ## v0.4.0 (2023-08-16)
 ### Added
 - Added `Function` class representing a `Graph` implementing a Custom Op.
