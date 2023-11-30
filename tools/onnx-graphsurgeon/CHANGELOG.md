@@ -2,9 +2,10 @@
 
 Dates are in YYYY-MM-DD format.
 
-## vNext ()
+## v0.4.1 (2023-11-30)
 ### Fixed
 - Fixed a bug where toposort would not correctly memoize intermediate values, leading to long runtimes.
+- Fixed a bug where `export_value_info_proto` would not handle constant tensors correctly.
 
 
 ## v0.4.0 (2023-08-16)
