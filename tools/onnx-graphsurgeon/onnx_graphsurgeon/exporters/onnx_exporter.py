@@ -55,6 +55,7 @@ def check_duplicate_node_names(nodes: Sequence[Node], level=G_LOGGER.WARNING):
         else:
             name_map[node.name] = node
 
+
 def update_import_domains(graph):
     # Update the import_domains field to contain the graph's ONNX opset,
     # as well as other non-ONNX domains which are used by this graph's nodes.
@@ -81,6 +82,7 @@ def update_import_domains(graph):
             current_domains.add(used_domain)
     return graph.import_domains
 
+
 class OnnxExporter(BaseExporter):
     @staticmethod
     def export_tensor_proto(tensor: Constant) -> onnx.TensorProto:
@@ -96,7 +98,9 @@ class OnnxExporter(BaseExporter):
         return onnx_tensor
 
     @staticmethod
-    def export_value_info_proto(tensor: Variable, do_type_check: bool) -> onnx.ValueInfoProto:
+    def export_value_info_proto(
+        tensor: Tensor, do_type_check: bool
+    ) -> onnx.ValueInfoProto:
         if do_type_check and tensor.dtype is None:
             G_LOGGER.critical(
                 "Graph input and output tensors must include dtype information. Please set the dtype attribute for: {:}".format(
@@ -105,12 +109,18 @@ class OnnxExporter(BaseExporter):
             )
 
         if tensor.dtype is not None:
-            if tensor.type == "tensor_type":
-                onnx_tensor = onnx.helper.make_tensor_value_info(tensor.name, dtype_to_onnx(tensor.dtype), tensor.shape)
+            if isinstance(tensor, Constant) or tensor.type == "tensor_type":
+                onnx_tensor = onnx.helper.make_tensor_value_info(
+                    tensor.name, dtype_to_onnx(tensor.dtype), tensor.shape
+                )
             elif tensor.type == "sequence_type":
-                onnx_tensor = onnx.helper.make_tensor_sequence_value_info(tensor.name, dtype_to_onnx(tensor.dtype), tensor.shape)
+                onnx_tensor = onnx.helper.make_tensor_sequence_value_info(
+                    tensor.name, dtype_to_onnx(tensor.dtype), tensor.shape
+                )
             elif tensor.type == "sparse_tensor_type":
-                onnx_tensor = onnx.helper.make_sparse_tensor_value_info(tensor.name, dtype_to_onnx(tensor.dtype), tensor.shape)
+                onnx_tensor = onnx.helper.make_sparse_tensor_value_info(
+                    tensor.name, dtype_to_onnx(tensor.dtype), tensor.shape
+                )
         else:
             onnx_tensor = onnx.helper.make_empty_tensor_value_info(tensor.name)
         return onnx_tensor
@@ -132,7 +142,9 @@ class OnnxExporter(BaseExporter):
                 # Netron has a bug which makes it crash if a Tensor attribute has no tensor data.
                 # So provide some meaningless tensor data for Netron to read.
                 if val.type == Tensor:
-                    tensor_proto = OnnxExporter.export_tensor_proto(Constant("", np.array([0], dtype=np.float32)))
+                    tensor_proto = OnnxExporter.export_tensor_proto(
+                        Constant("", np.array([0], dtype=np.float32))
+                    )
                     onnx_attr.t.CopyFrom(tensor_proto)
 
                 onnx_attr.ref_attr_name = val.name
@@ -176,7 +188,9 @@ class OnnxExporter(BaseExporter):
         for tensor in func.tensors().values():
             if isinstance(tensor, Constant):
                 # Copying the tensor prevents the new node from appearing in the Constant tensor's inputs.
-                new_const_nodes.append(Node("Constant", attrs={"value": tensor}, outputs=[tensor.copy()]))
+                new_const_nodes.append(
+                    Node("Constant", attrs={"value": tensor}, outputs=[tensor.copy()])
+                )
         # Const nodes have no inputs, so this maintains a topological ordering.
         func_nodes = new_const_nodes + func_nodes
 
@@ -210,7 +224,6 @@ class OnnxExporter(BaseExporter):
             doc_string=func.doc_string,
         )
 
-
     @staticmethod
     def export_graph(graph: Graph, do_type_check=True) -> onnx.GraphProto:
         """
@@ -224,11 +237,19 @@ class OnnxExporter(BaseExporter):
         """
         check_duplicate_node_names(graph.nodes, level=G_LOGGER.WARNING)
         nodes = [OnnxExporter.export_node(node) for node in graph.nodes]
-        inputs = [OnnxExporter.export_value_info_proto(inp, do_type_check) for inp in graph.inputs]
-        outputs = [OnnxExporter.export_value_info_proto(out, do_type_check) for out in graph.outputs]
+        inputs = [
+            OnnxExporter.export_value_info_proto(inp, do_type_check)
+            for inp in graph.inputs
+        ]
+        outputs = [
+            OnnxExporter.export_value_info_proto(out, do_type_check)
+            for out in graph.outputs
+        ]
         tensor_map = graph.tensors()
         initializer = [
-            OnnxExporter.export_tensor_proto(tensor) for tensor in tensor_map.values() if isinstance(tensor, Constant)
+            OnnxExporter.export_tensor_proto(tensor)
+            for tensor in tensor_map.values()
+            if isinstance(tensor, Constant)
         ]
 
         # Remove inputs and outputs to export ValueInfoProtos
@@ -238,7 +259,9 @@ class OnnxExporter(BaseExporter):
 
         # Omit tensors from value_info if we don't know their shape/dtype
         def has_value_info(tensor):
-            return isinstance(tensor, Variable) and (tensor.dtype is not None or tensor.shape is not None)
+            return isinstance(tensor, Variable) and (
+                tensor.dtype is not None or tensor.shape is not None
+            )
 
         value_info = [
             OnnxExporter.export_value_info_proto(tensor, do_type_check)
@@ -272,10 +295,7 @@ def export_onnx(graph: Graph, do_type_check=True, **kwargs) -> "onnx.ModelProto"
         onnx.ModelProto: A corresponding ONNX model.
     """
     onnx_graph = OnnxExporter.export_graph(graph, do_type_check=do_type_check)
-    onnx_functions = [
-        OnnxExporter.export_function(func)
-        for func in graph.functions
-    ]
+    onnx_functions = [OnnxExporter.export_function(func) for func in graph.functions]
     kwargs["functions"] = onnx_functions
 
     if "opset_imports" not in kwargs:
