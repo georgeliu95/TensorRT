@@ -130,7 +130,7 @@ class EngineBuilder:
 
         self.builder = trt.Builder(self.trt_logger)
         self.config = self.builder.create_builder_config()
-        self.config.max_workspace_size = workspace * (2 ** 30)
+        self.config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, workspace * (2 ** 30))
 
         self.network = None
         self.parser = None
@@ -192,7 +192,9 @@ class EngineBuilder:
         Enable mixed-precision mode. When set, the layers defined here will be forced to FP16 to maximize
         INT8 inference accuracy, while having minimal impact on latency.
         """
-        self.config.set_flag(trt.BuilderFlag.STRICT_TYPES)
+        self.config.set_flag(trt.BuilderFlag.PREFER_PRECISION_CONSTRAINTS)
+        self.config.set_flag(trt.BuilderFlag.DIRECT_IO)
+        self.config.set_flag(trt.BuilderFlag.REJECT_EMPTY_ALGORITHMS)
 
         # All convolution operations in the first four blocks of the graph are pinned to FP16.
         # These layers have been manually chosen as they give a good middle-point between int8 and fp16
@@ -250,14 +252,11 @@ class EngineBuilder:
                     ImageBatcher(calib_input, calib_shape, calib_dtype, max_num_images=calib_num_images,
                                  exact_batches=True, shuffle_files=True))
 
-        engine_bytes = None
-        try:
-            engine_bytes = self.builder.build_serialized_network(self.network, self.config)
-        except AttributeError:
-            engine = self.builder.build_engine(self.network, self.config)
-            engine_bytes = engine.serialize()
-            del engine
-        assert engine_bytes
+        engine_bytes = self.builder.build_serialized_network(self.network, self.config)
+        if engine_bytes is None:
+            log.error("Failed to create engine")
+            sys.exit(1)
+
         with open(engine_path, "wb") as f:
             log.info("Serializing engine to file: {:}".format(engine_path))
             f.write(engine_bytes)

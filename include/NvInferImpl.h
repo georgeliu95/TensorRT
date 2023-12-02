@@ -150,9 +150,7 @@ using BuilderFlags = uint32_t;
 using NetworkDefinitionCreationFlags = uint32_t;
 using QuantizationFlags = uint32_t;
 using TempfileControlFlags = uint32_t;
-using ResizeMode = InterpolationMode;
 using SerializationFlags = uint32_t;
-using SliceMode = SampleMode;
 
 //!
 //! \file NvInferImpl.h
@@ -289,8 +287,9 @@ public:
     virtual int32_t getNbOptimizationProfiles() const noexcept = 0;
     virtual Dims getProfileDimensions(
         int32_t bindingIndex, int32_t profileIndex, OptProfileSelector select) const noexcept = 0;
-    virtual int32_t const* getProfileShapeValues(
-        int32_t profileIndex, int32_t inputIndex, OptProfileSelector select) const noexcept = 0;
+    virtual int32_t const* getProfileTensorValues(
+        char const* tensorName, int32_t profileIndex, OptProfileSelector select) const noexcept
+        = 0;
     virtual bool isShapeBinding(int32_t bindingIndex) const noexcept = 0;
     virtual bool isExecutionBinding(int32_t bindingIndex) const noexcept = 0;
     virtual EngineCapability getEngineCapability() const noexcept = 0;
@@ -449,22 +448,14 @@ public:
 class VConvolutionLayer : public VRoot
 {
 public:
-    virtual void setKernelSize(DimsHW kernelSize) noexcept = 0;
-    virtual DimsHW getKernelSize() const noexcept = 0;
     virtual void setNbOutputMaps(int32_t nbOutputMaps) noexcept = 0;
     virtual int32_t getNbOutputMaps() const noexcept = 0;
-    virtual void setStride(DimsHW stride) noexcept = 0;
-    virtual DimsHW getStride() const noexcept = 0;
-    virtual void setPadding(DimsHW padding) noexcept = 0;
-    virtual DimsHW getPadding() const noexcept = 0;
     virtual void setNbGroups(int32_t nbGroups) noexcept = 0;
     virtual int32_t getNbGroups() const noexcept = 0;
     virtual void setKernelWeights(Weights weights) noexcept = 0;
     virtual Weights getKernelWeights() const noexcept = 0;
     virtual void setBiasWeights(Weights weights) noexcept = 0;
     virtual Weights getBiasWeights() const noexcept = 0;
-    virtual void setDilation(DimsHW dilation) noexcept = 0;
-    virtual DimsHW getDilation() const noexcept = 0;
     virtual void setPrePadding(Dims padding) noexcept = 0;
     virtual Dims getPrePadding() const noexcept = 0;
     virtual void setPostPadding(Dims padding) noexcept = 0;
@@ -508,12 +499,6 @@ class VPoolingLayer : public VRoot
 public:
     virtual void setPoolingType(PoolingType type) noexcept = 0;
     virtual PoolingType getPoolingType() const noexcept = 0;
-    virtual void setWindowSize(DimsHW windowSize) noexcept = 0;
-    virtual DimsHW getWindowSize() const noexcept = 0;
-    virtual void setStride(DimsHW stride) noexcept = 0;
-    virtual DimsHW getStride() const noexcept = 0;
-    virtual void setPadding(DimsHW padding) noexcept = 0;
-    virtual DimsHW getPadding() const noexcept = 0;
     virtual void setBlendFactor(float blendFactor) noexcept = 0;
     virtual float getBlendFactor() const noexcept = 0;
     virtual void setAverageCountExcludesPadding(bool exclusive) noexcept = 0;
@@ -577,14 +562,8 @@ public:
 class VDeconvolutionLayer : public VRoot
 {
 public:
-    virtual void setKernelSize(DimsHW kernelSize) noexcept = 0;
-    virtual DimsHW getKernelSize() const noexcept = 0;
     virtual void setNbOutputMaps(int32_t nbOutputMaps) noexcept = 0;
     virtual int32_t getNbOutputMaps() const noexcept = 0;
-    virtual void setStride(DimsHW stride) noexcept = 0;
-    virtual DimsHW getStride() const noexcept = 0;
-    virtual void setPadding(DimsHW padding) noexcept = 0;
-    virtual DimsHW getPadding() const noexcept = 0;
     virtual void setNbGroups(int32_t nbGroups) noexcept = 0;
     virtual int32_t getNbGroups() const noexcept = 0;
     virtual void setKernelWeights(Weights weights) noexcept = 0;
@@ -683,10 +662,6 @@ public:
 class VPaddingLayer : public VRoot
 {
 public:
-    virtual void setPrePadding(DimsHW padding) noexcept = 0;
-    virtual DimsHW getPrePadding() const noexcept = 0;
-    virtual void setPostPadding(DimsHW padding) noexcept = 0;
-    virtual DimsHW getPostPadding() const noexcept = 0;
     virtual void setPrePaddingNd(Dims padding) noexcept = 0;
     virtual Dims getPrePaddingNd() const noexcept = 0;
     virtual void setPostPaddingNd(Dims padding) noexcept = 0;
@@ -715,8 +690,8 @@ public:
     virtual Dims getSize() const noexcept = 0;
     virtual void setStride(Dims stride) noexcept = 0;
     virtual Dims getStride() const noexcept = 0;
-    virtual void setMode(SliceMode mode) noexcept = 0;
-    virtual SliceMode getMode() const noexcept = 0;
+    virtual void setMode(SampleMode mode) noexcept = 0;
+    virtual SampleMode getMode() const noexcept = 0;
 };
 
 class VShapeLayer : public VRoot
@@ -785,10 +760,8 @@ public:
     virtual Dims getOutputDimensions() const noexcept = 0;
     virtual void setScales(float const* scales, int32_t nbScales) noexcept = 0;
     virtual int32_t getScales(int32_t size, float* scales) const noexcept = 0;
-    virtual void setResizeMode(ResizeMode resizeMode) noexcept = 0;
-    virtual ResizeMode getResizeMode() const noexcept = 0;
-    virtual void setAlignCorners(bool alignCorners) noexcept = 0;
-    virtual bool getAlignCorners() const noexcept = 0;
+    virtual void setResizeMode(InterpolationMode interpolationMode) noexcept = 0;
+    virtual InterpolationMode getResizeMode() const noexcept = 0;
     virtual void setCoordinateTransformation(ResizeCoordinateTransformation coordTransform) noexcept = 0;
     virtual ResizeCoordinateTransformation getCoordinateTransformation() const noexcept = 0;
     virtual void setSelectorForSinglePixel(ResizeSelector selector) noexcept = 0;
@@ -996,24 +969,16 @@ class VNetworkDefinition : public VRoot
 public:
     virtual ITensor* addInput(char const* name, DataType type, Dims dimensions) noexcept = 0;
     virtual void markOutput(ITensor& tensor) noexcept = 0;
-    virtual IConvolutionLayer* addConvolution(ITensor& input, int32_t nbOutputMaps, DimsHW kernelSize,
-        Weights kernelWeights, Weights biasWeights) noexcept = 0;
     virtual IFullyConnectedLayer* addFullyConnected(
-        ITensor& input, int32_t nbOutputs, Weights kernelWeights, Weights biasWeights) noexcept
-        = 0;
+        ITensor& input, int32_t nbOutputs, Weights kernelWeights, Weights biasWeights) noexcept = 0;
     virtual IActivationLayer* addActivation(ITensor& input, ActivationType type) noexcept = 0;
-    virtual IPoolingLayer* addPooling(ITensor& input, PoolingType type, DimsHW windowSize) noexcept = 0;
     virtual ILRNLayer* addLRN(ITensor& input, int32_t window, float alpha, float beta, float k) noexcept = 0;
-    virtual IScaleLayer* addScale(ITensor& input, ScaleMode mode, Weights shift, Weights scale, Weights power) noexcept
-        = 0;
+    virtual IScaleLayer* addScale(
+        ITensor& input, ScaleMode mode, Weights shift, Weights scale, Weights power) noexcept = 0;
     virtual ISoftMaxLayer* addSoftMax(ITensor& input) noexcept = 0;
     virtual IConcatenationLayer* addConcatenation(ITensor* const* inputs, int32_t nbInputs) noexcept = 0;
-    virtual IDeconvolutionLayer* addDeconvolution(
-        ITensor& input, int32_t nbOutputMaps, DimsHW kernelSize, Weights kernelWeights, Weights biasWeights) noexcept
-        = 0;
     virtual IElementWiseLayer* addElementWise(ITensor& input1, ITensor& input2, ElementWiseOperation op) noexcept = 0;
     virtual IUnaryLayer* addUnary(ITensor& input, UnaryOperation operation) noexcept = 0;
-    virtual IPaddingLayer* addPadding(ITensor& input, DimsHW prePadding, DimsHW postPadding) noexcept = 0;
     virtual IShuffleLayer* addShuffle(ITensor& input) noexcept = 0;
     virtual int32_t getNbLayers() const noexcept = 0;
     virtual ILayer* getLayer(int32_t index) const noexcept = 0;
@@ -1053,10 +1018,8 @@ public:
         ITensor& input, int32_t nbOutputMaps, Dims kernelSize, Weights kernelWeights, Weights biasWeights) noexcept
         = 0;
     virtual IScaleLayer* addScaleNd(
-        ITensor& input, ScaleMode mode, Weights shift, Weights scale, Weights power, int32_t channelAxis) noexcept
-        = 0;
+        ITensor& input, ScaleMode mode, Weights shift, Weights scale, Weights power, int32_t channelAxis) noexcept = 0;
     virtual IResizeLayer* addResize(ITensor& input) noexcept = 0;
-    virtual bool hasExplicitPrecision() const noexcept = 0;
     virtual ILoop* addLoop() noexcept = 0;
     virtual ISelectLayer* addSelect(ITensor& condition, ITensor& thenInput, ITensor& elseInput) noexcept = 0;
     virtual IFillLayer* addFill(Dims dimensions, FillOperation op) noexcept = 0;
@@ -1091,7 +1054,6 @@ public:
 class VAlgorithmIOInfo : public VRoot
 {
 public:
-    virtual TensorFormat getTensorFormat() const noexcept = 0;
     virtual DataType getDataType() const noexcept = 0;
     virtual Dims getStrides() const noexcept = 0;
     virtual int64_t getVectorizedDim() const noexcept = 0;
@@ -1117,7 +1079,6 @@ public:
 class VAlgorithm : public VRoot
 {
 public:
-    virtual IAlgorithmIOInfo const& getAlgorithmIOInfo(int32_t index) const noexcept = 0;
     virtual IAlgorithmVariant const& getAlgorithmVariant() const noexcept = 0;
     virtual float getTimingMSec() const noexcept = 0;
     virtual std::size_t getWorkspaceSize() const noexcept = 0;
@@ -1135,16 +1096,12 @@ public:
 class VBuilderConfig : public VRoot
 {
 public:
-    virtual void setMinTimingIterations(int32_t minTiming) noexcept = 0;
-    virtual int32_t getMinTimingIterations() const noexcept = 0;
     virtual void setAvgTimingIterations(int32_t avgTiming) noexcept = 0;
     virtual int32_t getAvgTimingIterations() const noexcept = 0;
     virtual void setEngineCapability(EngineCapability capability) noexcept = 0;
     virtual EngineCapability getEngineCapability() const noexcept = 0;
     virtual void setInt8Calibrator(IInt8Calibrator* calibrator) noexcept = 0;
     virtual IInt8Calibrator* getInt8Calibrator() const noexcept = 0;
-    virtual void setMaxWorkspaceSize(std::size_t workspaceSize) noexcept = 0;
-    virtual std::size_t getMaxWorkspaceSize() const noexcept = 0;
     virtual void setFlags(BuilderFlags builderFlags) noexcept = 0;
     virtual BuilderFlags getFlags() const noexcept = 0;
     virtual void clearFlag(BuilderFlag builderFlag) noexcept = 0;
@@ -1218,8 +1175,6 @@ public:
     virtual int32_t getNbDLACores() const noexcept = 0;
     virtual void setGpuAllocator(IGpuAllocator* allocator) noexcept = 0;
     virtual nvinfer1::IBuilderConfig* createBuilderConfig() noexcept = 0;
-    virtual nvinfer1::ICudaEngine* buildEngineWithConfig(INetworkDefinition& network, IBuilderConfig& config) noexcept
-        = 0;
     virtual nvinfer1::INetworkDefinition* createNetworkV2(NetworkDefinitionCreationFlags flags) noexcept = 0;
     virtual nvinfer1::IOptimizationProfile* createOptimizationProfile() noexcept = 0;
     virtual void setErrorRecorder(IErrorRecorder* recorder) noexcept = 0;

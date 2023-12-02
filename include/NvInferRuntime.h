@@ -153,17 +153,6 @@ public:
     {
         return mImpl->type();
     }
-    //!
-    //! Destroy the allocated memory.
-    //!
-    //! \deprecated Deprecated in TRT 8.0. Superseded by `delete`.
-    //!
-    //! \warning Calling destroy on a managed pointer will result in a double-free error.
-    //!
-    TRT_DEPRECATED void destroy() noexcept
-    {
-        delete this;
-    }
 
 protected:
     apiv::VHostMemory* mImpl;
@@ -548,7 +537,7 @@ private:
 //! \brief Application-implemented interface for profiling.
 //!
 //! When this class is added to an execution context, the profiler will be called once per layer for each invocation of
-//! executeV2()/enqueueV2()/enqueueV3().
+//! executeV2()/enqueueV3().
 //!
 //! It is not recommended to run inference with profiler enabled when the inference execution time is critical since the
 //! profiler may affect execution time negatively.
@@ -598,8 +587,8 @@ constexpr inline int32_t EnumMax<WeightsRole>() noexcept
 //!
 enum class DeviceType : int32_t
 {
-    kGPU, //!< GPU Device
-    kDLA, //!< DLA Core
+    kGPU = 0, //!< GPU Device
+    kDLA = 1, //!< DLA Core
 };
 
 //! Maximum number of elements in DeviceType enum. \see DeviceType
@@ -707,18 +696,6 @@ public:
     int32_t getNbDLACores() const noexcept
     {
         return mImpl->getNbDLACores();
-    }
-
-    //!
-    //! \brief Destroy this object.
-    //!
-    //! \deprecated Deprecated in TRT 8.0. Superseded by `delete`.
-    //!
-    //! \warning Calling destroy on a managed pointer will result in a double-free error.
-    //!
-    TRT_DEPRECATED void destroy() noexcept
-    {
-        delete this;
     }
 
     //!
@@ -1034,16 +1011,6 @@ public:
     int32_t getAll(int32_t size, char const** layerNames, WeightsRole* roles) noexcept
     {
         return mImpl->getAll(size, layerNames, roles);
-    }
-
-    //!
-    //! \deprecated Deprecated in TRT 8.0. Superseded by `delete`.
-    //!
-    //! \warning Calling destroy on a managed pointer will result in a double-free error.
-    //!
-    TRT_DEPRECATED void destroy() noexcept
-    {
-        delete this;
     }
 
     //!
@@ -1790,7 +1757,7 @@ public:
     //!
     //! \brief Retrieve the binding index for a named tensor.
     //!
-    //! IExecutionContext::enqueueV2() and IExecutionContext::executeV2() require an array of buffers.
+    //! IExecutionContext::executeV2() require an array of buffers.
     //!
     //! Engine bindings map from tensor names to indices in this array.
     //! Binding indices are assigned at engine build time, and take values in the range [0 ... n-1] where n is the total
@@ -1984,18 +1951,6 @@ public:
     IExecutionContext* createExecutionContext() noexcept
     {
         return mImpl->createExecutionContext();
-    }
-
-    //!
-    //! \brief Destroy this object;
-    //!
-    //! \deprecated Deprecated in TRT 8.0. Superseded by `delete`.
-    //!
-    //! \warning Calling destroy on a managed pointer will result in a double-free error.
-    //!
-    TRT_DEPRECATED void destroy() noexcept
-    {
-        delete this;
     }
 
     //!
@@ -2450,33 +2405,25 @@ public:
     }
 
     //!
-    //! \brief Get minimum / optimum / maximum values for an input shape binding under an optimization profile.
+    //! \brief Get the minimum / optimum / maximum values (not dimensions) for an input tensor given
+    //! its name under an optimization profile. These correspond to the values set using
+    //! IOptimizationProfile::setShapeValues when the engine was built.
     //!
-    //! \param profileIndex The profile index (must be between 0 and getNbOptimizationProfiles()-1)
+    //! \param tensorName The name of an input tensor.
     //!
-    //! \param inputIndex The input index (must be between 0 and getNbBindings() - 1)
+    //! \param profileIndex The profile index, which must be between 0 and getNbOptimizationProfiles()-1.
     //!
-    //! \param select Whether to query the minimum, optimum, or maximum shape values for this binding.
+    //! \param select Whether to query the minimum, optimum, or maximum values for this input tensor.
     //!
-    //! \return If the binding is an input shape binding, return a pointer to an array that has
-    //!         the same number of elements as the corresponding tensor, i.e. 1 if dims.nbDims == 0, or dims.d[0]
-    //!         if dims.nbDims == 1, where dims = getBindingDimensions(inputIndex). The array contains
-    //!         the elementwise minimum / optimum / maximum values for this shape binding under the profile.
-    //!         If either of the indices is out of range, or if the binding is not an input shape binding, return
-    //!         nullptr.
+    //! \return The minimum / optimum / maximum values for an input tensor in this profile.
+    //!        If the profileIndex is invalid or the provided name does not map to an input tensor, return nullptr.
     //!
-    //! For backwards compatibility with earlier versions of TensorRT, a bindingIndex that does not belong
-    //! to the profile is corrected as described for getProfileDimensions().
+    //! \warning The string tensorName must be null-terminated, and be at most 4096 bytes including the terminator.
     //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getShapeValues(). Difference between Execution and shape
-    //! tensor is superficial since TensorRT 8.5.
-    //!
-    //! \see getProfileDimensions() getShapeValues()
-    //!
-    TRT_DEPRECATED int32_t const* getProfileShapeValues(
-        int32_t profileIndex, int32_t inputIndex, OptProfileSelector select) const noexcept
+    int32_t const* getProfileTensorValues(char const* tensorName, int32_t profileIndex, OptProfileSelector select) const
+        noexcept
     {
-        return mImpl->getProfileShapeValues(profileIndex, inputIndex, select);
+        return mImpl->getProfileTensorValues(tensorName, profileIndex, select);
     }
 
     //!
@@ -2788,75 +2735,10 @@ public:
     virtual ~IExecutionContext() noexcept = default;
 
     //!
-    //! \brief Synchronously execute inference on a batch.
-    //!
-    //! This method requires an array of input and output buffers. The mapping from tensor names to indices
-    //! can be queried using ICudaEngine::getBindingIndex()
-    //!
-    //! \param batchSize The batch size. This is at most the max batch size value supplied to the builder when the
-    //! engine was built. If the network is created with NetworkDefinitionCreationFlag::kEXPLICIT_BATCH flag, please use
-    //! executeV2() instead, and this batchSize argument has no effect.
-    //! \param bindings An array of pointers to input and output buffers for the network.
-    //!
-    //! \return True if execution succeeded.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.4. Superseded by executeV2() if the network is created with
-    //! NetworkDefinitionCreationFlag::kEXPLICIT_BATCH flag.
-    //!
-    //! \warning This function will trigger layer resource updates if hasImplicitBatchDimension()
-    //!          returns true and batchSize changes between subsequent calls, possibly resulting
-    //!          in performance bottlenecks.
-    //!
-    //! \see ICudaEngine::getBindingIndex() ICudaEngine::getMaxBatchSize()
-    //!
-    TRT_DEPRECATED bool execute(int32_t batchSize, void* const* bindings) noexcept
-    {
-        return mImpl->execute(batchSize, bindings);
-    }
-
-    //!
-    //! \brief Enqueue inference of a batch on a stream.
-    //!
-    //! This method requires an array of input and output buffers. The mapping from tensor names to indices can be
-    //! queried using ICudaEngine::getBindingIndex()
-    //!
-    //! \param batchSize The batch size. This is at most the max batch size value supplied to the builder when the
-    //! engine was built. If the network is created with NetworkDefinitionCreationFlag::kEXPLICIT_BATCH flag, please use
-    //! enqueueV3() instead, and this batchSize argument has no effect.
-    //! \param bindings An array of pointers to input and output buffers for the network.
-    //! \param stream A cuda stream on which the inference kernels will be enqueued.
-    //! \param inputConsumed An optional event which will be signaled when the input buffers can be refilled with new
-    //! data.
-    //!
-    //! \return True if the kernels were enqueued successfully.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.4. Superseded by enqueueV2() if the network is created with
-    //! NetworkDefinitionCreationFlag::kEXPLICIT_BATCH flag.
-    //!
-    //! \see ICudaEngine::getBindingIndex() ICudaEngine::getMaxBatchSize()
-    //!
-    //! \warning Calling enqueue() in from the same IExecutionContext object with different CUDA streams concurrently
-    //!          results in undefined behavior. To perform inference concurrently in multiple streams, use one execution
-    //!          context per stream.
-    //!
-    //! \warning This function will trigger layer resource updates if hasImplicitBatchDimension()
-    //!          returns true and batchSize changes between subsequent calls, possibly resulting in performance
-    //!          bottlenecks.
-    //!
-    //! \warning Using default stream may lead to performance issues due to additional cudaDeviceSynchronize() calls by
-    //!          TensorRT to ensure correct synchronizations. Please use non-default stream instead.
-    //!
-    TRT_DEPRECATED bool enqueue(
-        int32_t batchSize, void* const* bindings, cudaStream_t stream, cudaEvent_t* inputConsumed) noexcept
-    {
-        return mImpl->enqueue(batchSize, bindings, stream, inputConsumed);
-    }
-
-    //!
     //! \brief Set the debug sync flag.
     //!
     //! If this flag is set to true, the engine will log the successful execution for each kernel during executeV2(). It
-    //! has no effect when using enqueueV2()/enqueueV3().
+    //! has no effect when using enqueueV3().
     //!
     //! \see getDebugSync()
     //!
@@ -2906,18 +2788,6 @@ public:
     }
 
     //!
-    //! \brief Destroy this object.
-    //!
-    //! \deprecated Deprecated in TRT 8.0. Superseded by `delete`.
-    //!
-    //! \warning Calling destroy on a managed pointer will result in a double-free error.
-    //!
-    TRT_DEPRECATED void destroy() noexcept
-    {
-        delete this;
-    }
-
-    //!
     //! \brief Set the name of the execution context.
     //!
     //! This method copies the name string.
@@ -2946,8 +2816,8 @@ public:
     //!
     //! The memory must be aligned with cuda memory alignment property (using cudaGetDeviceProperties()), and its size
     //! must be at least that returned by getDeviceMemorySize(). Setting memory to nullptr is acceptable if
-    //! getDeviceMemorySize() returns 0. If using enqueueV2()/enqueueV3() to run the network, the memory is in use from
-    //! the invocation of enqueueV2()/enqueueV3() until network execution is complete. If using executeV2(), it is in
+    //! getDeviceMemorySize() returns 0. If using enqueueV3() to run the network, the memory is in use from
+    //! the invocation of enqueueV3() until network execution is complete. If using executeV2(), it is in
     //! use until executeV2() returns. Releasing or otherwise using the memory for other purposes during this time will
     //! result in undefined behavior.
     //!
@@ -3009,11 +2879,11 @@ public:
     //! \param profileIndex Index of the profile. It must lie between 0 and
     //!        getEngine().getNbOptimizationProfiles() - 1
     //!
-    //! The selected profile will be used in subsequent calls to executeV2()/enqueueV2()/enqueueV3().
+    //! The selected profile will be used in subsequent calls to executeV2()/enqueueV3().
     //!
     //! When an optimization profile is switched via this API, TensorRT may
     //! enqueue GPU memory copy operations required to set up the new profile during the subsequent
-    //! enqueueV2()/enqueueV3() operations. To avoid these calls during enqueueV2()/enqueueV3(), use
+    //! enqueueV3() operations. To avoid these calls during enqueueV3(), use
     //! setOptimizationProfileAsync() instead.
     //!
     //! If the associated CUDA engine does not have inputs with dynamic shapes, this method need not be
@@ -3022,10 +2892,10 @@ public:
     //!
     //! setOptimizationProfile() must be called before calling setBindingDimensions() and
     //! setInputShapeBinding() for all dynamic input tensors or input shape tensors, which in
-    //! turn must be called before executeV2()/enqueueV2()/enqueueV3().
+    //! turn must be called before executeV2()/enqueueV3().
     //!
     //! \warning This function will trigger layer resource updates on the next
-    //!          call of enqueueV2()/enqueueV3()/executeV2(), possibly resulting in performance bottlenecks.
+    //!          call of enqueueV3()/executeV2(), possibly resulting in performance bottlenecks.
     //!
     //! \return true if the call succeeded, else false (e.g. input out of range)
     //!
@@ -3044,7 +2914,7 @@ public:
     //!
     //! If the profile index has not been set yet (implicitly to 0 if no other execution context has been set to
     //! profile 0, or explicitly for all subsequent contexts), an invalid value of -1 will be returned
-    //! and all calls to enqueueV2()/enqueueV3()/executeV2() will fail until a valid profile index has been set.
+    //! and all calls to enqueueV3()/executeV2() will fail until a valid profile index has been set.
     //! This behavior is deprecated in TensorRT 8.6, all profiles will default to optimization
     //! profile 0 and -1 will no longer be returned.
     //!
@@ -3069,11 +2939,11 @@ public:
     //! execution context (getOptimizationProfile() must not be -1).
     //!
     //! For all dynamic non-output bindings (which have at least one wildcard dimension of -1),
-    //! this method needs to be called before either enqueueV2() or executeV2() may be called.
+    //! this method needs to be called before executeV2() may be called.
     //! This can be checked using the method allInputDimensionsSpecified().
     //!
     //! \warning This function will trigger layer resource updates on the next
-    //!          call of enqueueV2()/executeV2(), possibly resulting in performance bottlenecks,
+    //!          call of executeV2(), possibly resulting in performance bottlenecks,
     //!          if the dimensions are different than the previous set dimensions.
     //!
     //! \return false if an error occurs (e.g. bindingIndex is out of range for the currently selected
@@ -3117,7 +2987,7 @@ public:
     //!
     //! If setBindingDimensions() has been called on this binding (or if there are no
     //! dynamic dimensions), all dimensions will be positive. Otherwise, it is necessary to
-    //! call setBindingDimensions() before enqueueV2() or executeV2() may be called.
+    //! call setBindingDimensions() before executeV2() may be called.
     //!
     //! If the bindingIndex is out of range, an invalid Dims with nbDims == -1 is returned.
     //! The same invalid Dims will be returned if the engine was not built with an implicit
@@ -3191,12 +3061,12 @@ public:
     //!         the product of the dimensions returned by getBindingDimensions(bindingIndex).
     //!
     //! If ICudaEngine::isShapeBinding(bindingIndex) and ICudaEngine::bindingIsInput(bindingIndex)
-    //! are both true, this method must be called before enqueueV2() or executeV2() may be called.
+    //! are both true, this method must be called before executeV2() may be called.
     //! This method will fail unless a valid optimization profile is defined for the current
     //! execution context (getOptimizationProfile() must not be -1).
     //!
     //! \warning This function will trigger layer resource updates on the next call of
-    //!          enqueueV2()/executeV2(), possibly resulting in performance bottlenecks, if the
+    //!          executeV2(), possibly resulting in performance bottlenecks, if the
     //!          shapes are different than the previous set shapes.
     //!
     //! \return false if an error occurs (e.g. bindingIndex is out of range for the currently selected
@@ -3326,39 +3196,6 @@ public:
     }
 
     //!
-    //! \brief Enqueue inference on a stream.
-    //!
-    //! This method requires an array of input and output buffers. The mapping from tensor names to indices can be
-    //! queried using ICudaEngine::getBindingIndex().
-    //! This method only works for execution contexts built with full dimension networks.
-    //! \param bindings An array of pointers to input and output buffers for the network.
-    //! \param stream A cuda stream on which the inference kernels will be enqueued
-    //! \param inputConsumed An optional event which will be signaled when the input buffers can be refilled with new
-    //! data
-    //!
-    //! \return True if the kernels were enqueued successfully.
-    //!
-    //! \deprecated Superseded by enqueueV3(). Deprecated in TensorRT 8.5
-    //!
-    //! \see ICudaEngine::getBindingIndex() ICudaEngine::getMaxBatchSize() IExecutionContext::enqueueV3()
-    //!
-    //! \note Calling enqueueV2() with a stream in CUDA graph capture mode has a known issue. If dynamic shapes are
-    //!       used, the first enqueueV2() call after a setInputShapeBinding() call will cause failure in stream capture
-    //!       due to resource allocation. Please call enqueueV2() once before capturing the graph.
-    //!
-    //! \warning Calling enqueueV2() in from the same IExecutionContext object with different CUDA streams concurrently
-    //!          results in undefined behavior. To perform inference concurrently in multiple streams, use one execution
-    //!          context per stream.
-    //!
-    //! \warning Using default stream may lead to performance issues due to additional cudaDeviceSynchronize() calls by
-    //!          TensorRT to ensure correct synchronizations. Please use non-default stream instead.
-    //!
-    TRT_DEPRECATED bool enqueueV2(void* const* bindings, cudaStream_t stream, cudaEvent_t* inputConsumed) noexcept
-    {
-        return mImpl->enqueueV2(bindings, stream, inputConsumed);
-    }
-
-    //!
     //! \brief Select an optimization profile for the current context with async
     //! semantics.
     //!
@@ -3373,7 +3210,7 @@ public:
     //! application’s responsibility to guarantee that synchronization between
     //! the profile sync stream and the enqueue stream occurs.
     //!
-    //! The selected profile will be used in subsequent calls to executeV2()/enqueueV2()/enqueueV3().
+    //! The selected profile will be used in subsequent calls to executeV2()/enqueueV3().
     //! If the associated CUDA engine has inputs with dynamic shapes, the optimization profile must
     //! be set with its corresponding profileIndex before calling execute or enqueue. If no execution
     //! context is assigned optimization profile 0 and a new context is created for an engine,
@@ -3387,10 +3224,10 @@ public:
     //! setOptimizationProfileAsync() must be called before calling
     //! setBindingDimensions() and setInputShapeBinding() for all dynamic input
     //! tensors or input shape tensors, which in turn must be called before
-    //! executeV2()/enqueueV2()/enqueueV3().
+    //! executeV2()/enqueueV3().
     //!
     //! \warning This function will trigger layer resource updates on the next call of
-    //!          enqueueV2()/executeV2()/enqueueV3(), possibly resulting in performance bottlenecks.
+    //!          executeV2()/enqueueV3(), possibly resulting in performance bottlenecks.
     //!
     //! \warning Not synchronizing the stream used at enqueue with the stream
     //! used to set optimization profile asynchronously using this API will
@@ -3749,7 +3586,7 @@ public:
     //!
     //! \brief Set the verbosity of the NVTX markers in the execution context.
     //!
-    //! Building with kDETAILED verbosity will generally increase latency in enqueueV2/enqueueV3(). Call this method
+    //! Building with kDETAILED verbosity will generally increase latency in enqueueV3(). Call this method
     //! to select NVTX verbosity in this execution context at runtime.
     //!
     //! The default is the verbosity with which the engine was built, and the verbosity may not be raised above that
@@ -4083,5 +3920,22 @@ protected:
 };
 
 } // namespace nvinfer1
+
+//!
+//! \brief Return the library major version number.
+//!
+extern "C" TENSORRTAPI int32_t getInferLibMajorVersion() noexcept;
+//!
+//! \brief Return the library minor version number.
+//!
+extern "C" TENSORRTAPI int32_t getInferLibMinorVersion() noexcept;
+//!
+//! \brief Return the library patch version number.
+//!
+extern "C" TENSORRTAPI int32_t getInferLibPatchVersion() noexcept;
+//!
+//! \brief Return the library build version number.
+//!
+extern "C" TENSORRTAPI int32_t getInferLibBuildVersion() noexcept;
 
 #endif // NV_INFER_RUNTIME_H

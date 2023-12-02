@@ -87,20 +87,7 @@ public:
     //!
     //! \brief Move from another LazilyDeserializedEngine.
     //!
-    LazilyDeserializedEngine(LazilyDeserializedEngine&& other)
-    {
-        mIsSafe = other.mIsSafe;
-        mVersionCompatible = other.mVersionCompatible;
-        mDLACore = other.mDLACore;
-        mEngineBlob = std::move(other.mEngineBlob);
-        mEngineBlobHostMemory = std::move(other.mEngineBlobHostMemory);
-        mEngine = std::move(other.mEngine);
-        mSafeEngine = std::move(other.mSafeEngine);
-        mTempdir = std::move(other.mTempdir);
-        mTempfileControls = other.mTempfileControls;
-        mLeanDLLPath = std::move(other.mLeanDLLPath);
-        mDynamicPlugins = std::move(other.mDynamicPlugins);
-    }
+    LazilyDeserializedEngine(LazilyDeserializedEngine&& other) = default;
 
     //!
     //! \brief Delete copy constructor.

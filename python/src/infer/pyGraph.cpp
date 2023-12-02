@@ -23,13 +23,6 @@
 #if ENABLE_INETWORK_SERIALIZE
 #include "NvInferSerialize.h"
 #endif
-
-// remove md
-#if ENABLE_MDTRT
-#include "api/internal.h"
-#include <algorithm>
-#include <vector>
-#endif
 #include "infer/pyGraphDoc.h"
 
 // clang-format off
@@ -115,11 +108,6 @@ namespace tensorrt
             return self.addPluginV2(inputs.data(), inputs.size(), plugin);
         };
 
-        IConvolutionLayer* add_convolution(INetworkDefinition& self, ITensor& input, int32_t numOutputMaps, DimsHW kernelSize, Weights kernel, Weights* bias)
-        {
-            return self.addConvolution(input, numOutputMaps, kernelSize, kernel, optionalWeights(bias));
-        };
-
         static const auto add_convolution_nd = [](INetworkDefinition& self, ITensor& input, int32_t numOutputMaps, Dims kernelSize, Weights kernel, Weights* bias)
         {
             return self.addConvolutionNd(input, numOutputMaps, kernelSize, kernel, optionalWeights(bias));
@@ -153,11 +141,6 @@ namespace tensorrt
         static const auto add_dequantize = [](INetworkDefinition& self, ITensor& input, ITensor& scale)
         {
             return self.addDequantize(input, scale);
-        };
-
-        IDeconvolutionLayer* add_deconvolution(INetworkDefinition& self, ITensor& input, int32_t numOutputMaps, DimsHW kernelSize, Weights kernel, Weights* bias)
-        {
-            return self.addDeconvolution(input, numOutputMaps, kernelSize, kernel, optionalWeights(bias));
         };
 
         static const auto add_scatter = [](INetworkDefinition& self, ITensor& data, ITensor& indices, ITensor& updates, ScatterMode mode)
@@ -271,32 +254,6 @@ namespace tensorrt
                 return py::cast(self.getBeta());
         };
 
-// remove md
-#if ENABLE_MDTRT
-        // Used for setting the tiling based on a python list.
-        static auto set_tiling(ITensor& self, std::vector<int64_t> const& pattern,
-                std::vector<int64_t> const& assignment)
-        {
-            Dims d;
-            d.nbDims = pattern.size();
-            std::fill(d.d, d.d + Dims::MAX_DIMS, 1);
-            std::copy_n(pattern.begin(), d.nbDims, d.d);
-            PY_ASSERT_VALUE_ERROR(nvinfer1SetTilingPattern(self, d), "Provided tiling pattern is incorrect");
-            for (int64_t i = 0, e = assignment.size(); i < e; ++i)
-            {
-                PY_ASSERT_VALUE_ERROR(nvinfer1SetTilingAssignment(self, i, assignment[i]), "Provided tiling assignment is incorrect");
-            }
-        }
-
-        static auto set_tiling_pattern_with_check = [](ITensor& self, Dims const& d) {
-            PY_ASSERT_VALUE_ERROR(nvinfer1SetTilingPattern(self, d), "Provided tiling pattern is incorrect");
-        };
-
-        static auto set_tiling_assignment_with_check = [](ITensor& self, int64_t tileID, int64_t instanceID) {
-            PY_ASSERT_VALUE_ERROR(nvinfer1SetTilingAssignment(self, tileID, instanceID), "Provided tiling assignment is incorrect");
-        };
-#endif
-
     } /* lambdas */
 
     void bindGraph(py::module& m)
@@ -393,14 +350,6 @@ namespace tensorrt
             .def("reset_dynamic_range", &ITensor::resetDynamicRange, ITensorDoc::reset_dynamic_range)
             .def("set_dimension_name", &ITensor::setDimensionName, "index"_a, "name"_a, ITensorDoc::set_dimension_name)
             .def("get_dimension_name", &ITensor::getDimensionName, "index"_a, ITensorDoc::get_dimension_name)
-// remove md
-#if ENABLE_MDTRT
-            .def_property("tiling_pattern", &nvinfer1GetTilingPattern, lambdas::set_tiling_pattern_with_check)
-            .def_property_readonly("num_tiles", &nvinfer1GetNbTiles)
-            .def("set_tile_assignment", lambdas::set_tiling_assignment_with_check, "tile"_a, "instance"_a, ITensorDoc::set_tiling_assignment)
-            .def("get_tile_assignment", &nvinfer1GetTilingAssignment, "tile"_a, ITensorDoc::get_tiling_assignment)
-            .def("set_tiling", lambdas::set_tiling, "pattern"_a, "assignment"_a, ITensorDoc::set_tiling)
-#endif // ENABLE_MDTRT
         ;
 
         py::class_<ILayer, std::unique_ptr<ILayer, py::nodelete>>(m, "ILayer", ILayerDoc::descr, py::module_local())
@@ -431,10 +380,7 @@ namespace tensorrt
         ;
 
         py::class_<IConvolutionLayer, ILayer, std::unique_ptr<IConvolutionLayer, py::nodelete>>(m, "IConvolutionLayer", IConvolutionLayerDoc::descr, py::module_local())
-            .def_property("kernel_size", utils::deprecateMember(&IConvolutionLayer::getKernelSize, "kernel_size_nd"), utils::deprecateMember(&IConvolutionLayer::setKernelSize, "kernel_size_nd"))
             .def_property("num_output_maps", &IConvolutionLayer::getNbOutputMaps, &IConvolutionLayer::setNbOutputMaps)
-            .def_property("stride", utils::deprecateMember(&IConvolutionLayer::getStride, "stride_nd"), utils::deprecateMember(&IConvolutionLayer::setStride, "stride_nd"))
-            .def_property("padding", utils::deprecateMember(&IConvolutionLayer::getPadding, "padding_nd"), utils::deprecateMember(&IConvolutionLayer::setPadding, "padding_nd"))
             .def_property("pre_padding", &IConvolutionLayer::getPrePadding, &IConvolutionLayer::setPrePadding)
             .def_property("post_padding", &IConvolutionLayer::getPostPadding, &IConvolutionLayer::setPostPadding)
             .def_property("padding_mode", &IConvolutionLayer::getPaddingMode, &IConvolutionLayer::setPaddingMode)
@@ -442,7 +388,6 @@ namespace tensorrt
             // Return numpy arrays instead of weights.
             .def_property("kernel", lambdas::conv_get_kernel, py::cpp_function(&IConvolutionLayer::setKernelWeights, py::keep_alive<1, 2>{}))
             .def_property("bias", lambdas::conv_get_bias, py::cpp_function(&IConvolutionLayer::setBiasWeights, py::keep_alive<1, 2>{}))
-            .def_property("dilation", utils::deprecateMember(&IConvolutionLayer::getDilation, "dilation_nd"), utils::deprecateMember(&IConvolutionLayer::setDilation, "dilation_nd"))
             .def_property("kernel_size_nd", &IConvolutionLayer::getKernelSizeNd, &IConvolutionLayer::setKernelSizeNd)
             .def_property("stride_nd", &IConvolutionLayer::getStrideNd, &IConvolutionLayer::setStrideNd)
             .def_property("padding_nd", &IConvolutionLayer::getPaddingNd, &IConvolutionLayer::setPaddingNd)
@@ -486,9 +431,6 @@ namespace tensorrt
 
         py::class_<IPoolingLayer, ILayer, std::unique_ptr<IPoolingLayer, py::nodelete>>(m, "IPoolingLayer", IPoolingLayerDoc::descr, py::module_local())
             .def_property("type", &IPoolingLayer::getPoolingType, &IPoolingLayer::setPoolingType)
-            .def_property("window_size", utils::deprecateMember(&IPoolingLayer::getWindowSize, "windnow_size_nd"), utils::deprecateMember(&IPoolingLayer::setWindowSize, "windnow_size_nd"))
-            .def_property("stride", utils::deprecateMember(&IPoolingLayer::getStride, "stride_nd"), utils::deprecateMember(&IPoolingLayer::setStride, "stride_nd"))
-            .def_property("padding", utils::deprecateMember(&IPoolingLayer::getPadding, "padding_nd"), utils::deprecateMember(&IPoolingLayer::setPadding, "padding_nd"))
             .def_property("pre_padding", &IPoolingLayer::getPrePadding, &IPoolingLayer::setPrePadding)
             .def_property("post_padding", &IPoolingLayer::getPostPadding, &IPoolingLayer::setPostPadding)
             .def_property("padding_mode", &IPoolingLayer::getPaddingMode, &IPoolingLayer::setPaddingMode)
@@ -540,9 +482,6 @@ namespace tensorrt
         ;
 
         py::class_<IDeconvolutionLayer, ILayer, std::unique_ptr<IDeconvolutionLayer, py::nodelete>>(m, "IDeconvolutionLayer", IDeconvolutionLayerDoc::descr, py::module_local())
-            .def_property("kernel_size", utils::deprecateMember(&IDeconvolutionLayer::getKernelSize, "kernel_size_nd"), utils::deprecateMember(&IDeconvolutionLayer::setKernelSize, "kernel_size_nd"))
-            .def_property("stride", utils::deprecateMember(&IDeconvolutionLayer::getStride, "stride_nd"), utils::deprecateMember(&IDeconvolutionLayer::setStride, "stride_nd"))
-            .def_property("padding", utils::deprecateMember(&IDeconvolutionLayer::getPadding, "padding_nd"), utils::deprecateMember(&IDeconvolutionLayer::setPadding, "padding_nd"))
             .def_property("num_output_maps", &IDeconvolutionLayer::getNbOutputMaps, &IDeconvolutionLayer::setNbOutputMaps)
             .def_property("pre_padding", &IDeconvolutionLayer::getPrePadding, &IDeconvolutionLayer::setPrePadding)
             .def_property("post_padding", &IDeconvolutionLayer::getPostPadding, &IDeconvolutionLayer::setPostPadding)
@@ -694,8 +633,6 @@ namespace tensorrt
         ;
 
         py::class_<IPaddingLayer, ILayer, std::unique_ptr<IPaddingLayer, py::nodelete>>(m, "IPaddingLayer", IPaddingLayerDoc::descr, py::module_local())
-            .def_property("pre_padding", utils::deprecateMember(&IPaddingLayer::getPrePadding, "pre_padding_nd"), utils::deprecateMember(&IPaddingLayer::setPrePadding, "pre_padding_nd"))
-            .def_property("post_padding", utils::deprecateMember(&IPaddingLayer::getPostPadding, "post_padding_nd"), utils::deprecateMember(&IPaddingLayer::setPostPadding, "post_padding_nd"))
             .def_property("pre_padding_nd", &IPaddingLayer::getPrePaddingNd, &IPaddingLayer::setPrePaddingNd)
             .def_property("post_padding_nd", &IPaddingLayer::getPostPaddingNd, &IPaddingLayer::setPostPaddingNd)
         ;
@@ -739,7 +676,6 @@ namespace tensorrt
 
         py::enum_<SampleMode>(m, "SampleMode", SampleModeDoc::descr, py::module_local())
             .value("STRICT_BOUNDS", SampleMode::kSTRICT_BOUNDS, SampleModeDoc::STRICT_BOUNDS)
-            .value("DEFAULT", SampleMode::kDEFAULT, SampleModeDoc::DEFAULT)
             .value("WRAP", SampleMode::kWRAP, SampleModeDoc::WRAP)
             .value("CLAMP", SampleMode::kCLAMP, SampleModeDoc::CLAMP)
             .value("FILL", SampleMode::kFILL, SampleModeDoc::FILL)
@@ -942,15 +878,6 @@ namespace tensorrt
             .def_property("compute_precision", &INormalizationLayer::getComputePrecision, &INormalizationLayer::setComputePrecision)
         ;
 
-// remove md
-#if ENABLE_MDTRT
-        py::class_<IInstanceSplitLayer, ILayer, std::unique_ptr<IInstanceSplitLayer, py::nodelete>>(m, "IInstanceSplitLayer", IInstanceSplitLayerDoc::descr, py::module_local())
-        ;
-
-        py::class_<IInstanceJoinLayer, ILayer, std::unique_ptr<IInstanceJoinLayer, py::nodelete>>(m, "IInstanceJoinLayer", IInstanceJoinLayerDoc::descr, py::module_local())
-        ;
-#endif // ENABLE_MDTRT
-
         // Weights must be kept alive for the duration of the network. py::keep_alive is critical here!
         // Additionally, we use reference_internal so that pybind11 does not free layers when they go out of scope.
         py::class_<INetworkDefinition>(m, "INetworkDefinition", INetworkDefinitionDoc::descr, py::module_local())
@@ -959,16 +886,12 @@ namespace tensorrt
             .def_property_readonly("num_inputs", &INetworkDefinition::getNbInputs)
             .def_property_readonly("num_outputs", &INetworkDefinition::getNbOutputs)
             .def_property_readonly("has_implicit_batch_dimension", &INetworkDefinition::hasImplicitBatchDimension)
-            .def_property_readonly("has_explicit_precision", &INetworkDefinition::hasExplicitPrecision)
             .def_property("error_recorder", &INetworkDefinition::getErrorRecorder,
                 py::cpp_function(&INetworkDefinition::setErrorRecorder, py::keep_alive<1, 2>{}))
             .def("mark_output", &INetworkDefinition::markOutput, "tensor"_a, INetworkDefinitionDoc::mark_output)
             // Layers
             .def("add_input", &INetworkDefinition::addInput, "name"_a, "dtype"_a, "shape"_a,
                 INetworkDefinitionDoc::add_input, py::return_value_policy::reference_internal)
-            .def("add_convolution", utils::deprecate(lambdas::add_convolution, "add_convolution_nd"), "input"_a, "num_output_maps"_a, "kernel_shape"_a,
-                "kernel"_a, "bias"_a=nullptr, py::keep_alive<1, 5>{}, py::keep_alive<1, 6>{}, INetworkDefinitionDoc::add_convolution,
-                py::return_value_policy::reference_internal)
             .def("add_convolution_nd", lambdas::add_convolution_nd, "input"_a, "num_output_maps"_a,
                 "kernel_shape"_a, "kernel"_a, "bias"_a=nullptr, py::keep_alive<1, 5>{}, py::keep_alive<1, 6>{},
                 INetworkDefinitionDoc::add_convolution_nd, py::return_value_policy::reference_internal)
@@ -977,8 +900,6 @@ namespace tensorrt
                 py::return_value_policy::reference_internal)
             .def("add_activation", &INetworkDefinition::addActivation, "input"_a, "type"_a,
                 INetworkDefinitionDoc::add_activation, py::return_value_policy::reference_internal)
-            .def("add_pooling", utils::deprecateMember(&INetworkDefinition::addPooling, "add_pooling_nd"), "input"_a, "type"_a, "window_size"_a,
-                INetworkDefinitionDoc::add_pooling, py::return_value_policy::reference_internal)
             .def("add_pooling_nd", &INetworkDefinition::addPoolingNd, "input"_a, "type"_a, "window_size"_a,
                 INetworkDefinitionDoc::add_pooling_nd, py::return_value_policy::reference_internal)
             .def("add_lrn", &INetworkDefinition::addLRN, "input"_a, "window"_a, "alpha"_a, "beta"_a, "k"_a,
@@ -993,9 +914,6 @@ namespace tensorrt
                 py::return_value_policy::reference_internal)
             .def("add_concatenation", lambdas::add_concatenation, "inputs"_a, INetworkDefinitionDoc::add_concatenation,
                 py::return_value_policy::reference_internal)
-            .def("add_deconvolution", utils::deprecate(lambdas::add_deconvolution, "add_deconvolution_nd"), "input"_a, "num_output_maps"_a,
-                "kernel_shape"_a, "kernel"_a, "bias"_a=nullptr, py::keep_alive<1, 5>{}, py::keep_alive<1, 6>{},
-                INetworkDefinitionDoc::add_deconvolution, py::return_value_policy::reference_internal)
             .def("add_deconvolution_nd", lambdas::add_deconvolution_nd, "input"_a, "num_output_maps"_a,
                 "kernel_shape"_a, "kernel"_a, "bias"_a=nullptr, py::keep_alive<1, 5>{}, py::keep_alive<1, 6>{},
                 INetworkDefinitionDoc::add_deconvolution_nd, py::return_value_policy::reference_internal)
@@ -1003,8 +921,6 @@ namespace tensorrt
                 INetworkDefinitionDoc::add_elementwise, py::return_value_policy::reference_internal)
             .def("add_unary", &INetworkDefinition::addUnary, "input"_a, "op"_a, INetworkDefinitionDoc::add_unary,
                 py::return_value_policy::reference_internal)
-            .def("add_padding", utils::deprecateMember(&INetworkDefinition::addPadding, "add_padding_nd"), "input"_a, "pre_padding"_a, "post_padding"_a,
-                INetworkDefinitionDoc::add_padding, py::return_value_policy::reference_internal)
             .def("add_padding_nd", &INetworkDefinition::addPaddingNd, "input"_a, "pre_padding"_a, "post_padding"_a,
                 INetworkDefinitionDoc::add_padding_nd, py::return_value_policy::reference_internal)
             .def("add_shuffle", &INetworkDefinition::addShuffle, "input"_a, INetworkDefinitionDoc::add_shuffle,
@@ -1096,15 +1012,6 @@ namespace tensorrt
                 py::return_value_policy::reference)
             .def_property_readonly("flags", &INetworkDefinition::getFlags)
             .def("get_flag", &INetworkDefinition::getFlag, "flag"_a, INetworkDefinitionDoc::get_flag)
-// remove md
-#if ENABLE_MDTRT
-#if 0
-            .def("add_instance_split", &nvinfer1AddInstanceSplit, "input"_a, INetworkDefinitionDoc::add_instance_split,
-                py::return_value_policy::reference_internal)
-            .def("add_instance_join", &nvinfer1AddInstanceJoin, "input"_a, "num_inputs"_a, INetworkDefinitionDoc::add_instance_join,
-                py::return_value_policy::reference_internal)
-#endif
-#endif // ENABLE_MDTRT
 #if ENABLE_INETWORK_SERIALIZE
             // Serialization
             .def("serialize", lambdas::network_serialize, INetworkDefinitionDoc::serialize)
@@ -1116,8 +1023,5 @@ namespace tensorrt
             .def("__del__", &utils::doNothingDel<INetworkDefinition>)
         ;
 
-        //Aliasing deprecated enums
-        m.attr("ResizeMode") = m.attr("InterpolationMode");
-        m.attr("SliceMode") = m.attr("SampleMode");
     }
 } /* tensorrt */

@@ -118,7 +118,7 @@ public:
     //! Do not override this method as it is used by the TensorRT library to maintain backwards-compatibility with
     //! plugins.
     //!
-    //! \return The TensorRT version in the format 1000 * major + 100 * minor + patch.
+    //! \return The TensorRT version in the format (major * 100 + minor) * 100 + patch.
     //!
     //! \usage
     //! - Allowed context for the API call
@@ -632,7 +632,8 @@ protected:
     //! \brief Return the API version with which this plugin was built. The
     //!  upper byte reserved by TensorRT and is used to differentiate this from IPluginV2.
     //!
-    //! \return In the lower three bytes, the TensorRT version in the format 1000 * major + 100 * minor + patch.
+    //! \return In the lower three bytes, the TensorRT version in the format
+    //!         (major * 100 + minor) * 100 + patch.
     //!         In the upper byte, the value 1.
     //!
     //! Do not override this method as it is used by the TensorRT library to maintain backwards-compatibility with

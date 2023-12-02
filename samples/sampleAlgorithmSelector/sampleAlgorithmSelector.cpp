@@ -104,8 +104,6 @@ public:
             // Write input and output formats.
             for (int32_t j = 0; j < nbInputs + nbOutputs; j++)
             {
-                algorithmFile << static_cast<int32_t>(algoChoices[i]->getAlgorithmIOInfoByIndex(j)->getTensorFormat())
-                              << "\n";
                 algorithmFile << static_cast<int32_t>(algoChoices[i]->getAlgorithmIOInfoByIndex(j)->getDataType())
                               << "\n";
                 Dims const strides = algoChoices[i]->getAlgorithmIOInfoByIndex(j)->getStrides();
@@ -196,8 +194,6 @@ public:
             auto nbFormats = algoItem.nbInputs + algoItem.nbOutputs;
             for (auto j = 0; j < nbFormats; j++)
             {
-                ASSERT(algoItem.inOutIOInfo[j].tensorFormat
-                    == static_cast<int32_t>(algoChoices[i]->getAlgorithmIOInfoByIndex(j)->getTensorFormat()));
                 ASSERT(algoItem.inOutIOInfo[j].dataType
                     == static_cast<int32_t>(algoChoices[i]->getAlgorithmIOInfoByIndex(j)->getDataType()));
                 Dims const strides = algoChoices[i]->getAlgorithmIOInfoByIndex(j)->getStrides();
@@ -247,8 +243,6 @@ public:
             for (int32_t i = 0; i < nbFormats; i++)
             {
                 getline(algorithmFile, line);
-                algoItem.inOutIOInfo[i].tensorFormat = std::stoi(line);
-                getline(algorithmFile, line);
                 algoItem.inOutIOInfo[i].dataType = std::stoi(line);
 
                 getline(algorithmFile, line);
@@ -273,7 +267,6 @@ public:
 private:
     struct AlgorithmIOCache
     {
-        int32_t tensorFormat{};
         int32_t dataType{};
         Dims strides{};
         int64_t vectorDim{};
@@ -304,9 +297,7 @@ private:
         auto const nbFormats = algoCacheItem.nbInputs + algoCacheItem.nbOutputs;
         for (auto j = 0; j < nbFormats; j++)
         {
-            if (algoCacheItem.inOutIOInfo[j].tensorFormat
-                    != static_cast<int32_t>(algoChoice.getAlgorithmIOInfoByIndex(j)->getTensorFormat())
-                || algoCacheItem.inOutIOInfo[j].dataType
+            if (algoCacheItem.inOutIOInfo[j].dataType
                     != static_cast<int32_t>(algoChoice.getAlgorithmIOInfoByIndex(j)->getDataType())
 
                 || algoCacheItem.inOutIOInfo[j].vectorDim

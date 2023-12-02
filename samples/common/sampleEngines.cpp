@@ -877,11 +877,6 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
 
     setPreviewFeatures(config, build);
 
-    if (build.heuristic)
-    {
-        config.setFlag(BuilderFlag::kENABLE_TACTIC_HEURISTIC);
-    }
-
     if (build.builderOptimizationLevel != defaultBuilderOptimizationLevel)
     {
         config.setBuilderOptimizationLevel(build.builderOptimizationLevel);
@@ -948,7 +943,6 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
     }
 
     config.setProfilingVerbosity(build.profilingVerbosity);
-    config.setMinTimingIterations(build.minTiming);
     config.setAvgTimingIterations(build.avgTiming);
 
     if (build.fp16)

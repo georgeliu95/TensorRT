@@ -980,23 +980,16 @@ bool SampleCharRNNBase::stepOnce(
     // Asynchronously copy data from host input buffers to device input buffers
     buffers.copyInputToDeviceAsync(stream);
 
-    bool useEnqueueV3 = mParams.useILoop;
+    ASSERT(mParams.useILoop);
 
-    if (useEnqueueV3)
+    for (int32_t i = 0; i < mEngine->getNbIOTensors(); i++)
     {
-        for (int32_t i = 0; i < mEngine->getNbIOTensors(); i++)
-        {
-            auto const name = mEngine->getIOTensorName(i);
-            context->setTensorAddress(name, buffers.getDeviceBuffer(name));
-        }
+        auto const name = mEngine->getIOTensorName(i);
+        context->setTensorAddress(name, buffers.getDeviceBuffer(name));
     }
 
     // Asynchronously enqueue the inference work
-    if (useEnqueueV3 ? !context->enqueueV3(stream)
-                     : !context->enqueue(mParams.batchSize, buffers.getDeviceBindings().data(), stream, nullptr))
-    {
-        return false;
-    }
+    ASSERT(context->enqueueV3(stream));
     // Asynchronously copy data from device output buffers to host output buffers
     buffers.copyOutputToHostAsync(stream);
 
@@ -1099,7 +1092,7 @@ void printHelpInfo()
 {
     std::cout << "Usage: ./sample_char_rnn [-h or --help] [-d or --datadir=<path to data directory>]\n";
     std::cout << "--help          Display help information\n";
-    std::cout << "--useILoop      Use ILoop LSTM definition\n";
+    std::cout << "--useILoop      Use ILoop LSTM definition. This is required in TRT 10.0 and beyond\n";
     std::cout << "--datadir       Specify path to a data directory, overriding the default. This option can be used "
                  "multiple times to add multiple directories. If no data directories are given, the default is to use "
                  "data/samples/char-rnn/ and data/char-rnn/"

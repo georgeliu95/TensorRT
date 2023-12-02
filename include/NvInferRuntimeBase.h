@@ -73,7 +73,14 @@ extern "C"
     struct cudnnContext;
 }
 
-#define NV_TENSORRT_VERSION nvinfer1::kNV_TENSORRT_VERSION_IMPL
+//! Construct a single integer denoting TensorRT version.
+//! Usable in preprocessor expressions.
+#define NV_TENSORRT_VERSION_INT(major, minor, patch) ((major) *10000L + (minor) *100L + (patch) *1L)
+
+//! TensorRT version as a single integer.
+//! Usable in preprocessor expressions.
+#define NV_TENSORRT_VERSION NV_TENSORRT_VERSION_INT(NV_TENSORRT_MAJOR, NV_TENSORRT_MINOR, NV_TENSORRT_PATCH)
+
 //!
 //! \namespace nvinfer1
 //!
@@ -81,10 +88,6 @@ extern "C"
 //!
 namespace nvinfer1
 {
-
-static constexpr int32_t kNV_TENSORRT_VERSION_IMPL
-    = (NV_TENSORRT_MAJOR * 1000) + (NV_TENSORRT_MINOR * 100) + NV_TENSORRT_PATCH; //!< major, minor, patch
-
 //! char_t is the type used by TensorRT to represent all valid characters.
 using char_t = char;
 
@@ -916,7 +919,7 @@ struct EnumMaxImpl<TensorIOMode>
 //!
 //! \brief Return the library version number.
 //!
-//! The format is as for TENSORRT_VERSION: (TENSORRT_MAJOR * 1000) + (TENSORRT_MINOR * 100) + TENSOR_PATCH.
+//! The format is as for TENSORRT_VERSION: (MAJOR * 100 + MINOR) * 100 + PATCH
 //!
 extern "C" TENSORRTAPI int32_t getInferLibVersion() noexcept;
 

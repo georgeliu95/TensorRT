@@ -130,7 +130,7 @@ class EngineBuilder:
 
         self.builder = trt.Builder(self.trt_logger)
         self.config = self.builder.create_builder_config()
-        self.config.max_workspace_size = workspace * (2 ** 30)
+        self.config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, workspace * (2 ** 30))
 
         self.batch_size = None
         self.network = None
@@ -200,14 +200,11 @@ class EngineBuilder:
                     ImageBatcher(calib_input, calib_shape, calib_dtype, max_num_images=calib_num_images,
                                  exact_batches=True, config_file=config_file))
 
-        engine_bytes = None
-        try:
-            engine_bytes = self.builder.build_serialized_network(self.network, self.config)
-        except AttributeError:
-            engine = self.builder.build_engine(self.network, self.config)
-            engine_bytes = engine.serialize()
-            del engine
-        assert engine_bytes
+        engine_bytes = self.builder.build_serialized_network(self.network, self.config)
+        if engine_bytes is None:
+            log.error("Failed to create engine")
+            sys.exit(1)
+
         with open(engine_path, "wb") as f:
             log.info("Serializing engine to file: {:}".format(engine_path))
             f.write(engine_bytes)

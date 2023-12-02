@@ -73,14 +73,14 @@ The TopK layer is used to identify the character that has the maximum probabilit
 
 1. Compile the sample by following build instructions in [TensorRT README](https://github.com/NVIDIA/TensorRT/).
 
-2.  Run the sample to generate characters based on the trained model:
+2.  Run the sample to generate characters based on the trained model. Note that useILoop is required to be used with inference API enqueueV3 in TRT 10.0 and beyond.
     ```bash
-    ./sample_char_rnn --datadir=<path/to/data>
+    ./sample_char_rnn --datadir=<path/to/data> --useILoop 
     ```
 
     For example:
     ```bash
-    ./sample_char_rnn --datadir $TRT_DATADIR/char-rnn
+    ./sample_char_rnn --datadir $TRT_DATADIR/char-rnn --useILoop
     ```
 
 3.  Verify that the sample ran successfully. If the sample runs successfully you should see output similar to the following:
