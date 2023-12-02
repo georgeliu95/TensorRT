@@ -18,11 +18,6 @@
 // This contains the core elements of the API, i.e. builder, logger, engine, runtime, context.
 #include "ForwardDeclarations.h"
 #include "utils.h"
-// remove md
-#if ENABLE_MDTRT
-#include "api/internal.h"
-#include "common/internalEngineAPI.h"
-#endif // ENABLE_MDTRT
 #include <chrono>
 #include <iomanip>
 #include <pybind11/stl.h>
@@ -91,25 +86,10 @@ static const auto opt_profile_get_shape_input
 };
 
 // For IExecutionContext
-bool execute(IExecutionContext& self, int32_t batchSize, std::vector<size_t>& bindings) {
-    return self.execute(batchSize, reinterpret_cast<void**>(bindings.data()));
-};
-
-bool execute_async(IExecutionContext& self, int32_t batchSize, std::vector<size_t>& bindings,
-                                      size_t streamHandle, void* inputConsumed) {
-    return self.enqueue(batchSize, reinterpret_cast<void**>(bindings.data()),
-        reinterpret_cast<cudaStream_t>(streamHandle), reinterpret_cast<cudaEvent_t*>(inputConsumed));
-};
 
 static const auto execute_v2 = [](IExecutionContext& self, std::vector<size_t>& bindings) {
     return self.executeV2(reinterpret_cast<void**>(bindings.data()));
 };
-
-static const auto execute_async_v2
-    = [](IExecutionContext& self, std::vector<size_t>& bindings, size_t streamHandle, void* inputConsumed) {
-          return self.enqueueV2(reinterpret_cast<void**>(bindings.data()), reinterpret_cast<cudaStream_t>(streamHandle),
-              reinterpret_cast<cudaEvent_t*>(inputConsumed));
-      };
 
 std::vector<char const*> infer_shapes(IExecutionContext& self)
 {
@@ -208,13 +188,6 @@ static const auto runtime_deserialize_cuda_engine = [](IRuntime& self, py::buffe
     py::buffer_info info = serializedEngine.request();
     return self.deserializeCudaEngine(info.ptr, info.size * info.itemsize);
 };
-// remove md
-#if ENABLE_MDTRT
-static auto const runtime_deserialize_engine = [](IRuntime& self, py::buffer& serializedEngine, int64_t instance) {
-    py::buffer_info info = serializedEngine.request();
-    return nvinfer1DeserializeEngine(self, info.ptr, info.size * info.itemsize, instance);
-};
-#endif // ENABLE_MDTRT
 
 // For ICudaEngine
 bool engine_binding_is_input(ICudaEngine& self, std::string const& name)
@@ -269,33 +242,29 @@ std::vector<Dims> get_tensor_profile_shape(ICudaEngine& self, std::string const&
     return shapes;
 };
 
-std::vector<std::vector<int32_t>> engine_get_profile_shape_input(
-    ICudaEngine& self, int32_t profileIndex, int32_t bindingIndex)
+std::vector<std::vector<int32_t>> get_tensor_profile_values(
+    ICudaEngine& self, int32_t profileIndex, std::string const& tensorName)
 {
-    auto const tensorName = self.getIOTensorName(bindingIndex);
-    bool const isShapeInput{self.isShapeInferenceIO(tensorName) && self.bindingIsInput(bindingIndex)};
+    char const* const name = tensorName.c_str();
+    bool const isShapeInput{self.isShapeInferenceIO(name) && self.getTensorIOMode(name) == TensorIOMode::kINPUT};
     PY_ASSERT_RUNTIME_ERROR(isShapeInput, "Binding index does not correspond to an input shape tensor.");
-
+    Dims const shape = self.getTensorShape(name);
+    PY_ASSERT_RUNTIME_ERROR(shape.nbDims >= 0, "Missing shape for input shape tensor");
+    auto const shapeSize{utils::volume(shape)};
+    PY_ASSERT_RUNTIME_ERROR(shapeSize >= 0, "Negative volume for input shape tensor");
     std::vector<std::vector<int32_t>> shapes{};
-    int32_t const shapeSize{self.getBindingDimensions(bindingIndex).nbDims};
+
     // In the Python bindings, it is impossible to set only one shape in an optimization profile.
-    int32_t const* shapePtr{self.getProfileShapeValues(bindingIndex, profileIndex, OptProfileSelector::kMIN)};
+    int32_t const* shapePtr{self.getProfileTensorValues(name, profileIndex, OptProfileSelector::kMIN)};
     if (shapePtr)
     {
         shapes.emplace_back(shapePtr, shapePtr + shapeSize);
-        shapePtr = self.getProfileShapeValues(bindingIndex, profileIndex, OptProfileSelector::kOPT);
+        shapePtr = self.getProfileTensorValues(name, profileIndex, OptProfileSelector::kOPT);
         shapes.emplace_back(shapePtr, shapePtr + shapeSize);
-        shapePtr = self.getProfileShapeValues(bindingIndex, profileIndex, OptProfileSelector::kMAX);
+        shapePtr = self.getProfileTensorValues(name, profileIndex, OptProfileSelector::kMAX);
         shapes.emplace_back(shapePtr, shapePtr + shapeSize);
     }
     return shapes;
-};
-
-// Overload to allow using binding names instead of indices.
-std::vector<std::vector<int32_t>> engine_get_profile_shape_input_str(
-    ICudaEngine& self, int32_t profileIndex, std::string const& bindingName)
-{
-    return engine_get_profile_shape_input(self, profileIndex, self.getBindingIndex(bindingName.c_str()));
 };
 
 // For IBuilderConfig
@@ -413,12 +382,6 @@ void serialization_config_set_flags(ISerializationConfig& self, uint32_t flags)
         utils::throwPyError(PyExc_RuntimeError, "Provided serialization flags is incorrect");
     }
 }
-// remove md
-#if ENABLE_MDTRT
-static auto set_num_instances_with_check = [](IBuilderConfig& self, int64_t instanceCount) {
-    PY_ASSERT_VALUE_ERROR(nvinfer1SetNbInstances(self, instanceCount), "Provided number of instances is incorrect");
-};
-#endif // ENABLE_MDTRT
 
 } // namespace lambdas
 
@@ -912,20 +875,14 @@ void bindCore(py::module& m)
     py::class_<IProgressMonitor, PyProgressMonitor>(
         m, "IProgressMonitor", IProgressMonitorDoc::descr, py::module_local())
         .def(py::init<>())
-        .def("phase_start", &IProgressMonitor::phaseStart, IProgressMonitorDoc::phase_start, "phase_name"_a, "parent_phase"_a, "num_steps"_a)
-        .def("step_complete", &IProgressMonitor::stepComplete, IProgressMonitorDoc::step_complete, "phase_name"_a, "step"_a)
+        .def("phase_start", &IProgressMonitor::phaseStart, IProgressMonitorDoc::phase_start, "phase_name"_a,
+            "parent_phase"_a, "num_steps"_a)
+        .def("step_complete", &IProgressMonitor::stepComplete, IProgressMonitorDoc::step_complete, "phase_name"_a,
+            "step"_a)
         .def("phase_finish", &IProgressMonitor::phaseFinish, IProgressMonitorDoc::phase_finish, "phase_name"_a);
 
     py::class_<IExecutionContext>(m, "IExecutionContext", IExecutionContextDoc::descr, py::module_local())
-        .def("execute", utils::deprecate(lambdas::execute, "execute_v2"), "batch_size"_a = 1, "bindings"_a,
-            IExecutionContextDoc::execute, py::call_guard<py::gil_scoped_release>{})
-        .def("execute_async", utils::deprecate(lambdas::execute_async, "execute_async_v2"), "batch_size"_a = 1,
-            "bindings"_a, "stream_handle"_a, "input_consumed"_a = nullptr, IExecutionContextDoc::execute_async,
-            py::call_guard<py::gil_scoped_release>{})
         .def("execute_v2", lambdas::execute_v2, "bindings"_a, IExecutionContextDoc::execute_v2,
-            py::call_guard<py::gil_scoped_release>{})
-        .def("execute_async_v2", lambdas::execute_async_v2, "bindings"_a, "stream_handle"_a,
-            "input_consumed"_a = nullptr, IExecutionContextDoc::execute_async_v2,
             py::call_guard<py::gil_scoped_release>{})
         .def_property("debug_sync", &IExecutionContext::getDebugSync, &IExecutionContext::setDebugSync)
         .def_property("profiler", &IExecutionContext::getProfiler,
@@ -996,14 +953,7 @@ void bindCore(py::module& m)
         .def_property("nvtx_verbosity", &IExecutionContext::getNvtxVerbosity, &IExecutionContext::setNvtxVerbosity)
         .def("set_aux_streams", lambdas::set_aux_streams, "aux_streams"_a, IExecutionContextDoc::set_aux_streams)
         .def("__del__", &utils::doNothingDel<IExecutionContext>)
-// remove md
-#if ENABLE_MDTRT
-        .def("set_communicator", &nvinfer1SetCommunicator, "communicator"_a, "type"_a,
-            IExecutionContextDoc::set_communicator)
-        .def("get_communicator", &nvinfer1GetCommunicator, IExecutionContextDoc::get_communicator)
-        .def("get_communicator_type", &nvinfer1GetCommunicatorType, IExecutionContextDoc::get_communicator_type)
-#endif // ENABLE_MDTRT
-        ;
+                ;
 
     py::class_<ICudaEngine>(m, "ICudaEngine", ICudaEngineDoc::descr, py::module_local())
         .def_property_readonly("num_bindings", &ICudaEngine::getNbBindings)
@@ -1057,12 +1007,6 @@ void bindCore(py::module& m)
             "profile_index"_a, "binding"_a, ICudaEngineDoc::get_profile_shape)
         .def("get_profile_shape", utils::deprecate(lambdas::engine_get_profile_shape_str, "get_tensor_profile_shape"),
             "profile_index"_a, "binding"_a, ICudaEngineDoc::get_profile_shape)
-        .def("get_profile_shape_input",
-            utils::deprecate(lambdas::engine_get_profile_shape_input, "get_tensor_profile_shape"), "profile_index"_a,
-            "binding"_a, ICudaEngineDoc::get_profile_shape_input)
-        .def("get_profile_shape_input",
-            utils::deprecate(lambdas::engine_get_profile_shape_input_str, "get_tensor_profile_shape"),
-            "profile_index"_a, "binding"_a, ICudaEngineDoc::get_profile_shape_input)
         .def("is_shape_binding", utils::deprecateMember(&ICudaEngine::isShapeBinding, "is_shape_inference_io"),
             "binding"_a, ICudaEngineDoc::is_shape_binding)
         .def("is_execution_binding", utils::deprecateMember(&ICudaEngine::isExecutionBinding, "get_tensor_location"),
@@ -1158,6 +1102,8 @@ void bindCore(py::module& m)
 
         .def("get_tensor_profile_shape", lambdas::get_tensor_profile_shape, "name"_a, "profile_index"_a,
             ICudaEngineDoc::get_tensor_profile_shape)
+        .def("get_tensor_profile_values", lambdas::get_tensor_profile_values, "name"_a, "profile_index"_a,
+            ICudaEngineDoc::get_tensor_profile_values)
         // End of enqueueV3 related APIs.
         .def_property("error_recorder", &ICudaEngine::getErrorRecorder,
             py::cpp_function(&ICudaEngine::setErrorRecorder, py::keep_alive<1, 2>{}))
@@ -1167,11 +1113,6 @@ void bindCore(py::module& m)
             py::keep_alive<0, 1>{})
         .def_property_readonly("hardware_compatibility_level", &ICudaEngine::getHardwareCompatibilityLevel)
         .def_property_readonly("num_aux_streams", &ICudaEngine::getNbAuxStreams)
-// remove md
-#if ENABLE_MDTRT
-        .def_property_readonly("instance_id", &nvinfer1GetInstanceID)
-        .def_property_readonly("num_instances", &nvinfer1ICudaEngineGetNbInstances)
-#endif // ENABLE_MDTRT
                 .def("__del__", &utils::doNothingDel<ICudaEngine>);
 
     py::enum_<AllocatorFlag>(m, "AllocatorFlag", py::arithmetic{}, AllocatorFlagDoc::descr, py::module_local())
@@ -1199,7 +1140,6 @@ void bindCore(py::module& m)
         .value("INT8", BuilderFlag::kINT8, BuilderFlagDoc::INT8)
         .value("DEBUG", BuilderFlag::kDEBUG, BuilderFlagDoc::DEBUG)
         .value("GPU_FALLBACK", BuilderFlag::kGPU_FALLBACK, BuilderFlagDoc::GPU_FALLBACK)
-        .value("STRICT_TYPES", BuilderFlag::kSTRICT_TYPES, BuilderFlagDoc::STRICT_TYPES)
         .value("REFIT", BuilderFlag::kREFIT, BuilderFlagDoc::REFIT)
         .value("DISABLE_TIMING_CACHE", BuilderFlag::kDISABLE_TIMING_CACHE, BuilderFlagDoc::DISABLE_TIMING_CACHE)
         .value("TF32", BuilderFlag::kTF32, BuilderFlagDoc::TF32)
@@ -1212,8 +1152,6 @@ void bindCore(py::module& m)
         .value("DIRECT_IO", BuilderFlag::kDIRECT_IO, BuilderFlagDoc::DIRECT_IO)
         .value(
             "REJECT_EMPTY_ALGORITHMS", BuilderFlag::kREJECT_EMPTY_ALGORITHMS, BuilderFlagDoc::REJECT_EMPTY_ALGORITHMS)
-        .value(
-            "ENABLE_TACTIC_HEURISTIC", BuilderFlag::kENABLE_TACTIC_HEURISTIC, BuilderFlagDoc::ENABLE_TACTIC_HEURISTIC)
         .value("VERSION_COMPATIBLE", BuilderFlag::kVERSION_COMPATIBLE, BuilderFlagDoc::VERSION_COMPATIBLE)
         .value("EXCLUDE_LEAN_RUNTIME", BuilderFlag::kEXCLUDE_LEAN_RUNTIME, BuilderFlagDoc::EXCLUDE_LEAN_RUNTIME)
         .value("FP8", BuilderFlag::kFP8, BuilderFlagDoc::FP8)
@@ -1292,17 +1230,11 @@ void bindCore(py::module& m)
 
 #if EXPORT_ALL_BINDINGS
     py::class_<IBuilderConfig>(m, "IBuilderConfig", IBuilderConfigDoc::descr, py::module_local())
-        .def_property("min_timing_iterations",
-            utils::deprecateMember(&IBuilderConfig::getMinTimingIterations, "get_avg_timing_iterations"),
-            utils::deprecateMember(&IBuilderConfig::setMinTimingIterations, "set_avg_timing_iterations"))
         .def_property(
             "avg_timing_iterations", &IBuilderConfig::getAvgTimingIterations, &IBuilderConfig::setAvgTimingIterations)
         .def_property("int8_calibrator", &IBuilderConfig::getInt8Calibrator,
             py::cpp_function(&IBuilderConfig::setInt8Calibrator, py::keep_alive<1, 2>{}))
         .def_property("engine_capability", &IBuilderConfig::getEngineCapability, &IBuilderConfig::setEngineCapability)
-        .def_property("max_workspace_size",
-            utils::deprecateMember(&IBuilderConfig::getMaxWorkspaceSize, "get_memory_pool_limit"),
-            utils::deprecateMember(&IBuilderConfig::setMaxWorkspaceSize, "set_memory_pool_limit"))
         .def("set_memory_pool_limit", &IBuilderConfig::setMemoryPoolLimit, "pool"_a, "pool_size"_a,
             IBuilderConfigDoc::set_memory_pool_limit)
         .def("get_memory_pool_limit", &IBuilderConfig::getMemoryPoolLimit, "pool"_a,
@@ -1361,19 +1293,6 @@ void bindCore(py::module& m)
         .def_property("max_aux_streams", &IBuilderConfig::getMaxAuxStreams, &IBuilderConfig::setMaxAuxStreams)
         .def_property("progress_monitor", &IBuilderConfig::getProgressMonitor,
             py::cpp_function(&IBuilderConfig::setProgressMonitor, py::keep_alive<1, 2>{}))
-// remove md
-#if ENABLE_MDTRT
-        // This gets flipped to the C++ API's with TRT-17558
-        .def_property("num_instances", &nvinfer1IBuilderConfigGetNbInstances, lambdas::set_num_instances_with_check)
-        .def("insert_instance_group", &nvinfer1InsertInstanceGroup, "instance"_a, "group"_a,
-            IBuilderConfigDoc::insert_instance_group)
-        .def("remove_instance_group", &nvinfer1RemoveInstanceGroup, "instance"_a, "group"_a,
-            IBuilderConfigDoc::remove_instance_group)
-        .def("get_num_instance_groups", &nvinfer1GetNbInstanceGroups, "instance"_a,
-            IBuilderConfigDoc::get_num_instance_groups)
-        .def("get_instance_group", &nvinfer1GetInstanceGroup, "instance"_a, "num"_a,
-            IBuilderConfigDoc::get_instance_group)
-#endif // ENABLE_MDTRT
                .def("__del__", &utils::doNothingDel<IBuilderConfig>);
 
     py::class_<ISerializationConfig>(m, "ISerializationConfig", ISerializationConfigDoc::descr, py::module_local())
@@ -1413,9 +1332,6 @@ void bindCore(py::module& m)
             py::cpp_function(&IBuilder::setErrorRecorder, py::keep_alive<1, 2>{}))
         .def("create_builder_config", &IBuilder::createBuilderConfig, BuilderDoc::create_builder_config,
             py::keep_alive<0, 1>{})
-        .def("build_engine", utils::deprecateMember(&IBuilder::buildEngineWithConfig, "build_serialized_network"),
-            "network"_a, "config"_a, BuilderDoc::build_engine, py::call_guard<py::gil_scoped_release>{},
-            py::keep_alive<0, 1>{})
         .def("build_serialized_network", &IBuilder::buildSerializedNetwork, "network"_a, "config"_a,
             BuilderDoc::build_serialized_network, py::call_guard<py::gil_scoped_release>{})
         .def("is_network_supported", &IBuilder::isNetworkSupported, "network"_a, "config"_a,
@@ -1433,11 +1349,6 @@ void bindCore(py::module& m)
         .def(py::init(&nvinfer1::createInferRuntime), "logger"_a, RuntimeDoc::init, py::keep_alive<1, 2>{})
         .def("deserialize_cuda_engine", lambdas::runtime_deserialize_cuda_engine, "serialized_engine"_a,
             RuntimeDoc::deserialize_cuda_engine, py::call_guard<py::gil_scoped_release>{}, py::keep_alive<0, 1>{})
-// remove md
-#if ENABLE_MDTRT
-        .def("deserialize_engine", lambdas::runtime_deserialize_engine, "serialized_engine"_a, "instance"_a,
-            RuntimeDoc::deserialize_engine, py::call_guard<py::gil_scoped_release>{}, py::keep_alive<0, 1>{})
-#endif // ENABLE_MDTRT
         .def_property("DLA_core", &IRuntime::getDLACore, &IRuntime::setDLACore)
         .def_property_readonly("num_DLA_cores", &IRuntime::getNbDLACores)
         .def_property("gpu_allocator", nullptr, py::cpp_function(&IRuntime::setGpuAllocator, py::keep_alive<1, 2>{}))

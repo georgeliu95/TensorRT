@@ -34,7 +34,6 @@ namespace sample
 
 // Build default params
 constexpr int32_t maxBatchNotProvided{0};
-constexpr int32_t defaultMinTiming{1};
 constexpr int32_t defaultAvgTiming{8};
 constexpr int32_t defaultMaxAuxStreams{-1};
 constexpr int32_t defaultBuilderOptimizationLevel{-1};
@@ -181,7 +180,6 @@ public:
     double dlaSRAM{-1.0};
     double dlaLocalDRAM{-1.0};
     double dlaGlobalDRAM{-1.0};
-    int32_t minTiming{defaultMinTiming};
     int32_t avgTiming{defaultAvgTiming};
     size_t calibProfile{defaultOptProfileIndex};
     bool tf32{true};
@@ -328,7 +326,6 @@ public:
     TimingCacheMode timingCacheMode{TimingCacheMode::kLOCAL};
     std::string timingCacheFile{};
     SparsityFlag sparsity{SparsityFlag::kDISABLE};
-    int32_t minTiming{defaultMinTiming};
     int32_t avgTiming{defaultAvgTiming};
 
     void parse(Arguments& arguments) override;

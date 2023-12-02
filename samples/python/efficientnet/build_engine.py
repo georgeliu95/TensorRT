@@ -127,7 +127,7 @@ class EngineBuilder:
 
         self.builder = trt.Builder(self.trt_logger)
         self.config = self.builder.create_builder_config()
-        self.config.max_workspace_size = 8 * (2 ** 30)  # 8 GB
+        self.config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 8 * (2 ** 30))  # 8 GB
 
         self.batch_size = None
         self.network = None
@@ -215,9 +215,14 @@ class EngineBuilder:
                         )
                     )
 
-        with self.builder.build_engine(self.network, self.config) as engine, open(engine_path, "wb") as f:
+        engine_bytes = self.builder.build_serialized_network(self.network, self.config)
+        if engine_bytes is None:
+            log.error("Failed to create engine")
+            sys.exit(1)
+
+        with open(engine_path, "wb") as f:
             log.info("Serializing engine to file: {:}".format(engine_path))
-            f.write(engine.serialize())
+            f.write(engine_bytes)
 
 
 def main(args):

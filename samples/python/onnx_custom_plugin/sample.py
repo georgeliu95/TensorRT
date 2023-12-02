@@ -158,9 +158,7 @@ def main():
         if not interactive:
             print(f"Input context: {context_text}")
             print(f"Input query: {query_text}")
-        trt_outputs = common.do_inference_v2(
-            trt_context, bindings=bindings, inputs=inputs, outputs=outputs, stream=stream
-        )
+        trt_outputs = common.do_inference(trt_context, engine=engine, bindings=bindings, inputs=inputs, outputs=outputs, stream=stream)
         start = trt_outputs[1].item()
         end = trt_outputs[0].item()
         answer = context_words[start : end + 1].flatten()

@@ -1028,7 +1028,6 @@ void BuildOptions::parse(Arguments& arguments)
         }
     }
 
-    getAndDelOption(arguments, "--minTiming", minTiming);
     getAndDelOption(arguments, "--avgTiming", avgTiming);
 
     bool best{false};
@@ -1666,7 +1665,6 @@ void SafeBuilderOptions::parse(Arguments& arguments)
     bool noBuilderCache{false};
     getAndDelOption(arguments, "--noBuilderCache", noBuilderCache);
     getAndDelOption(arguments, "--timingCacheFile", timingCacheFile);
-    getAndDelOption(arguments, "--minTiming", minTiming);
     getAndDelOption(arguments, "--avgTiming", avgTiming);
     if (noBuilderCache)
     {
@@ -1924,7 +1922,6 @@ std::ostream& operator<<(std::ostream& os, const BuildOptions& options)
     os << "=== Build Options ==="                                                                                       << std::endl <<
           "Max batch: ";        printBatch(os, options.maxBatch)                                                        << std::endl <<
           "Memory Pools: ";     printMemoryPools(os, options)                                                           << std::endl <<
-          "minTiming: "      << options.minTiming                                                                       << std::endl <<
           "avgTiming: "      << options.avgTiming                                                                       << std::endl <<
           "Precision: ";        printPrecision(os, options)                                                             << std::endl <<
           "LayerPrecisions: " << options.layerPrecisions                                                                << std::endl <<
@@ -2196,8 +2193,6 @@ void BuildOptions::help(std::ostream& os)
           "                                                      poolfmt ::= pool:sizeInMiB"                                                        "\n"
           R"(                                                    pool ::= "workspace"|"dlaSRAM"|"dlaLocalDRAM"|"dlaGlobalDRAM")"                    "\n"
           "  --profilingVerbosity=mode          Specify profiling verbosity. mode ::= layer_names_only|detailed|none (default = layer_names_only)"  "\n"
-          "  --minTiming=M                      Set the minimum number of iterations used in kernel selection (default = "
-                                                                                                                  << defaultMinTiming << ")"        "\n"
           "  --avgTiming=M                      Set the number of times averaged in each iteration for kernel selection (default = "
                                                                                                                   << defaultAvgTiming << ")"        "\n"
           "  --refit                            Mark the engine as refittable. This will allow the inspection of refittable layers "                "\n"
@@ -2507,8 +2502,6 @@ void SafeBuilderOptions::printHelp(std::ostream& os)
           "                                              considered if the weights have the right sparsity pattern)"                         << std::endl <<
           "                                    force   = enable sparse tactics in the builder and force-overwrite the weights to have"       << std::endl <<
           "                                              a sparsity pattern"                                                                 << std::endl <<
-          "  --minTiming=M               Set the minimum number of iterations used in kernel selection (default = "                          << std::endl <<
-          ""                                                                                               << defaultMinTiming << ")"        << std::endl <<
           "  --avgTiming=M               Set the number of times averaged in each iteration for kernel selection (default = "                << std::endl <<
           ""                                                                                               << defaultAvgTiming << ")"        << std::endl <<
           ""                                                                                                                                 << std::endl;

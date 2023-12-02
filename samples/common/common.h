@@ -897,7 +897,7 @@ public:
         : mLibName{name}
     {
 #if defined(_WIN32)
-        mHandle = LoadLibrary(name.c_str());
+        mHandle = LoadLibraryA(name.c_str());
 #else // defined(_WIN32)
         int32_t flags{RTLD_LAZY};
 #if ENABLE_ASAN

@@ -462,8 +462,14 @@ bool SampleProgressMonitor::infer()
     // Asynchronously copy data from host input buffers to device input buffers
     buffers.copyInputToDeviceAsync(stream);
 
+    for (int32_t i = 0; i < mEngine->getNbIOTensors(); i++)
+    {
+        auto const& name = mEngine->getIOTensorName(i);
+        context->setTensorAddress(name, buffers.getDeviceBuffer(name));
+    }
+
     // Asynchronously enqueue the inference work
-    if (!context->enqueueV2(buffers.getDeviceBindings().data(), stream, nullptr))
+    if (!context->enqueueV3(stream))
     {
         return false;
     }

@@ -50,7 +50,7 @@ int32_t npRound(float x)
     {
         return lround(x / 2.0F + 0.5F) * 2;
     }
-    return lround(x + 0.5F);
+    return lround(x);
 }
 
 VoxelGeneratorPlugin::VoxelGeneratorPlugin(int32_t maxVoxels, int32_t maxPoints, int32_t voxelFeatures, float xMin,

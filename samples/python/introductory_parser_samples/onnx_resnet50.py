@@ -47,7 +47,7 @@ def build_engine_onnx(model_file):
     config = builder.create_builder_config()
     parser = trt.OnnxParser(network, TRT_LOGGER)
 
-    config.max_workspace_size = common.GiB(1)
+    config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, common.GiB(1))
     # Load the Onnx model and parse it in order to populate the TensorRT network.
     with open(model_file, "rb") as model:
         if not parser.parse(model.read()):
@@ -55,7 +55,10 @@ def build_engine_onnx(model_file):
             for error in range(parser.num_errors):
                 print(parser.get_error(error))
             return None
-    return builder.build_engine(network, config)
+
+    engine_bytes = builder.build_serialized_network(network, config)
+    runtime = trt.Runtime(TRT_LOGGER)
+    return runtime.deserialize_cuda_engine(engine_bytes)
 
 
 def load_normalized_test_case(test_image, pagelocked_buffer):
@@ -108,7 +111,7 @@ def main():
     test_case = load_normalized_test_case(test_image, inputs[0].host)
     # Run the engine. The output will be a 1D tensor of length 1000, where each value represents the
     # probability that the image corresponds to that label
-    trt_outputs = common.do_inference_v2(context, bindings=bindings, inputs=inputs, outputs=outputs, stream=stream)
+    trt_outputs = common.do_inference(context, engine=engine, bindings=bindings, inputs=inputs, outputs=outputs, stream=stream)
     # We use the highest probability as our prediction. Its index corresponds to the predicted label.
     pred = labels[np.argmax(trt_outputs[0])]
     common.free_buffers(inputs, outputs, stream)

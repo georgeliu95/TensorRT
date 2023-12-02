@@ -209,36 +209,7 @@ constexpr const char* descr = R"trtdoc(
     :ivar is_shape: :class:`bool` Whether the tensor is a shape tensor.
     :ivar allowed_formats: :class:`int32` The allowed set of TensorFormat candidates. This should be an integer consisting of one or more :class:`TensorFormat` s, combined via bitwise OR after bit shifting. For example, ``1 << int(TensorFormat.CHW4) | 1 << int(TensorFormat.CHW32)``.
 )trtdoc"
-// remove md
-#if ENABLE_MDTRT
-                              R"trtdoc(
-    :ivar tiling_pattern: :class:`Dims` Multi-device tensor tile shape.
-    :ivar num_tiles: :class:`int64` The number of tiles for this tensor.
-)trtdoc"
-#endif // ENABLE_MDTRT
 ;
-
-// remove md
-#if ENABLE_MDTRT
-constexpr char const* get_tiling_assignment = R"trtdoc(
-    Get the instance associated with the tile.
-
-    :arg tile: The tile to get the instance mapping of.
-    :returns: The instance associated with the tile or -1 for unassigned.
-)trtdoc";
-constexpr char const* set_tiling_assignment = R"trtdoc(
-    Specify that the tile belongs to a specific instance.
-
-    :arg tile: The tile ID of this tensor.
-    :arg instance: The tile ID of this tensor.
-)trtdoc";
-constexpr char const* set_tiling = R"trtdoc(
-    Set the tiling pattern and assignment.
-
-    :arg pattern: The tiling pattern to assign to the tensor.
-    :arg assignment: The tiling assignment to use for the tensor.
-)trtdoc";
-#endif // ENABLE_MDTRT
 constexpr const char* set_dynamic_range = R"trtdoc(
     Set dynamic range for the tensor.
     NOTE: It is suggested to use ``tensor.dynamic_range = (min, max)`` instead.
@@ -389,17 +360,13 @@ constexpr const char* descr = R"trtdoc(
 
     An optional bias argument is supported, which adds a per-channel constant to each value in the output.
 
-    :ivar kernel_size: :class:`DimsHW` The HW kernel size of the convolution.
     :ivar num_output_maps: :class:`int` The number of output maps for the convolution.
-    :ivar stride: :class:`DimsHW` The stride of the convolution. Default: (1, 1)
-    :ivar padding: :class:`DimsHW` The padding of the convolution. The input will be zero-padded by this number of elements in the height and width directions. If the padding is asymmetric, this value corresponds to the pre-padding. Default: (0, 0)
     :ivar pre_padding: :class:`DimsHW` The pre-padding. The start of input will be zero-padded by this number of elements in the height and width directions. Default: (0, 0)
     :ivar post_padding: :class:`DimsHW` The post-padding. The end of input will be zero-padded by this number of elements in the height and width directions. Default: (0, 0)
     :ivar padding_mode: :class:`PaddingMode` The padding mode. Padding mode takes precedence if both :attr:`IConvolutionLayer.padding_mode` and either :attr:`IConvolutionLayer.pre_padding` or :attr:`IConvolutionLayer.post_padding` are set.
     :ivar num_groups: :class:`int` The number of groups for a convolution. The input tensor channels are divided into this many groups, and a convolution is executed for each group, using a filter per group. The results of the group convolutions are concatenated to form the output. **Note** When using groups in int8 mode, the size of the groups (i.e. the channel count divided by the group count) must be a multiple of 4 for both input and output. Default: 1.
     :ivar kernel: :class:`Weights` The kernel weights for the convolution. The weights are specified as a contiguous array in `GKCRS` order, where `G` is the number of groups, `K` the number of output feature maps, `C` the number of input channels, and `R` and `S` are the height and width of the filter.
     :ivar bias: :class:`Weights` The bias weights for the convolution. Bias is optional. To omit bias, set this to an empty :class:`Weights` object. The bias is applied per-channel, so the number of weights (if non-zero) must be equal to the number of output feature maps.
-    :ivar dilation: :class:`DimsHW` The dilation for a convolution. Default: (1, 1)
     :ivar kernel_size_nd: :class:`Dims` The multi-dimension kernel size of the convolution.
     :ivar stride_nd: :class:`Dims` The multi-dimension stride of the convolution. Default: (1, ..., 1)
     :ivar padding_nd: :class:`Dims` The multi-dimension padding of the convolution. The input will be zero-padded by this number of elements in each dimension. If the padding is asymmetric, this value corresponds to the pre-padding. Default: (0, ..., 0)
@@ -484,9 +451,6 @@ constexpr const char* descr = R"trtdoc(
     A Pooling layer in an :class:`INetworkDefinition` . The layer applies a reduction operation within a window over the input.
 
     :ivar type: :class:`PoolingType` The type of pooling to be performed.
-    :ivar window_size: :class:`DimsHW` The window size for pooling.
-    :ivar stride: :class:`DimsHW` The stride for pooling. Default: (1, 1)
-    :ivar padding: :class:`DimsHW` The padding for pooling. Default: (0, 0)
     :ivar pre_padding: :class:`DimsHW` The pre-padding. The start of input will be zero-padded by this number of elements in the height and width directions. Default: (0, 0)
     :ivar post_padding: :class:`DimsHW` The post-padding. The end of input will be zero-padded by this number of elements in the height and width directions. Default: (0, 0)
     :ivar padding_mode: :class:`PaddingMode` The padding mode. Padding mode takes precedence if both :attr:`IPoolingLayer.padding_mode` and either :attr:`IPoolingLayer.pre_padding` or :attr:`IPoolingLayer.post_padding` are set.
@@ -609,10 +573,7 @@ namespace IDeconvolutionLayerDoc
 constexpr const char* descr = R"trtdoc(
     A deconvolution layer in an :class:`INetworkDefinition` .
 
-    :ivar kernel_size: :class:`DimsHW` The HW kernel size of the convolution.
     :ivar num_output_maps: :class:`int` The number of output feature maps for the deconvolution.
-    :ivar stride: :class:`DimsHW` The stride of the deconvolution. Default: (1, 1)
-    :ivar padding: :class:`DimsHW` The padding of the deconvolution. The input will be zero-padded by this number of elements in the height and width directions. Padding is symmetric. Default: (0, 0)
     :ivar pre_padding: :class:`DimsHW` The pre-padding. The start of input will be zero-padded by this number of elements in the height and width directions. Default: (0, 0)
     :ivar post_padding: :class:`DimsHW` The post-padding. The end of input will be zero-padded by this number of elements in the height and width directions. Default: (0, 0)
     :ivar padding_mode: :class:`PaddingMode` The padding mode. Padding mode takes precedence if both :attr:`IDeconvolutionLayer.padding_mode` and either :attr:`IDeconvolutionLayer.pre_padding` or :attr:`IDeconvolutionLayer.post_padding` are set.
@@ -970,8 +931,6 @@ namespace IPaddingLayerDoc
 constexpr const char* descr = R"trtdoc(
     A padding layer in an :class:`INetworkDefinition` .
 
-    :ivar pre_padding: :class:`DimsHW` The padding that is applied at the start of the tensor. Negative padding results in trimming the edge by the specified amount.
-    :ivar post_padding: :class:`DimsHW` The padding that is applied at the end of the tensor. Negative padding results in trimming the edge by the specified amount
     :ivar pre_padding_nd: :class:`Dims` The padding that is applied at the start of the tensor. Negative padding results in trimming the edge by the specified amount. Only 2 dimensions currently supported.
     :ivar post_padding_nd: :class:`Dims` The padding that is applied at the end of the tensor. Negative padding results in trimming the edge by the specified amount. Only 2 dimensions currently supported.
 )trtdoc";
@@ -1052,7 +1011,7 @@ constexpr const char* descr = R"trtdoc(
     stride = {1, 2}
     output = {{1, 5}}
 
-    When the sliceMode is :const:`SliceMode.CLAMP` or :const:`SliceMode.REFLECT` , for each input dimension, if its size is 0 then the corresponding output dimension must be 0 too.
+    When the sampleMode is :const:`SampleMode.CLAMP` or :const:`SampleMode.REFLECT` , for each input dimension, if its size is 0 then the corresponding output dimension must be 0 too.
 
     A slice layer can produce a shape tensor if the following conditions are met:
 
@@ -1063,7 +1022,7 @@ constexpr const char* descr = R"trtdoc(
 
     The following constraints must be satisfied to execute this layer on DLA:
     * ``start``, ``size``, and ``stride`` are build time constants, either as static :class:`Dims` or as constant input tensors.
-    * sliceMode is :const:`SliceMode.DEFAULT` .
+    * sampleMode is :const:`SampleMode.STRICT_BOUNDS` .
     * Strides are 1 for all dimensions.
     * Slicing is not performed on the first dimension
     * The input tensor has four dimensions
@@ -1071,7 +1030,7 @@ constexpr const char* descr = R"trtdoc(
     :ivar start: :class:`Dims` The start offset.
     :ivar shape: :class:`Dims` The output dimensions.
     :ivar stride: :class:`Dims` The slicing stride.
-    :ivar mode: :class:`SliceMode` Controls how :class:`ISliceLayer` handles out of bounds coordinates.
+    :ivar mode: :class:`SampleMode` Controls how :class:`ISliceLayer` handles out of bounds coordinates.
 )trtdoc";
 
 constexpr const char* set_input = R"trtdoc(
@@ -1088,7 +1047,7 @@ constexpr const char* set_input = R"trtdoc(
         1     The start tensor to begin slicing, N-dimensional for Data, and 1-D for Shape.
         2     The size tensor of the resulting slice, N-dimensional for Data, and 1-D for Shape.
         3     The stride of the slicing operation, N-dimensional for Data, and 1-D for Shape.
-        4     Value for the :const:`SliceMode.FILL` slice mode. Disallowed for other modes.
+        4     Value for the :const:`SampleMode.FILL` slice mode. Disallowed for other modes.
     =====   ==================================================================================
 
     If this function is called with a value greater than 0, then :attr:`num_inputs` changes
@@ -1322,11 +1281,11 @@ constexpr const char* descr = R"trtdoc(
 
     Resize layer currently supports the following configurations:
 
-    * ResizeMode.NEAREST - resizes innermost `m` dimensions of N-D, where 0 < m <= min(3, N) and N > 0.
-    * ResizeMode.LINEAR - resizes innermost `m` dimensions of N-D, where 0 < m <= min(3, N) and N > 0.
-    * ResizeMode.CUBIC - resizes innermost `2` dimensions of N-D, N >= 2.
+    * InterpolationMode.NEAREST - resizes innermost `m` dimensions of N-D, where 0 < m <= min(3, N) and N > 0.
+    * InterpolationMode.LINEAR - resizes innermost `m` dimensions of N-D, where 0 < m <= min(3, N) and N > 0.
+    * InterpolationMode.CUBIC - resizes innermost `2` dimensions of N-D, N >= 2.
 
-    Default resize mode is ResizeMode.NEAREST.
+    Default resize mode is InterpolationMode.NEAREST.
 
     Resize layer provides two ways to resize tensor dimensions:
 
@@ -1359,7 +1318,7 @@ constexpr const char* descr = R"trtdoc(
         3. The last two elements in scales, representing the scale values along height and width dimensions,
         respectively, need to be integer values in the range of [1, 32] for NEAREST mode and [1, 4] for LINEAR.
         Example of DLA-supported scales: [1, 1, 2, 2].
-    :ivar resize_mode: :class:`ResizeMode` Resize mode can be Linear, Cubic or Nearest.
+    :ivar resize_mode: :class:`InterpolationMode` Resize mode can be Linear, Cubic or Nearest.
     :ivar coordinate_transformation: :class:`ResizeCoordinateTransformationDoc` Supported resize coordinate transformation modes are ALIGN_CORNERS, ASYMMETRIC and HALF_PIXEL.
     :ivar selector_for_single_pixel: :class:`ResizeSelector` Supported resize selector modes are FORMULA and UPPER.
     :ivar nearest_rounding: :class:`ResizeRoundMode` Supported resize Round modes are HALF_UP, HALF_DOWN, FLOOR and CEIL.
@@ -2068,29 +2027,6 @@ constexpr const char* descr = R"trtdoc(
 )trtdoc";
 } // namespace INormalizationLayerDoc
 
-// remove md
-#if ENABLE_MDTRT
-namespace IInstanceSplitLayerDoc
-{
-constexpr const char* descr = R"trtdoc(
-    A IInstanceSplit layer in an :class:`INetworkDefinition` .
-
-    Splits an input TensorDictionary into multiple Tensors with the same tile pattern but with the i`th output having it's i`th tile assignment copied from the input Tensor and the rest of the tile assignments being suppressed.
-    All resulting tensors will have the same split pattern and the same tensor dimensions.
-)trtdoc";
-} // namespace IInstanceSplitLayerDoc
-
-namespace IInstanceJoinLayerDoc
-{
-constexpr const char* descr = R"trtdoc(
-    A IInstanceJoin layer in an :class:`INetworkDefinition` .
-
-    Converts multiple Tensors or TensorDictionaries into a TensorDictionary where the output TensorDictionary has the instances assigned linearly from the inputs tile assignments.
-    All Tensors in the inputs must have the same split pattern, tensor dimensions, and cannot have overlapping or duplicate tile assignments.
-)trtdoc";
-} // namespace IInstanceJoinLayerDoc
-#endif // ENABLE_MDTRT
-
 namespace INetworkDefinitionDoc
 {
 constexpr const char* descr = R"trtdoc(
@@ -2101,7 +2037,6 @@ constexpr const char* descr = R"trtdoc(
     :ivar num_outputs: :class:`int` The number of outputs of the network.
     :ivar name: :class:`str` The name of the network. This is used so that it can be associated with a built engine. The name must be at most 128 characters in length. TensorRT makes no use of this string except storing it as part of the engine so that it may be retrieved at runtime. A name unique to the builder will be generated by default.
     :ivar has_implicit_batch_dimension: :class:`bool` Whether the network was created with an implicit batch dimension. This is a network-wide property. Either all tensors in the network have an implicit batch dimension or none of them do. This is True when the INetworkDefinition is created with default flags: ``create_network()``. To specify explicit batch, set the flag: ``create_network(flags=1 << int(tensorrt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))``.
-    :ivar has_explicit_precision: :class:`bool` True if and only if this :class:`INetworkDefinition` was created with ``NetworkDefinitionCreationFlag.EXPLICIT_PRECISION`` set: ``create_network(flags=(1 << int(NetworkDefinitionCreationFlag.EXPLICIT_PRECISION)))``.
     :ivar error_recorder: :class:`IErrorRecorder` Application-implemented error reporting interface for TensorRT objects.
     :flags: :int: A bitset of the ``NetworkDefinitionCreationFlag`` s set for this network.
 )trtdoc";
@@ -2128,19 +2063,6 @@ constexpr const char* mark_output = R"trtdoc(
     Mark a tensor as an output.
 
     :arg tensor: The tensor to mark.
-)trtdoc";
-
-constexpr const char* add_convolution = R"trtdoc(
-    Add a 2D convolution layer to the network.
-    See :class:`IConvolutionLayer` for more information.
-
-    :arg input: The input tensor to the convolution.
-    :arg num_output_maps: The number of output feature maps for the convolution.
-    :arg kernel_shape: The dimensions of the convolution kernel.
-    :arg kernel: The kernel weights for the convolution.
-    :arg bias: The optional bias weights for the convolution.
-
-    :returns: The new convolution layer, or :class:`None` if it could not be created.
 )trtdoc";
 
 constexpr const char* add_convolution_nd = R"trtdoc(
@@ -2176,17 +2098,6 @@ constexpr const char* add_activation = R"trtdoc(
     :arg type: The type of activation function to apply.
 
     :returns: The new activation layer, or :class:`None` if it could not be created.
-)trtdoc";
-
-constexpr const char* add_pooling = R"trtdoc(
-    Add a 2D pooling layer to the network.
-    See :class:`IPoolingLayer` for more information.
-
-    :arg input: The input tensor to the layer.
-    :arg type: The type of pooling to apply.
-    :arg window_size: The size of the pooling window.
-
-    :returns: The new pooling layer, or :class:`None` if it could not be created.
 )trtdoc";
 
 constexpr const char* add_pooling_nd = R"trtdoc(
@@ -2268,19 +2179,6 @@ constexpr const char* add_concatenation = R"trtdoc(
     :returns: The new concatenation layer, or :class:`None` if it could not be created.
 )trtdoc";
 
-constexpr const char* add_deconvolution = R"trtdoc(
-    Add a 2D deconvolution layer to the network.
-    See :class:`IDeconvolutionLayer` for more information.
-
-    :arg input: The input tensor to the layer.
-    :arg num_output_maps: The number of output feature maps.
-    :arg kernel_shape: The dimensions of the convolution kernel.
-    :arg kernel: The kernel weights for the convolution.
-    :arg bias: The optional bias weights for the convolution.
-
-    :returns: The new deconvolution layer, or :class:`None` if it could not be created.
-)trtdoc";
-
 constexpr const char* add_deconvolution_nd = R"trtdoc(
     Add a multi-dimension deconvolution layer to the network.
     See :class:`IDeconvolutionLayer` for more information.
@@ -2321,17 +2219,6 @@ constexpr const char* add_unary = R"trtdoc(
     :arg op: The operation to apply.
 
     :returns: The new unary layer, or :class:`None` if it could not be created.
-)trtdoc";
-
-constexpr const char* add_padding = R"trtdoc(
-    Add a 2D padding layer to the network.
-    See :class:`IPaddingLayer` for more information.
-
-    :arg input: The input tensor to the layer.
-    :arg pre_padding: The padding to apply to the start of the tensor.
-    :arg post_padding: The padding to apply to the end of the tensor.
-
-    :returns: The new padding layer, or :class:`None` if it could not be created.
 )trtdoc";
 
 constexpr const char* add_padding_nd = R"trtdoc(
@@ -2819,32 +2706,6 @@ constexpr char const* add_normalization = R"trtdoc(
 
     :returns: the new Normalization layer, or :class:`None` if it could not be created.
 )trtdoc";
-
-// remove md
-#if ENABLE_MDTRT
-constexpr char const* add_instance_split = R"trtdoc(
-    Adds a InstanceSplit layer to the network.
-    See :class:`InstanceSplit` for more information.
-
-    :arg input: The input tensor to split across instances.
-        Creates a layer that splits a Tensor with N instance assignments into N Tensors with 1 instance assignment.
-
-    :returns: the new InstanceSplit layer, or :class:`None` if it could not be created.
-)trtdoc";
-
-constexpr char const* add_instance_join = R"trtdoc(
-    Adds a InstanceJoin layer to the network.
-    See :class:`InstanceJoin` for more information.
-
-    :arg input: The input tensors to the layer.
-    :arg mun_inputs: The number of input tensors.
-        Creates a layer that takes N Tensors with instances assigned, and converts them to a single
-        tensor with N instances assigned. The N tensors must have the same split pattern and tensor
-        dimensions.
-
-    :returns: the new InstanceJoin layer, or :class:`None` if it could not be created.
-)trtdoc";
-#endif // ENABLE_MDTRT
 
 } // namespace INetworkDefinitionDoc
 

@@ -60,7 +60,7 @@ struct InferenceEnvironment
     //!
     //! It's important that the addresses of the data do not change between the calls to
     //! setTensorAddress/setInputShape (which tells TensorRT where the input shape tensor is)
-    //! and enqueueV2/enqueueV3 (when TensorRT might use the input shape tensor).
+    //! and enqueueV3 (when TensorRT might use the input shape tensor).
     //!
     //! The input shape tensors could alternatively be handled via member bindings,
     //! but it simplifies control-flow to store the data here since it's shared across

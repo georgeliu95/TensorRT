@@ -149,9 +149,6 @@ void bindAlgorithm(py::module& m)
     // IAlgorithmIOInfo
     py::class_<IAlgorithmIOInfo, std::unique_ptr<IAlgorithmIOInfo, py::nodelete>>(
         m, "IAlgorithmIOInfo", IAlgorithmIOInfoDOC::descr, py::module_local())
-        .def_property_readonly("tensor_format",
-            utils::deprecateMember(
-                &IAlgorithmIOInfo::getTensorFormat, "the strides, data type, and vectorization information"))
         .def_property_readonly("dtype", &IAlgorithmIOInfo::getDataType)
         .def_property_readonly("strides", &IAlgorithmIOInfo::getStrides)
         .def_property_readonly("vectorized_dim", &IAlgorithmIOInfo::getVectorizedDim)

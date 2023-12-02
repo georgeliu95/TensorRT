@@ -231,12 +231,12 @@ def memcpy_device_to_host(host_arr: np.ndarray, device_ptr: int):
     cuda_call(cudart.cudaMemcpy(host_arr, device_ptr, nbytes, cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost))
 
 
-def _do_inference_base(inputs, outputs, stream, execute_async):
+def _do_inference_base(inputs, outputs, stream, execute_async_func):
     # Transfer input data to the GPU.
     kind = cudart.cudaMemcpyKind.cudaMemcpyHostToDevice
     [cuda_call(cudart.cudaMemcpyAsync(inp.device, inp.host, inp.nbytes, kind, stream)) for inp in inputs]
     # Run inference.
-    execute_async()
+    execute_async_func()
     # Transfer predictions back from the GPU.
     kind = cudart.cudaMemcpyKind.cudaMemcpyDeviceToHost
     [cuda_call(cudart.cudaMemcpyAsync(out.host, out.device, out.nbytes, kind, stream)) for out in outputs]
@@ -248,15 +248,11 @@ def _do_inference_base(inputs, outputs, stream, execute_async):
 
 # This function is generalized for multiple inputs/outputs.
 # inputs and outputs are expected to be lists of HostDeviceMem objects.
-def do_inference(context, bindings, inputs, outputs, stream, batch_size=1):
-    def execute_async():
-        context.execute_async(batch_size=batch_size, bindings=bindings, stream_handle=stream)
-    return _do_inference_base(inputs, outputs, stream, execute_async)
-
-
-# This function is generalized for multiple inputs/outputs for full dimension networks.
-# inputs and outputs are expected to be lists of HostDeviceMem objects.
-def do_inference_v2(context, bindings, inputs, outputs, stream):
-    def execute_async():
-        context.execute_async_v2(bindings=bindings, stream_handle=stream)
-    return _do_inference_base(inputs, outputs, stream, execute_async)
+def do_inference(context, engine, bindings, inputs, outputs, stream):
+    def execute_async_func():
+        context.execute_async_v3(stream_handle=stream)
+    # Setup context tensor address.
+    num_io = engine.num_io_tensors
+    for i in range(num_io):
+        context.set_tensor_address(engine.get_tensor_name(i), bindings[i])
+    return _do_inference_base(inputs, outputs, stream, execute_async_func)

@@ -410,7 +410,7 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
                 if (isShapeInferenceIO)
                 {
                     // Save the data in iEnv, in a way that it's address does not change
-                    // before enqueueV2 or enqueueV3 is called.
+                    // before enqueueV3 is called.
                     iEnv.inputShapeTensorValues.emplace_back(shapeData);
                     shapeTensorData = iEnv.inputShapeTensorValues.back().data();
                 }
@@ -540,45 +540,6 @@ struct Enqueue
     }
 
     nvinfer1::IExecutionContext& mContext;
-};
-
-//!
-//! \class EnqueueImplicit
-//! \brief Functor to enqueue inference with implicit batch
-//!
-class EnqueueImplicit : private Enqueue
-{
-
-public:
-    explicit EnqueueImplicit(nvinfer1::IExecutionContext& context, void** buffers, int32_t batch)
-        : Enqueue(context)
-        , mBuffers(buffers)
-        , mBatch(batch)
-    {
-    }
-
-    bool operator()(TrtCudaStream& stream) const
-    {
-        try
-        {
-            bool const result = mContext.enqueue(mBatch, mBuffers, stream.get(), nullptr);
-            // Collecting layer timing info from current profile index of execution context
-            if (mContext.getProfiler() && !mContext.getEnqueueEmitsProfile() && !mContext.reportToProfiler())
-            {
-                gLogWarning << "Failed to collect layer timing info from previous enqueue()" << std::endl;
-            }
-            return result;
-        }
-        catch (const std::exception&)
-        {
-            return false;
-        }
-        return false;
-    }
-
-private:
-    void** mBuffers{};
-    int32_t mBatch{};
 };
 
 //!
@@ -909,14 +870,9 @@ private:
     void createEnqueueFunction(
         InferenceOptions const& inference, nvinfer1::IExecutionContext& context, Bindings& bindings)
     {
-        if (context.getEngine().hasImplicitBatchDimension())
-        {
-            mEnqueue = EnqueueFunction(EnqueueImplicit(context, mBindings.getDeviceBuffers(), inference.batch));
-        }
-        else
-        {
-            mEnqueue = EnqueueFunction(EnqueueExplicit(context, mBindings));
-        }
+        // EnqueueImplicit is no longer supported.
+        ASSERT(!context.getEngine().hasImplicitBatchDimension());
+        mEnqueue = EnqueueFunction(EnqueueExplicit(context, mBindings));
         if (inference.graph)
         {
             TrtCudaStream& stream = getStream(StreamType::kCOMPUTE);
