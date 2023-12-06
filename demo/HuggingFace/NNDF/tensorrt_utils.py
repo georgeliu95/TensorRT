@@ -236,8 +236,7 @@ class TRTNativeRunner:
         self.profile_idx = 0
 
         # Other metadata required by the profile
-        self._num_bindings_per_profile = self.trt_engine.num_bindings // self.trt_engine.num_optimization_profiles
-        G_LOGGER.debug("Number of bindings detected in engine: {}".format(self._num_bindings_per_profile))
+        G_LOGGER.debug("Number of IO tensors detected in engine: {}".format(self.trt_engine.num_io_tensors))
 
     def release(self):
         pass
@@ -248,7 +247,7 @@ class TRTNativeRunner:
         # inspired by demo/BERT/inference.py script
         selected_profile_idx = None
         for idx in range(self.trt_engine.num_optimization_profiles):
-            profile_shape = self.trt_engine.get_profile_shape(profile_index=idx, binding=idx * self._num_bindings_per_profile)
+            profile_shape = self.trt_engine.get_profile_shape(profile_index=idx, binding=idx * self.trt_engine.num_io_tensors)
 
             if profile_shape[0][0] <= batch_size and profile_shape[2][0] >= batch_size \
                and profile_shape[0][1] <=  sequence_length and profile_shape[2][1] >= sequence_length:
@@ -262,7 +261,7 @@ class TRTNativeRunner:
         return selected_profile_idx
 
     def __call__(self, *args, **kwargs):
-        self.trt_context.active_optimization_profile = self.profile_idx
+        self.trt_context.set_optimization_profile_async(self.profile_idx, self.stream)
         return self.forward(*args, **kwargs)
 
 class PolygraphyOnnxRunner:

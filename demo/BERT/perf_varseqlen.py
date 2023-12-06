@@ -98,6 +98,9 @@ def main():
                 context.set_input_shape(binding, shape)
             assert len(context.infer_shapes()) == 0
 
+            for i in range(engine.num_io_tensors):
+                context.set_tensor_address(engine.get_tensor_name(i), bindings[i])
+
             # Inference
             total_time = 0
             start = cuda.Event()
@@ -105,7 +108,7 @@ def main():
 
             # Warmup
             for _ in range(args.warm_up_runs):
-                context.execute_async_v2(bindings=bindings, stream_handle=stream.handle)
+                context.execute_async_v3(stream_handle=stream.handle)
                 stream.synchronize()
 
             # Timing loop
@@ -114,7 +117,7 @@ def main():
             start_time = time.time()
             while actual_iterations < args.iterations or (time.time() - start_time) < args.duration:
                 start.record(stream)
-                context.execute_async_v2(bindings=bindings, stream_handle=stream.handle)
+                context.execute_async_v3(stream_handle=stream.handle)
                 end.record(stream)
                 stream.synchronize()
                 times.append(end.time_since(start))

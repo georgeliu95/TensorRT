@@ -134,7 +134,6 @@ if __name__ == '__main__':
 
         # select engine profile
         selected_profile = -1
-        num_binding_per_profile = engine.num_bindings // engine.num_optimization_profiles
         for idx in range(engine.num_optimization_profiles):
             profile_shape = engine.get_tensor_profile_shape(name = "input_ids", profile_index = idx)
             if profile_shape[0][0] <= args.batch_size and profile_shape[2][0] >= args.batch_size and profile_shape[0][1] <= max_seq_length and profile_shape[2][1] >= max_seq_length:
@@ -147,7 +146,7 @@ if __name__ == '__main__':
         stream = cuda.Stream()
 
         context.set_optimization_profile_async(selected_profile, stream.handle)
-        binding_idx_offset = selected_profile * num_binding_per_profile
+        binding_idx_offset = selected_profile * engine.num_io_tensors
 
         # Specify input shapes. These must be within the min/max bounds of the active profile
         # Note that input shapes can be specified on a per-inference basis, but in this case, we only have a single shape.
@@ -188,8 +187,14 @@ if __name__ == '__main__':
                 cuda.memcpy_htod_async(d_inputs[1], segment_ids, stream)
                 cuda.memcpy_htod_async(d_inputs[2], input_mask, stream)
 
+                bindings = [0 for _ in range(binding_idx_offset)] + [int(d_inp) for d_inp in d_inputs] + [int(d_output)]
+                
+                # allocate address for IO tensor
+                for i in range(engine.num_io_tensors): 
+                    context.set_tensor_address(engine.get_tensor_name(i), bindings[i + binding_idx_offset])
+
                 # Run inference
-                context.execute_async_v2(bindings=[0 for i in range(binding_idx_offset)] + [int(d_inp) for d_inp in d_inputs] + [int(d_output)], stream_handle=stream.handle)
+                context.execute_async_v3(stream_handle=stream.handle)
                 # Synchronize the stream
                 stream.synchronize()
                 eval_time_elapsed += (time.time() - eval_start_time)

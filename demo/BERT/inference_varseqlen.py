@@ -177,8 +177,14 @@ if __name__ == '__main__':
                 cuda.memcpy_htod_async(d_inputs[1], h_segment_ids, stream)
                 cuda.memcpy_htod_async(d_inputs[2], h_cu_seq_lens, stream)
 
+                # Setup tensor address
+                bindings = [int(d_inputs[i]) for i in range(3)] + [int(d_output)]
+
+                for i in range(engine.num_io_tensors):
+                    context.set_tensor_address(engine.get_tensor_name(i), bindings[i])
+
                 # Run inference
-                context.execute_async_v2(bindings=[int(d_inp) for d_inp in d_inputs] + [int(d_output)], stream_handle=stream.handle)
+                context.execute_async_v3(stream_handle=stream.handle)
                 # Synchronize the stream
                 stream.synchronize()
                 eval_time_elapsed += (time.time() - eval_start_time)

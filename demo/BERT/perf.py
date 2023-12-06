@@ -77,8 +77,6 @@ def main():
         cuda.memcpy_htod(buffers[1].buf, test_segment_ids.ravel())
         cuda.memcpy_htod(buffers[2].buf, test_input_mask.ravel())
 
-        num_binding_per_profile = engine.num_bindings // engine.num_optimization_profiles
-
         bench_times = {}
 
         stream = cuda.Stream()
@@ -95,13 +93,16 @@ def main():
             context.set_optimization_profile_async(selected_profile, stream.handle)
 
             # Each profile has unique bindings
-            binding_idx_offset = selected_profile * num_binding_per_profile
+            binding_idx_offset = selected_profile * engine.num_io_tensors
             bindings = [0] * binding_idx_offset + [buf.binding() for buf in buffers]
 
             input_shape = (batch_size, args.sequence_length)
             for name in ["input_ids", "segment_ids", "input_mask"]:
                 context.set_input_shape(name, input_shape)
             assert len(context.infer_shapes()) == 0
+
+            for i in range(engine.num_io_tensors):
+                context.set_tensor_address(engine.get_tensor_name(i), bindings[i + binding_idx_offset])
 
             # Inference
             total_time = 0
@@ -110,7 +111,7 @@ def main():
 
             # Warmup
             for _ in range(args.warm_up_runs):
-                context.execute_async_v2(bindings=bindings, stream_handle=stream.handle)
+                context.execute_async_v3(stream_handle=stream.handle)
                 stream.synchronize()
 
             # Timing loop
@@ -119,7 +120,7 @@ def main():
             start_time = time.time()
             while actual_iterations < args.iterations or (time.time() - start_time) < args.duration:
                 start.record(stream)
-                context.execute_async_v2(bindings=bindings, stream_handle=stream.handle)
+                context.execute_async_v3(stream_handle=stream.handle)
                 end.record(stream)
                 stream.synchronize()
                 times.append(end.time_since(start))

@@ -105,11 +105,10 @@ class GPTTRTDecoder(TRTNativeRunner):
     def _set_context_mode_trt_context(self):
         # Create TRT context for context mode (1st decoder run) with optimization profile index = 1
         self.context_trt_context = self.trt_engine.create_execution_context()
-        self.context_trt_context.active_optimization_profile = 1
-        self.kv_cache_binding_offset = self.trt_engine.num_bindings // self.trt_engine.num_optimization_profiles
+        self.context_trt_context.set_optimization_profile_async(1, self.stream)
 
     def get_torch_type(self, name):
-        trt_type = self.trt_engine.get_binding_dtype(name)
+        trt_type = self.trt_engine.get_tensor_dtype(name)
         mapping = {
             trt.float32: torch.float32,
             trt.float16: torch.float16,
@@ -125,31 +124,29 @@ class GPTTRTDecoder(TRTNativeRunner):
         raise ValueError(f"Got unexpected tensorrt dtype {trt_type} in get_torch_type().")
 
     def get_input_ids_name(self):
-        return self.trt_engine.get_binding_name(self.INPUT_IDS_INDEX)
+        return self.trt_engine.get_tensor_name(self.INPUT_IDS_INDEX)
 
     def has_position_ids(self):
         # If the input at POSITION_IDS_INDEX has a dimension of 2, assume it is position_ids.
-        return len(self.trt_engine.get_binding_shape(self.POSITION_IDS_INDEX)) == 2
+        return len(self.trt_engine.get_tensor_shape(self.trt_engine.get_tensor_name(self.POSITION_IDS_INDEX))) == 2
 
     def get_position_ids_name(self):
         if self.has_position_ids():
-            return self.trt_engine.get_binding_name(self.POSITION_IDS_INDEX)
+            return self.trt_engine.get_tensor_name(self.POSITION_IDS_INDEX)
         else:
             return None
 
     def get_output_name(self):
-        if self.use_cache:
-            return self.trt_engine.get_binding_name(self.kv_cache_binding_offset - 1)
-        return self.trt_engine.get_binding_name(self.trt_engine.num_bindings - 1)
+        return self.trt_engine.get_tensor_name(self.trt_engine.num_io_tensors - 1)
 
     def has_attention_mask(self):
-        if self.ATTENTION_MASK_INDEX < self.trt_engine.num_bindings:
-            return self.trt_engine.get_binding_name(self.ATTENTION_MASK_INDEX) == "attention_mask"
+        if self.ATTENTION_MASK_INDEX < self.trt_engine.num_io_tensors:
+            return self.trt_engine.get_tensor_name(self.ATTENTION_MASK_INDEX) == "attention_mask"
         return False
 
     def get_attention_mask_name(self):
         if self.has_attention_mask():
-            return self.trt_engine.get_binding_name(self.ATTENTION_MASK_INDEX)
+            return self.trt_engine.get_tensor_name(self.ATTENTION_MASK_INDEX)
         return None
 
     def run(self, output_name, io_descs, seq_len, context_mode=False):
@@ -180,7 +177,7 @@ class GPTTRTDecoder(TRTNativeRunner):
         else:
             self.past_decoder_length = 0
         # Set active optimization profile and active execution context.
-        self.trt_context.active_optimization_profile = self.profile_idx
+        self.trt_context.set_optimization_profile_async(self.profile_idx, self.stream)
         active_context = self.trt_context
         if context_mode and self.use_cache:
             active_context = self.context_trt_context
