@@ -88,7 +88,7 @@ def main():
         encoder_engine = build_engine(args.encoder, shapes=shapes, fp16=args.fp16, timing_cache=args.timing_cache_file)
         if encoder_engine is not None:
             with open(encoder_path, 'wb') as f:
-                f.write(encoder_engine.serialize())
+                f.write(encoder_engine)
         else:
             print("Failed to build engine from", args.encoder)
             sys.exit(1)
@@ -111,7 +111,7 @@ def main():
             decoder_engine = build_engine(args.decoder, shapes=shapes, fp16=args.fp16, timing_cache=args.timing_cache_file, disable_preview_dynamic_shapes=args.disable_preview_dynamic_shapes)
             if decoder_engine is not None:
                 with open(decoder_path, 'wb') as f:
-                    f.write(decoder_engine.serialize())
+                    f.write(decoder_engine)
             else:
                 print("Failed to build engine from", args.decoder)
                 sys.exit(1)
@@ -133,7 +133,7 @@ def main():
             decoder_iter_engine = build_engine(args.decoder, shapes=shapes, fp16=args.fp16, timing_cache=args.timing_cache_file, disable_preview_dynamic_shapes=args.disable_preview_dynamic_shapes)
             if decoder_iter_engine is not None:
                 with open(decoder_path, 'wb') as f:
-                    f.write(decoder_iter_engine.serialize())
+                    f.write(decoder_iter_engine)
             else:
                 print("Failed to build engine from", args.decoder)
                 sys.exit(1)
@@ -145,7 +145,7 @@ def main():
         postnet_engine = build_engine(args.postnet, shapes=shapes, fp16=args.fp16, timing_cache=args.timing_cache_file, disable_preview_dynamic_shapes=args.disable_preview_dynamic_shapes)
         if postnet_engine is not None:
             with open(postnet_path, 'wb') as f:
-                f.write(postnet_engine.serialize())
+                f.write(postnet_engine)
         else:
             print("Failed to build engine from", args.postnet)
             sys.exit(1)
@@ -158,7 +158,7 @@ def main():
         waveglow_engine = build_engine(args.waveglow, shapes=shapes, fp16=args.fp16, timing_cache=args.timing_cache_file, disable_preview_dynamic_shapes=args.disable_preview_dynamic_shapes)
         if waveglow_engine is not None:
             with open(waveglow_path, 'wb') as f:
-                f.write(waveglow_engine.serialize())
+                f.write(waveglow_engine)
         else:
             print("Failed to build engine from", args.waveglow)
             sys.exit(1)
