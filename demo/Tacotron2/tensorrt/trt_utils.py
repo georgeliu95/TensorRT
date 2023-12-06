@@ -45,18 +45,18 @@ def is_shape_dynamic(shape):
 
 def run_trt_engine(context, engine, tensors):
 
-    bindings = [None]*engine.num_bindings
-    for name,tensor in tensors['inputs'].items():
-        idx = engine.get_binding_index(name)
-        bindings[idx] = tensor.data_ptr()
-        if engine.is_shape_binding(idx) and is_shape_dynamic(context.get_shape(idx)):
-            context.set_shape_input(idx, tensor)
-        elif is_shape_dynamic(engine.get_binding_shape(idx)):
-            context.set_binding_shape(idx, tensor.shape)
+    bindings = [0] * engine.num_io_tensors
 
-    for name,tensor in tensors['outputs'].items():
-        idx = engine.get_binding_index(name)
-        bindings[idx] = tensor.data_ptr()
+    for i in range(engine.num_io_tensors):
+        tensor_name = engine.get_tensor_name(i)
+        if engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
+            tensor = tensors['inputs'][tensor_name]
+            bindings[i] = tensor.data_ptr()
+            if is_shape_dynamic(engine.get_tensor_shape(tensor_name)):
+                context.set_input_shape(tensor_name, tensor.shape)
+        elif engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.OUTPUT:
+            tensor = tensors['outputs'][tensor_name]
+            bindings[i] = tensor.data_ptr()
 
     context.execute_v2(bindings=bindings)
 
@@ -87,19 +87,18 @@ def engine_info(engine_filepath):
     print("has_implicit_batch_dimension", engine.has_implicit_batch_dimension)
     start_dim = 0 if engine.has_implicit_batch_dimension else 1
     print("num_optimization_profiles", engine.num_optimization_profiles)
-    print("max_batch_size:", engine.max_batch_size)
     print("device_memory_size:", engine.device_memory_size)
     print("max_workspace_size:", engine.max_workspace_size)
     print("num_layers:", engine.num_layers)
 
-    for i in range(engine.num_bindings):
-        btype = "input" if engine.binding_is_input(i) else "output"
-        bname = engine.get_binding_name(i)
-        dtype = engine.get_binding_dtype(i)
-        bdims = engine.get_binding_shape(i)
+    for i in range(engine.num_io_tensors):
+        tensor_name = engine.get_tensor_name(i) 
+        btype = "input" if engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT else "output"
+        dtype = engine.get_tensor_dtype(tensor_name)
+        bdims = engine.get_tensor_shape(tensor_name)
         config_values = {
             "btype": btype,
-            "bname": bname,
+            "bname": tensor_name,
             "dtype": type_mapping[str(dtype)],
             "dims": list(bdims[start_dim:])
         }

@@ -315,7 +315,7 @@ class Seq2SeqTRTDecoder(TRTNativeRunner, GenerationMixin):
     def set_context_mode_trt_context(self):
         # Create TRT context for context mode (1st decoder run) with optimization profile = 1
         self.context_trt_context = self.trt_engine.create_execution_context()
-        self.context_trt_context.active_optimization_profile = 1
+        self.context_trt_context.set_optimization_profile_async(1, self.stream)
 
     def forward(
         self,

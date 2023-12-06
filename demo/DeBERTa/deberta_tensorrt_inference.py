@@ -169,9 +169,10 @@ class TRTModel:
         bindings = []
         stream = cuda.Stream()
 
-        for binding in engine: # binding is the name of input/output
-            size = trt.volume(engine.get_binding_shape(binding)) * engine.max_batch_size
-            dtype = trt.nptype(engine.get_binding_dtype(binding))
+        for i in range(engine.num_io_tensors):
+            tensor_name = engine.get_tensor_name(i)
+            size = trt.volume(engine.get_tensor_shape(tensor_name))
+            dtype = trt.nptype(engine.get_tensor_dtype(tensor_name))
 
             # Allocate host and device buffers
             host_mem = cuda.pagelocked_empty(size, dtype) # page-locked memory buffer (won't swapped to disk)
@@ -181,7 +182,7 @@ class TRTModel:
             bindings.append(int(device_mem))
 
             # Append to the appropriate input/output list.
-            if engine.binding_is_input(binding):
+            if engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
                 inputs.append(self.HostDeviceMem(host_mem, device_mem))
             else:
                 outputs.append(self.HostDeviceMem(host_mem, device_mem))
@@ -212,8 +213,8 @@ class TRTModel:
         batch_size = batch_size[0]
 
         for i, model_input in enumerate(model_inputs):
-            binding_name = self.engine[i] # i-th input/output name
-            binding_dtype = trt.nptype(self.engine.get_binding_dtype(binding_name)) # trt can only tell to numpy dtype
+            binding_name = self.engine.get_tensor_name(i) # i-th input/output name
+            binding_dtype = trt.nptype(self.engine.get_tensor_dtype(binding_name)) # trt can only tell to numpy dtype
 
             # input type cast
             if NUMPY:
@@ -238,6 +239,9 @@ class TRTModel:
                 # input, Host to Device
                 [cuda.memcpy_htod_async(inp.device, inp.host, self.stream) for inp in self.inputs]
 
+        for i in range(self.engine.num_io_tensors):
+            self.context.set_tensor_address(self.engine.get_tensor_name(i), self.bindings[i])
+
         duration = 0
         if timing:
             start_time = time()
@@ -246,7 +250,7 @@ class TRTModel:
             duration = end_time - start_time
         else:
             # run inference
-            self.context.execute_async_v2(bindings=self.bindings, stream_handle=self.stream.handle) # v2 no need for batch_size arg
+            self.context.execute_async_v3(stream_handle=self.stream.handle)
 
         if timing:
             [cuda.memcpy_dtoh(out.host, out.device) for out in self.outputs]
@@ -329,7 +333,7 @@ def test_engine():
 
         ## psuedo-random input test
         batch_size = 1
-        seq_len = model.engine.get_binding_shape(0)[1]
+        seq_len = model.engine.get_tensor_shape(model.engine.get_tensor_name(0))[1]
         vocab = 128203
         gpu = torch.device('cuda')
         torch.manual_seed(0) # make sure in each test the seed are the same
@@ -362,7 +366,7 @@ def correctness_check_engines():
 
         ## psuedo-random input test
         batch_size = 1
-        seq_len = model1.engine.get_binding_shape(0)[1]
+        seq_len = model1.engine.get_tensor_shape(model1.engine.get_tensor_name(0))[1]
         vocab = 128203
         gpu = torch.device('cuda')
         # torch.manual_seed(0) # make sure in each test the seed are the same
