@@ -197,6 +197,11 @@ bool CoordConvACPlugin::canBroadcastInputAcrossBatch(int32_t inputIndex) const n
     return false;
 }
 
+void CoordConvACPlugin::attachToContext(
+    cudnnContext* cudnn, cublasContext* cublas, nvinfer1::IGpuAllocator* allocator) noexcept
+{
+}
+
 // Plugin creator
 CoordConvACPluginCreator::CoordConvACPluginCreator() {}
 

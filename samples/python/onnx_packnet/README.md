@@ -63,7 +63,7 @@ python3 convert_to_onnx.py --output model.onnx
 Once the ONNX graph is generated, use `trtexec` tool (located in `bin` directory of TensorRT package) to perform inference on a random input image.
 
 ```
-trtexec --onnx=model.onnx --explicitBatch
+trtexec --onnx=model.onnx
 ```
 
 Please refer to `trtexec` tool for more commandline options.

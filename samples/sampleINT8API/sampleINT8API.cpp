@@ -161,17 +161,19 @@ private:
 //!
 void SampleINT8API::getInputOutputNames()
 {
-    int nbindings = mEngine.get()->getNbBindings();
+    int32_t nbindings = mEngine.get()->getNbBindings();
     ASSERT(nbindings == 2);
-    for (int b = 0; b < nbindings; ++b)
+    for (int32_t b = 0; b < nbindings; ++b)
     {
+        auto const bindingName = mEngine.get()->getIOTensorName(b);
         nvinfer1::Dims dims = mEngine.get()->getBindingDimensions(b);
-        if (mEngine.get()->bindingIsInput(b))
+        if (mEngine.get()->getTensorIOMode(bindingName) == TensorIOMode::kINPUT)
         {
             if (mParams.verbose)
             {
-                sample::gLogInfo << "Found input: " << mEngine.get()->getBindingName(b) << " shape=" << dims
-                                 << " dtype=" << (int) mEngine.get()->getBindingDataType(b) << std::endl;
+                sample::gLogInfo << "Found input: " << bindingName << " shape=" << dims
+                                 << " dtype=" << static_cast<int32_t>(mEngine.get()->getTensorDataType(bindingName))
+                                 << std::endl;
             }
             mInOut["input"] = mEngine.get()->getBindingName(b);
         }
@@ -179,8 +181,9 @@ void SampleINT8API::getInputOutputNames()
         {
             if (mParams.verbose)
             {
-                sample::gLogInfo << "Found output: " << mEngine.get()->getBindingName(b) << " shape=" << dims
-                                 << " dtype=" << (int) mEngine.get()->getBindingDataType(b) << std::endl;
+                sample::gLogInfo << "Found output: " << bindingName << " shape=" << dims
+                                 << " dtype=" << static_cast<int32_t>(mEngine.get()->getTensorDataType(bindingName))
+                                 << std::endl;
             }
             mInOut["output"] = mEngine.get()->getBindingName(b);
         }

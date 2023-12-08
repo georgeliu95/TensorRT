@@ -162,7 +162,6 @@ class EngineBuilder:
         for output in outputs:
             log.info("Output '{}' with shape {} and dtype {}".format(output.name, output.shape, output.dtype))
         assert self.batch_size > 0
-        self.builder.max_batch_size = self.batch_size
 
         # TODO: These overrides are to improve fp16/int8 performance on FRCNN models
         # it might be possible to avoid doing this by using different box encoding

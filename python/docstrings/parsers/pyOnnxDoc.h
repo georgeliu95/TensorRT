@@ -179,6 +179,14 @@ constexpr const char* node_operator = R"trtdoc(
     :returns: Name of the node operation in the model in which the error occurred
 )trtdoc";
 
+constexpr const char* local_function_stack = R"trtdoc(
+    :returns: Current stack trace of local functions in which the error occurred
+)trtdoc";
+
+constexpr const char* local_function_stack_size = R"trtdoc(
+    :returns: Size of the current stack trace of local functions in which the error occurred
+)trtdoc";
+
 } // namespace ParserErrorDoc
 
 constexpr const char* get_nv_onnx_parser_version = R"trtdoc(

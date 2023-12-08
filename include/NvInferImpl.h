@@ -197,7 +197,7 @@ class VRuntime : public VRoot
 {
 public:
     virtual nvinfer1::ICudaEngine* deserializeCudaEngine(
-        void const* blob, std::size_t size, IPluginFactory* pluginFactory) noexcept = 0;
+        void const* blob, std::size_t size) noexcept = 0;
     virtual void setDLACore(int32_t dlaCore) noexcept = 0;
     virtual int32_t getDLACore() const noexcept = 0;
     virtual int32_t getNbDLACores() const noexcept = 0;
@@ -267,7 +267,6 @@ public:
     virtual int32_t getNbBindings() const noexcept = 0;
     virtual int32_t getBindingIndex(char const* name) const noexcept = 0;
     virtual char const* getBindingName(int32_t bindingIndex) const noexcept = 0;
-    virtual bool bindingIsInput(int32_t bindingIndex) const noexcept = 0;
     virtual Dims getBindingDimensions(int32_t bindingIndex) const noexcept = 0;
     virtual DataType getBindingDataType(int32_t bindingIndex) const noexcept = 0;
     virtual int32_t getMaxBatchSize() const noexcept = 0;
@@ -330,10 +329,6 @@ public:
 class VExecutionContext : public VRoot
 {
 public:
-    virtual bool execute(int32_t batchSize, void* const* bindings) noexcept = 0;
-    virtual bool enqueue(
-        int32_t batchSize, void* const* bindings, cudaStream_t stream, cudaEvent_t* inputConsumed) noexcept
-        = 0;
     virtual void setDebugSync(bool sync) noexcept = 0;
     virtual bool getDebugSync() const noexcept = 0;
     virtual void setProfiler(IProfiler*) noexcept = 0;
@@ -342,19 +337,14 @@ public:
     virtual void setName(char const* name) noexcept = 0;
     virtual char const* getName() const noexcept = 0;
     virtual void setDeviceMemory(void* memory) noexcept = 0;
-    virtual Dims getStrides(int32_t bindingIndex) const noexcept = 0;
-    virtual bool setOptimizationProfile(int32_t profileIndex) noexcept = 0;
     virtual int32_t getOptimizationProfile() const noexcept = 0;
     virtual bool setBindingDimensions(int32_t bindingIndex, Dims dimensions) noexcept = 0;
     virtual Dims getBindingDimensions(int32_t bindingIndex) const noexcept = 0;
-    virtual bool setInputShapeBinding(int32_t bindingIndex, int32_t const* data) noexcept = 0;
-    virtual bool getShapeBinding(int32_t bindingIndex, int32_t* data) const noexcept = 0;
     virtual bool allInputDimensionsSpecified() const noexcept = 0;
     virtual bool allInputShapesSpecified() const noexcept = 0;
     virtual void setErrorRecorder(IErrorRecorder* recorder) noexcept = 0;
     virtual IErrorRecorder* getErrorRecorder() const noexcept = 0;
     virtual bool executeV2(void* const* bindings) noexcept = 0;
-    virtual bool enqueueV2(void* const* bindings, cudaStream_t stream, cudaEvent_t* inputConsumed) noexcept = 0;
     virtual bool setOptimizationProfileAsync(int32_t profileIndex, cudaStream_t stream) noexcept = 0;
     virtual void setEnqueueEmitsProfile(bool enqueueEmitsProfile) noexcept = 0;
     virtual bool getEnqueueEmitsProfile() const noexcept = 0;
@@ -1167,8 +1157,6 @@ public:
 class VBuilder : public VRoot
 {
 public:
-    virtual void setMaxBatchSize(int32_t batchSize) noexcept = 0;
-    virtual int32_t getMaxBatchSize() const noexcept = 0;
     virtual bool platformHasFastFp16() const noexcept = 0;
     virtual bool platformHasFastInt8() const noexcept = 0;
     virtual int32_t getMaxDLABatchSize() const noexcept = 0;

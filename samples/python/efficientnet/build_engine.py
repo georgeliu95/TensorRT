@@ -161,7 +161,6 @@ class EngineBuilder:
         for output in outputs:
             log.info("Output '{}' with shape {} and dtype {}".format(output.name, output.shape, output.dtype))
         assert self.batch_size > 0
-        self.builder.max_batch_size = self.batch_size
 
     def create_engine(
         self,

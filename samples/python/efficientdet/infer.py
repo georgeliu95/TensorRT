@@ -54,12 +54,12 @@ class TensorRTInfer:
         self.outputs = []
         self.allocations = []
         for i in range(self.engine.num_bindings):
-            is_input = False
-            if self.engine.binding_is_input(i):
-                is_input = True
             name = self.engine.get_binding_name(i)
-            dtype = np.dtype(trt.nptype(self.engine.get_binding_dtype(i)))
-            shape = self.context.get_binding_shape(i)
+            is_input = False
+            if self.engine.get_tensor_mode(name) == trt.TensorIOMode.INPUT:
+                is_input = True
+            dtype = np.dtype(trt.nptype(self.engine.get_tensor_dtype(name)))
+            shape = self.context.get_tensor_shape(name)
             if is_input and shape[0] < 0:
                 assert self.engine.num_optimization_profiles > 0
                 profile_shape = self.engine.get_profile_shape(0, name)
@@ -83,7 +83,7 @@ class TensorRTInfer:
                 "host_allocation": host_allocation,
             }
             self.allocations.append(allocation)
-            if self.engine.binding_is_input(i):
+            if is_input:
                 self.inputs.append(binding)
             else:
                 self.outputs.append(binding)

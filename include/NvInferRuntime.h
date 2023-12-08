@@ -435,8 +435,7 @@ public:
     //!  * IExecutionContext will call this during the next subsequent instance enqueue[V2]() or execute[V2]() if:
     //!    - The batch size is changed from previous call of execute()/enqueue() if hasImplicitBatchDimension() returns
     //!    true.
-    //!    - The optimization profile is changed via setOptimizationProfile() or setOptimizationProfileAsync().
-    //!    - An input shape binding is changed via setInputShapeBinding().
+    //!    - The optimization profile is changed via setOptimizationProfileAsync().
     //!    - An input execution binding is changed via setBindingDimensions().
     //! \warning The execution phase is timing critical during IExecutionContext but is not part of the timing loop when
     //! called from IBuilder. Performance bottlenecks of configurePlugin won't show up during engine building but will
@@ -646,27 +645,6 @@ public:
     virtual ~IRuntime() noexcept = default;
 
     //!
-    //! \brief Deserialize an engine from a stream.
-    //!
-    //! If an error recorder has been set for the runtime, it will also be passed to the engine.
-    //!
-    //! \param blob The memory that holds the serialized engine.
-    //! \param size The size of the memory in bytes.
-    //! \param pluginFactory The plugin factory, if any plugins are used by the network, otherwise nullptr.
-    //!
-    //! \return The engine, or nullptr if it could not be deserialized.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.0.
-    //!
-    //! \warning IPluginFactory is no longer supported, therefore pluginFactory must be a nullptr.
-    //!
-    TRT_DEPRECATED nvinfer1::ICudaEngine* deserializeCudaEngine(
-        void const* blob, std::size_t size, IPluginFactory* pluginFactory) noexcept
-    {
-        return mImpl->deserializeCudaEngine(blob, size, nullptr);
-    }
-
-    //!
     //! \brief Sets the DLA core used by the network. Defaults to -1.
     //! \param dlaCore The DLA core to execute the engine on, in the range [0,getNbDlaCores()).
     //!
@@ -758,7 +736,7 @@ public:
     //!
     ICudaEngine* deserializeCudaEngine(void const* blob, std::size_t size) noexcept
     {
-        return mImpl->deserializeCudaEngine(blob, size, nullptr);
+        return mImpl->deserializeCudaEngine(blob, size);
     }
 
     //!
@@ -1560,15 +1538,17 @@ protected:
 //!
 enum class TacticSource : int32_t
 {
-    //! cuBLAS tactics. Enabled by default.
+    //! cuBLAS tactics. Disabled by default.
     //! \note Disabling kCUBLAS will cause the cuBLAS handle passed to plugins in attachToContext to be null.
-    kCUBLAS = 0,
+    //! \deprecated Deprecated in TensorRT 10.0.
+    kCUBLAS TRT_DEPRECATED_ENUM = 0,
     //! cuBLAS LT tactics. Enabled by default.
     //! \deprecated Deprecated in TensorRT 9.0.
     kCUBLAS_LT TRT_DEPRECATED_ENUM = 1,
-    //! cuDNN tactics. Enabled by default.
+    //! cuDNN tactics. Disabled by default.
     //! \note Disabling kCUDNN will cause the cuDNN handle passed to plugins in attachToContext to be null.
-    kCUDNN = 2,
+    //! \deprecated Deprecated in TensorRT 10.0.
+    kCUDNN TRT_DEPRECATED_ENUM = 2,
 
     //! Enables convolution tactics implemented with edge mask tables. These tactics tradeoff memory for performance by
     //! consuming additional memory space proportional to the input size.
@@ -1806,21 +1786,6 @@ public:
     }
 
     //!
-    //! \brief Determine whether a binding is an input binding.
-    //!
-    //! \param bindingIndex The binding index.
-    //! \return True if the index corresponds to an input binding and the index is in range.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getTensorIOMode().
-    //!
-    //! \see getTensorIOMode()
-    //!
-    TRT_DEPRECATED bool bindingIsInput(int32_t bindingIndex) const noexcept
-    {
-        return mImpl->bindingIsInput(bindingIndex);
-    }
-
-    //!
     //! \brief Get the dimensions of a binding.
     //!
     //! \param bindingIndex The binding index.
@@ -1860,21 +1825,6 @@ public:
     Dims getTensorShape(char const* tensorName) const noexcept
     {
         return mImpl->getTensorShape(tensorName);
-    }
-
-    //!
-    //! \brief Determine the required data type for a buffer from its binding index.
-    //!
-    //! \param bindingIndex The binding index.
-    //! \return The type of the data in the buffer.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getTensorDataType().
-    //!
-    //! \see getTensorDataType()
-    //!
-    TRT_DEPRECATED DataType getBindingDataType(int32_t bindingIndex) const noexcept
-    {
-        return mImpl->getBindingDataType(bindingIndex);
     }
 
     //!
@@ -1939,36 +1889,15 @@ public:
     //!
     //! \brief Create an execution context.
     //!
-    //! The execution context created will call setOptimizationProfile(0) implicitly if there are
-    //! no other execution contexts assigned to optimization profile 0. This functionality is
-    //! deprecated in TensorRT 8.6 and will instead default all optimization profiles to 0 starting
-    //! in TensorRT 10.0.
-    //! If an error recorder has been set for the engine, it will also be passed to the execution context.
+    //! The newly created execution context will be assigned optimization profile 0. If an error recorder has been set
+    //! for the engine, it will also be passed to the execution context.
     //!
     //! \see IExecutionContext.
-    //! \see IExecutionContext::setOptimizationProfile()
+    //! \see IExecutionContext::setOptimizationProfileAsync()
     //!
     IExecutionContext* createExecutionContext() noexcept
     {
         return mImpl->createExecutionContext();
-    }
-
-    //!
-    //! \brief Get location of binding
-    //!
-    //! This lets you know whether the binding should be a pointer to device or host memory.
-    //!
-    //! \param bindingIndex The binding index.
-    //! \return The location of the bound tensor with given index.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getTensorLocation().
-    //!
-    //! \see ITensor::setLocation() ITensor::getLocation()
-    //! \see getTensorLocation()
-    //!
-    TRT_DEPRECATED TensorLocation getLocation(int32_t bindingIndex) const noexcept
-    {
-        return mImpl->getLocation(bindingIndex);
     }
 
     //!
@@ -2345,7 +2274,7 @@ public:
     //!
     //! \return Number of optimization profiles. It is always at least 1.
     //!
-    //! \see IExecutionContext::setOptimizationProfile()
+    //! \see IExecutionContext::setOptimizationProfileAsync()
     int32_t getNbOptimizationProfiles() const noexcept
     {
         return mImpl->getNbOptimizationProfiles();
@@ -2829,29 +2758,6 @@ public:
     }
 
     //!
-    //! \brief Return the strides of the buffer for the given binding.
-    //!
-    //! The strides are in units of elements, not components or bytes.
-    //! For example, for TensorFormat::kHWC8, a stride of one spans 8 scalars.
-    //!
-    //! Note that strides can be different for different execution contexts
-    //! with dynamic shapes.
-    //!
-    //! If the bindingIndex is invalid or there are dynamic dimensions that have not been
-    //! set yet, returns Dims with Dims::nbDims = -1.
-    //!
-    //! \param bindingIndex The binding index.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getTensorStrides().
-    //!
-    //! \see getTensorStrides()
-    //!
-    TRT_DEPRECATED Dims getStrides(int32_t bindingIndex) const noexcept
-    {
-        return mImpl->getStrides(bindingIndex);
-    }
-
-    //!
     //! \brief Return the strides of the buffer for the given tensor name.
     //!
     //! The strides are in units of elements, not components or bytes.
@@ -2873,42 +2779,6 @@ public:
     }
 
 public:
-    //!
-    //! \brief Select an optimization profile for the current context.
-    //!
-    //! \param profileIndex Index of the profile. It must lie between 0 and
-    //!        getEngine().getNbOptimizationProfiles() - 1
-    //!
-    //! The selected profile will be used in subsequent calls to executeV2()/enqueueV3().
-    //!
-    //! When an optimization profile is switched via this API, TensorRT may
-    //! enqueue GPU memory copy operations required to set up the new profile during the subsequent
-    //! enqueueV3() operations. To avoid these calls during enqueueV3(), use
-    //! setOptimizationProfileAsync() instead.
-    //!
-    //! If the associated CUDA engine does not have inputs with dynamic shapes, this method need not be
-    //! called, in which case the default profile index of 0 will be used (this is particularly
-    //! the case for all safe engines).
-    //!
-    //! setOptimizationProfile() must be called before calling setBindingDimensions() and
-    //! setInputShapeBinding() for all dynamic input tensors or input shape tensors, which in
-    //! turn must be called before executeV2()/enqueueV3().
-    //!
-    //! \warning This function will trigger layer resource updates on the next
-    //!          call of enqueueV3()/executeV2(), possibly resulting in performance bottlenecks.
-    //!
-    //! \return true if the call succeeded, else false (e.g. input out of range)
-    //!
-    //! \deprecated Superseded by setOptimizationProfileAsync. Deprecated prior to TensorRT 8.0.
-    //!
-    //! \see ICudaEngine::getNbOptimizationProfiles() IExecutionContext::setOptimizationProfileAsync()
-    //!
-    TRT_DEPRECATED
-    bool setOptimizationProfile(int32_t profileIndex) noexcept
-    {
-        return mImpl->setOptimizationProfile(profileIndex);
-    }
-
     //!
     //! \brief Get the index of the currently selected optimization profile.
     //!
@@ -3051,65 +2921,6 @@ public:
     }
 
     //!
-    //! \brief Set values of input tensor required by shape calculations.
-    //!
-    //! \param bindingIndex index of an input tensor for which
-    //!        ICudaEngine::isShapeBinding(bindingIndex) and ICudaEngine::bindingIsInput(bindingIndex)
-    //!        are both true.
-    //!
-    //! \param data pointer to values of the input tensor.  The number of values should be
-    //!         the product of the dimensions returned by getBindingDimensions(bindingIndex).
-    //!
-    //! If ICudaEngine::isShapeBinding(bindingIndex) and ICudaEngine::bindingIsInput(bindingIndex)
-    //! are both true, this method must be called before executeV2() may be called.
-    //! This method will fail unless a valid optimization profile is defined for the current
-    //! execution context (getOptimizationProfile() must not be -1).
-    //!
-    //! \warning This function will trigger layer resource updates on the next call of
-    //!          executeV2(), possibly resulting in performance bottlenecks, if the
-    //!          shapes are different than the previous set shapes.
-    //!
-    //! \return false if an error occurs (e.g. bindingIndex is out of range for the currently selected
-    //!         optimization profile or shape data is inconsistent with min-max range of the
-    //!         optimization profile), else true. Note that the network can still be invalid for certain
-    //!         combinations of input shapes that lead to invalid output shapes. To confirm the correctness
-    //!         of the network input shapes, check whether the output binding has valid
-    //!         dimensions using getBindingDimensions() on the output bindingIndex.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by setInputTensorAddress() or setTensorAddress().
-    //!
-    //! \see setInputTensorAddress() setTensorAddress()
-    //!
-    TRT_DEPRECATED bool setInputShapeBinding(int32_t bindingIndex, int32_t const* data) noexcept
-    {
-        return mImpl->setInputShapeBinding(bindingIndex, data);
-    }
-
-    //!
-    //! \brief Get values of an input tensor required for shape calculations or an output tensor produced by shape
-    //! calculations.
-    //!
-    //! \param bindingIndex index of an input or output tensor for which
-    //!        ICudaEngine::isShapeBinding(bindingIndex) is true.
-    //!
-    //! \param data pointer to where values will be written.  The number of values written is
-    //!        the product of the dimensions returned by getBindingDimensions(bindingIndex).
-    //!
-    //! If ICudaEngine::bindingIsInput(bindingIndex) is false, then both
-    //! allInputDimensionsSpecified() and allInputShapesSpecified() must be true
-    //! before calling this method. The method will also fail if no valid optimization profile
-    //! has been set for the current execution context, i.e. if getOptimizationProfile() returns -1.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getTensorAddress() or getOutputTensorAddress().
-    //!
-    //! \see isShapeBinding() getTensorAddress() getOutputTensorAddress()
-    //!
-    TRT_DEPRECATED bool getShapeBinding(int32_t bindingIndex, int32_t* data) const noexcept
-    {
-        return mImpl->getShapeBinding(bindingIndex, data);
-    }
-
-    //!
     //! \brief Whether all dynamic dimensions of input tensors have been specified
     //!
     //! \return True if all dynamic dimensions of input tensors have been specified
@@ -3212,17 +3023,15 @@ public:
     //!
     //! The selected profile will be used in subsequent calls to executeV2()/enqueueV3().
     //! If the associated CUDA engine has inputs with dynamic shapes, the optimization profile must
-    //! be set with its corresponding profileIndex before calling execute or enqueue. If no execution
-    //! context is assigned optimization profile 0 and a new context is created for an engine,
-    //! setOptimizationProfile(0) is called implicitly. This functionality is deprecated in TensorRT 8.6
-    //! and will instead default all optimization profiles to 0 starting in TensorRT 10.0.
+    //! be set with its corresponding profileIndex before calling execute or enqueue. The newly created execution
+    //! context will be assigned optimization profile 0.
     //!
     //! If the associated CUDA engine does not have inputs with dynamic shapes,
     //! this method need not be called, in which case the default profile index
     //! of 0 will be used.
     //!
     //! setOptimizationProfileAsync() must be called before calling
-    //! setBindingDimensions() and setInputShapeBinding() for all dynamic input
+    //! setBindingDimensions() for all dynamic input
     //! tensors or input shape tensors, which in turn must be called before
     //! executeV2()/enqueueV3().
     //!
@@ -3236,7 +3045,6 @@ public:
     //! \return true if the call succeeded, else false (e.g. input out of range)
     //!
     //! \see ICudaEngine::getNbOptimizationProfiles()
-    //! \see IExecutionContext::setOptimizationProfile()
     bool setOptimizationProfileAsync(int32_t profileIndex, cudaStream_t stream) noexcept
     {
         return mImpl->setOptimizationProfileAsync(profileIndex, stream);

@@ -1698,9 +1698,6 @@ public:
     //!
     //! Default: true
     //!
-    //! \note On Xavier, DLA supports only inclusive padding and this must be explicitly
-    //! set to false.
-    //!
     //! \see getAverageCountExcludesPadding()
     //!
     void setAverageCountExcludesPadding(bool exclusive) noexcept
@@ -2169,8 +2166,7 @@ protected:
 //!
 //! The output size is the same as the input size.
 //!
-//! On Xavier, this layer is not supported on DLA.
-//! Otherwise, the following constraints must be satisfied to execute this layer on DLA:
+//! The following constraints must be satisfied to execute this layer on DLA:
 //! * Axis must be one of the channel or spatial dimensions.
 //! * There are two classes of supported input sizes:
 //!     1. Non-axis, non-batch dimensions are all 1 and the axis dimension is at most 8192.
@@ -8764,7 +8760,7 @@ enum class MemoryPoolType : int32_t
     //! kDLA_MANAGED_SRAM is a fast software managed RAM used by DLA to communicate within a layer.
     //! The size of this pool must be at least 4 KiB and must be a power of 2.
     //! This defaults to 1 MiB.
-    //! Orin has capacity of 1 MiB per core, and Xavier shares 4 MiB across all of its accelerator cores.
+    //! Orin has capacity of 1 MiB per core.
     //!
     kDLA_MANAGED_SRAM = 1,
 
@@ -9750,15 +9746,11 @@ enum class NetworkDefinitionCreationFlag : int32_t
     //! Varying dimensions are specified by using the wildcard dimension value -1.
     kEXPLICIT_BATCH = 0,
 
-    //! Deprecated. This flag has no effect now, but is only kept for backward compatability.
-    //!
-    kEXPLICIT_PRECISION TRT_DEPRECATED_ENUM = 1,
-
     //! Mark the network to be strongly typed.
     //! Every tensor in the network has a data type defined in the network following only type inference rules and the
     //! inputs/operator annotations. Setting layer precision and layer output types is not allowed, and the network
     //! output types will be inferred based on the input types and the type inference rules.
-    kSTRONGLY_TYPED = 2,
+    kSTRONGLY_TYPED = 1,
 };
 
 //!
@@ -9769,7 +9761,7 @@ enum class NetworkDefinitionCreationFlag : int32_t
 template <>
 constexpr inline int32_t EnumMax<NetworkDefinitionCreationFlag>() noexcept
 {
-    return 3;
+    return 2;
 }
 
 //!
@@ -9785,36 +9777,6 @@ public:
     virtual ~IBuilder() noexcept = default;
 
     //!
-    //! \brief Set the maximum batch size. This has no effect for networks created with explicit batch dimension mode.
-    //!
-    //! \param batchSize The maximum batch size which can be used at execution time, and also the batch size for which
-    //! the engine will be optimized.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.4.
-    //!
-    //! \see getMaxBatchSize()
-    //!
-    TRT_DEPRECATED void setMaxBatchSize(int32_t batchSize) noexcept
-    {
-        mImpl->setMaxBatchSize(batchSize);
-    }
-
-    //!
-    //! \brief Get the maximum batch size.
-    //!
-    //! \return The maximum batch size.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.4.
-    //!
-    //! \see setMaxBatchSize()
-    //! \see getMaxDLABatchSize()
-    //!
-    TRT_DEPRECATED int32_t getMaxBatchSize() const noexcept
-    {
-        return mImpl->getMaxBatchSize();
-    }
-
-    //!
     //! \brief Determine whether the platform has fast native fp16.
     //!
     bool platformHasFastFp16() const noexcept
@@ -9828,18 +9790,6 @@ public:
     bool platformHasFastInt8() const noexcept
     {
         return mImpl->platformHasFastInt8();
-    }
-
-    //!
-    //! \brief Destroy this object.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.0. Superseded by `delete`.
-    //!
-    //! \warning Calling destroy on a managed pointer will result in a double-free error.
-    //!
-    TRT_DEPRECATED void destroy() noexcept
-    {
-        delete this;
     }
 
     //!
@@ -9897,9 +9847,6 @@ public:
     //! CreateNetworkV2 supports dynamic shapes and explicit batch dimensions when used with
     //! NetworkDefinitionCreationFlag::kEXPLICIT_BATCH flag.
     //! Creating a network without NetworkDefinitionCreationFlag::kEXPLICIT_BATCH flag has been deprecated.
-    //!
-    //! createNetworkV2 without NetworkDefinitionCreationFlag::kEXPLICIT_PRECISION flag has been deprecated.
-    //! Explicit precision property of the network can be detected automatically without requiring an explicit flag.
     //!
     //! createNetworkV2 with NetworkDefinitionCreationFlag::kSTRONGLY_TYPED flag supports creating a strongly typed plan
     //! where tensor data types are inferred from network input types and operator type specification.

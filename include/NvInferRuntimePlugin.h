@@ -564,9 +564,9 @@ public:
     //! resources.
     //!
     //! \param cudnn The cuDNN context handle of the execution context. Will be a valid cuDNN context handle, or
-    //!              nullptr if the cuDNN backend is not used.
+    //!              nullptr if TacticSource::kCUDNN is disabled.
     //! \param cublas The cuBLAS context handle of the execution context. Will be a valid cuBLAS context handle, or
-    //!               nullptr if the cuBLAS backend is not used.
+    //!               nullptr if TacticSource::kCUBLAS is disabled.
     //! \param allocator The allocator used by the execution context
     //!
     //! This function is called automatically for each plugin when a new execution context is created. If the context
@@ -575,6 +575,15 @@ public:
     //!
     //! If the plugin needs per-context resource, it can be allocated here.
     //! The plugin can also get context-owned cuDNN and cuBLAS context here.
+    //!
+    //! \note The TacticSource::kCUDNN and TacticSource::kCUBLAS flag is disabled by default.
+    //! The allocator pointer is unique to each building or execution context instance having overlapping lifetimes.
+    //! It can be used as a key to manage resources across plugin instances sharing the same context.
+    //! Plugins attached to different contexts will have different handles as their execution will not overlap.
+    //!
+    //! \see TacticSources
+    //! \see getPluginCudnnHandle(void* executionContextIdentifier)
+    //! \see getPluginCublasHandle(void* excecutionContextIdentifier)
     //!
     //! \note In the automotive safety context, the cuDNN and cuBLAS parameters will be nullptr because cuDNN and cuBLAS
     //!       are not used by the safe runtime.
