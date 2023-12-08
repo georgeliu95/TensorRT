@@ -170,18 +170,11 @@ if (DEFINED GPU_ARCHS)
   separate_arguments(GPU_ARCHS)
 else()
   list(APPEND GPU_ARCHS
-      53
-      60
-      61
       70
       75
     )
 
   string(REGEX MATCH "aarch64" IS_ARM "${TRT_PLATFORM_ID}")
-  if (IS_ARM)
-    # Xavier (SM72) only supported for aarch64.
-    list(APPEND GPU_ARCHS 72)
-  endif()
 
   if (CUDA_VERSION VERSION_GREATER_EQUAL 11.0)
     # Ampere GPU (SM80) support is only available in CUDA versions > 11.0

@@ -268,7 +268,6 @@ bool SampleProgressMonitor::build(IProgressMonitor* monitor)
         return false;
     }
 
-    builder->setMaxBatchSize(mParams.batchSize);
     config->setProgressMonitor(monitor);
 
     if (mParams.fp16)
@@ -505,7 +504,6 @@ samplesCommon::OnnxSampleParams initializeSampleParams(samplesCommon::Args const
         params.dataDirs = args.dataDirs;
     }
 
-    params.batchSize = 1;
     params.dlaCore = args.useDLACore;
     params.int8 = args.runInInt8;
     params.fp16 = args.runInFp16;

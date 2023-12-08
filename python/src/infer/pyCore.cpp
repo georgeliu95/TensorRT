@@ -133,26 +133,6 @@ size_t get_input_consumed_event(IExecutionContext& self)
     return reinterpret_cast<size_t>(self.getInputConsumedEvent());
 }
 
-void context_set_optimization_profile(IExecutionContext& self, int32_t profileIndex)
-{
-    PY_ASSERT_RUNTIME_ERROR(self.setOptimizationProfile(profileIndex), "Error in set optimization profile.");
-};
-
-bool context_set_shape_input(IExecutionContext& self, int32_t binding, std::vector<int32_t> const& shape)
-{
-    return self.setInputShapeBinding(binding, shape.data());
-};
-
-std::vector<int32_t> context_get_shape(IExecutionContext& self, int32_t binding)
-{
-    Dims const shapeOfShape = self.getBindingDimensions(binding);
-    auto const numVals(utils::volume(shapeOfShape));
-    PY_ASSERT_RUNTIME_ERROR(numVals > 0, "Negative values in shape.");
-    std::vector<int32_t> shape(static_cast<std::size_t>(numVals));
-    PY_ASSERT_RUNTIME_ERROR(self.getShapeBinding(binding, shape.data()), "Error in get shape bindings.");
-    return shape;
-};
-
 void set_aux_streams(IExecutionContext& self, std::vector<size_t> streamHandle)
 {
     self.setAuxStreams(reinterpret_cast<cudaStream_t*>(streamHandle.data()), static_cast<int32_t>(streamHandle.size()));
@@ -190,24 +170,9 @@ static const auto runtime_deserialize_cuda_engine = [](IRuntime& self, py::buffe
 };
 
 // For ICudaEngine
-bool engine_binding_is_input(ICudaEngine& self, std::string const& name)
-{
-    return self.bindingIsInput(self.getBindingIndex(name.c_str()));
-};
-
 Dims engine_get_binding_shape(ICudaEngine& self, std::string const& name)
 {
     return self.getBindingDimensions(self.getBindingIndex(name.c_str()));
-};
-
-DataType engine_get_binding_dtype(ICudaEngine& self, std::string const& name)
-{
-    return self.getBindingDataType(self.getBindingIndex(name.c_str()));
-};
-
-TensorLocation engine_get_location(ICudaEngine& self, std::string const& name)
-{
-    return self.getLocation(self.getBindingIndex(name.c_str()));
 };
 
 // TODO: Add slicing support?
@@ -892,10 +857,7 @@ void bindCore(py::module& m)
             "name", &IExecutionContext::getName, py::cpp_function(&IExecutionContext::setName, py::keep_alive<1, 2>{}))
         // For writeonly properties, we use a nullptr getter.
         .def_property("device_memory", nullptr, &lambdas::context_set_device_memory)
-        .def_property("active_optimization_profile", &IExecutionContext::getOptimizationProfile,
-            utils::deprecate(lambdas::context_set_optimization_profile, "set_optimization_profile_async"))
-        .def("get_strides", utils::deprecateMember(&IExecutionContext::getStrides, "get_tensor_strides"), "binding"_a,
-            IExecutionContextDoc::get_strides)
+        .def_property_readonly("active_optimization_profile", &IExecutionContext::getOptimizationProfile)
         .def("set_binding_shape", utils::deprecate(lambdas::setBindingDimensions<py::tuple>, "set_input_shape"),
             "binding"_a, "shape"_a, IExecutionContextDoc::set_binding_shape)
         .def("set_binding_shape", utils::deprecate(lambdas::setBindingDimensions<py::list>, "set_input_shape"),
@@ -904,10 +866,6 @@ void bindCore(py::module& m)
             "binding"_a, "shape"_a, IExecutionContextDoc::set_binding_shape)
         .def("get_binding_shape", utils::deprecateMember(&IExecutionContext::getBindingDimensions, "get_tensor_shape"),
             "binding"_a, IExecutionContextDoc::get_binding_shape)
-        .def("set_shape_input", utils::deprecate(lambdas::context_set_shape_input, "set_tensor_address"), "binding"_a,
-            "shape"_a, IExecutionContextDoc::set_shape_input)
-        .def("get_shape", utils::deprecate(lambdas::context_get_shape, "get_tensor_address"), "binding"_a,
-            IExecutionContextDoc::get_shape)
         // Start of enqueueV3 related APIs.
         .def("get_tensor_strides", &IExecutionContext::getTensorStrides, "name"_a,
             IExecutionContextDoc::get_tensor_strides)
@@ -965,20 +923,11 @@ void bindCore(py::module& m)
             ICudaEngineDoc::get_binding_name)
         .def("get_binding_index", utils::deprecateMember(&ICudaEngine::getBindingIndex, "get_tensor_name"), "name"_a,
             ICudaEngineDoc::get_binding_index)
-        .def("binding_is_input", utils::deprecateMember(&ICudaEngine::bindingIsInput, "get_tensor_mode"), "index"_a,
-            ICudaEngineDoc::binding_is_input)
-        .def("binding_is_input", utils::deprecate(lambdas::engine_binding_is_input, "get_tensor_mode"), "name"_a,
-            ICudaEngineDoc::binding_is_input_str)
         .def("get_binding_shape", utils::deprecateMember(&ICudaEngine::getBindingDimensions, "get_tensor_shape"),
             "index"_a, ICudaEngineDoc::get_binding_shape)
         // Overload so that we can get shape based on tensor names.
         .def("get_binding_shape", utils::deprecate(lambdas::engine_get_binding_shape, "get_tensor_shape"), "name"_a,
             ICudaEngineDoc::get_binding_shape_str)
-        .def("get_binding_dtype", utils::deprecateMember(&ICudaEngine::getBindingDataType, "get_tensor_dtype"),
-            "index"_a, ICudaEngineDoc::get_binding_dtype)
-        // Overload so that we can get type based on tensor names.
-        .def("get_binding_dtype", utils::deprecate(lambdas::engine_get_binding_dtype, "get_tensor_dtype"), "name"_a,
-            ICudaEngineDoc::get_binding_dtype_str)
         .def_property_readonly("has_implicit_batch_dimension", &ICudaEngine::hasImplicitBatchDimension)
         .def_property_readonly("max_batch_size",
             utils::deprecateMember(&ICudaEngine::getMaxBatchSize,
@@ -991,10 +940,6 @@ void bindCore(py::module& m)
             py::call_guard<py::gil_scoped_release>{})
         .def("create_execution_context", &ICudaEngine::createExecutionContext, ICudaEngineDoc::create_execution_context,
             py::keep_alive<0, 1>{}, py::call_guard<py::gil_scoped_release>{})
-        .def("get_location", utils::deprecateMember(&ICudaEngine::getLocation, "get_tensor_location"), "index"_a,
-            ICudaEngineDoc::get_location)
-        .def("get_location", utils::deprecate(lambdas::engine_get_location, "get_tensor_location"), "name"_a,
-            ICudaEngineDoc::get_location_str)
         .def("create_execution_context_without_device_memory", &ICudaEngine::createExecutionContextWithoutDeviceMemory,
             ICudaEngineDoc::create_execution_context_without_device_memory, py::keep_alive<0, 1>{},
             py::call_guard<py::gil_scoped_release>{})
@@ -1305,8 +1250,6 @@ void bindCore(py::module& m)
         NetworkDefinitionCreationFlagDoc::descr, py::module_local())
         .value("EXPLICIT_BATCH", NetworkDefinitionCreationFlag::kEXPLICIT_BATCH,
             NetworkDefinitionCreationFlagDoc::EXPLICIT_BATCH)
-        .value("EXPLICIT_PRECISION", NetworkDefinitionCreationFlag::kEXPLICIT_PRECISION,
-            NetworkDefinitionCreationFlagDoc::EXPLICIT_PRECISION)
         .value("STRONGLY_TYPED", NetworkDefinitionCreationFlag::kSTRONGLY_TYPED,
             NetworkDefinitionCreationFlagDoc::STRONGLY_TYPED);
 
@@ -1315,11 +1258,6 @@ void bindCore(py::module& m)
         .def(py::init(&nvinfer1::createInferBuilder), "logger"_a, BuilderDoc::init, py::keep_alive<1, 2>{})
         .def("create_network", &IBuilder::createNetworkV2, "flags"_a = 0U, BuilderDoc::create_network,
             py::keep_alive<0, 1>{})
-        .def_property("max_batch_size",
-            utils::deprecateMember(
-                &IBuilder::getMaxBatchSize, "network created with NetworkDefinitionCreationFlag::EXPLICIT_BATCH flag"),
-            utils::deprecateMember(
-                &IBuilder::setMaxBatchSize, "network created with NetworkDefinitionCreationFlag::EXPLICIT_BATCH flag"))
         .def_property_readonly("platform_has_tf32", &IBuilder::platformHasTf32)
         .def_property_readonly("platform_has_fast_fp16", &IBuilder::platformHasFastFp16)
         .def_property_readonly("platform_has_fast_int8", &IBuilder::platformHasFastInt8)

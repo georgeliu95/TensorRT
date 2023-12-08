@@ -398,7 +398,7 @@ constexpr char const* descr = R"trtdoc(
     :ivar engine: :class:`ICudaEngine` The associated :class:`ICudaEngine` .
     :ivar name: :class:`str` The name of the :class:`IExecutionContext` .
     :ivar device_memory: :class:`capsule` The device memory for use by this execution context. The memory must be aligned on a 256-byte boundary, and its size must be at least :attr:`engine.device_memory_size`. If using :func:`execute_v2()`, it is in use until :func:`execute_v2()` returns. Releasing or otherwise using the memory for other purposes during this time will result in undefined behavior.
-    :ivar active_optimization_profile: :class:`int` The active optimization profile for the context. The selected profile will be used in subsequent calls to :func:`execute_v2()`. Profile 0 is selected by default. Changing this value will invalidate all dynamic bindings for the current execution context, so that they have to be set again using :func:`set_binding_shape` before calling either :func:`execute_v2()`.
+    :ivar active_optimization_profile: :class:`int` The active optimization profile for the context. The selected profile will be used in subsequent calls to :func:`execute_v2()`. Profile 0 is selected by default. This is a readonly property and active optimization profile can be changed with :func:`set_optimization_profile_async()`. Changing this value will invalidate all dynamic bindings for the current execution context, so that they have to be set again using :func:`set_binding_shape` before calling either :func:`execute_v2()`.
     :ivar all_binding_shapes_specified: :class:`bool` Whether all dynamic dimensions of input tensors have been specified by calling :func:`set_binding_shape` . Trivially true if network has no dynamically shaped input tensors. Does not work with name-base interfaces eg. :func:`set_input_shape()`. Use :func:`infer_shapes()` instead.
     :ivar all_shape_inputs_specified: :class:`bool` Whether values for all input shape tensors have been specified by calling :func:`set_shape_input` . Trivially true if network has no input shape bindings. Does not work with name-base interfaces eg. :func:`set_input_shape()`. Use :func:`infer_shapes()` instead.
     :ivar error_recorder: :class:`IErrorRecorder` Application-implemented error reporting interface for TensorRT objects.
@@ -428,14 +428,6 @@ constexpr char const* device_memory = R"trtdoc(
     purposes during this time will result in undefined behavior.
 )trtdoc";
 
-constexpr char const* get_strides = R"trtdoc(
-    Return the strides of the buffer for the given binding.
-
-    Note that strides can be different for different execution contexts with dynamic shapes.
-
-    :arg binding: The binding index.
-)trtdoc";
-
 constexpr char const* set_binding_shape = R"trtdoc(
     Set the dynamic shape of a binding.
 
@@ -446,7 +438,7 @@ constexpr char const* set_binding_shape = R"trtdoc(
     currently selected optimization profile.
 
     For all dynamic non-output bindings (which have at least one wildcard dimension of -1),
-    this method needs to be called after setting :attr:`active_optimization_profile` before :func:`execute_v2()` may be called. When all input shapes have been
+    this method needs to be called after setting :func:`set_optimization_profile_async()` before :func:`execute_v2()` may be called. When all input shapes have been
     specified, :attr:`all_binding_shapes_specified` is set to :class:`True` .
 
     :arg binding: The binding index.
@@ -476,34 +468,6 @@ constexpr char const* get_binding_shape = R"trtdoc(
     :arg binding: The binding index.
 
     :returns: A :class:`Dims` object representing the currently selected shape.
-)trtdoc";
-
-constexpr char const* set_shape_input = R"trtdoc(
-    Set values of an input shape tensor required by shape calculations.
-
-    :arg binding: The binding index of an input tensor for which ``ICudaEngine.is_shape_binding(binding)`` and ``ICudaEngine.binding_is_input(binding)`` are both true.
-    :arg shape: An iterable containing the values of the input shape tensor. The number of values should be the product of the dimensions returned by ``get_binding_shape(binding)``.
-
-    If ``ICudaEngine.is_shape_binding(binding)`` and ``ICudaEngine.binding_is_input(binding)`` are both true, this method must be called before :func:`execute_v2()` may be called. Additionally, this method must not be called if either ``ICudaEngine.is_shape_binding(binding)`` or ``ICudaEngine.binding_is_input(binding)`` are false.
-
-    :returns: :class:`False` if an error occurs (e.g. specified binding is out of range for the currently selected optimization profile or specified shape values are inconsistent with min-max range of the optimization profile), else :class:`True`.
-
-    Note that the network can still be invalid for
-    certain combinations of input shapes that lead to invalid output shapes. To confirm the correctness
-    of the network input shapes, check whether the output binding has valid
-    shape using :func:`get_binding_shape` on the output binding.
-)trtdoc";
-
-constexpr char const* get_shape = R"trtdoc(
-    Get values of an input shape tensor required for shape calculations or an output tensor produced by shape calculations.
-
-    :arg binding: The binding index of an input tensor for which ``ICudaEngine.is_shape_binding(binding)`` is true.
-
-    If ``ICudaEngine.binding_is_input(binding) == False``, then both
-    :attr:`all_binding_shapes_specified` and :attr:`all_shape_inputs_specified` must be :class:`True`
-    before calling this method.
-
-    :returns: An iterable containing the values of the shape tensor.
 )trtdoc";
 
 constexpr char const* set_optimization_profile_async = R"trtdoc(
@@ -753,22 +717,6 @@ constexpr char const* get_binding_name = R"trtdoc(
 )trtdoc";
 
 // Documentation bug with parameters on these three functions because they are overloaded.
-constexpr char const* binding_is_input = R"trtdoc(
-    Determine whether a binding is an input binding.
-
-    :index: The binding index.
-
-    :returns: True if the index corresponds to an input binding and the index is in range.
-)trtdoc";
-
-constexpr char const* binding_is_input_str = R"trtdoc(
-    Determine whether a binding is an input binding.
-
-    :name: The name of the tensor corresponding to an engine binding.
-
-    :returns: True if the index corresponds to an input binding and the index is in range.
-)trtdoc";
-
 constexpr char const* get_binding_shape = R"trtdoc(
     Get the shape of a binding.
 
@@ -785,22 +733,6 @@ constexpr char const* get_binding_shape_str = R"trtdoc(
     :Returns: The shape of the binding if the tensor is present, otherwise Dims()
 )trtdoc";
 
-constexpr char const* get_binding_dtype = R"trtdoc(
-    Determine the required data type for a buffer from its binding index.
-
-    :index: The binding index.
-
-    :Returns: The type of data in the buffer.
-)trtdoc";
-
-constexpr char const* get_binding_dtype_str = R"trtdoc(
-    Determine the required data type for a buffer from its binding index.
-
-    :name: The name of the tensor corresponding to an engine binding.
-
-    :Returns: The type of data in the buffer.
-)trtdoc";
-
 constexpr char const* serialize = R"trtdoc(
     Serialize the engine to a stream.
 
@@ -811,24 +743,6 @@ constexpr char const* create_execution_context = R"trtdoc(
     Create an :class:`IExecutionContext` .
 
     :returns: The newly created :class:`IExecutionContext` .
-)trtdoc";
-
-constexpr char const* get_location = R"trtdoc(
-    Get location of binding.
-    This lets you know whether the binding should be a pointer to device or host memory.
-
-    :index: The binding index.
-
-    :returns: The location of the bound tensor with given index.
-)trtdoc";
-
-constexpr char const* get_location_str = R"trtdoc(
-    Get location of binding.
-    This lets you know whether the binding should be a pointer to device or host memory.
-
-    :name: The name of the tensor corresponding to an engine binding.
-
-    :returns: The location of the bound tensor with given index.
 )trtdoc";
 
 constexpr char const* create_execution_context_without_device_memory = R"trtdoc(
@@ -1131,7 +1045,7 @@ constexpr char const* DLA_MANAGED_SRAM = R"trtdoc(
     DLA_MANAGED_SRAM is a fast software managed RAM used by DLA to communicate within a layer.
     The size of this pool must be at least 4 KiB and must be a power of 2.
     This defaults to 1 MiB.
-    Orin has capacity of 1 MiB per core, and Xavier shares 4 MiB across all of its accelerator cores.
+    Orin has capacity of 1 MiB per core.
 )trtdoc";
 constexpr char const* DLA_LOCAL_DRAM = R"trtdoc(
     DLA_LOCAL_DRAM is host RAM used by DLA to share intermediate tensor data across operations.
@@ -1197,7 +1111,6 @@ constexpr char const* descr
     = R"trtdoc(List of immutable network properties expressed at network creation time. For example, to enable explicit batch mode, pass a value of ``1 << int(NetworkDefinitionCreationFlag.EXPLICIT_BATCH)`` to :func:`create_network` )trtdoc";
 constexpr char const* EXPLICIT_BATCH
     = R"trtdoc(Specify that the network should be created with an explicit batch dimension. Creating a network without this flag has been deprecated.)trtdoc";
-constexpr char const* EXPLICIT_PRECISION = R"trtdoc([DEPRECATED] This flag has no effect now.)trtdoc";
 constexpr char const* STRONGLY_TYPED
     = R"trtdoc(Specify that every tensor in the network has a data type defined in the network following only type inference rules and the inputs/operator annotations. Setting layer precision and layer output types is not allowed, and the network output types will be inferred based on the input types and the type inference rules)trtdoc";
 } // namespace NetworkDefinitionCreationFlagDoc
@@ -1268,16 +1181,17 @@ namespace TacticSourceDoc
 constexpr char const* descr = R"trtdoc(Tactic sources that can provide tactics for TensorRT.)trtdoc";
 
 constexpr char const* CUBLAS = R"trtdoc(
-        Enables cuBLAS tactics. Enabled by default.
+        Enables cuBLAS tactics. Disbaled by default.
+        [DEPRECATED] Deprecated in TensorRT 10.0.
         **NOTE:** Disabling CUBLAS tactic source will cause the cuBLAS handle passed to plugins in attachToContext to be null.
     )trtdoc";
 constexpr char const* CUBLAS_LT = R"trtdoc(
-        Enables CUBLAS_LT tactics. Enabled by default.
+        Enables CUBLAS_LT tactics. Disbaled by default.
         [DEPRECATED] Deprecated in TensorRT 9.0.
-
     )trtdoc";
 constexpr char const* CUDNN = R"trtdoc(
-        Enables cuDNN tactics. Enabled by default.
+        Enables cuDNN tactics. Disbaled by default.
+        [DEPRECATED] Deprecated in TensorRT 10.0.
         **NOTE:** Disabling CUDNN tactic source will cause the cuDNN handle passed to plugins in attachToContext to be null.
     )trtdoc";
 constexpr char const* EDGE_MASK_CONVOLUTIONS = R"trtdoc(
@@ -1612,7 +1526,6 @@ namespace BuilderDoc
 constexpr char const* descr = R"trtdoc(
     Builds an :class:`ICudaEngine` from a :class:`INetworkDefinition` .
 
-    :ivar max_batch_size: :class:`int` [DEPRECATED] For networks built with implicit batch, the maximum batch size which can be used at execution time, and also the batch size for which the :class:`ICudaEngine` will be optimized. This no effect for networks created with explicit batch dimension mode.
     :ivar platform_has_tf32: :class:`bool` Whether the platform has tf32 support.
     :ivar platform_has_fast_fp16: :class:`bool` Whether the platform has fast native fp16.
     :ivar platform_has_fast_int8: :class:`bool` Whether the platform has fast native int8.

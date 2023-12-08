@@ -247,8 +247,6 @@ public:
         : mEngine(engine)
         , mBatchSize(batchSize)
     {
-        // Full Dims implies no batch size.
-        assert(engine->hasImplicitBatchDimension() || mBatchSize == 0);
         // Create host and device buffers
         for (int32_t i = 0; i < mEngine->getNbIOTensors(); i++)
         {

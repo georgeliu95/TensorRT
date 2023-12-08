@@ -254,8 +254,8 @@ enum class TensorFormat : int32_t
     //! If running on the DLA, this format can be used for acceleration
     //! with the caveat that C must be less than or equal to 4.
     //! If used as DLA input and the build option kGPU_FALLBACK is not specified,
-    //! it needs to meet line stride requirement of DLA format. Column stride in bytes must
-    //! be a multiple of 32 on Xavier and 64 on Orin.
+    //! it needs to meet line stride requirement of DLA format. Column stride in
+    //! bytes must be a multiple of 64 on Orin.
     kCHW4 = 3,
 
     //! Sixteen-wide channel vectorized row-major format. This format is bound
@@ -313,14 +313,14 @@ enum class TensorFormat : int32_t
 
     //! DLA image format. For a tensor with dimension {N, C, H, W} the C axis
     //! always has unit stride. The stride for stepping along the H axis is rounded up
-    //! to 32 bytes on Xavier and 64 bytes on Orin. C can only be 1, 3 or 4.
+    //! to 64 bytes on Orin. C can only be 1, 3 or 4.
     //! If C == 1, it will map to grayscale format.
     //! If C == 3 or C == 4, it will map to color image format. And if C == 3,
     //! the stride for stepping along the W axis needs to be padded to 4 in elements.
     //!
     //! When C is {1, 3, 4}, then C' is {1, 4, 4} respectively,
     //! the memory layout is equivalent to a C array with dimensions
-    //! [N][H][roundUp(W, 32/C'/elementSize)][C'] on Xavier and [N][H][roundUp(W, 64/C'/elementSize)][C'] on Orin
+    //! [N][H][roundUp(W, 64/C'/elementSize)][C'] on Orin
     //! where elementSize is 2 for FP16
     //! and 1 for Int8. The tensor coordinates (n, c, h, w) mapping to array
     //! subscript [n][h][w][c].

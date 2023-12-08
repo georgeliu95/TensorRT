@@ -172,27 +172,14 @@ void FillBindingClosure<nvinfer1::ICudaEngine, nvinfer1::IExecutionContext>::get
     auto const b = tensorInfo.bindingIndex;
     auto const name = engine->getIOTensorName(b);
     tensorInfo.name = name;
-    if (engine->hasImplicitBatchDimension())
-    {
-        tensorInfo.dims = context->getBindingDimensions(b);
-        tensorInfo.comps = engine->getTensorComponentsPerElement(name);
-        tensorInfo.strides = context->getStrides(b);
-        tensorInfo.vectorDimIndex = engine->getTensorVectorizedDim(name);
-        tensorInfo.isInput = engine->bindingIsInput(b);
-        tensorInfo.dataType = engine->getBindingDataType(b);
-    }
-    else
-    {
-        // Use enqueueV3.
-        tensorInfo.dims = context->getTensorShape(name);
-        tensorInfo.isDynamic = std::any_of(
-            tensorInfo.dims.d, tensorInfo.dims.d + tensorInfo.dims.nbDims, [](int32_t dim) { return dim == -1; });
-        tensorInfo.comps = engine->getTensorComponentsPerElement(name, profileIndex);
-        tensorInfo.strides = context->getTensorStrides(name);
-        tensorInfo.vectorDimIndex = engine->getTensorVectorizedDim(name, profileIndex);
-        tensorInfo.isInput = engine->getTensorIOMode(name) == TensorIOMode::kINPUT;
-        tensorInfo.dataType = engine->getTensorDataType(name);
-    }
+    tensorInfo.dims = context->getTensorShape(name);
+    tensorInfo.isDynamic = std::any_of(
+        tensorInfo.dims.d, tensorInfo.dims.d + tensorInfo.dims.nbDims, [](int32_t dim) { return dim == -1; });
+    tensorInfo.comps = engine->getTensorComponentsPerElement(name, profileIndex);
+    tensorInfo.strides = context->getTensorStrides(name);
+    tensorInfo.vectorDimIndex = engine->getTensorVectorizedDim(name, profileIndex);
+    tensorInfo.isInput = engine->getTensorIOMode(name) == TensorIOMode::kINPUT;
+    tensorInfo.dataType = engine->getTensorDataType(name);
 }
 
 template <>
@@ -258,15 +245,6 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
 
     auto* engine = iEnv.engine.get();
     SMP_RETVAL_IF_FALSE(engine != nullptr, "Got invalid engine!", false, sample::gLogError);
-
-    bool const hasDLA = system.DLACore >= 0;
-    if (engine->hasImplicitBatchDimension() && hasDLA && inference.batch != engine->getMaxBatchSize())
-    {
-        sample::gLogError << "When using DLA with an implicit batch engine, the inference batch size must be the same "
-                             "as the engine's maximum batch size. Please specify the batch size by adding: '--batch="
-                          << engine->getMaxBatchSize() << "' to your command." << std::endl;
-        return false;
-    }
 
     // Release serialized blob to save memory space.
     iEnv.engine.releaseBlob();
@@ -347,12 +325,6 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
         return false;
     }
 
-    // Set all input dimensions before all bindings can be allocated
-    bool const useEnqueueV3 = !engine->hasImplicitBatchDimension();
-    if (useEnqueueV3)
-    {
-        sample::gLogVerbose << "Using enqueueV3." << std::endl;
-    }
     for (int32_t b = 0; b < endBindingIndex; ++b)
     {
         auto const& name = engine->getIOTensorName(b);
@@ -417,42 +389,21 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
 
                 for (auto& c : iEnv.contexts)
                 {
-                    if (useEnqueueV3)
+                    if (isShapeInferenceIO)
                     {
-                        if (isShapeInferenceIO)
+                        sample::gLogInfo << "Set input shape tensor " << name << " to: " << shapeData << std::endl;
+                        if (!c->setTensorAddress(name, shapeTensorData))
                         {
-                            sample::gLogInfo << "Set input shape tensor " << name << " to: " << shapeData << std::endl;
-                            if (!c->setTensorAddress(name, shapeTensorData))
-                            {
-                                return false;
-                            }
-                        }
-                        else
-                        {
-                            sample::gLogInfo << "Set shape of input tensor " << name << " to: " << shapeData
-                                             << std::endl;
-                            if (!c->setInputShape(name, toDims(shapeData)))
-                            {
-                                return false;
-                            }
+                            return false;
                         }
                     }
                     else
                     {
-                        if (isShapeInferenceIO)
+                        sample::gLogInfo << "Set shape of input tensor " << name << " to: " << shapeData
+                                            << std::endl;
+                        if (!c->setInputShape(name, toDims(shapeData)))
                         {
-                            sample::gLogInfo << "Set input shape tensor " << name << " to: " << shapeData << std::endl;
-                            if (!c->setInputShapeBinding(b, shapeTensorData))
-                            {
-                                return false;
-                            }
-                        }
-                        else
-                        {
-                            if (!c->setBindingDimensions(b, toDims(shapeData)))
-                            {
-                                return false;
-                            }
+                            return false;
                         }
                     }
                 }
@@ -474,8 +425,7 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
     }
 
     auto const* context = iEnv.contexts.front().get();
-    int32_t const batch = engine->hasImplicitBatchDimension() ? inference.batch : 1;
-    return FillStdBindings(engine, context, inference.inputs, iEnv.bindings, batch, endBindingIndex, inference.optProfileIndex)();
+    return FillStdBindings(engine, context, inference.inputs, iEnv.bindings, 1, endBindingIndex, inference.optProfileIndex)();
 }
 
 TaskInferenceEnvironment::TaskInferenceEnvironment(
@@ -870,8 +820,6 @@ private:
     void createEnqueueFunction(
         InferenceOptions const& inference, nvinfer1::IExecutionContext& context, Bindings& bindings)
     {
-        // EnqueueImplicit is no longer supported.
-        ASSERT(!context.getEngine().hasImplicitBatchDimension());
         mEnqueue = EnqueueFunction(EnqueueExplicit(context, mBindings));
         if (inference.graph)
         {
@@ -1503,28 +1451,6 @@ void Bindings::dumpBindingValues<nvinfer1::IExecutionContext>(nvinfer1::IExecuti
     Dims strides = context.getTensorStrides(tensorName);
     int32_t vectorDim = context.getEngine().getTensorVectorizedDim(tensorName);
     int32_t const spv = context.getEngine().getTensorComponentsPerElement(tensorName);
-
-    if (context.getEngine().hasImplicitBatchDimension())
-    {
-        auto const insertN = [](Dims& d, int32_t bs) {
-            int32_t const nbDims = d.nbDims;
-            ASSERT(nbDims < Dims::MAX_DIMS);
-            std::copy_backward(&d.d[0], &d.d[nbDims], &d.d[nbDims + 1]);
-            d.d[0] = bs;
-            d.nbDims = nbDims + 1;
-        };
-        int32_t batchStride = 0;
-        for (int32_t i = 0; i < strides.nbDims; ++i)
-        {
-            if (strides.d[i] * dims.d[i] > batchStride)
-            {
-                batchStride = strides.d[i] * dims.d[i];
-            }
-        }
-        insertN(dims, batch);
-        insertN(strides, batchStride);
-        vectorDim = (vectorDim == -1) ? -1 : vectorDim + 1;
-    }
 
     mBindings[binding].dump(os, dims, strides, vectorDim, spv, separator);
 }

@@ -76,7 +76,6 @@ def get_engine(onnx_file_path, engine_file_path=""):
             TRT_LOGGER
         ) as runtime:
             config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 28) # 256MiB
-            builder.max_batch_size = 1
             # Parse model file
             if not os.path.exists(onnx_file_path):
                 print(

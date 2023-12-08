@@ -68,6 +68,9 @@ public:
 
     char const* getPluginVersion() const noexcept override;
 
+    void attachToContext(
+        cudnnContext* cudnn, cublasContext* cublas, nvinfer1::IGpuAllocator* allocator) noexcept override;
+
     void destroy() noexcept override;
 
     IPluginV2Ext* clone() const noexcept override;

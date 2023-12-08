@@ -545,8 +545,7 @@ constexpr const char* descr = R"trtdoc(
     |  For example, to perform softmax on axis R of a NPQRCHW input, set bit 2 with implicit batch mode,
     |  set bit 3 with explicit batch mode.
 
-    On Xavier, this layer is not supported on DLA.
-    Otherwise, the following constraints must be satisfied to execute this layer on DLA:
+    The following constraints must be satisfied to execute this layer on DLA:
 
     - Axis must be one of the channel or spatial dimensions.
     - There are two classes of supported input sizes:
@@ -1194,7 +1193,7 @@ constexpr const char* descr = R"trtdoc(
     This layer casts the element of a given input tensor to a specified data type and returns an output tensor of the same shape in the converted type.
 
     Conversions between all types except FP8 is supported.
-    
+
     :ivar to_type: :class:`DataType` The specified data type of the output tensor.
 )trtdoc";
 } // namespace ICastLayerDoc
@@ -1680,7 +1679,7 @@ constexpr const char* descr = R"trtdoc(
     kRANDOM_UNIFORM    float16, float32
     kRANDOM_NORMAL     float16, float32
     ================   =====================
-    
+
     :ivar to_type: :class:`DataType` The specified data type of the output tensor. Defaults to tensorrt.float32.
 )trtdoc";
 

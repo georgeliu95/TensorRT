@@ -54,8 +54,22 @@ static const auto error_code_str = [](ErrorCode self) {
 };
 
 static const auto parser_error_str = [](IParserError& self) {
-    return "In node " + std::to_string(self.node()) + " with name: " + self.nodeName() + " and operator: "
-        + self.nodeOperator() + " (" + self.func() + "): " + error_code_str(self.code()) + ": " + self.desc();
+    std::string error_str;
+    if (self.localFunctionStackSize())
+    {
+        error_str = "[Stack: ";
+        for (int32_t i = 0; i < self.localFunctionStackSize(); ++i)
+        {
+            error_str += self.localFunctionStack()[i];
+            if (i != self.localFunctionStackSize() - 1)
+            {
+                error_str += " -> ";
+            }
+        }
+        error_str += "] ";
+    }
+    return error_str += ("In node " + std::to_string(self.node()) + " with name: " + self.nodeName() + " and operator: "
+               + self.nodeOperator() + " (" + self.func() + "): " + error_code_str(self.code()) + ": " + self.desc());
 };
 
 static const auto parse = [](IParser& self, const py::buffer& model, const char* path = nullptr) {
@@ -92,6 +106,21 @@ static const auto get_used_vc_plugin_libraries = [](IParser& self) {
         vcPluginLibs.emplace_back(std::string{libCArray[i]});
     }
     return vcPluginLibs;
+};
+
+static const auto get_local_function_stack = [](IParserError& self) {
+    std::vector<std::string> localFunctionStack;
+    int32_t localFunctionStackSize = self.localFunctionStackSize();
+    if (localFunctionStackSize > 0)
+    {
+        auto localFunctionStackCArray = self.localFunctionStack();
+        localFunctionStack.reserve(localFunctionStackSize);
+        for (int32_t i = 0; i < localFunctionStackSize; ++i)
+        {
+            localFunctionStack.emplace_back(std::string{localFunctionStackCArray[i]});
+        }
+    }
+    return localFunctionStack;
 };
 
 } // namespace lambdas
@@ -153,6 +182,9 @@ void bindOnnx(py::module& m)
         .def("node", &IParserError::node, ParserErrorDoc::node)
         .def("node_name", &IParserError::nodeName, ParserErrorDoc::node_name)
         .def("node_operator", &IParserError::nodeOperator, ParserErrorDoc::node_operator)
+        .def("local_function_stack", lambdas::get_local_function_stack, ParserErrorDoc::local_function_stack)
+        .def("local_function_stack_size", &IParserError::localFunctionStackSize,
+            ParserErrorDoc::local_function_stack_size)
         .def("__str__", lambdas::parser_error_str)
         .def("__repr__", lambdas::parser_error_str);
 

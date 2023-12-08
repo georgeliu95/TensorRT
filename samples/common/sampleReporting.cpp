@@ -322,8 +322,6 @@ void printPerformanceReport(std::vector<InferenceTrace> const& trace, ReportingO
     auto const noWarmup = std::find_if(trace.begin(), trace.end(), isNotWarmup);
     int32_t const warmups = noWarmup - trace.begin();
     float const benchTime = trace.back().d2hEnd - noWarmup->h2dStart;
-    // when implicit batch used, batchSize = options.inference.batch, which is parsed through --batch
-    // when explicit batch used, batchSize = options.inference.batch = 0
     // treat inference with explicit batch as a single query and report the throughput
     batchSize = batchSize ? batchSize : 1;
     printProlog(warmups * batchSize, (trace.size() - warmups) * batchSize, warmupMs, benchTime, osInfo);

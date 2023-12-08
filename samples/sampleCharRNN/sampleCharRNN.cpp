@@ -345,7 +345,6 @@ bool SampleCharRNNBase::build()
         if (!mParams.useILoop)
         {
             flags = 0;
-            builder->setMaxBatchSize(mParams.batchSize);
         }
         auto network = SampleUniquePtr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(flags));
         if (!network)

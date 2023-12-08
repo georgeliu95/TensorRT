@@ -654,19 +654,6 @@ void printShapes(std::ostream& os, char const* phase, T const& shapes, int32_t p
     }
 }
 
-std::ostream& printBatch(std::ostream& os, int32_t maxBatch)
-{
-    if (maxBatch != maxBatchNotProvided)
-    {
-        os << maxBatch;
-    }
-    else
-    {
-        os << "explicit batch";
-    }
-    return os;
-}
-
 std::ostream& printTacticSources(
     std::ostream& os, nvinfer1::TacticSources enabledSources, nvinfer1::TacticSources disabledSources)
 {
@@ -937,15 +924,6 @@ void BuildOptions::parse(Arguments& arguments)
 
     getFormats(inputFormats, "--inputIOFormats");
     getFormats(outputFormats, "--outputIOFormats");
-
-    bool addedExplicitBatchFlag{false};
-    getAndDelOption(arguments, "--explicitBatch", addedExplicitBatchFlag);
-    if (addedExplicitBatchFlag)
-    {
-        sample::gLogWarning << "--explicitBatch flag has been deprecated and has no effect!" << std::endl;
-        sample::gLogWarning << "Explicit batch dim is automatically enabled if input model is ONNX or if dynamic "
-                            << "shapes are provided when the engine is built." << std::endl;
-    }
 
     bool getCalibProfile = getAndDelOption(arguments, "--calibProfile", calibProfile);
     if (!getOptimizationProfiles(arguments, optProfiles, "--profile"))
@@ -1499,46 +1477,9 @@ void AllOptions::parse(Arguments& arguments)
     system.parse(arguments);
     inference.parse(arguments);
 
-    // Use explicitBatch when input model is ONNX or when dynamic shapes are used.
-    const bool isOnnx{model.baseModel.format == ModelFormat::kONNX};
-    const bool hasDynamicShapes{
-        (!build.optProfiles.empty() && !build.optProfiles[0].empty()) || !inference.shapes.empty()};
-    const bool detectedExplicitBatch = isOnnx || hasDynamicShapes;
-
-    // Throw an error if user tries to use --batch or --maxBatch when the engine has explicit batch dim.
-    const bool maxBatchWasSet{build.maxBatch != maxBatchNotProvided};
-    const bool batchWasSet{inference.batch != batchNotProvided};
-    if (detectedExplicitBatch && (maxBatchWasSet || batchWasSet))
-    {
-        throw std::invalid_argument(
-            "The --batch and --maxBatch flags should not be used when the input model is ONNX or when dynamic shapes "
-            "are provided. Please use --optShapes and --shapes to set input shapes instead.");
-    }
-
     if (build.useRuntime != RuntimeMode::kFULL && inference.timeRefit)
     {
         throw std::invalid_argument("--timeRefit requires --useRuntime=full.");
-    }
-
-    // If batch and/or maxBatch is not set and the engine has implicit batch dim, set them to default values.
-    if (!detectedExplicitBatch)
-    {
-        // If batch is not set, set it to default value.
-        if (!batchWasSet)
-        {
-            inference.batch = defaultBatch;
-        }
-        // If maxBatch is not set, set it to be equal to batch.
-        if (!maxBatchWasSet)
-        {
-            build.maxBatch = inference.batch;
-        }
-        // MaxBatch should not be less than batch.
-        if (build.maxBatch < inference.batch)
-        {
-            throw std::invalid_argument("Build max batch " + std::to_string(build.maxBatch)
-                + " is less than inference batch " + std::to_string(inference.batch));
-        }
     }
 
     if (inference.optProfileIndex < static_cast<int32_t>(build.optProfiles.size()))
@@ -1920,7 +1861,6 @@ std::ostream& operator<<(std::ostream& os, const BuildOptions& options)
 {
     // clang-format off
     os << "=== Build Options ==="                                                                                       << std::endl <<
-          "Max batch: ";        printBatch(os, options.maxBatch)                                                        << std::endl <<
           "Memory Pools: ";     printMemoryPools(os, options)                                                           << std::endl <<
           "avgTiming: "      << options.avgTiming                                                                       << std::endl <<
           "Precision: ";        printPrecision(os, options)                                                             << std::endl <<
@@ -2445,9 +2385,7 @@ void AllOptions::help(std::ostream& os)
     os << std::endl;
     // clang-format off
     os << "=== Build and Inference Batch Options ==="                                                                   << std::endl <<
-          "                              When using implicit batch, the max batch size of the engine, if not given, "   << std::endl <<
-          "                              is set to the inference batch size;"                                           << std::endl <<
-          "                              when using explicit batch, if shapes are specified only for inference, they "  << std::endl <<
+          "                              When using explicit batch, if shapes are specified only for inference, they "  << std::endl <<
           "                              will be used also as min/opt/max in the build profile; if shapes are "         << std::endl <<
           "                              specified only for the build, the opt shapes will be used also for inference;" << std::endl <<
           "                              if both are specified, they must be compatible; and if explicit batch is "     << std::endl <<

@@ -641,49 +641,37 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
     INetworkDefinition& network, IBuilderConfig& config, std::unique_ptr<nvinfer1::IInt8Calibrator>& calibrator,
     std::ostream& err, std::vector<std::vector<int8_t>>& sparseWeights)
 {
-    bool shouldCreateOptimizationProfile{false};
     std::vector<IOptimizationProfile*> profiles{};
-    if (build.maxBatch)
+    profiles.resize(build.optProfiles.size());
+    for (auto& profile : profiles)
     {
-        builder.setMaxBatchSize(build.maxBatch);
-    }
-    else
-    {
-        shouldCreateOptimizationProfile = true;
-        profiles.resize(build.optProfiles.size());
-        for (auto& profile : profiles)
-        {
-            profile = builder.createOptimizationProfile();
-        }
+        profile = builder.createOptimizationProfile();
     }
 
     bool hasDynamicShapes{false};
 
     bool broadcastInputFormats = broadcastIOFormats(build.inputFormats, network.getNbInputs());
 
-    if (shouldCreateOptimizationProfile)
+    // Check if the provided input tensor names match the input tensors of the engine.
+    // Throw an error if the provided input tensor names cannot be found because it implies a potential typo.
+    for (auto const& shapes : build.optProfiles)
     {
-        // Check if the provided input tensor names match the input tensors of the engine.
-        // Throw an error if the provided input tensor names cannot be found because it implies a potential typo.
-        for (auto const& shapes : build.optProfiles)
+        for (auto const& shape : shapes)
         {
-            for (auto const& shape : shapes)
+            bool tensorNameFound{false};
+            for (int32_t i = 0; i < network.getNbInputs(); ++i)
             {
-                bool tensorNameFound{false};
-                for (int32_t i = 0; i < network.getNbInputs(); ++i)
+                if (matchStringWithOneWildcard(shape.first, network.getInput(i)->getName()))
                 {
-                    if (matchStringWithOneWildcard(shape.first, network.getInput(i)->getName()))
-                    {
-                        tensorNameFound = true;
-                        break;
-                    }
+                    tensorNameFound = true;
+                    break;
                 }
-                if (!tensorNameFound)
-                {
-                    sample::gLogError << "Cannot find input tensor with name \"" << shape.first << "\" in the network "
-                                      << "inputs! Please make sure the input tensor names are correct." << std::endl;
-                    return false;
-                }
+            }
+            if (!tensorNameFound)
+            {
+                sample::gLogError << "Cannot find input tensor with name \"" << shape.first << "\" in the network "
+                                  << "inputs! Please make sure the input tensor names are correct." << std::endl;
+                return false;
             }
         }
     }
@@ -694,7 +682,7 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
         auto* input = network.getInput(i);
         if (!build.inputFormats.empty())
         {
-            int inputFormatIndex = broadcastInputFormats ? 0 : i;
+            int32_t inputFormatIndex = broadcastInputFormats ? 0 : i;
             input->setType(build.inputFormats[inputFormatIndex].first);
             input->setAllowedFormats(build.inputFormats[inputFormatIndex].second);
         }
@@ -721,100 +709,94 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
             input->setAllowedFormats(1U << static_cast<int>(TensorFormat::kLINEAR));
         }
 
-        if (shouldCreateOptimizationProfile)
+        auto const dims = input->getDimensions();
+        auto const isScalar = dims.nbDims == 0;
+        auto const isDynamicInput = std::any_of(dims.d, dims.d + dims.nbDims, [](int32_t dim) { return dim == -1; })
+            || input->isShapeTensor();
+        if (isDynamicInput)
         {
-            auto const dims = input->getDimensions();
-            auto const isScalar = dims.nbDims == 0;
-            auto const isDynamicInput = std::any_of(dims.d, dims.d + dims.nbDims, [](int32_t dim) { return dim == -1; })
-                || input->isShapeTensor();
-            if (isDynamicInput)
+            hasDynamicShapes = true;
+            for (size_t i = 0; i < build.optProfiles.size(); i++)
             {
-                hasDynamicShapes = true;
-                for (size_t i = 0; i < build.optProfiles.size(); i++)
-                {
-                    auto const& optShapes = build.optProfiles[i];
-                    auto profile = profiles[i];
-                    auto const tensorName = input->getName();
-                    auto shape = findPlausible(optShapes, tensorName);
-                    ShapeRange shapes{};
+                auto const& optShapes = build.optProfiles[i];
+                auto profile = profiles[i];
+                auto const tensorName = input->getName();
+                auto shape = findPlausible(optShapes, tensorName);
+                ShapeRange shapes{};
 
-                    // If no shape is provided, set dynamic dimensions to 1.
-                    if (shape == optShapes.end())
+                // If no shape is provided, set dynamic dimensions to 1.
+                if (shape == optShapes.end())
+                {
+                    constexpr int32_t kDEFAULT_DIMENSION{1};
+                    std::vector<int32_t> staticDims;
+                    if (input->isShapeTensor())
                     {
-                        constexpr int kDEFAULT_DIMENSION = 1;
-                        std::vector<int> staticDims;
-                        if (input->isShapeTensor())
+                        if (isScalar)
                         {
-                            if (isScalar)
-                            {
-                                staticDims.push_back(1);
-                            }
-                            else
-                            {
-                                staticDims.resize(dims.d[0]);
-                                std::fill(staticDims.begin(), staticDims.end(), kDEFAULT_DIMENSION);
-                            }
+                            staticDims.push_back(1);
                         }
                         else
                         {
-                            staticDims.resize(dims.nbDims);
-                            std::transform(dims.d, dims.d + dims.nbDims, staticDims.begin(),
-                                [&](int dimension) { return dimension > 0 ? dimension : kDEFAULT_DIMENSION; });
+                            staticDims.resize(dims.d[0]);
+                            std::fill(staticDims.begin(), staticDims.end(), kDEFAULT_DIMENSION);
                         }
-                        sample::gLogWarning
-                            << "Dynamic dimensions required for input: " << tensorName
-                            << ", but no shapes were provided. Automatically overriding shape to: " << staticDims
-                            << std::endl;
-                        std::fill(shapes.begin(), shapes.end(), staticDims);
                     }
                     else
                     {
-                        shapes = shape->second;
+                        staticDims.resize(dims.nbDims);
+                        std::transform(dims.d, dims.d + dims.nbDims, staticDims.begin(),
+                            [&](int dimension) { return dimension > 0 ? dimension : kDEFAULT_DIMENSION; });
                     }
+                    sample::gLogWarning << "Dynamic dimensions required for input: " << tensorName
+                                        << ", but no shapes were provided. Automatically overriding shape to: "
+                                        << staticDims << std::endl;
+                    std::fill(shapes.begin(), shapes.end(), staticDims);
+                }
+                else
+                {
+                    shapes = shape->second;
+                }
 
-                    std::vector<int> profileDims{};
-                    if (input->isShapeTensor())
-                    {
-                        profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMIN)];
-                        SMP_RETVAL_IF_FALSE(profile->setShapeValues(tensorName, OptProfileSelector::kMIN,
-                                                profileDims.data(), static_cast<int>(profileDims.size())),
-                            "Error in set shape values MIN", false, err);
-                        profileDims = shapes[static_cast<size_t>(OptProfileSelector::kOPT)];
-                        SMP_RETVAL_IF_FALSE(profile->setShapeValues(tensorName, OptProfileSelector::kOPT,
-                                                profileDims.data(), static_cast<int>(profileDims.size())),
-                            "Error in set shape values OPT", false, err);
-                        profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMAX)];
-                        SMP_RETVAL_IF_FALSE(profile->setShapeValues(tensorName, OptProfileSelector::kMAX,
-                                                profileDims.data(), static_cast<int>(profileDims.size())),
-                            "Error in set shape values MAX", false, err);
-                        sample::gLogInfo << "Set input shape tensor " << tensorName << " for optimization profile " << i
-                                         << " to:"
-                                         << " MIN=" << shapes[static_cast<size_t>(OptProfileSelector::kMIN)]
-                                         << " OPT=" << shapes[static_cast<size_t>(OptProfileSelector::kOPT)]
-                                         << " MAX=" << shapes[static_cast<size_t>(OptProfileSelector::kMAX)]
-                                         << std::endl;
-                    }
-                    else
-                    {
-                        profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMIN)];
-                        SMP_RETVAL_IF_FALSE(
-                            profile->setDimensions(tensorName, OptProfileSelector::kMIN, toDims(profileDims)),
-                            "Error in set dimensions to profile MIN", false, err);
-                        profileDims = shapes[static_cast<size_t>(OptProfileSelector::kOPT)];
-                        SMP_RETVAL_IF_FALSE(
-                            profile->setDimensions(tensorName, OptProfileSelector::kOPT, toDims(profileDims)),
-                            "Error in set dimensions to profile OPT", false, err);
-                        profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMAX)];
-                        SMP_RETVAL_IF_FALSE(
-                            profile->setDimensions(tensorName, OptProfileSelector::kMAX, toDims(profileDims)),
-                            "Error in set dimensions to profile MAX", false, err);
-                        sample::gLogInfo << "Set shape of input tensor " << tensorName << " for optimization profile "
-                                         << i << " to:"
-                                         << " MIN=" << shapes[static_cast<size_t>(OptProfileSelector::kMIN)]
-                                         << " OPT=" << shapes[static_cast<size_t>(OptProfileSelector::kOPT)]
-                                         << " MAX=" << shapes[static_cast<size_t>(OptProfileSelector::kMAX)]
-                                         << std::endl;
-                    }
+                std::vector<int> profileDims{};
+                if (input->isShapeTensor())
+                {
+                    profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMIN)];
+                    SMP_RETVAL_IF_FALSE(profile->setShapeValues(tensorName, OptProfileSelector::kMIN,
+                                            profileDims.data(), static_cast<int>(profileDims.size())),
+                        "Error in set shape values MIN", false, err);
+                    profileDims = shapes[static_cast<size_t>(OptProfileSelector::kOPT)];
+                    SMP_RETVAL_IF_FALSE(profile->setShapeValues(tensorName, OptProfileSelector::kOPT,
+                                            profileDims.data(), static_cast<int>(profileDims.size())),
+                        "Error in set shape values OPT", false, err);
+                    profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMAX)];
+                    SMP_RETVAL_IF_FALSE(profile->setShapeValues(tensorName, OptProfileSelector::kMAX,
+                                            profileDims.data(), static_cast<int>(profileDims.size())),
+                        "Error in set shape values MAX", false, err);
+                    sample::gLogInfo << "Set input shape tensor " << tensorName << " for optimization profile " << i
+                                     << " to:"
+                                     << " MIN=" << shapes[static_cast<size_t>(OptProfileSelector::kMIN)]
+                                     << " OPT=" << shapes[static_cast<size_t>(OptProfileSelector::kOPT)]
+                                     << " MAX=" << shapes[static_cast<size_t>(OptProfileSelector::kMAX)] << std::endl;
+                }
+                else
+                {
+                    profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMIN)];
+                    SMP_RETVAL_IF_FALSE(
+                        profile->setDimensions(tensorName, OptProfileSelector::kMIN, toDims(profileDims)),
+                        "Error in set dimensions to profile MIN", false, err);
+                    profileDims = shapes[static_cast<size_t>(OptProfileSelector::kOPT)];
+                    SMP_RETVAL_IF_FALSE(
+                        profile->setDimensions(tensorName, OptProfileSelector::kOPT, toDims(profileDims)),
+                        "Error in set dimensions to profile OPT", false, err);
+                    profileDims = shapes[static_cast<size_t>(OptProfileSelector::kMAX)];
+                    SMP_RETVAL_IF_FALSE(
+                        profile->setDimensions(tensorName, OptProfileSelector::kMAX, toDims(profileDims)),
+                        "Error in set dimensions to profile MAX", false, err);
+                    sample::gLogInfo << "Set shape of input tensor " << tensorName << " for optimization profile " << i
+                                     << " to:"
+                                     << " MIN=" << shapes[static_cast<size_t>(OptProfileSelector::kMIN)]
+                                     << " OPT=" << shapes[static_cast<size_t>(OptProfileSelector::kOPT)]
+                                     << " MAX=" << shapes[static_cast<size_t>(OptProfileSelector::kMAX)] << std::endl;
                 }
             }
         }
@@ -823,17 +805,13 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
     for (uint32_t i = 0, n = network.getNbOutputs(); i < n; i++)
     {
         auto* output = network.getOutput(i);
-        if (shouldCreateOptimizationProfile)
+        auto const dims = output->getDimensions();
+        // A shape tensor output with known static dimensions may have dynamic shape values inside it.
+        auto const isDynamicOutput = std::any_of(dims.d, dims.d + dims.nbDims, [](int32_t dim) { return dim == -1; })
+            || output->isShapeTensor();
+        if (isDynamicOutput)
         {
-            auto const dims = output->getDimensions();
-            // A shape tensor output with known static dimensions may have dynamic shape values inside it.
-            auto const isDynamicOutput
-                = std::any_of(dims.d, dims.d + dims.nbDims, [](int32_t dim) { return dim == -1; })
-                || output->isShapeTensor();
-            if (isDynamicOutput)
-            {
-                hasDynamicShapes = true;
-            }
+            hasDynamicShapes = true;
         }
     }
 
@@ -845,7 +823,7 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
         return false;
     }
 
-    if (shouldCreateOptimizationProfile && hasDynamicShapes)
+    if (hasDynamicShapes)
     {
         for (auto profile : profiles)
         {
@@ -863,7 +841,7 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
         auto* output = network.getOutput(i);
         if (!build.outputFormats.empty())
         {
-            int outputFormatIndex = broadcastOutputFormats ? 0 : i;
+            int32_t outputFormatIndex = broadcastOutputFormats ? 0 : i;
             output->setType(build.outputFormats[outputFormatIndex].first);
             output->setAllowedFormats(build.outputFormats[outputFormatIndex].second);
         }
@@ -1228,8 +1206,7 @@ bool modelToBuildEnv(
     env.builder.reset(createBuilder());
     SMP_RETVAL_IF_FALSE(env.builder != nullptr, "Builder creation failed", false, err);
     env.builder->setErrorRecorder(&gRecorder);
-    auto networkFlags
-        = (build.maxBatch) ? 0U : 1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
+    auto networkFlags = 1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
     networkFlags |= (build.stronglyTyped)
         ? 1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kSTRONGLY_TYPED)
         : 0U;

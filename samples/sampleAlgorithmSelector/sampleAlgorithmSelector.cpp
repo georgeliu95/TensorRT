@@ -454,7 +454,6 @@ bool SampleAlgorithmSelector::build(IAlgorithmSelector* selector)
         return false;
     }
 
-    builder->setMaxBatchSize(mParams.batchSize);
     config->setAlgorithmSelector(selector);
 
     if (mParams.fp16)
