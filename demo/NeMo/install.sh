@@ -34,9 +34,8 @@ ARG_JOBS=1
 ARG_HELP=0
 
 install_essential_tools() {
-	pip_not_found=$(pip --version 2>&1 | grep -o "not found");
-	if [ "$pip_not_found" != "" ];
-	then
+	pip_not_found=$(pip --version 2>&1 | grep -o "not found")
+	if [ "$pip_not_found" != "" ]; then
 		echo " > Installing pip..."
 		apt-get update
 		apt-get install -y python3-dev
@@ -49,9 +48,8 @@ install_essential_tools() {
 		cd ..
 	fi
 
-	git_not_found=$(git --version 2>&1 | grep -o "not found");
-	if [ "$git_not_found" != "" ];
-	then
+	git_not_found=$(git --version 2>&1 | grep -o "not found")
+	if [ "$git_not_found" != "" ]; then
 		echo " > Installing git..."
 		apt-get update
 		apt-get install -y git
@@ -326,7 +324,7 @@ install_transformer_engine() {
 
 nemo_install_logic() {
 	if [ ! -d "NeMo" ]; then
-		git clone -b main https://github.com/NVIDIA/NeMo.git
+		git clone --branch main --single-branch NeMo https://github.com/NVIDIA/NeMo.git
 	fi
 
 	cd NeMo || exit
