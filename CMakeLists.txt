@@ -68,7 +68,7 @@ endif()
 set(CMAKE_SKIP_BUILD_RPATH True)
 
 project(TensorRT
-        LANGUAGES CXX CUDA
+        LANGUAGES C CXX CUDA
         VERSION ${TRT_VERSION}
         DESCRIPTION "TensorRT is a C++ library that facilitates high-performance inference on NVIDIA GPUs and deep learning accelerators."
         HOMEPAGE_URL "https://github.com/NVIDIA/TensorRT")
@@ -215,13 +215,13 @@ endif()
 if(BUILD_PLUGINS)
     add_subdirectory(plugin)
 else()
-    find_library_create_target(nvinfer_plugin nvinfer_plugin SHARED ${TRT_OUT_DIR} ${TRT_LIB_DIR})
+    find_library_create_target(nvinfer_plugin nvinfer_plugin SHARED ${TRT_LIB_DIR} ${TRT_OUT_DIR})
 endif()
 
 if(BUILD_PARSERS)
     add_subdirectory(parsers)
 else()
-    find_library_create_target(nvonnxparser nvonnxparser SHARED ${TRT_OUT_DIR} ${TRT_LIB_DIR})
+    find_library_create_target(nvonnxparser nvonnxparser SHARED ${TRT_LIB_DIR} ${TRT_OUT_DIR})
 endif()
 
 if(BUILD_SAMPLES)
