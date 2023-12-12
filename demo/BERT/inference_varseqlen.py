@@ -178,7 +178,7 @@ if __name__ == '__main__':
                 cuda.memcpy_htod_async(d_inputs[2], h_cu_seq_lens, stream)
 
                 # Setup tensor address
-                bindings = [int(d_inputs[i]) for i in range(3)] + [int(d_output)]
+                bindings = [int(d_inputs[i]) for i in range(4)] + [int(d_output)]
 
                 for i in range(engine.num_io_tensors):
                     context.set_tensor_address(engine.get_tensor_name(i), bindings[i])
