@@ -324,7 +324,7 @@ install_transformer_engine() {
 
 nemo_install_logic() {
 	if [ ! -d "NeMo" ]; then
-		git clone --branch main --single-branch NeMo https://github.com/NVIDIA/NeMo.git
+		git clone --branch main --single-branch https://github.com/NVIDIA/NeMo.git NeMo
 	fi
 
 	cd NeMo || exit
