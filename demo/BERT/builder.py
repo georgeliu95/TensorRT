@@ -387,7 +387,11 @@ def emb_layernorm(builder, network, config, weights_dict, builder_config, sequen
 
 def build_engine(batch_sizes, workspace_size, sequence_lengths, config, weights_dict, squad_json, vocab_file, calibrationCacheFile, calib_num, verbose):
 
-    with trt.Builder(TRT_LOGGER) as builder, builder.create_network() as network, builder.create_builder_config() as builder_config:
+    network_creation_flag = 0
+    if "EXPLICIT_BATCH" in trt.NetworkDefinitionCreationFlag.__members__.keys():
+        network_creation_flag = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
+
+    with trt.Builder(TRT_LOGGER) as builder, builder.create_network(network_creation_flag) as network, builder.create_builder_config() as builder_config:
         builder_config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, workspace_size * (1024 * 1024))
         builder_config.avg_timing_iterations = 8
         if config.use_fp16:

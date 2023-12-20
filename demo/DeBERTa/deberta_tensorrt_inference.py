@@ -281,7 +281,10 @@ def build_engine():
         print(f'Building {precision} engine of {MODEL_NAME} model on {gpu_name} GPU...')
 
         ## parse ONNX model
-        network = TRT_BUILDER.create_network()
+        network_creation_flag = 0
+        if "EXPLICIT_BATCH" in trt.NetworkDefinitionCreationFlag.__members__.keys():
+            network_creation_flag = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
+        network = TRT_BUILDER.create_network(network_creation_flag)
         onnx_parser = trt.OnnxParser(network, TRT_LOGGER)
         parse_success = onnx_parser.parse_from_file(ONNX_MODEL)
         for idx in range(onnx_parser.num_errors):
