@@ -130,7 +130,10 @@ def build_engine(model_file, shapes, max_ws=512*1024*1024, fp16=False, timing_ca
             cache = config.create_timing_cache(b"")
             config.set_timing_cache(cache, ignore_mismatch = False)
 
-    network = builder.create_network()
+    network_creation_flag = 0
+    if "EXPLICIT_BATCH" in trt.NetworkDefinitionCreationFlag.__members__.keys():
+        network_creation_flag = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
+    network = builder.create_network(network_creation_flag)
 
     with trt.OnnxParser(network, TRT_LOGGER) as parser:
         with open(model_file, 'rb') as model:
