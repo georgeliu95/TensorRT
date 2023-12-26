@@ -102,10 +102,13 @@ inline int64_t volume(nvinfer1::Dims const& d)
     return std::accumulate(d.d, d.d + d.nbDims, int64_t{1}, std::multiplies<int64_t>{});
 }
 
-// Return m rounded up to nearest multiple of n
-template <typename T>
-inline T roundUp(T m, T n)
+//! Return m rounded up to nearest multiple of n
+template <typename T1, typename T2>
+inline T1 roundUp(T1 m, T2 n)
 {
+    static_assert(std::is_integral<T1>::value && std::is_integral<T2>::value, "arguments must be integers");
+    static_assert(std::is_signed<T1>::value == std::is_signed<T2>::value, "mixed signedness not allowed");
+    static_assert(sizeof(T1) >= sizeof(T2), "first type must be as least as wide as second type");
     return ((m + n - 1) / n) * n;
 }
 

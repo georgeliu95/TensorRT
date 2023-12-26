@@ -55,6 +55,7 @@ def build_engine(model_path):
     builder = trt.Builder(TRT_LOGGER)
     network = builder.create_network(common.EXPLICIT_BATCH)
     config = builder.create_builder_config()
+    config.set_tactic_sources(config.get_tactic_sources() | 1 << int(trt.TacticSource.CUBLAS))
     parser = trt.OnnxParser(network, TRT_LOGGER)
     runtime = trt.Runtime(TRT_LOGGER)
 

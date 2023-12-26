@@ -1706,6 +1706,35 @@ protected:
 };
 
 //!
+//! \enum ExecutionContextAllocationStrategy
+//!
+//! \brief Different memory allocation behaviors for IExecutionContext.
+//!
+//! IExecutionContext requires a block of device memory for internal activation tensors during inference. The user can
+//! either let the execution context manage the memory in various ways or allocate the memory themselves.
+//!
+//! \see ICudaEngine::createExecutionContext()
+//! \see IExecutionContext::setDeviceMemory()
+//!
+enum class ExecutionContextAllocationStrategy : int32_t
+{
+    kSTATIC = 0,            //!< Default static allocation with the maximum size across all profiles.
+    kON_PROFILE_CHANGE = 1, //!< Reallocate for a profile when it's selected.
+    kUSER_MANAGED = 2,      //!< The user supplies custom allocation to the execution context.
+};
+
+//!
+//! \brief Maximum number of memory allocation strategies in ExecutionContextAllocationStrategy enum.
+//!
+//! \see ExecutionContextAllocationStrategy
+//!
+template <>
+constexpr inline int32_t EnumMax<ExecutionContextAllocationStrategy>() noexcept
+{
+    return 2;
+}
+
+//!
 //! \class ICudaEngine
 //!
 //! \brief An engine for executing inference on a built network, with functionally unsafe features.
@@ -1716,101 +1745,6 @@ class ICudaEngine : public INoCopy
 {
 public:
     virtual ~ICudaEngine() noexcept = default;
-
-    //!
-    //! \brief Get the number of binding indices.
-    //!
-    //! There are separate binding indices for each optimization profile.
-    //! This method returns the total over all profiles.
-    //! If the engine has been built for K profiles, the first getNbBindings() / K bindings are used by profile
-    //! number 0, the following getNbBindings() / K bindings are used by profile number 1 etc.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getNbIOTensors.
-    //!
-    //! \see getBindingIndex()
-    //!
-    TRT_DEPRECATED int32_t getNbBindings() const noexcept
-    {
-        return mImpl->getNbBindings();
-    }
-
-    //!
-    //! \brief Retrieve the binding index for a named tensor.
-    //!
-    //! IExecutionContext::executeV2() require an array of buffers.
-    //!
-    //! Engine bindings map from tensor names to indices in this array.
-    //! Binding indices are assigned at engine build time, and take values in the range [0 ... n-1] where n is the total
-    //! number of inputs and outputs.
-    //!
-    //! To get the binding index of the name in an optimization profile with index k > 0,
-    //! mangle the name by appending " [profile k]", as described for method getBindingName().
-    //!
-    //! \param name The tensor name.
-    //! \return The binding index for the named tensor, or -1 if the provided name does not map to an input or output
-    //! tensor.
-    //!
-    //! \warning The string name must be null-terminated, and be at most 4096 bytes including the terminator.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by name-based methods. Use them instead of binding-index
-    //! based methods.
-    //!
-    //! \see getNbBindings() getBindingName()
-    //!
-    TRT_DEPRECATED int32_t getBindingIndex(char const* name) const noexcept
-    {
-        return mImpl->getBindingIndex(name);
-    }
-
-    //!
-    //! \brief Retrieve the name corresponding to a binding index.
-    //!
-    //! This is the reverse mapping to that provided by getBindingIndex().
-    //!
-    //! For optimization profiles with an index k > 0, the name is mangled by appending
-    //! " [profile k]", with k written in decimal.  For example, if the tensor in the
-    //! INetworkDefinition had the name "foo", and bindingIndex refers to that tensor in the
-    //! optimization profile with index 3, getBindingName returns "foo [profile 3]".
-    //!
-    //! \param bindingIndex The binding index.
-    //! \return The name corresponding to the index, or nullptr if the index is out of range.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by name-based methods. Use them instead of binding-index
-    //! based methods.
-    //!
-    //! \see getBindingIndex()
-    //!
-    TRT_DEPRECATED char const* getBindingName(int32_t bindingIndex) const noexcept
-    {
-        return mImpl->getBindingName(bindingIndex);
-    }
-
-    //!
-    //! \brief Get the dimensions of a binding.
-    //!
-    //! \param bindingIndex The binding index.
-    //! \return The dimensions of the binding if the index is in range, otherwise Dims().
-    //!         Has -1 for any dimension that varies within the optimization profile.
-    //!
-    //! For example, suppose an INetworkDefinition has an input with shape [-1,-1]
-    //! that becomes a binding b in the engine.  If the associated optimization profile
-    //! specifies that b has minimum dimensions as [6,9] and maximum dimensions [7,9],
-    //! getBindingDimensions(b) returns [-1,9], despite the second dimension being
-    //! dynamic in the INetworkDefinition.
-    //!
-    //! Because each optimization profile has separate bindings, the returned value can
-    //! differ across profiles. Consider another binding b' for the same network input,
-    //! but for another optimization profile.  If that other profile specifies minimum
-    //! dimensions [5,8] and maximum dimensions [5,9], getBindingDimensions(b') returns [5,-1].
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getTensorShape().
-    //!
-    //! \see getTensorShape()
-    //!
-    TRT_DEPRECATED Dims getBindingDimensions(int32_t bindingIndex) const noexcept
-    {
-        return mImpl->getBindingDimensions(bindingIndex);
-    }
 
     //!
     //! \brief Get shape of an input or output tensor.
@@ -1843,22 +1777,6 @@ public:
     }
 
     //!
-    //! \brief Get the maximum batch size which can be used for inference. Should only be called if the engine is built
-    //! from an INetworkDefinition with implicit batch dimension mode.
-    //!
-    //! \return The maximum batch size for this engine.
-    //!
-    //! \warning For an engine built from an INetworkDefinition with explicit batch dimension mode, this will always
-    //! return 1.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.4.
-    //!
-    TRT_DEPRECATED int32_t getMaxBatchSize() const noexcept
-    {
-        return mImpl->getMaxBatchSize();
-    }
-
-    //!
     //! \brief Get the number of layers in the network.
     //!
     //! The number of layers in the network is not necessarily the number in the original network definition, as layers
@@ -1887,17 +1805,21 @@ public:
     }
 
     //!
-    //! \brief Create an execution context.
+    //! \brief Create an execution context and specify the strategy for allocating internal activation memory.
     //!
-    //! The newly created execution context will be assigned optimization profile 0. If an error recorder has been set
-    //! for the engine, it will also be passed to the execution context.
+    //! The default value for the allocation strategy is ExecutionContextAllocationStrategy::kSTATIC, which means the
+    //! context will pre-allocate a block of device memory that is sufficient for all profiles. The newly created
+    //! execution context will be assigned optimization profile 0. If an error recorder has been set for the engine, it
+    //! will also be passed to the execution context.
     //!
-    //! \see IExecutionContext.
+    //! \see IExecutionContext
     //! \see IExecutionContext::setOptimizationProfileAsync()
+    //! \see ExecutionContextAllocationStrategy
     //!
-    IExecutionContext* createExecutionContext() noexcept
+    IExecutionContext* createExecutionContext(
+        ExecutionContextAllocationStrategy strategy = ExecutionContextAllocationStrategy::kSTATIC) noexcept
     {
-        return mImpl->createExecutionContext();
+        return mImpl->createExecutionContext(strategy);
     }
 
     //!
@@ -1955,19 +1877,29 @@ public:
     //!
     //! The memory for execution of this device context must be supplied by the application.
     //!
-    IExecutionContext* createExecutionContextWithoutDeviceMemory() noexcept
+    TRT_DEPRECATED IExecutionContext* createExecutionContextWithoutDeviceMemory() noexcept
     {
         return mImpl->createExecutionContextWithoutDeviceMemory();
     }
 
     //!
-    //! \brief Return the amount of device memory required by an execution context.
+    //! \brief Return the maximum device memory required by the context over all profiles.
     //!
     //! \see IExecutionContext::setDeviceMemory()
     //!
     size_t getDeviceMemorySize() const noexcept
     {
         return mImpl->getDeviceMemorySize();
+    }
+
+    //!
+    //! \brief Return the maximum device memory required by the context for a profile.
+    //!
+    //! \see IExecutionContext::setDeviceMemory()
+    //!
+    size_t getDeviceMemorySizeForProfile(int32_t profileIndex) const noexcept
+    {
+        return mImpl->getDeviceMemorySizeForProfile(profileIndex);
     }
 
     //!
@@ -1978,23 +1910,6 @@ public:
     bool isRefittable() const noexcept
     {
         return mImpl->isRefittable();
-    }
-
-    //!
-    //! \brief Return the number of bytes per component of an element.
-    //!
-    //! The vector component size is returned if getBindingVectorizedDim() != -1.
-    //!
-    //! \param bindingIndex The binding Index.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getTensorBytesPerComponent().
-    //!
-    //! \see getBindingVectorizedDim()
-    //! \see getTensorBytesPerComponent()
-    //!
-    TRT_DEPRECATED int32_t getBindingBytesPerComponent(int32_t bindingIndex) const noexcept
-    {
-        return mImpl->getBindingBytesPerComponent(bindingIndex);
     }
 
     //!
@@ -2037,22 +1952,6 @@ public:
     }
 
     //!
-    //! \brief Return the number of components included in one element.
-    //!
-    //! The number of elements in the vectors is returned if getBindingVectorizedDim() != -1.
-    //!
-    //! \param bindingIndex The binding Index.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getTensorComponentsPerElement().
-    //!
-    //! \see getBindingVectorizedDim()
-    //!
-    TRT_DEPRECATED int32_t getBindingComponentsPerElement(int32_t bindingIndex) const noexcept
-    {
-        return mImpl->getBindingComponentsPerElement(bindingIndex);
-    }
-
-    //!
     //! \brief Return the number of components included in one element, or -1 if the provided name does not map to an
     //! input or output tensor.
     //!
@@ -2089,20 +1988,6 @@ public:
     int32_t getTensorComponentsPerElement(char const* tensorName, int32_t profileIndex) const noexcept
     {
         return mImpl->getTensorComponentsPerElementV2(tensorName, profileIndex);
-    }
-
-    //!
-    //! \brief Return the binding format.
-    //!
-    //! \param bindingIndex The binding Index.
-    //!
-    //! \deprecated Deprecated in TensorRT 8.5. Superseded by getTensorFormat().
-    //!
-    //! \see getTensorFormat()
-    //!
-    TRT_DEPRECATED TensorFormat getBindingFormat(int32_t bindingIndex) const noexcept
-    {
-        return mImpl->getBindingFormat(bindingIndex);
     }
 
     //!
@@ -2744,13 +2629,17 @@ public:
     //! \brief Set the device memory for use by this execution context.
     //!
     //! The memory must be aligned with cuda memory alignment property (using cudaGetDeviceProperties()), and its size
-    //! must be at least that returned by getDeviceMemorySize(). Setting memory to nullptr is acceptable if
-    //! getDeviceMemorySize() returns 0. If using enqueueV3() to run the network, the memory is in use from
-    //! the invocation of enqueueV3() until network execution is complete. If using executeV2(), it is in
-    //! use until executeV2() returns. Releasing or otherwise using the memory for other purposes during this time will
-    //! result in undefined behavior.
+    //! must be large enough for performing inference with the given network inputs. getDeviceMemorySize() and
+    //! getDeviceMemorySizeForProfile() report upper bounds of the size. Setting memory to nullptr is acceptable if the
+    //! reported size is 0. If using enqueueV3() to run the network, the memory is in use from the invocation of
+    //! enqueueV3() until network execution is complete. If using executeV2(), it is in use until executeV2() returns.
+    //! Releasing or otherwise using the memory for other purposes during this time will result in undefined behavior.
     //!
-    //! \see ICudaEngine::getDeviceMemorySize() ICudaEngine::createExecutionContextWithoutDeviceMemory()
+    //! \see ICudaEngine::getDeviceMemorySize()
+    //! \see ICudaEngine::getDeviceMemorySizeForProfile()
+    //! \see ExecutionContextAllocationStrategy
+    //! \see ICudaEngine::createExecutionContext()
+    //! \see ICudaEngine::createExecutionContextWithoutDeviceMemory()
     //!
     void setDeviceMemory(void* memory) noexcept
     {
@@ -2992,14 +2881,14 @@ public:
     //!
     //! \brief Synchronously execute inference a network.
     //!
-    //! This method requires an array of input and output buffers. The mapping from tensor names to indices can be
-    //! queried using ICudaEngine::getBindingIndex().
+    //! This method requires an array of input and output buffers. The mapping from indices to tensor names can be
+    //! queried using ICudaEngine::getIOTensorName().
     //! This method only works for execution contexts built with full dimension networks.
     //! \param bindings An array of pointers to input and output buffers for the network.
     //!
     //! \return True if execution succeeded.
     //!
-    //! \see ICudaEngine::getBindingIndex() ICudaEngine::getMaxBatchSize()
+    //! \see ICudaEngine::getIOTensorName()
     //!
     bool executeV2(void* const* bindings) noexcept
     {

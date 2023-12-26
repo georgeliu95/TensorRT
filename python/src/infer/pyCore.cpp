@@ -170,17 +170,21 @@ static const auto runtime_deserialize_cuda_engine = [](IRuntime& self, py::buffe
 };
 
 // For ICudaEngine
-Dims engine_get_binding_shape(ICudaEngine& self, std::string const& name)
-{
-    return self.getBindingDimensions(self.getBindingIndex(name.c_str()));
-};
-
 // TODO: Add slicing support?
 static const auto engine_getitem = [](ICudaEngine& self, int32_t pyIndex) {
     // Support python's negative indexing
-    int32_t const index = (pyIndex < 0) ? static_cast<int32_t>(self.getNbBindings()) + pyIndex : pyIndex;
-    PY_ASSERT_INDEX_ERROR(index < self.getNbBindings());
-    return self.getBindingName(index);
+    int32_t const index = (pyIndex < 0) ? static_cast<int32_t>(self.getNbIOTensors()) + pyIndex : pyIndex;
+    PY_ASSERT_INDEX_ERROR(index < self.getNbIOTensors());
+    return self.getIOTensorName(index);
+};
+
+std::vector<Dims> get_tensor_profile_shape(ICudaEngine& self, std::string const& tensorName, int32_t profileIndex)
+{
+    std::vector<Dims> shapes{};
+    shapes.emplace_back(self.getProfileShape(tensorName.c_str(), profileIndex, OptProfileSelector::kMIN));
+    shapes.emplace_back(self.getProfileShape(tensorName.c_str(), profileIndex, OptProfileSelector::kOPT));
+    shapes.emplace_back(self.getProfileShape(tensorName.c_str(), profileIndex, OptProfileSelector::kMAX));
+    return shapes;
 };
 
 std::vector<Dims> engine_get_profile_shape(ICudaEngine& self, int32_t profileIndex, int32_t bindingIndex)
@@ -195,16 +199,7 @@ std::vector<Dims> engine_get_profile_shape(ICudaEngine& self, int32_t profileInd
 // Overload to allow using binding names instead of indices.
 std::vector<Dims> engine_get_profile_shape_str(ICudaEngine& self, int32_t profileIndex, std::string const& bindingName)
 {
-    return engine_get_profile_shape(self, profileIndex, self.getBindingIndex(bindingName.c_str()));
-};
-
-std::vector<Dims> get_tensor_profile_shape(ICudaEngine& self, std::string const& tensorName, int32_t profileIndex)
-{
-    std::vector<Dims> shapes{};
-    shapes.emplace_back(self.getProfileShape(tensorName.c_str(), profileIndex, OptProfileSelector::kMIN));
-    shapes.emplace_back(self.getProfileShape(tensorName.c_str(), profileIndex, OptProfileSelector::kOPT));
-    shapes.emplace_back(self.getProfileShape(tensorName.c_str(), profileIndex, OptProfileSelector::kMAX));
-    return shapes;
+    return get_tensor_profile_shape(self, bindingName, profileIndex);
 };
 
 std::vector<std::vector<int32_t>> get_tensor_profile_values(
@@ -911,27 +906,19 @@ void bindCore(py::module& m)
         .def_property("nvtx_verbosity", &IExecutionContext::getNvtxVerbosity, &IExecutionContext::setNvtxVerbosity)
         .def("set_aux_streams", lambdas::set_aux_streams, "aux_streams"_a, IExecutionContextDoc::set_aux_streams)
         .def("__del__", &utils::doNothingDel<IExecutionContext>)
-                ;
+               ;
+
+    py::enum_<ExecutionContextAllocationStrategy>(m, "ExecutionContextAllocationStrategy", py::arithmetic{},
+        ExecutionContextAllocationStrategyDoc::descr, py::module_local())
+        .value("STATIC", ExecutionContextAllocationStrategy::kSTATIC, ExecutionContextAllocationStrategyDoc::STATIC)
+        .value("ON_PROFILE_CHANGE", ExecutionContextAllocationStrategy::kON_PROFILE_CHANGE,
+            ExecutionContextAllocationStrategyDoc::ON_PROFILE_CHANGE)
+        .value("USER_MANAGED", ExecutionContextAllocationStrategy::kUSER_MANAGED,
+            ExecutionContextAllocationStrategyDoc::USER_MANAGED);
 
     py::class_<ICudaEngine>(m, "ICudaEngine", ICudaEngineDoc::descr, py::module_local())
-        .def_property_readonly("num_bindings", &ICudaEngine::getNbBindings)
-        .def("__len__", &ICudaEngine::getNbBindings)
-        .def("__getitem__",
-            [](ICudaEngine& self, const std::string& name) { return self.getBindingIndex(name.c_str()); })
         .def("__getitem__", lambdas::engine_getitem)
-        .def("get_binding_name", utils::deprecateMember(&ICudaEngine::getBindingName, "get_tensor_name"), "index"_a,
-            ICudaEngineDoc::get_binding_name)
-        .def("get_binding_index", utils::deprecateMember(&ICudaEngine::getBindingIndex, "get_tensor_name"), "name"_a,
-            ICudaEngineDoc::get_binding_index)
-        .def("get_binding_shape", utils::deprecateMember(&ICudaEngine::getBindingDimensions, "get_tensor_shape"),
-            "index"_a, ICudaEngineDoc::get_binding_shape)
-        // Overload so that we can get shape based on tensor names.
-        .def("get_binding_shape", utils::deprecate(lambdas::engine_get_binding_shape, "get_tensor_shape"), "name"_a,
-            ICudaEngineDoc::get_binding_shape_str)
         .def_property_readonly("has_implicit_batch_dimension", &ICudaEngine::hasImplicitBatchDimension)
-        .def_property_readonly("max_batch_size",
-            utils::deprecateMember(&ICudaEngine::getMaxBatchSize,
-                "network created with NetworkDefinitionCreationFlag::EXPLICIT_BATCH flag"))
         .def_property_readonly("num_layers", &ICudaEngine::getNbLayers)
         .def("serialize", &ICudaEngine::serialize, ICudaEngineDoc::serialize, py::call_guard<py::gil_scoped_release>{})
         .def("create_serialization_config", &ICudaEngine::createSerializationConfig,
@@ -939,10 +926,14 @@ void bindCore(py::module& m)
         .def("serialize_with_config", &ICudaEngine::serializeWithConfig, ICudaEngineDoc::serialize_with_config,
             py::call_guard<py::gil_scoped_release>{})
         .def("create_execution_context", &ICudaEngine::createExecutionContext, ICudaEngineDoc::create_execution_context,
-            py::keep_alive<0, 1>{}, py::call_guard<py::gil_scoped_release>{})
-        .def("create_execution_context_without_device_memory", &ICudaEngine::createExecutionContextWithoutDeviceMemory,
+            py::arg("strategy") = ExecutionContextAllocationStrategy::kSTATIC, py::keep_alive<0, 1>{},
+            py::call_guard<py::gil_scoped_release>{})
+        .def("create_execution_context_without_device_memory",
+            utils::deprecateMember(&ICudaEngine::createExecutionContextWithoutDeviceMemory, "create_execution_context"),
             ICudaEngineDoc::create_execution_context_without_device_memory, py::keep_alive<0, 1>{},
             py::call_guard<py::gil_scoped_release>{})
+        .def("get_device_memory_size_for_profile", &ICudaEngine::getDeviceMemorySizeForProfile, "profile_index"_a,
+            ICudaEngineDoc::get_device_memory_size_for_profile)
         .def_property_readonly("device_memory_size", &ICudaEngine::getDeviceMemorySize)
         .def_property_readonly("refittable", &ICudaEngine::isRefittable)
         .def_property_readonly("name", &ICudaEngine::getName)
@@ -956,14 +947,6 @@ void bindCore(py::module& m)
             "binding"_a, ICudaEngineDoc::is_shape_binding)
         .def("is_execution_binding", utils::deprecateMember(&ICudaEngine::isExecutionBinding, "get_tensor_location"),
             "binding"_a, ICudaEngineDoc::is_execution_binding)
-        .def("get_binding_bytes_per_component",
-            utils::deprecateMember(&ICudaEngine::getBindingBytesPerComponent, "get_tensor_bytes_per_component"),
-            "index"_a, ICudaEngineDoc::get_binding_bytes_per_component)
-        .def("get_binding_components_per_element",
-            utils::deprecateMember(&ICudaEngine::getBindingComponentsPerElement, "get_tensor_components_per_element"),
-            "index"_a, ICudaEngineDoc::get_binding_components_per_element)
-        .def("get_binding_format", utils::deprecateMember(&ICudaEngine::getBindingFormat, "get_tensor_format"),
-            "index"_a, ICudaEngineDoc::get_binding_format)
         .def("get_binding_format_desc",
             utils::deprecateMember(&ICudaEngine::getBindingFormatDesc, "get_tensor_format_desc"), "index"_a,
             ICudaEngineDoc::get_binding_format_desc)

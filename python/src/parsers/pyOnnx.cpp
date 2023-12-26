@@ -54,22 +54,8 @@ static const auto error_code_str = [](ErrorCode self) {
 };
 
 static const auto parser_error_str = [](IParserError& self) {
-    std::string error_str;
-    if (self.localFunctionStackSize())
-    {
-        error_str = "[Stack: ";
-        for (int32_t i = 0; i < self.localFunctionStackSize(); ++i)
-        {
-            error_str += self.localFunctionStack()[i];
-            if (i != self.localFunctionStackSize() - 1)
-            {
-                error_str += " -> ";
-            }
-        }
-        error_str += "] ";
-    }
-    return error_str += ("In node " + std::to_string(self.node()) + " with name: " + self.nodeName() + " and operator: "
-               + self.nodeOperator() + " (" + self.func() + "): " + error_code_str(self.code()) + ": " + self.desc());
+    return "In node " + std::to_string(self.node()) + " with name: " + self.nodeName() + " and operator: "
+        + self.nodeOperator() + " (" + self.func() + "): " + error_code_str(self.code()) + ": " + self.desc();
 };
 
 static const auto parse = [](IParser& self, const py::buffer& model, const char* path = nullptr) {

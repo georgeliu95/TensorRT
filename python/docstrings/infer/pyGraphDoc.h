@@ -346,8 +346,6 @@ constexpr const char* EXPLICIT_ROUND_DOWN = R"trtdoc(Use explicit padding, round
 constexpr const char* EXPLICIT_ROUND_UP = R"trtdoc(Use explicit padding, rounding the output size up)trtdoc";
 constexpr const char* SAME_UPPER = R"trtdoc(Use SAME padding, with :attr:`pre_padding` <= :attr:`post_padding` )trtdoc";
 constexpr const char* SAME_LOWER = R"trtdoc(Use SAME padding, with :attr:`pre_padding` >= :attr:`post_padding` )trtdoc";
-constexpr const char* CAFFE_ROUND_DOWN = R"trtdoc(Use CAFFE padding, rounding the output size down)trtdoc";
-constexpr const char* CAFFE_ROUND_UP = R"trtdoc(Use CAFFE padding, rounding the output size up)trtdoc";
 
 } // namespace PaddingModeDoc
 
@@ -420,7 +418,9 @@ constexpr const char* HARD_SIGMOID = R"trtdoc(Hard sigmoid activation: f(x) = ma
 constexpr const char* SCALED_TANH = R"trtdoc(Scaled Tanh activation: f(x) = alpha * tanh(beta * x))trtdoc";
 constexpr const char* THRESHOLDED_RELU
     = R"trtdoc(Thresholded Relu activation: f(x) = x if x > alpha, f(x) = 0 if x <= alpha)trtdoc";
-
+constexpr const char* GELU_ERF = R"trtdoc(GELU erf activation: 0.5 * x * (1 + erf(sqrt(0.5) * x)))trtdoc";
+constexpr const char* GELU_TANH
+    = R"trtdoc(GELU tanh activation: 0.5 * x * (1 + tanh(sqrt(2/pi) * (0.044715F * pow(x, 3) + x))))trtdoc";
 } // namespace ActivationTypeDoc
 
 namespace IActivationLayerDoc

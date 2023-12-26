@@ -350,7 +350,7 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
                     {
                         // Set shape tensor to all ones.
                         shapeData.assign(volume(dims, 0, dims.nbDims), kDEFAULT_VALUE);
-                        sample::gLogWarning << "Values missing for input shape tensor: " << engine->getBindingName(b)
+                        sample::gLogWarning << "Values missing for input shape tensor: " << name
                                             << "Automatically setting values to: " << shapeData << std::endl;
                     }
                     else
@@ -359,9 +359,8 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
                         shapeData.resize(dims.nbDims);
                         std::transform(dims.d, dims.d + dims.nbDims, shapeData.begin(),
                             [&](int32_t dimension) { return dimension >= 0 ? dimension : kDEFAULT_VALUE; });
-                        sample::gLogWarning
-                            << "Shape missing for input with dynamic shape: " << engine->getBindingName(b)
-                            << "Automatically setting shape to: " << shapeData << std::endl;
+                        sample::gLogWarning << "Shape missing for input with dynamic shape: " << name
+                                            << "Automatically setting shape to: " << shapeData << std::endl;
                     }
                 }
                 else if (inference.inputs.count(shape->first) && isShapeInferenceIO)

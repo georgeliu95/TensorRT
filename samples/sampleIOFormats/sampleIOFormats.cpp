@@ -441,7 +441,7 @@ bool SampleIOFormats::infer(SampleBuffer& inputBuf, SampleBuffer& outputBuf)
         return false;
     }
 
-    for (int32_t i = 0; i < mEngine->getNbIOTensors(); i++)
+    for (int32_t i = 0, e = mEngine->getNbIOTensors(); i < e; i++)
     {
         auto const name = mEngine->getIOTensorName(i);
         if (mEngine->getTensorIOMode(name) == TensorIOMode::kINPUT)

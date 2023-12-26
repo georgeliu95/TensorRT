@@ -248,7 +248,7 @@ public:
         , mBatchSize(batchSize)
     {
         // Create host and device buffers
-        for (int32_t i = 0; i < mEngine->getNbIOTensors(); i++)
+        for (int32_t i = 0, e = mEngine->getNbIOTensors(); i < e; i++)
         {
             auto const name = engine->getIOTensorName(i);
             mNames[name] = i;

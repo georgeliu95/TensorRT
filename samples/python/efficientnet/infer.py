@@ -51,8 +51,8 @@ class TensorRTInfer:
         self.inputs = []
         self.outputs = []
         self.allocations = []
-        for i in range(self.engine.num_bindings):
-            name = self.engine.get_binding_name(i)
+        for i in range(self.engine.num_io_tensors):
+            name = self.engine.get_tensor_name(i)
             is_input = False
             if self.engine.get_tensor_mode(name) == trt.TensorIOMode.INPUT:
                 is_input = True

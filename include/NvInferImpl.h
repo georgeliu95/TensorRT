@@ -143,6 +143,7 @@ enum class UnaryOperation : int32_t;
 enum class WeightsRole : int32_t;
 enum class PreviewFeature : int32_t;
 enum class HardwareCompatibilityLevel : int32_t;
+enum class ExecutionContextAllocationStrategy : int32_t;
 
 using TacticSources = uint32_t;
 using TensorFormats = uint32_t;
@@ -264,22 +265,14 @@ public:
 class VCudaEngine : public VRoot
 {
 public:
-    virtual int32_t getNbBindings() const noexcept = 0;
-    virtual int32_t getBindingIndex(char const* name) const noexcept = 0;
-    virtual char const* getBindingName(int32_t bindingIndex) const noexcept = 0;
-    virtual Dims getBindingDimensions(int32_t bindingIndex) const noexcept = 0;
     virtual DataType getBindingDataType(int32_t bindingIndex) const noexcept = 0;
-    virtual int32_t getMaxBatchSize() const noexcept = 0;
     virtual int32_t getNbLayers() const noexcept = 0;
     virtual IHostMemory* serialize() const noexcept = 0;
-    virtual IExecutionContext* createExecutionContext() noexcept = 0;
+    virtual IExecutionContext* createExecutionContext(ExecutionContextAllocationStrategy strategy) noexcept = 0;
     virtual TensorLocation getLocation(int32_t bindingIndex) const noexcept = 0;
     virtual IExecutionContext* createExecutionContextWithoutDeviceMemory() noexcept = 0;
     virtual size_t getDeviceMemorySize() const noexcept = 0;
     virtual bool isRefittable() const noexcept = 0;
-    virtual int32_t getBindingBytesPerComponent(int32_t bindingIndex) const noexcept = 0;
-    virtual int32_t getBindingComponentsPerElement(int32_t bindingIndex) const noexcept = 0;
-    virtual TensorFormat getBindingFormat(int32_t bindingIndex) const noexcept = 0;
     virtual char const* getBindingFormatDesc(int32_t bindingIndex) const noexcept = 0;
     virtual int32_t getBindingVectorizedDim(int32_t bindingIndex) const noexcept = 0;
     virtual char const* getName() const noexcept = 0;
@@ -324,6 +317,8 @@ public:
 
     virtual ISerializationConfig* createSerializationConfig() noexcept = 0;
     virtual IHostMemory* serializeWithConfig(ISerializationConfig& config) const noexcept = 0;
+
+    virtual size_t getDeviceMemorySizeForProfile(int32_t profileIndex) const noexcept = 0;
 };
 
 class VExecutionContext : public VRoot
