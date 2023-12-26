@@ -127,18 +127,20 @@ using TensorFormats = uint32_t;
 //!
 enum class ActivationType : int32_t
 {
-    kRELU = 0,             //!< Rectified linear activation.
-    kSIGMOID = 1,          //!< Sigmoid activation.
-    kTANH = 2,             //!< TanH activation.
-    kLEAKY_RELU = 3,       //!< LeakyRelu activation: x>=0 ? x : alpha * x.
-    kELU = 4,              //!< Elu activation: x>=0 ? x : alpha * (exp(x) - 1).
-    kSELU = 5,             //!< Selu activation: x>0 ? beta * x : beta * (alpha*exp(x) - alpha)
-    kSOFTSIGN = 6,         //!< Softsign activation: x / (1+|x|)
-    kSOFTPLUS = 7,         //!< Parametric softplus activation: alpha*log(exp(beta*x)+1)
-    kCLIP = 8,             //!< Clip activation: max(alpha, min(beta, x))
-    kHARD_SIGMOID = 9,     //!< Hard sigmoid activation: max(0, min(1, alpha*x+beta))
-    kSCALED_TANH = 10,     //!< Scaled tanh activation: alpha*tanh(beta*x)
-    kTHRESHOLDED_RELU = 11 //!< Thresholded ReLU activation: x>alpha ? x : 0
+    kRELU = 0,              //!< Rectified linear activation.
+    kSIGMOID = 1,           //!< Sigmoid activation.
+    kTANH = 2,              //!< TanH activation.
+    kLEAKY_RELU = 3,        //!< LeakyRelu activation: x>=0 ? x : alpha * x.
+    kELU = 4,               //!< Elu activation: x>=0 ? x : alpha * (exp(x) - 1).
+    kSELU = 5,              //!< Selu activation: x>0 ? beta * x : beta * (alpha*exp(x) - alpha)
+    kSOFTSIGN = 6,          //!< Softsign activation: x / (1+|x|)
+    kSOFTPLUS = 7,          //!< Parametric softplus activation: alpha*log(exp(beta*x)+1)
+    kCLIP = 8,              //!< Clip activation: max(alpha, min(beta, x))
+    kHARD_SIGMOID = 9,      //!< Hard sigmoid activation: max(0, min(1, alpha*x+beta))
+    kSCALED_TANH = 10,      //!< Scaled tanh activation: alpha*tanh(beta*x)
+    kTHRESHOLDED_RELU = 11, //!< Thresholded ReLU activation: x>alpha ? x : 0
+    kGELU_ERF = 12,         //!< GELU erf activation: 0.5 * x * (1 + erf(sqrt(0.5) * x))
+    kGELU_TANH = 13         //!< GELU tanh activation: 0.5 * x * (1 + tanh(sqrt(2/pi) * (0.044715F * pow(x, 3) + x)))
 };
 
 namespace impl
@@ -151,7 +153,7 @@ namespace impl
 template <>
 struct EnumMaxImpl<ActivationType>
 {
-    static constexpr int32_t kVALUE = 12;
+    static constexpr int32_t kVALUE = 14;
 };
 } // namespace impl
 
@@ -827,8 +829,8 @@ protected:
 //! \brief Enumerates the modes of padding to perform in convolution, deconvolution and pooling layer,
 //! padding mode takes precedence if setPaddingMode() and setPrePadding() are also used.
 //!
-//! There are three padding styles, EXPLICIT, SAME, and CAFFE, with each style having two variants.
-//! The EXPLICIT and CAFFE styles determine if the final sampling location is used or not.
+//! There are two padding styles, EXPLICIT and SAME with each style having two variants.
+//! The EXPLICIT style determine if the final sampling location is used or not.
 //! The SAME style determine if the asymmetry in the padding is on the pre or post padding.
 //!
 //! \code
@@ -850,17 +852,9 @@ protected:
 //! \code
 //!         O = floor((M - DK) / S) + 1
 //! \endcode
-//!     - CAFFE_ROUND_DOWN:
-//! \code
-//!         O = floor((I + B * 2 - DK) / S) + 1
-//! \endcode
 //!     - EXPLICIT_ROUND_UP:
 //! \code
 //!         O = ceil((M - DK) / S) + 1
-//! \endcode
-//!     - CAFFE_ROUND_UP:
-//! \code
-//!         O = ceil((I + B * 2 - DK) / S) + 1
 //! \endcode
 //!     - SAME_UPPER:
 //! \code
@@ -879,9 +873,7 @@ protected:
 //!
 //! Formulas for Deconvolution:
 //!     - EXPLICIT_ROUND_DOWN:
-//!     - CAFFE_ROUND_DOWN:
 //!     - EXPLICIT_ROUND_UP:
-//!     - CAFFE_ROUND_UP:
 //! \code
 //!         O = (I - 1) * S + DK - (B + A)
 //! \endcode
@@ -922,14 +914,6 @@ protected:
 //!         P = floor((I - 1) / S) * S + F - I;
 //!         A = floor(P / 2)
 //!         B = P - A
-//! \endcode
-//!     - CAFFE_ROUND_DOWN:
-//! \code
-//!         EXPLICIT_ROUND_DOWN - ((EXPLICIT_ROUND_DOWN - 1) * S >= I + B)
-//! \endcode
-//!     - CAFFE_ROUND_UP:
-//! \code
-//!         EXPLICIT_ROUND_UP - ((EXPLICIT_ROUND_UP - 1) * S >= I + B)
 //! \endcode
 //!
 //! Pooling Example 1:
@@ -995,62 +979,12 @@ protected:
 //!     Given I = {6, 6}, B = {3, 3}, A = {3, 3}, S = {2, 2}, F = {3, 3}. What is O?
 //! \endcode
 //!
-//! - CAFFE_ROUND_DOWN:
-//! \code
-//!     Computation:
-//!         M = {6, 6} + {3, 3} + {3, 3} ==> {12, 12}
-//!         EXPLICIT_ROUND_DOWN ==> floor((M - F) / S) + 1
-//!                             ==> floor(({12, 12} - {3, 3}) / {2, 2}) + {1, 1}
-//!                             ==> {5, 5}
-//!         DIFF = (((EXPLICIT_ROUND_DOWN - 1) * S >= I + B) ? {1, 1} : {0, 0})
-//!           ==> ({5, 5} - {1, 1}) * {2, 2} >= {6, 6} + {3, 3} ? {1, 1} : {0,0}
-//!           ==> {0, 0}
-//!         O ==> EXPLICIT_ROUND_DOWN - DIFF
-//!           ==> {5, 5} - {0, 0}
-//!           ==> {5, 5}
-//! \endcode
-//! - CAFFE_ROUND_UP:
-//! \code
-//!     Computation:
-//!         M = {6, 6} + {3, 3} + {3, 3} ==> {12, 12}
-//!         EXPLICIT_ROUND_UP ==> ceil((M - F) / S) + 1
-//!                           ==> ceil(({12, 12} - {3, 3}) / {2, 2}) + {1, 1}
-//!                           ==> {6, 6}
-//!         DIFF = (((EXPLICIT_ROUND_UP - 1) * S >= I + B) ? {1, 1} : {0, 0})
-//!           ==> ({6, 6} - {1, 1}) * {2, 2} >= {6, 6} + {3, 3} ? {1, 1} : {0,0}
-//!           ==> {1, 1}
-//!         O ==> EXPLICIT_ROUND_UP - DIFF
-//!           ==> {6, 6} - {1, 1}
-//!           ==> {5, 5}
-//! \endcode
-//!
-//! The sample points are {0, 2, 4, 6, 8} in each dimension. <br>
-//! CAFFE_ROUND_DOWN and CAFFE_ROUND_UP have two restrictions each on usage with pooling operations.
-//! This will cause getDimensions to return an empty dimension and also to reject the network
-//! at validation time. <br>
-//! For more information on original reference code, see
-//! https://github.com/BVLC/caffe/blob/master/src/caffe/layers/pooling_layer.cpp
-//!
-//! - Restriction 1:
-//! \code
-//!     CAFFE_ROUND_DOWN: B >= F is an error if (B - S) < F
-//!     CAFFE_ROUND_UP: (B + S) >= (F + 1) is an error if B < (F + 1)
-//! \endcode
-//!
-//! - Restriction 2:
-//! \code
-//!     CAFFE_ROUND_DOWN: (B - S) >= F is an error if B >= F
-//!     CAFFE_ROUND_UP: B >= (F + 1) is an error if (B + S) >= (F + 1)
-//! \endcode
-//!
 enum class PaddingMode : int32_t
 {
     kEXPLICIT_ROUND_DOWN = 0, //!< Use explicit padding, rounding output size down.
     kEXPLICIT_ROUND_UP = 1,   //!< Use explicit padding, rounding output size up.
     kSAME_UPPER = 2,          //!< Use SAME padding, with prePadding <= postPadding.
     kSAME_LOWER = 3,          //!< Use SAME padding, with prePadding >= postPadding.
-    kCAFFE_ROUND_DOWN = 4,    //!< Use CAFFE padding, rounding output size down, uses prePadding value.
-    kCAFFE_ROUND_UP = 5       //!< Use CAFFE padding, rounding output size up, uses prePadding value.
 };
 
 namespace impl
@@ -1063,7 +997,7 @@ namespace impl
 template <>
 struct EnumMaxImpl<PaddingMode>
 {
-    static constexpr int32_t kVALUE = 6;
+    static constexpr int32_t kVALUE = 4;
 };
 } // namespace impl
 
@@ -4956,7 +4890,7 @@ constexpr inline int32_t EnumMax<LoopOutput>() noexcept
 enum class TripLimit : int32_t
 {
 
-    kCOUNT = 0, //!< Tensor is scalar of type kINT32 that contains the trip count.
+    kCOUNT = 0, //!< Tensor is a scalar of type kINT32 or kINT64 that contains the trip count.
     kWHILE = 1  //!< Tensor is a scalar of type kBOOL. Loop terminates when value is false.
 };
 

@@ -161,12 +161,12 @@ private:
 //!
 void SampleINT8API::getInputOutputNames()
 {
-    int32_t nbindings = mEngine.get()->getNbBindings();
+    int32_t nbindings = mEngine.get()->getNbIOTensors();
     ASSERT(nbindings == 2);
     for (int32_t b = 0; b < nbindings; ++b)
     {
         auto const bindingName = mEngine.get()->getIOTensorName(b);
-        nvinfer1::Dims dims = mEngine.get()->getBindingDimensions(b);
+        nvinfer1::Dims dims = mEngine.get()->getTensorShape(bindingName);
         if (mEngine.get()->getTensorIOMode(bindingName) == TensorIOMode::kINPUT)
         {
             if (mParams.verbose)
@@ -175,7 +175,7 @@ void SampleINT8API::getInputOutputNames()
                                  << " dtype=" << static_cast<int32_t>(mEngine.get()->getTensorDataType(bindingName))
                                  << std::endl;
             }
-            mInOut["input"] = mEngine.get()->getBindingName(b);
+            mInOut["input"] = bindingName;
         }
         else
         {
@@ -185,7 +185,7 @@ void SampleINT8API::getInputOutputNames()
                                  << " dtype=" << static_cast<int32_t>(mEngine.get()->getTensorDataType(bindingName))
                                  << std::endl;
             }
-            mInOut["output"] = mEngine.get()->getBindingName(b);
+            mInOut["output"] = bindingName;
         }
     }
 }
@@ -609,12 +609,8 @@ sample::Logger::TestResult SampleINT8API::build()
     // populates input output map structure
     getInputOutputNames();
 
-    // derive input/output dims from engine bindings
-    const int inputIndex = mEngine.get()->getBindingIndex(mInOut["input"].c_str());
-    mInputDims = mEngine.get()->getBindingDimensions(inputIndex);
-
-    const int outputIndex = mEngine.get()->getBindingIndex(mInOut["output"].c_str());
-    mOutputDims = mEngine.get()->getBindingDimensions(outputIndex);
+    mInputDims = mEngine.get()->getTensorShape(mInOut["input"].c_str());
+    mOutputDims = mEngine.get()->getTensorShape(mInOut["output"].c_str());
 
     return sample::Logger::TestResult::kRUNNING;
 }
@@ -636,7 +632,7 @@ sample::Logger::TestResult SampleINT8API::infer()
         return sample::Logger::TestResult::kFAILED;
     }
 
-    for (int32_t i = 0; i < mEngine->getNbIOTensors(); i++)
+    for (int32_t i = 0, e = mEngine->getNbIOTensors(); i < e; i++)
     {
         auto const name = mEngine->getIOTensorName(i);
         context->setTensorAddress(name, buffers.getDeviceBuffer(name));

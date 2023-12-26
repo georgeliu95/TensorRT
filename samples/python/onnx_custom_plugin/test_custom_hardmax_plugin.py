@@ -46,6 +46,7 @@ def make_trt_network_and_engine(input_shape, axis):
     builder = trt.Builder(TRT_LOGGER)
     network = builder.create_network(common.EXPLICIT_BATCH)
     config = builder.create_builder_config()
+    config.set_tactic_sources(config.get_tactic_sources() | 1 << int(trt.TacticSource.CUBLAS))
     runtime = trt.Runtime(TRT_LOGGER)
 
     input_layer = network.add_input(name="input_layer", dtype=trt.float32, shape=input_shape)

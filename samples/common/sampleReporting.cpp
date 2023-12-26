@@ -539,7 +539,7 @@ void printOptimizationProfileInfo(ReportingOptions const& reporting, nvinfer1::I
         sample::gLogInfo << "Optimization Profile Information:" << std::endl;
         for (int32_t i = 0; i < engine->getNbOptimizationProfiles(); i++)
         {
-            for (int32_t j = 0; j < engine->getNbIOTensors(); j++)
+            for (int32_t j = 0, e = engine->getNbIOTensors(); j < e; j++)
             {
                 auto const tensorName = engine->getIOTensorName(j);
 

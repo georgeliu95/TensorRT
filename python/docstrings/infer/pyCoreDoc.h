@@ -410,7 +410,7 @@ constexpr char const* descr = R"trtdoc(
 
 constexpr char const* execute_v2 = R"trtdoc(
     Synchronously execute inference on a batch.
-    This method requires a array of input and output buffers. The mapping from tensor names to indices can be queried using :func:`ICudaEngine.get_binding_index()` .
+    This method requires a array of input and output buffers.
     This method only works for execution contexts built from networks with no implicit batch dimension.
 
     :arg bindings: A list of integers representing input and output buffer addresses for the network.
@@ -672,9 +672,7 @@ constexpr char const* descr = R"trtdoc(
 
     The engine can be indexed with ``[]`` . When indexed in this way with an integer, it will return the corresponding binding name. When indexed with a string, it will return the corresponding binding index.
 
-    :ivar num_bindings: :class:`int` The number of binding indices.
     :ivar num_io_tensors: :class:`int` The number of IO tensors.
-    :ivar max_batch_size: :class:`int` [DEPRECATED] The maximum batch size which can be used for inference for an engine built from an :class:`INetworkDefinition` with implicit batch dimension. For an engine built from an :class:`INetworkDefinition` with explicit batch dimension, this will always be ``1`` .
     :ivar has_implicit_batch_dimension: :class:`bool` Whether the engine was built with an implicit batch dimension. This is an engine-wide property. Either all tensors in the engine have an implicit batch dimension or none of them do. This is True if and only if the :class:`INetworkDefinition` from which this engine was built was created without the ``NetworkDefinitionCreationFlag.EXPLICIT_BATCH`` flag.
     :ivar num_layers: :class:`int` The number of layers in the network. The number of layers in the network is not necessarily the number in the original :class:`INetworkDefinition`, as layers may be combined or eliminated as the :class:`ICudaEngine` is optimized. This value can be useful when building per-layer tables, such as when aggregating profiling data over a number of executions.
     :ivar max_workspace_size: :class:`int` The amount of workspace the :class:`ICudaEngine` uses. The workspace size will be no greater than the value provided to the :class:`Builder` when the :class:`ICudaEngine` was built, and will typically be smaller. Workspace will be allocated for each :class:`IExecutionContext` .
@@ -688,51 +686,9 @@ constexpr char const* descr = R"trtdoc(
     :ivar profiling_verbosity: The profiling verbosity the builder config was set to when the engine was built.
     :ivar hardware_compatibility_level: The hardware compatibility level of the engine.
     :ivar num_aux_streams: Read-only. The number of auxiliary streams used by this engine, which will be less than or equal to the maximum allowed number of auxiliary streams by setting builder_config.max_aux_streams when the engine is built.)trtdoc"
-    ;
-
-constexpr char const* get_binding_index = R"trtdoc(
-    Retrieve the binding index for a named tensor.
-
-    You can also use engine's :func:`__getitem__` with ``engine[name]``. When invoked with a :class:`str` , this will return the corresponding binding index.
-
-    :func:`IExecutionContext.execute_v2()` requires an array of buffers.
-    Engine bindings map from tensor names to indices in this array.
-    Binding indices are assigned at :class:`ICudaEngine` build time, and take values in the range [0 ... n-1] where n is the total number of inputs and outputs.
-
-    :arg name: The tensor name.
-
-    :returns: The binding index for the named tensor, or -1 if the name is not found.
-)trtdoc";
-
-constexpr char const* get_binding_name = R"trtdoc(
-    Retrieve the name corresponding to a binding index.
-
-    You can also use engine's :func:`__getitem__` with ``engine[index]``. When invoked with an :class:`int` , this will return the corresponding binding name.
-
-    This is the reverse mapping to that provided by :func:`get_binding_index()` .
-
-    :arg index: The binding index.
-
-    :returns: The name corresponding to the binding index.
-)trtdoc";
+           ;
 
 // Documentation bug with parameters on these three functions because they are overloaded.
-constexpr char const* get_binding_shape = R"trtdoc(
-    Get the shape of a binding.
-
-    :index: The binding index.
-
-    :Returns: The shape of the binding if the index is in range, otherwise Dims()
-)trtdoc";
-
-constexpr char const* get_binding_shape_str = R"trtdoc(
-    Get the shape of a binding.
-
-    :name: The name of the tensor corresponding to an engine binding.
-
-    :Returns: The shape of the binding if the tensor is present, otherwise Dims()
-)trtdoc";
-
 constexpr char const* serialize = R"trtdoc(
     Serialize the engine to a stream.
 
@@ -740,7 +696,7 @@ constexpr char const* serialize = R"trtdoc(
 )trtdoc";
 
 constexpr char const* create_execution_context = R"trtdoc(
-    Create an :class:`IExecutionContext` .
+    Create an :class:`IExecutionContext` and specify the device memory allocation strategy.
 
     :returns: The newly created :class:`IExecutionContext` .
 )trtdoc";
@@ -801,27 +757,6 @@ constexpr char const* is_execution_binding = R"trtdoc(
     For example, if a network uses an input tensor with binding i ONLY as the reshape dimensions for an :class:`IShuffleLayer` , then ``is_execution_binding(i) == False``, and a binding of `0` can be supplied for it when calling :func:`IExecutionContext.execute_v2()`.
 
     :arg binding: The binding index.
-)trtdoc";
-
-constexpr char const* get_binding_bytes_per_component = R"trtdoc(
-    Return the number of bytes per component of an element.
-    The vector component size is returned if :func:`get_binding_vectorized_dim` != -1.
-
-    :arg index: The binding index.
-)trtdoc";
-
-constexpr char const* get_binding_components_per_element = R"trtdoc(
-    Return the number of components included in one element.
-
-    The number of elements in the vectors is returned if :func:`get_binding_vectorized_dim` != -1.
-
-    :arg index: The binding index.
-)trtdoc";
-
-constexpr char const* get_binding_format = R"trtdoc(
-    Return the binding format.
-
-    :arg index: The binding index.
 )trtdoc";
 
 constexpr char const* get_binding_format_desc = R"trtdoc(
@@ -939,6 +874,12 @@ constexpr char const* get_tensor_profile_shape = R"trtdoc(
     Get the minimum/optimum/maximum dimensions for a particular tensor under an optimization profile.
 
     :arg name: The tensor name.
+    :arg profile_index: The index of the profile.
+)trtdoc";
+
+constexpr char const* get_device_memory_size_for_profile = R"trtdoc(
+    Return the device memory size required for a certain profile.
+
     :arg profile_index: The index of the profile.
 )trtdoc";
 
@@ -1520,6 +1461,14 @@ constexpr char const* descr = R"trtdoc(Valid flags that can be use to creating b
 constexpr char const* EXCLUDE_WEIGHTS = R"trtdoc(Exclude weights that can be refitted.)trtdoc";
 constexpr char const* EXCLUDE_LEAN_RUNTIME = R"trtdoc(Exclude lean runtime from the plan.)trtdoc";
 } // namespace SerializationFlagDoc
+
+namespace ExecutionContextAllocationStrategyDoc
+{
+constexpr char const* descr = R"trtdoc(Different memory allocation behaviors for IExecutionContext.)trtdoc";
+constexpr char const* STATIC = R"trtdoc(Default static allocation with the maximum size across all profiles.)trtdoc";
+constexpr char const* ON_PROFILE_CHANGE = R"trtdoc(Reallocate for a profile when it's selected.)trtdoc";
+constexpr char const* USER_MANAGED = R"trtdoc(The user supplies custom allocation to the execution context.)trtdoc";
+} // namespace ExecutionContextAllocationStrategyDoc
 
 namespace BuilderDoc
 {

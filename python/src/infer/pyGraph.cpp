@@ -375,8 +375,6 @@ namespace tensorrt
             .value("EXPLICIT_ROUND_UP", PaddingMode::kEXPLICIT_ROUND_UP, PaddingModeDoc::EXPLICIT_ROUND_UP)
             .value("SAME_UPPER", PaddingMode::kSAME_UPPER, PaddingModeDoc::SAME_UPPER)
             .value("SAME_LOWER", PaddingMode::kSAME_LOWER, PaddingModeDoc::SAME_LOWER)
-            .value("CAFFE_ROUND_DOWN", PaddingMode::kCAFFE_ROUND_DOWN, PaddingModeDoc::CAFFE_ROUND_DOWN)
-            .value("CAFFE_ROUND_UP", PaddingMode::kCAFFE_ROUND_UP, PaddingModeDoc::CAFFE_ROUND_UP)
         ;
 
         py::class_<IConvolutionLayer, ILayer, std::unique_ptr<IConvolutionLayer, py::nodelete>>(m, "IConvolutionLayer", IConvolutionLayerDoc::descr, py::module_local())
@@ -414,6 +412,8 @@ namespace tensorrt
             .value("HARD_SIGMOID", ActivationType::kHARD_SIGMOID, ActivationTypeDoc::HARD_SIGMOID)
             .value("SCALED_TANH", ActivationType::kSCALED_TANH, ActivationTypeDoc::SCALED_TANH)
             .value("THRESHOLDED_RELU", ActivationType::kTHRESHOLDED_RELU, ActivationTypeDoc::THRESHOLDED_RELU)
+            .value("GELU_ERF", ActivationType::kGELU_ERF, ActivationTypeDoc::GELU_ERF)
+            .value("GELU_TANH", ActivationType::kGELU_TANH, ActivationTypeDoc::GELU_TANH)
         ; // ActivationType
 
         py::class_<IActivationLayer, ILayer, std::unique_ptr<IActivationLayer, py::nodelete>>(m, "IActivationLayer", IActivationLayerDoc::descr, py::module_local())

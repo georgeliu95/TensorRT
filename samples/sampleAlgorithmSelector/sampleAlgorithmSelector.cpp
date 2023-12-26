@@ -634,7 +634,7 @@ bool SampleAlgorithmSelector::infer()
         return false;
     }
 
-    for (int32_t i = 0; i < mEngine->getNbIOTensors(); i++)
+    for (int32_t i = 0, e = mEngine->getNbIOTensors(); i < e; i++)
     {
         auto const name = mEngine->getIOTensorName(i);
         context->setTensorAddress(name, buffers.getDeviceBuffer(name));
