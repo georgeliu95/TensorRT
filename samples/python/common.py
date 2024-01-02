@@ -254,3 +254,18 @@ def do_inference(context, engine, bindings, inputs, outputs, stream):
     for i in range(num_io):
         context.set_tensor_address(engine.get_tensor_name(i), bindings[i])
     return _do_inference_base(inputs, outputs, stream, execute_async_func)
+
+# Sets up the builder to use the timing cache file, and creates it if it does not already exist
+def setup_timing_cache(config: trt.IBuilderConfig, timing_cache_path: os.PathLike):
+    buffer = b""
+    if os.path.exists(timing_cache_path):
+        with open(timing_cache_path, mode="rb") as timing_cache_file:
+            buffer = timing_cache_file.read()
+    timing_cache: trt.ITimingCache = config.create_timing_cache(buffer)
+    config.set_timing_cache(timing_cache, True)
+
+# Saves the config's timing cache to file
+def save_timing_cache(config: trt.IBuilderConfig, timing_cache_path: os.PathLike):
+    timing_cache: trt.ITimingCache = config.get_timing_cache()
+    with open(timing_cache_path, 'wb') as timing_cache_file:
+        timing_cache_file.write(memoryview(timing_cache.serialize()))

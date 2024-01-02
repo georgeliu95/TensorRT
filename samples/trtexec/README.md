@@ -27,6 +27,20 @@ Included in the `samples` directory is a command line wrapper tool, called `trte
 
 **Serialized engine generation** - If you generate a saved serialized engine file, you can pull it into another application that runs inference. For example, you can use the [TensorRT Laboratory](https://github.com/NVIDIA/tensorrt-laboratory) to run the engine with multiple execution contexts from multiple threads in a fully pipelined asynchronous way to test parallel inference performance. Also, in INT8 mode, random weights are used, meaning trtexec does not provide calibration capability.
 
+**Using custom input data** - By default trtexec will run inference with randomly generated inputs. To provide custom inputs for an inference run, trtexec expects a binary file containing the data for each input tensor. It is recommended that this binary file be generated through `numpy`. For example, to create custom data of all ones to an ONNX model with one input named `data` with shape `(1,3,244,244)` and type `FLOAT`:
+
+```
+import numpy as np
+data = np.ones((1,3,244,244), dtype=np.float32)
+data.tofile("data.bin")
+```
+
+This binary file can be be loaded by trtexec during inference by using the `--loadInputs` flag:
+
+```
+./trtexec --onnx=model.onnx --loadInputs="data":data.bin
+```
+
 ## Building `trtexec`
 
 `trtexec` can be used to build engines, using different TensorRT features (see command line arguments), and run inference. `trtexec` also measures and reports execution time and can be used to understand performance and possibly locate bottlenecks.
