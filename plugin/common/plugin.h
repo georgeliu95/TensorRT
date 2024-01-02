@@ -18,13 +18,17 @@
 #define TRT_PLUGIN_H
 #include "NvInferPlugin.h"
 #include "common/checkMacrosPlugin.h"
+#include "cublasWrapper.h"
+#include "cudnnWrapper.h"
 #include <cstring>
 #include <cuda_runtime.h>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <set>
 #include <sstream>
 #include <string>
+#include <unordered_map>
 
 // Enumerator for status
 typedef enum
@@ -75,6 +79,8 @@ protected:
     std::string mNamespace;
 };
 
+std::shared_ptr<cudnnContext*> createPluginCudnnHandle(void* executionContextIdentifier);
+std::shared_ptr<cublasContext*> createPluginCublasHandle(void* executionContextIdentifier);
 } // namespace pluginInternal
 
 namespace plugin

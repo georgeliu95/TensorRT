@@ -369,14 +369,13 @@ struct InferDeleter
 template <typename T>
 using SampleUniquePtr = std::unique_ptr<T, InferDeleter>;
 
-static auto StreamDeleter = [](cudaStream_t* pStream)
+static auto StreamDeleter = [](cudaStream_t* pStream) {
+    if (pStream)
     {
-        if (pStream)
-        {
-            cudaStreamDestroy(*pStream);
-            delete pStream;
-        }
-    };
+        static_cast<void>(cudaStreamDestroy(*pStream));
+        delete pStream;
+    }
+};
 
 inline std::unique_ptr<cudaStream_t, decltype(StreamDeleter)> makeCudaStream()
 {

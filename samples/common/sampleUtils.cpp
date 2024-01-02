@@ -83,6 +83,18 @@ void loadFromFile(std::string const& fileName, char* dst, size_t size)
     std::ifstream file(fileName, std::ios::in | std::ios::binary);
     if (file.is_open())
     {
+        file.seekg(0, std::ios::end);
+        int64_t fileSize = static_cast<int64_t>(file.tellg());
+        if (fileSize != size)
+        {
+            std::ostringstream msg;
+            msg << "Unexpected file size for input file: " << fileName << ". Note: Input binding size is: " << size
+                << " bytes but the file size is " << fileSize
+                << " bytes. Double check the size and datatype of the provided data.";
+            throw std::invalid_argument(msg.str());
+        }
+        // Move file pointer back to the beginning after reading file size.
+        file.seekg(0, std::ios::beg);
         file.read(dst, size);
         size_t const nbBytesRead = file.gcount();
         file.close();

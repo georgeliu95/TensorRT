@@ -134,6 +134,8 @@ void bindOnnx(py::module& m)
         .def("clear_flag", &IParser::clearFlag, "flag"_a, OnnxParserDoc::clear_flag)
         .def("set_flag", &IParser::setFlag, "flag"_a, OnnxParserDoc::set_flag)
         .def("get_flag", &IParser::getFlag, "flag"_a, OnnxParserDoc::get_flag)
+        .def("get_layer_output_tensor", &IParser::getLayerOutputTensor, "name"_a, "i"_a,
+            OnnxParserDoc::get_layer_output_tensor)
         .def("get_used_vc_plugin_libraries", lambdas::get_used_vc_plugin_libraries,
             OnnxParserDoc::get_used_vc_plugin_libraries)
         .def("__del__", &utils::doNothingDel<IParser>);

@@ -106,6 +106,16 @@ constexpr const char* set_flag = R"trtdoc(
     :arg flag: The flag to set.
 )trtdoc";
 
+constexpr const char* get_layer_output_tensor = R"trtdoc(
+    Get the i-th output ITensor object for the ONNX layer "name".
+
+    :arg name: The name of the ONNX layer.
+    
+    :arg i: The index of the output.
+
+    :returns: The output tensor or None if the layer was not found or an invalid index was provided.
+)trtdoc";
+
 constexpr const char* get_used_vc_plugin_libraries = R"trtdoc(
     Query the plugin libraries needed to implement operations used by the parser in a version-compatible engine.
 

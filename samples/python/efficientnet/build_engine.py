@@ -189,6 +189,9 @@ class EngineBuilder:
 
         inputs = [self.network.get_input(i) for i in range(self.network.num_inputs)]
 
+        log.info("Reading timing cache from file: {:}".format(args.timing_cache))
+        common.setup_timing_cache(self.config, args.timing_cache)
+
         if precision == "fp16":
             if not self.builder.platform_has_fast_fp16:
                 log.warning("FP16 is not supported natively on this platform/device")
@@ -218,6 +221,9 @@ class EngineBuilder:
         if engine_bytes is None:
             log.error("Failed to create engine")
             sys.exit(1)
+
+        log.info("Serializing timing cache to file: {:}".format(args.timing_cache))
+        common.save_timing_cache(self.config, args.timing_cache)
 
         with open(engine_path, "wb") as f:
             log.info("Serializing engine to file: {:}".format(engine_path))
@@ -270,6 +276,11 @@ if __name__ == "__main__":
         default="V2",
         choices=["V1", "V1MS", "V2"],
         help="Set the calibration image preprocessor to use, either 'V2', 'V1' or 'V1MS', default: V2",
+    )
+    parser.add_argument(
+        "--timing_cache",
+        default="./timing.cache",
+        help="The file path for timing cache, default: ./timing.cache",
     )
     args = parser.parse_args()
     if not all([args.onnx, args.engine]):

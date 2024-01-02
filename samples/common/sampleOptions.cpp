@@ -2289,6 +2289,7 @@ void InferenceOptions::help(std::ostream& os)
                                                                                        "wrapped with single quotes (ex: 'Input:0')"  << std::endl <<
           R"(                            Input values spec ::= Ival[","spec])"                                                       << std::endl <<
           R"(                                         Ival ::= name":"file)"                                                         << std::endl <<
+          "                              Consult the README for more information on generating files for custom inputs."             << std::endl <<
           "  --iterations=N              Run at least N inference iterations (default = "               << defaultIterations << ")"  << std::endl <<
           "  --warmUp=N                  Run for N milliseconds to warmup before measuring performance (default = "
                                                                                                             << defaultWarmUp << ")"  << std::endl <<
