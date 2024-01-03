@@ -2534,6 +2534,42 @@ public:
 };
 
 //!
+//! \class IDebugListener
+//!
+//! \brief User-implemented callback for notification when value of a debug tensor is updated.
+//!
+//! Client should override the method processDebugTensor.
+//!
+class IDebugListener
+{
+public:
+    //! The version of this interface. Do not override.
+    virtual int64_t getInterfaceVersion() const final
+    {
+        return 1;
+    }
+
+    //!
+    //! \brief Callback function that is called when a debug tensor’s value is updated and the debug state of the tensor
+    //! is set to true. Content in the given address is only guaranteed to be valid for the duration of the callback.
+    //!
+    //! \param location TensorLocation of the tensor.
+    //! \param addr pointer to buffer.
+    //! \param type data Type of the tensor.
+    //! \param shape shape of the tensor.
+    //! \param name name of the tensor.
+    //! \param stream Cuda stream object.
+    //!
+    //! \return true on success, false otherwise.
+    //!
+    virtual bool processDebugTensor(void const* addr, TensorLocation location, DataType type, Dims const& shape,
+        char const* name, cudaStream_t stream)
+        = 0;
+
+    virtual ~IDebugListener() = default;
+};
+
+//!
 //! \class IExecutionContext
 //!
 //! \brief Context for executing inference using an engine, with functionally unsafe features.
@@ -3345,6 +3381,57 @@ public:
     void setAuxStreams(cudaStream_t* auxStreams, int32_t nbStreams) noexcept
     {
         mImpl->setAuxStreams(auxStreams, nbStreams);
+    }
+
+    //!
+    //! \brief Set DebugListener for this execution context.
+    //!
+    //! \param listener DebugListener for this execution context.
+    //!
+    //! \return true if succeed, false if failure.
+    //!
+    bool setDebugListener(IDebugListener* listener) noexcept
+    {
+        return mImpl->setDebugListener(listener);
+    }
+
+    //!
+    //! \brief Get the DebugListener of this execution context.
+    //!
+    //! \return DebugListener of this execution context.
+    //!
+    IDebugListener* getDebugListener() noexcept
+    {
+        return mImpl->getDebugListener();
+    }
+
+    //!
+    //! \brief Set debug state of tensor given the tensor name.
+    //!
+    //! Turn the debug state of a tensor on or off.
+    //! A tensor with the parameter tensor name must exist in the network, and the tensor must have
+    //! been marked as a debug tensor during build time. Otherwise, an error is thrown.
+    //!
+    //! \param name Name of target tensor.
+    //!
+    //! \param flag True if turning on debug state, false if turning off debug state of tensor
+    //! The default is off.
+    //!
+    //! \return True if successful, false otherwise.
+    //!
+    bool setDebugState(char const* name, bool flag) noexcept
+    {
+        return mImpl->setDebugState(name, flag);
+    }
+
+    //!
+    //! Get the debug state.
+    //!
+    //! \return true if there is a debug tensor with the given name and it has debug state turned on.
+    //!
+    bool getDebugState(char const* name) const noexcept
+    {
+        return mImpl->getDebugState(name);
     }
 
 protected:

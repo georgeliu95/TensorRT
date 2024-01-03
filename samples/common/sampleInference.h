@@ -47,6 +47,8 @@ struct InferenceEnvironment
     LazilyDeserializedEngine engine;
     std::unique_ptr<Profiler> profiler;
     std::vector<std::unique_ptr<nvinfer1::IExecutionContext>> contexts;
+    std::vector<TrtDeviceBuffer>
+        deviceMemory; //< Device memory used for inference when the allocation strategy is not static.
     std::vector<std::unique_ptr<Bindings>> bindings;
     bool error{false};
 

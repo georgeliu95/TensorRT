@@ -343,6 +343,15 @@ void serialization_config_set_flags(ISerializationConfig& self, uint32_t flags)
     }
 }
 
+// For IDebugListener, this function is intended to be override by client.
+// The bindings here will never be called and is for documentation purpose only.
+
+void docProcessDebugTensor(IDebugListener& self, void const* addr, TensorLocation location, DataType type,
+    Dims const& shape, char const* name, size_t stream)
+{
+    return;
+}
+
 } // namespace lambdas
 
 class PyGpuAllocator : public IGpuAllocator
@@ -478,6 +487,36 @@ public:
         {
             std::cerr << "[ERROR] Exception caught in notifyShape()" << std::endl;
         }
+    }
+};
+
+class PyDebugListener : public IDebugListener
+{
+public:
+    bool processDebugTensor(void const* addr, TensorLocation location, DataType type, Dims const& shape,
+        char const* name, cudaStream_t stream) override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+            py::function pyFunc = utils::getOverride(static_cast<IDebugListener*>(this), "process_debug_tensor");
+
+            if (!pyFunc)
+            {
+                return false;
+            }
+
+            pyFunc(this, reinterpret_cast<size_t>(addr), location, type, shape, name, reinterpret_cast<size_t>(stream));
+        }
+        catch (std::exception const& e)
+        {
+            std::cerr << "[ERROR] Exception caught in processDebugTensor(): " << e.what() << std::endl;
+        }
+        catch (...)
+        {
+            std::cerr << "[ERROR] Exception caught in processDebugTensor()" << std::endl;
+        }
+        return true;
     }
 };
 
@@ -906,6 +945,12 @@ void bindCore(py::module& m)
         .def_property("nvtx_verbosity", &IExecutionContext::getNvtxVerbosity, &IExecutionContext::setNvtxVerbosity)
         .def("set_aux_streams", lambdas::set_aux_streams, "aux_streams"_a, IExecutionContextDoc::set_aux_streams)
         .def("__del__", &utils::doNothingDel<IExecutionContext>)
+        .def("set_debug_listener", &IExecutionContext::setDebugListener, "listener"_a,
+            IExecutionContextDoc::set_debug_listener)
+        .def("get_debug_listener", &IExecutionContext::getDebugListener, IExecutionContextDoc::get_debug_listener)
+        .def("set_debug_state", &IExecutionContext::setDebugState, "name"_a, "flag"_a,
+            IExecutionContextDoc::set_debug_state)
+        .def("get_debug_state", &IExecutionContext::getDebugState, "name"_a, IExecutionContextDoc::set_debug_state)
                ;
 
     py::enum_<ExecutionContextAllocationStrategy>(m, "ExecutionContextAllocationStrategy", py::arithmetic{},
@@ -1332,6 +1377,13 @@ void bindCore(py::module& m)
             RefitterDoc::refit_cuda_engine_async, py::call_guard<py::gil_scoped_release>{})
         .def("__del__", &utils::doNothingDel<IRefitter>);
 #endif // EXPORT_ALL_BINDINGS
+
+    py::class_<IDebugListener, PyDebugListener>(m, "IDebugListener", IDebugListenerDoc::descr, py::module_local())
+        .def(py::init<>())
+        .def("get_interface_version", &IDebugListener::getInterfaceVersion, IDebugListenerDoc::get_interface_version)
+        // For documentation purpose only
+        .def("process_debug_tensor", lambdas::docProcessDebugTensor, "addr"_a, "location"_a, "type"_a, "shape"_a,
+            "name"_a, "stream"_a, IDebugListenerDoc::process_debug_tensor);
 }
 
 } // namespace tensorrt

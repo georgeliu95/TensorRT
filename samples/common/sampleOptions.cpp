@@ -1423,6 +1423,21 @@ void InferenceOptions::parse(Arguments& arguments)
 
     getShapesInference(arguments, shapes, "--shapes");
     setOptProfile = getAndDelOption(arguments, "--useProfile", optProfileIndex);
+
+    std::string allocationStrategyString;
+    getAndDelOption(arguments, "--allocationStrategy", allocationStrategyString);
+    if (allocationStrategyString == "static")
+    {
+        memoryAllocationStrategy = MemoryAllocationStrategy::kSTATIC;
+    }
+    else if (allocationStrategyString == "profile")
+    {
+        memoryAllocationStrategy = MemoryAllocationStrategy::kPROFILE;
+    }
+    else if (!allocationStrategyString.empty())
+    {
+        throw std::invalid_argument(std::string("Unknown allocationStrategy: ") + allocationStrategyString);
+    }
 }
 
 void ReportingOptions::parse(Arguments& arguments)
@@ -2320,7 +2335,11 @@ void InferenceOptions::help(std::ostream& os)
           "  --persistentCacheRatio      Set the persistentCacheLimit in ratio, 0.5 represent half of max persistent L2 size "
                                                                                                                     "(default = 0)"  << std::endl <<
           "  --useProfile                Set the optimization profile for the inference context "
-                                                                          "(default = " << defaultOptProfileIndex << " )."  << std::endl;
+                                                                                   "(default = " << defaultOptProfileIndex << " )."  << std::endl <<
+          "  --allocationStrategy=spec   Specify how the internal device memory for inference is allocated."                         << std::endl <<
+          R"(                            Strategy: spec ::= "static", "profile"")"                                                   << std::endl <<
+          "                                  static = Allocate device memory based on max size across all profiles."                 << std::endl <<
+          "                                  profile = Allocate device memory based on max size of the current profile."             << std::endl;
     // clang-format on
 }
 

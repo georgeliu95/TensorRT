@@ -83,6 +83,12 @@ enum class TimingCacheMode
     kGLOBAL
 };
 
+enum class MemoryAllocationStrategy
+{
+    kSTATIC,  //< Allocate device memory based on max size across all profiles.
+    kPROFILE, //< Allocate device memory based on max size of the current profile.
+};
+
 //!
 //! \enum RuntimeMode
 //!
@@ -278,6 +284,7 @@ public:
     using ShapeProfile = std::unordered_map<std::string, std::vector<int32_t>>;
     ShapeProfile shapes;
     nvinfer1::ProfilingVerbosity nvtxVerbosity{nvinfer1::ProfilingVerbosity::kLAYER_NAMES_ONLY};
+    MemoryAllocationStrategy memoryAllocationStrategy{MemoryAllocationStrategy::kSTATIC};
 
     void parse(Arguments& arguments) override;
 
