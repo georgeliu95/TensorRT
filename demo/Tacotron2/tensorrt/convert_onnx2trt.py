@@ -108,7 +108,7 @@ def main():
                 {"name": "mask",                    "min": (bs_min,4),     "opt": (bs_opt,128),     "max": (bs_max,256)}]
         if args.decoder != "":
             print("Building Decoder with loop...")
-            decoder_engine = build_engine(args.decoder, shapes=shapes, fp16=args.fp16, timing_cache=args.timing_cache_file, disable_preview_dynamic_shapes=args.disable_preview_dynamic_shapes)
+            decoder_engine = build_engine(args.decoder, shapes=shapes, fp16=args.fp16, timing_cache=args.timing_cache_file)
             if decoder_engine is not None:
                 with open(decoder_path, 'wb') as f:
                     f.write(decoder_engine)
@@ -130,7 +130,7 @@ def main():
                 {"name": "mask",                  "min": (bs_min,4),     "opt": (bs_opt,128),     "max": (bs_max,256)}]
         if args.decoder != "":
             print("Building Decoder ...")
-            decoder_iter_engine = build_engine(args.decoder, shapes=shapes, fp16=args.fp16, timing_cache=args.timing_cache_file, disable_preview_dynamic_shapes=args.disable_preview_dynamic_shapes)
+            decoder_iter_engine = build_engine(args.decoder, shapes=shapes, fp16=args.fp16, timing_cache=args.timing_cache_file)
             if decoder_iter_engine is not None:
                 with open(decoder_path, 'wb') as f:
                     f.write(decoder_iter_engine)
@@ -142,7 +142,7 @@ def main():
     shapes=[{"name": "mel_outputs", "min": (bs_min,80,32), "opt": (bs_opt,80,768), "max": (bs_max,80,1664)}]
     if args.postnet != "":
         print("Building Postnet ...")
-        postnet_engine = build_engine(args.postnet, shapes=shapes, fp16=args.fp16, timing_cache=args.timing_cache_file, disable_preview_dynamic_shapes=args.disable_preview_dynamic_shapes)
+        postnet_engine = build_engine(args.postnet, shapes=shapes, fp16=args.fp16, timing_cache=args.timing_cache_file)
         if postnet_engine is not None:
             with open(postnet_path, 'wb') as f:
                 f.write(postnet_engine)
@@ -155,7 +155,7 @@ def main():
             {"name": "z",   "min": (bs_min,8,z_min,1),     "opt": (bs_opt,8,z_opt,1),     "max": (bs_max,8,z_max,1)}]
     if args.waveglow != "":
         print("Building WaveGlow ...")
-        waveglow_engine = build_engine(args.waveglow, shapes=shapes, fp16=args.fp16, timing_cache=args.timing_cache_file, disable_preview_dynamic_shapes=args.disable_preview_dynamic_shapes)
+        waveglow_engine = build_engine(args.waveglow, shapes=shapes, fp16=args.fp16, timing_cache=args.timing_cache_file)
         if waveglow_engine is not None:
             with open(waveglow_path, 'wb') as f:
                 f.write(waveglow_engine)
