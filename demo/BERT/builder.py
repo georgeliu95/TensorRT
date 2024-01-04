@@ -394,6 +394,8 @@ def build_engine(batch_sizes, workspace_size, sequence_lengths, config, weights_
     with trt.Builder(TRT_LOGGER) as builder, builder.create_network(network_creation_flag) as network, builder.create_builder_config() as builder_config:
         builder_config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, workspace_size * (1024 * 1024))
         builder_config.avg_timing_iterations = 8
+        # Cublas tactics can be unset once the qkv plugin does not use it anymore.
+        builder_config.set_tactic_sources(builder_config.get_tactic_sources() | 1 << int(trt.TacticSource.CUBLAS))
         if config.use_fp16:
             builder_config.set_flag(trt.BuilderFlag.FP16)
         if config.use_int8:
