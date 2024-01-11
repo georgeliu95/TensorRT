@@ -1012,6 +1012,9 @@ namespace tensorrt
                 py::return_value_policy::reference)
             .def_property_readonly("flags", &INetworkDefinition::getFlags)
             .def("get_flag", &INetworkDefinition::getFlag, "flag"_a, INetworkDefinitionDoc::get_flag)
+            .def("mark_debug", &INetworkDefinition::markDebug, "tensor"_a, INetworkDefinitionDoc::mark_debug)
+            .def("unmark_debug", &INetworkDefinition::unmarkDebug, "tensor"_a, INetworkDefinitionDoc::unmark_debug)
+            .def("is_debug_tensor", &INetworkDefinition::isDebugTensor, "tensor"_a, INetworkDefinitionDoc::is_debug_tensor)
 #if ENABLE_INETWORK_SERIALIZE
             // Serialization
             .def("serialize", lambdas::network_serialize, INetworkDefinitionDoc::serialize)

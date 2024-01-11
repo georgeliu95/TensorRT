@@ -269,9 +269,20 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
     cudaStream_t setOptProfileStream;
     CHECK(cudaStreamCreate(&setOptProfileStream));
 
+    iEnv.deviceMemory.resize(inference.infStreams);
     for (int32_t s = 0; s < inference.infStreams; ++s)
     {
-        auto ec = engine->createExecutionContext();
+        IExecutionContext* ec{nullptr};
+        if (inference.memoryAllocationStrategy == MemoryAllocationStrategy::kSTATIC)
+        {
+            // Let TRT pre-allocate and manage the memory.
+            ec = engine->createExecutionContext();
+        }
+        else
+        {
+            // Allocate based on the current profile or runtime shapes.
+            ec = engine->createExecutionContext(ExecutionContextAllocationStrategy::kUSER_MANAGED);
+        }
         if (ec == nullptr)
         {
             sample::gLogError << "Unable to create execution context for stream " << s << "." << std::endl;
@@ -299,8 +310,22 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
             return false;
         }
 
-        sample::gLogInfo << "Created execution context with device memory size: "
-                         << (engine->getDeviceMemorySize() / 1.0_MiB) << " MiB" << std::endl;
+        if (inference.memoryAllocationStrategy == MemoryAllocationStrategy::kSTATIC)
+        {
+            sample::gLogInfo << "Created execution context with device memory size: "
+                             << (engine->getDeviceMemorySize() / 1.0_MiB) << " MiB" << std::endl;
+        }
+        else
+        {
+            auto const p = inference.optProfileIndex;
+            auto const sizeToAlloc = engine->getDeviceMemorySizeForProfile(p);
+            iEnv.deviceMemory.at(s) = std::move(TrtDeviceBuffer(sizeToAlloc));
+            ec->setDeviceMemory(iEnv.deviceMemory.at(s).get());
+            sample::gLogInfo << "Maximum device memory size across all profiles: "
+                             << (engine->getDeviceMemorySize() / 1.0_MiB) << " MiB" << std::endl;
+            sample::gLogInfo << "Only allocated device memory enough for current profile: " << (sizeToAlloc / 1.0_MiB)
+                             << " MiB" << std::endl;
+        }
 
         iEnv.contexts.emplace_back(ec);
         iEnv.bindings.emplace_back(new Bindings(useManagedMemory));

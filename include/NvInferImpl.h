@@ -35,6 +35,7 @@ class IConditionLayer;
 class IConstantLayer;
 class IConvolutionLayer;
 class ICudaEngine;
+class IDebugListener;
 class IDeconvolutionLayer;
 class IDequantizeLayer;
 class IDimensionExpr;
@@ -366,6 +367,10 @@ public:
     virtual ProfilingVerbosity getNvtxVerbosity() const noexcept = 0;
     virtual IExecutionContext* getPImpl() noexcept = 0;
     virtual void setAuxStreams(cudaStream_t* auxStreams, int32_t nbStreams) noexcept = 0;
+    virtual bool setDebugListener(IDebugListener* listener) noexcept = 0;
+    virtual IDebugListener* getDebugListener() noexcept = 0;
+    virtual bool setDebugState(char const* name, bool flag) noexcept = 0;
+    virtual bool getDebugState(char const* name) const noexcept = 0;
 };
 
 class VEngineInspector : public VRoot
@@ -1034,6 +1039,9 @@ public:
     virtual IQuantizeLayer* addQuantizeV2(ITensor& input, ITensor& scale, DataType outputType) noexcept = 0;
     virtual IDequantizeLayer* addDequantizeV2(ITensor& input, ITensor& scale, DataType outputType) noexcept = 0;
     virtual IFillLayer* addFillV2(Dims dimensions, FillOperation op, DataType outputType) noexcept = 0;
+    virtual bool markDebug(ITensor& tensor) noexcept = 0;
+    virtual bool unmarkDebug(ITensor& tensor) noexcept = 0;
+    virtual bool isDebugTensor(nvinfer1::ITensor const& tensor) const noexcept = 0;
 };
 
 class VAlgorithmIOInfo : public VRoot

@@ -2064,6 +2064,28 @@ constexpr const char* mark_output = R"trtdoc(
     :arg tensor: The tensor to mark.
 )trtdoc";
 
+constexpr const char* mark_debug = R"trtdoc(
+    Mark a tensor as a debug tensor in the network.
+
+    :arg tensor: The tensor to be marked as debug tensor.
+
+    :returns: True on success, False otherwise.
+)trtdoc";
+
+constexpr const char* unmark_debug = R"trtdoc(
+    Unmark a tensor as a debug tensor in the network.
+
+    :arg tensor: The tensor to be unmarked as debug tensor.
+
+    :returns: True on success, False otherwise.
+)trtdoc";
+
+constexpr const char* is_debug_tensor = R"trtdoc(
+    Check if a tensor is marked as debug.
+
+    :arg tensor: The tensor to be checked.
+)trtdoc";
+
 constexpr const char* add_convolution_nd = R"trtdoc(
     Add a multi-dimension convolution layer to the network.
     See :class:`IConvolutionLayer` for more information.

@@ -604,7 +604,57 @@ constexpr char const* set_aux_streams = R"trtdoc(
 
     :arg aux_streams: A list of cuda streams. If the length of the list is greater than engine.num_aux_streams, then only the first "engine.num_aux_streams" streams will be used. If the length is less than engine.num_aux_streams, such as an empty list, then TensorRT will use the provided streams for the first few auxiliary streams, and will create additional streams internally for the rest of the auxiliary streams.
 )trtdoc";
+
+constexpr char const* set_debug_listener = R"trtdoc(
+    Set debug listener for execution context.
+
+    :arg listener: The :class:`IDebugListener`.
+)trtdoc";
+
+constexpr char const* get_debug_listener = R"trtdoc(
+    Get debug listener for execution context.
+
+    :returns: The :class:`IDebugListener` of the execution context.
+)trtdoc";
+
+constexpr char const* set_debug_state = R"trtdoc(
+    Turn the debug state of a tensor on or off. The Tensor must have been marked as a debug tensor during build time.
+
+    :arg name: The name of the target tensor.
+    :arg flag: True if turning on debug state of tensor. False if turning off.
+)trtdoc";
+constexpr const char* get_debug_state = R"trtdoc(
+    Get the debug state of the tensor.
+
+    :arg name: The name of the tensor.
+)trtdoc";
 } // namespace IExecutionContextDoc
+
+namespace IDebugListenerDoc
+{
+constexpr char const* descr = R"trtdoc(
+    A user-implemented class for notification when value of a debug tensor is updated.
+)trtdoc";
+
+constexpr char const* get_interface_version = R"trtdoc(
+    The version of this interface.
+
+    :returns: The version number.
+)trtdoc";
+
+constexpr char const* process_debug_tensor = R"trtdoc(
+    User implemented callback function that is called when value of a debug tensor is updated and the debug state of the tensor is set to true. Content in the given address is only guaranteed to be valid for the duration of the callback.
+
+    :arg location: TensorLocation of the tensor
+    :arg addr: pointer to buffer
+    :arg type: data Type of the tensor
+    :arg shape: shape of the tensor
+    :arg name: name name of the tensor
+    :arg stream: Cuda stream object
+
+    :returns: True on success, False otherwise.
+)trtdoc";
+} // namespace IDebugListenerDoc
 
 namespace IProgressMonitorDoc
 {
@@ -1585,22 +1635,6 @@ constexpr char const* deserialize_cuda_engine = R"trtdoc(
 
     :returns: The :class:`ICudaEngine`, or None if it could not be deserialized.
 )trtdoc";
-// remove md
-#if ENABLE_MDTRT
-constexpr char const* deserialize_engine = R"trtdoc(
-    Deserialize an :class:`ICudaEngine` from a stream.
-
-    :arg serialized_engine: The :class:`buffer` that holds the serialized :class:`ICudaEngine` .
-    :arg instance: The instance engine to deserialize.
-
-    Each serialized engine will contain multiple engine instances in the range [0, IBuilderConfig.num_instances). If
-    the value specified by instance is outside of this range, then the error INVALID_ARGUMENT
-    is emitted and a None is returned.
-    If an error recorder has been set for the runtime, it will also be passed to the engine.
-
-    :returns: The engine, or None if it could not be deserialized.
-)trtdoc";
-#endif
 
 constexpr char const* get_plugin_registry = R"trtdoc(
     Get the local plugin registry that can be used by the runtime.

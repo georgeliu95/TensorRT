@@ -6698,6 +6698,50 @@ public:
     }
 
     //!
+    //! \brief Mark a tensor as a debug tensor.
+    //!
+    //! A debug tensor can be optionally emitted at runtime.
+    //! Note that tensor names are required to specify debug
+    //! tensors at runtime.
+    //!
+    //! \param tensor Tensor to be marked as debug
+    //!
+    //! \return True if tensor successfully marked (or was already marked), false otherwise.
+    //!
+    //! \see unmarkDebug(), IExecutionContext::setDebugListener(), ITensor::setName()
+    //!
+    bool markDebug(ITensor& tensor) noexcept
+    {
+        return mImpl->markDebug(tensor);
+    }
+
+    //!
+    //! \brief Unmark a tensor as a debug tensor.
+    //!
+    //! Remove the marking of a tensor as a debug tensor.
+    //!
+    //! \param tensor Tensor to be unmarked as debug.
+    //!
+    //! \return True if tensor successfully unmarked (or was already unmarked), false otherwise.
+    //!
+    //! \see markDebug(), IExecutionContext::setDebugListener()
+    //!
+    bool unmarkDebug(ITensor& tensor) noexcept
+    {
+        return mImpl->unmarkDebug(tensor);
+    }
+
+    //!
+    //! \brief Check if a tensor is marked as debug tensor.
+    //!
+    //! \return true if tensor is marked as debug tensor, false otherwise.
+    //!
+    bool isDebugTensor(nvinfer1::ITensor const& tensor) const noexcept
+    {
+        return mImpl->isDebugTensor(tensor);
+    }
+
+    //!
     //! \brief Add a fully connected layer to the network.
     //!
     //! \param input The input tensor to the layer.
