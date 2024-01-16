@@ -2,6 +2,12 @@
 
 Dates are in YYYY-MM-DD format.
 
+
+## v0.5.0 (2024-01-12)
+### Added
+- Added a `GraphPattern` API which can be used to find matching subgraphs in a graph.
+
+
 ## v0.4.1 (2023-11-30)
 ### Fixed
 - Fixed a bug where toposort would not correctly memoize intermediate values, leading to long runtimes.
