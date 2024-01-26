@@ -137,7 +137,7 @@ class GPTTRTDecoder(TRTNativeRunner):
             return None
 
     def get_output_name(self):
-        return self.trt_engine.get_tensor_name(self.trt_engine.num_io_tensors - 1)
+        return "logits"
 
     def has_attention_mask(self):
         if self.ATTENTION_MASK_INDEX < self.trt_engine.num_io_tensors:
