@@ -880,8 +880,9 @@ def main():
     converter = None
     if args.nemo_model or args.nemo_checkpoint:
         cfg.gpt_model_file = args.nemo_model
-        cfg.checkpoint_dir = os.path.dirname(args.nemo_checkpoint)
-        cfg.checkpoint_name = os.path.basename(args.nemo_checkpoint)
+        if args.nemo_checkpoint:
+            cfg.checkpoint_dir = os.path.dirname(args.nemo_checkpoint)
+            cfg.checkpoint_name = os.path.basename(args.nemo_checkpoint)
         converter = NeMoConverter(cfg, MegatronGPTModel)
         onnx_name = converter.nemo_to_onnx()
         G_LOGGER.info(f"ONNX exported from NeMo {onnx_name}")
