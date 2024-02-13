@@ -105,7 +105,7 @@ def populate_network(network, weights):
 def build_engine(weights):
     # For more information on TRT basics, refer to the introductory samples.
     builder = trt.Builder(TRT_LOGGER)
-    network = builder.create_network(common.EXPLICIT_BATCH)
+    network = builder.create_network(0)
     config = builder.create_builder_config()
     runtime = trt.Runtime(TRT_LOGGER)
 

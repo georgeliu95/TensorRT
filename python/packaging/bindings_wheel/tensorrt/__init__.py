@@ -41,6 +41,9 @@ if not _libs_wheel_imported and sys.platform.startswith("win"):
             if os.path.isfile(libpath):
                 return libpath
 
+        if name.startswith("cudnn") or name.startswith("cublas"):
+            return ""
+
         raise FileNotFoundError(
             "Could not find: {:}. Is it on your PATH?\nNote: Paths searched were:\n{:}".format(name, paths)
         )
@@ -64,7 +67,9 @@ if not _libs_wheel_imported and sys.platform.startswith("win"):
     }["##TENSORRT_MODULE##"]
 
     for lib in LIBRARIES:
-        ctypes.CDLL(find_lib(lib))
+        lib_path = find_lib(lib)
+        if lib_path != "":
+            ctypes.CDLL(lib_path)
 
 del _libs_wheel_imported
 

@@ -49,6 +49,12 @@ int32_t stringToValue<int32_t>(const std::string& option)
 }
 
 template <>
+int64_t stringToValue<int64_t>(const std::string& option)
+{
+    return std::stoll(option);
+}
+
+template <>
 size_t stringToValue<size_t>(const std::string& option)
 {
     return std::stoi(option);
@@ -252,16 +258,15 @@ std::string joinValuesToString(std::array<T, N> const& list, std::string const& 
 }
 
 //! Check if input option exists in input arguments.
-//! If it does: return its value, erase the argument and return true.
+//! If it does: set its value, and return true
 //! If it does not: return false.
 template <typename T>
-bool getAndDelOption(Arguments& arguments, const std::string& option, T& value)
+bool getOption(Arguments& arguments, const std::string& option, T& value)
 {
-    const auto match = arguments.find(option);
+    auto const match = arguments.find(option);
     if (match != arguments.end())
     {
         value = stringToValue<T>(match->second.first);
-        arguments.erase(match);
         return true;
     }
 
@@ -269,7 +274,23 @@ bool getAndDelOption(Arguments& arguments, const std::string& option, T& value)
 }
 
 //! Check if input option exists in input arguments.
-//! If it does: return its value and position, erase the argument and return true.
+//! If it does: set its value, erase the argument and return true.
+//! If it does not: return false.
+template <typename T_>
+bool getAndDelOption(Arguments& arguments, const std::string& option, T_& value)
+{
+    bool found = getOption(arguments, option, value);
+    if (found)
+    {
+        const auto match = arguments.find(option);
+        arguments.erase(match);
+    }
+
+    return found;
+}
+
+//! Check if input option exists in input arguments.
+//! If it does: set its value and position, erase the argument and return true.
 //! If it does not: return false.
 template <typename T_>
 bool getAndDelOptionWithPosition(Arguments& arguments, std::string const& option, T_& value, int32_t& pos)
@@ -287,7 +308,7 @@ bool getAndDelOptionWithPosition(Arguments& arguments, std::string const& option
 }
 
 //! Check if input option exists in input arguments behind the position spcecified by pos.
-//! If it does: return its value, erase the argument and return true.
+//! If it does: set its value, erase the argument and return true.
 //! If it does not: return false.
 template <typename T_>
 bool getAndDelOptionBehind(Arguments& arguments, std::string const& option, int32_t pos, T_& value)
@@ -310,7 +331,7 @@ bool getAndDelOptionBehind(Arguments& arguments, std::string const& option, int3
 }
 
 //! Check if input option exists in input arguments.
-//! If it does: return false in value, erase the argument and return true.
+//! If it does: set false in value, erase the argument and return true.
 //! If it does not: return false.
 bool getAndDelNegOption(Arguments& arguments, const std::string& option, bool& value)
 {
@@ -422,6 +443,22 @@ void getLayerDeviceTypes(Arguments& arguments, char const* argument, LayerDevice
         auto nameDevicePair = splitNameAndValue<std::string>(s);
         auto const layerName = removeSingleQuotationMarks(nameDevicePair.first);
         layerDeviceTypes[layerName] = stringToValue<nvinfer1::DeviceType>(nameDevicePair.second);
+    }
+}
+
+void getStringsSet(Arguments& arguments, char const* argument, StringSet& stringSet)
+{
+    std::string list;
+    if (!getAndDelOption(arguments, argument, list))
+    {
+        return;
+    }
+
+    // The layerPrecisions flag contains comma-separated layerName:precision pairs.
+    std::vector<std::string> strings{splitToStringVec(list, ',')};
+    for (auto const& s : strings)
+    {
+        stringSet.insert(s);
     }
 }
 
@@ -777,6 +814,9 @@ std::ostream& printMemoryPools(std::ostream& os, BuildOptions const& options)
     os << ", ";
     os << "dlaGlobalDRAM: ";
     printValueOrDefault(options.dlaGlobalDRAM);
+    os << ", ";
+    os << "tacticSharedMem: ";
+    printValueOrDefault(options.tacticSharedMem);
     return os;
 }
 
@@ -785,7 +825,11 @@ std::string previewFeatureToString(PreviewFeature feature)
     // clang-format off
     switch (feature)
     {
-    case PreviewFeature::kPROFILE_SHARING_0806: return "kPROFILE_SHARING_0806";
+    case PreviewFeature::kPROFILE_SHARING_0806:
+    {
+        gLogWarning << "profileSharing0806 is on by default in TensorRT 10.0. This flag is deprecated and has no effect." << std::endl;
+        break;
+    }
     }
     return "Invalid Preview Feature";
     // clang-format on
@@ -806,7 +850,8 @@ std::ostream& printPreviewFlags(std::ostream& os, BuildOptions const& options)
             os << previewFeatureToString(feat) << (options.previewFeatures.at(featVal) ? " [ON], " : " [OFF], ");
         }
     };
-    addFlag(PreviewFeature::kPROFILE_SHARING_0806);
+    // unused
+    static_cast<void>(addFlag);
 
     return os;
 }
@@ -832,11 +877,31 @@ Arguments argsToArgumentsMap(int32_t argc, char* argv[])
     return arguments;
 }
 
+namespace
+{
+std::string resolveHomeDirectoryOnLinux(std::string const& model)
+{
+    std::string filePath{model};
+#ifndef _WIN32
+    if (filePath[0] == '~')
+    {
+        char const* home = std::getenv("HOME");
+        if (home)
+        {
+            filePath.replace(0, 1, home);
+        }
+    }
+#endif
+    return filePath;
+}
+} // namespace
+
 void BaseModelOptions::parse(Arguments& arguments)
 {
     if (getAndDelOption(arguments, "--onnx", model))
     {
         format = ModelFormat::kONNX;
+        model = resolveHomeDirectoryOnLinux(model);
     }
 }
 
@@ -960,18 +1025,6 @@ void BuildOptions::parse(Arguments& arguments)
         = getShapesBuild(arguments, shapesCalib, "--maxShapesCalib", nvinfer1::OptProfileSelector::kMAX);
     processShapes(shapesCalib, minShapesCalib, optShapesCalib, maxShapesCalib, true);
 
-    bool addedExplicitPrecisionFlag{false};
-    getAndDelOption(arguments, "--explicitPrecision", addedExplicitPrecisionFlag);
-    if (addedExplicitPrecisionFlag)
-    {
-        sample::gLogWarning << "--explicitPrecision flag has been deprecated and has no effect!" << std::endl;
-    }
-
-    if (getAndDelOption(arguments, "--workspace", workspace))
-    {
-        sample::gLogWarning << "--workspace flag has been deprecated by --memPoolSize flag." << std::endl;
-    }
-
     std::string memPoolSizes;
     getAndDelOption(arguments, "--memPoolSize", memPoolSizes);
     std::vector<std::string> memPoolSpecs{splitToStringVec(memPoolSizes, ',')};
@@ -999,6 +1052,10 @@ void BuildOptions::parse(Arguments& arguments)
         else if (memPoolName == "dlaGlobalDRAM")
         {
             dlaGlobalDRAM = memPoolSize;
+        }
+        else if (memPoolName == "tacticSharedMem")
+        {
+            tacticSharedMem = memPoolSize;
         }
         else if (!memPoolName.empty())
         {
@@ -1033,11 +1090,11 @@ void BuildOptions::parse(Arguments& arguments)
         getAndDelOption(arguments, "--versionCompatible", versionCompatible);
     }
 
-    // --ni and --nativeInstanceNorm are synonyms
-    getAndDelOption(arguments, "--ni", nativeInstanceNorm);
-    if (!nativeInstanceNorm)
+    // --pi and --pluginInstanceNorm are synonyms
+    getAndDelOption(arguments, "--pi", pluginInstanceNorm);
+    if (!pluginInstanceNorm)
     {
-        getAndDelOption(arguments, "--nativeInstanceNorm", nativeInstanceNorm);
+        getAndDelOption(arguments, "--pluginInstanceNorm", pluginInstanceNorm);
     }
 
     getAndDelOption(arguments, "--excludeLeanRuntime", excludeLeanRuntime);
@@ -1074,10 +1131,6 @@ void BuildOptions::parse(Arguments& arguments)
     getAndDelOption(arguments, "--allowGPUFallback", allowGPUFallback);
     getAndDelOption(arguments, "--consistency", consistency);
     getAndDelOption(arguments, "--restricted", restricted);
-    if (getAndDelOption(arguments, "--buildOnly", skipInference))
-    {
-        sample::gLogWarning << "--buildOnly flag has been deprecated by --skipInference flag." << std::endl;
-    }
     getAndDelOption(arguments, "--skipInference", skipInference);
     getAndDelOption(arguments, "--directIO", directIO);
 
@@ -1117,6 +1170,8 @@ void BuildOptions::parse(Arguments& arguments)
                             << R"(flag is set to "none".)" << std::endl;
     }
 
+    getStringsSet(arguments, "--markDebug", debugTensors);
+
     getAndDelOption(arguments, "--sparsity", sparsity);
 
     bool calibCheck = getAndDelOption(arguments, "--calib", calibration);
@@ -1132,10 +1187,6 @@ void BuildOptions::parse(Arguments& arguments)
     }
 
     std::string profilingVerbosityString;
-    if (getAndDelOption(arguments, "--nvtxMode", profilingVerbosityString))
-    {
-        sample::gLogWarning << "--nvtxMode flag has been deprecated by --profilingVerbosity flag." << std::endl;
-    }
 
     getAndDelOption(arguments, "--profilingVerbosity", profilingVerbosityString);
     if (profilingVerbosityString == "layer_names_only")
@@ -1269,12 +1320,6 @@ void BuildOptions::parse(Arguments& arguments)
         timingCacheMode = TimingCacheMode::kLOCAL;
     }
     getAndDelOption(arguments, "--errorOnTimingCacheMiss", errorOnTimingCacheMiss);
-    if (getAndDelOption(arguments, "--heuristic", heuristic))
-    {
-        sample::gLogWarning << "--heuristic flag has been deprecated, use --builderOptimizationLevel=<N> flag instead "
-                               "(N <= 2 enables heuristic)."
-                            << std::endl;
-    }
     getAndDelOption(arguments, "--builderOptimizationLevel", builderOptimizationLevel);
 
     std::string hardwareCompatibleArgs;
@@ -1291,6 +1336,11 @@ void BuildOptions::parse(Arguments& arguments)
     {
         throw std::invalid_argument(std::string("Unknown hardwareCompatibilityLevel: ") + hardwareCompatibleArgs
             + ". Valid options: none, ampere+.");
+    }
+
+    if (pluginInstanceNorm && (versionCompatible || hardwareCompatibilityLevel == HardwareCompatibilityLevel::kAMPERE_PLUS))
+    {
+        throw std::invalid_argument("Plugin InstanceNorm cannot be used with version compatible or hardware compatible engines!");
     }
 
     getAndDelOption(arguments, "--maxAuxStreams", maxAuxStreams);
@@ -1316,7 +1366,9 @@ void BuildOptions::parse(Arguments& arguments)
         PreviewFeature feat{};
         if (featureName == "profileSharing0806")
         {
-            feat = PreviewFeature::kPROFILE_SHARING_0806;
+            sample::gLogWarning
+                << "profileSharing0806 is on by default in TensorRT 10.0. This flag is deprecated and has no effect."
+                << std::endl;
         }
         else
         {
@@ -1360,6 +1412,18 @@ void BuildOptions::parse(Arguments& arguments)
     }
 
     getAndDelOption(arguments, "--leanDLLPath", leanDLLPath);
+
+    // Do not delete this option because the inference parser also requires it
+    int64_t userSetBudget{BuildOptions::kUNSET_WEIGHT_STREAMING};
+    bool enableWeightStreaming = getOption(arguments, "--weightStreamingBudget", userSetBudget);
+    if (enableWeightStreaming && userSetBudget <= BuildOptions::kUNSET_WEIGHT_STREAMING)
+    {
+        throw std::invalid_argument(std::string("The weight streaming budget must be >= -1."));
+    }
+    else if (enableWeightStreaming)
+    {
+        weightStreamingBudget = userSetBudget;
+    }
 }
 
 void SystemOptions::parse(Arguments& arguments)
@@ -1434,10 +1498,19 @@ void InferenceOptions::parse(Arguments& arguments)
     {
         memoryAllocationStrategy = MemoryAllocationStrategy::kPROFILE;
     }
+    else if (allocationStrategyString == "runtime")
+    {
+        memoryAllocationStrategy = MemoryAllocationStrategy::kRUNTIME;
+    }
     else if (!allocationStrategyString.empty())
     {
         throw std::invalid_argument(std::string("Unknown allocationStrategy: ") + allocationStrategyString);
     }
+
+    getAndDelOption(arguments, "--weightStreamingBudget", weightStreamingBudget);
+    getAndDelOption(arguments, "--saveDebugTensors", list);
+    std::vector<std::string> fileNames{splitToStringVec(list, ',')};
+    splitInsertKeyValue(fileNames, debugTensorFileNames);
 }
 
 void ReportingOptions::parse(Arguments& arguments)
@@ -1872,8 +1945,25 @@ std::ostream& operator<<(std::ostream& os, LayerDeviceTypes const& layerDeviceTy
     return os;
 }
 
+std::ostream& operator<<(std::ostream& os, StringSet const& stringSet)
+{
+    int64_t i = 0;
+    for (auto const& s : stringSet)
+    {
+        os << (i ? "," : "") << s;
+        ++i;
+    }
+    return os;
+}
+
 std::ostream& operator<<(std::ostream& os, const BuildOptions& options)
 {
+    // if loadEngine is specified, BuildOptions are N/A
+    if (options.load)
+    {
+        os << std::endl;
+        return os;
+    }
     // clang-format off
     os << "=== Build Options ==="                                                                                       << std::endl <<
           "Memory Pools: ";     printMemoryPools(os, options)                                                           << std::endl <<
@@ -1885,8 +1975,7 @@ std::ostream& operator<<(std::ostream& os, const BuildOptions& options)
           "Refit: "          << boolToEnabled(options.refittable)                                                       << std::endl <<
           "Weightless: "     << boolToEnabled(options.weightless)                                                       << std::endl <<
           "Version Compatible: " << boolToEnabled(options.versionCompatible)                                            << std::endl <<
-          "ONNX Native InstanceNorm: " << boolToEnabled(options.nativeInstanceNorm || options.versionCompatible
-                || options.hardwareCompatibilityLevel != HardwareCompatibilityLevel::kNONE)                             << std::endl <<
+          "ONNX Plugin InstanceNorm: " << boolToEnabled(options.pluginInstanceNorm)                                     << std::endl <<
           "TensorRT runtime: " << options.useRuntime                                                                    << std::endl <<
           "Lean DLL Path: " << options.leanDLLPath                                                                      << std::endl <<
           "Tempfile Controls: "; printTempfileControls(os, options.tempfileControls)                                    << std::endl <<
@@ -1906,11 +1995,12 @@ std::ostream& operator<<(std::ostream& os, const BuildOptions& options)
           "timingCacheFile: " << options.timingCacheFile                                                                << std::endl <<
           "Enable Compilation Cache: "<< boolToEnabled(!options.disableCompilationCache) << std::endl <<
           "errorOnTimingCacheMiss: "  << boolToEnabled(options.errorOnTimingCacheMiss)                                  << std::endl <<
-          "Heuristic: "       << boolToEnabled(options.heuristic)                                                       << std::endl <<
           "Preview Features: "; printPreviewFlags(os, options)                                                          << std::endl <<
           "MaxAuxStreams: "   << options.maxAuxStreams                                                                  << std::endl <<
           "BuilderOptimizationLevel: " << options.builderOptimizationLevel                                              << std::endl <<
-          "Calibration Profile Index: "<< options.calibProfile                                                  << std::endl;
+          "Calibration Profile Index: " << options.calibProfile                                                         << std::endl <<
+          "Weight Streaming: " << (options.weightStreamingBudget >= -1 ? "Enabled" : "Disabled")                        << std::endl <<
+          "Debug Tensors: " << options.debugTensors                                                                      << std::endl;
     // clang-format on
 
     auto printIOFormats = [](std::ostream& os, const char* direction, const std::vector<IOFormat> formats) {
@@ -1991,6 +2081,8 @@ std::ostream& operator<<(std::ostream& os, const InferenceOptions& options)
                           os << "Explicit"                                << std::endl;
     }
     printShapes(os, "inference", options.shapes, options.optProfileIndex);
+    std::string wsBudget = options.weightStreamingBudget == BuildOptions::kUNSET_WEIGHT_STREAMING ? "N/A" : std::to_string(options.weightStreamingBudget);
+
     os << "Iterations: "                << options.iterations                                   << std::endl <<
           "Duration: "                  << options.duration   << "s (+ "
                                         << options.warmup     << "ms warm up)"                  << std::endl <<
@@ -2007,13 +2099,20 @@ std::ostream& operator<<(std::ostream& os, const InferenceOptions& options)
           "Time Refit: "                << boolToEnabled(options.timeRefit)                     << std::endl <<
           "NVTX verbosity: "            << static_cast<int32_t>(options.nvtxVerbosity)          << std::endl <<
           "Persistent Cache Ratio: "    << static_cast<float>(options.persistentCacheRatio)     << std::endl <<
-          "Optimization Profile Index: "<< options.optProfileIndex                     << std::endl;
+          "Optimization Profile Index: "<< options.optProfileIndex                              << std::endl <<
+          "Weight Streaming Budget: "   << wsBudget                                             << std::endl;
     // clang-format on
 
     os << "Inputs:" << std::endl;
     for (const auto& input : options.inputs)
     {
         os << input.first << "<-" << input.second << std::endl;
+    }
+
+    os << "Debug Tensor Save Destinations:" << std::endl;
+    for (auto const& fileName : options.debugTensorFileNames)
+    {
+        os << fileName.first << ": " << fileName.second << std::endl;
     }
 
     return os;
@@ -2140,32 +2239,30 @@ void BuildOptions::help(std::ostream& os)
           R"(                                               type  ::= "fp32"|"fp16"|"bf16"|"int32"|"int64"|"int8"|"uint8"|"bool")"                  "\n"
           R"(                                               fmt   ::= ("chw"|"chw2"|"chw4"|"hwc8"|"chw16"|"chw32"|"dhwc8"|)"                        "\n"
           R"(                                                          "cdhw32"|"hwc"|"dla_linear"|"dla_hwc4")["+"fmt])"                            "\n"
-          "  --workspace=N                      Set workspace size in MiB."                                                                         "\n"
           "  --memPoolSize=poolspec             Specify the size constraints of the designated memory pool(s) in MiB."                              "\n"
           "                                     Note: Also accepts decimal sizes, e.g. 0.25MiB. Will be rounded down to the nearest integer bytes." "\n"
           "                                     In particular, for dlaSRAM the bytes will be rounded down to the nearest power of 2."               "\n"
           R"(                                   Pool constraint: poolspec ::= poolfmt[","poolspec])"                                                "\n"
           "                                                      poolfmt ::= pool:sizeInMiB"                                                        "\n"
-          R"(                                                    pool ::= "workspace"|"dlaSRAM"|"dlaLocalDRAM"|"dlaGlobalDRAM")"                    "\n"
+          R"(                                                    pool ::= "workspace"|"dlaSRAM"|"dlaLocalDRAM"|"dlaGlobalDRAM"|"tacticSharedMem")"  "\n"
           "  --profilingVerbosity=mode          Specify profiling verbosity. mode ::= layer_names_only|detailed|none (default = layer_names_only)"  "\n"
           "  --avgTiming=M                      Set the number of times averaged in each iteration for kernel selection (default = "
                                                                                                                   << defaultAvgTiming << ")"        "\n"
           "  --refit                            Mark the engine as refittable. This will allow the inspection of refittable layers "                "\n"
           "                                     and weights within the engine."                                                                     "\n"
-          "  --weightless                       Mark the engine as weightless."                                                                     "\n"
+          "  --weightless                       Strip weights from plan and label them as refittable with idential weights."                        "\n"
           "  --versionCompatible, --vc          Mark the engine as version compatible. This allows the engine to be used with newer versions"       "\n"
           "                                     of TensorRT on the same host OS, as well as TensorRT's dispatch and lean runtimes."                 "\n"
-          "                                     Only supported with explicit batch."                                                                "\n"
-          "  --nativeInstanceNorm, --ni         Set `kNATIVE_INSTANCENORM` to true in the ONNX parser. This will cause the ONNX parser to use"      "\n"
-          "                                     TensorRT's native InstanceNorm implementation over the plugin implementation when parsing."         "\n"
+          "  --pluginInstanceNorm, --pi         Set `kNATIVE_INSTANCENORM` to false in the ONNX parser. This will cause the ONNX parser to use"     "\n"
+          "                                     a plugin InstanceNorm implementation over the native implementation when parsing."                  "\n"
           R"(  --useRuntime=runtime               TensorRT runtime to execute engine. "lean" and "dispatch" require loading VC engine and do)"      "\n"
           "                                     not support building an engine."                                                                    "\n"
           R"(                                           runtime::= "full"|"lean"|"dispatch")"                                                       "\n"
           "  --leanDLLPath=<file>               External lean runtime DLL to use in version compatiable mode."                                      "\n"
           "  --excludeLeanRuntime               When --versionCompatible is enabled, this flag indicates that the generated engine should"          "\n"
           "                                     not include an embedded lean runtime. If this is set, the user must explicitly specify a"           "\n"
-          "                                     valid lean runtime to use when loading the engine.  Only supported with explicit batch"             "\n"
-          "                                     and weights within the engine."                                                                     "\n"
+          "                                     valid lean runtime to use when loading the engine."     "\n"
+          "                                     Only supported with weights within the engine."         "\n"
           "  --sparsity=spec                    Control sparsity (default = disabled). "                                                            "\n"
           R"(                                   Sparsity: spec ::= "disable", "enable", "force")"                                                   "\n"
           "                                     Note: Description about each of these options is as below"                                          "\n"
@@ -2237,7 +2334,6 @@ void BuildOptions::help(std::ostream& os)
           "  --noBuilderCache                   Disable timing cache in builder (default is to enable timing cache)"                                "\n"
           "  --noCompilationCache               Disable Compilation cache in builder, and the cache is part of timing cache (default is to enable compilation cache)"                                                "\n"
           "  --errorOnTimingCacheMiss           Emit error when a tactic being timed is not present in the timing cache (default = false)"          "\n"
-          "  --heuristic                        Enable tactic selection heuristic in builder (default is to disable the heuristic)"                 "\n"
           "  --timingCacheFile=<file>           Save/load the serialized global timing cache"                                                       "\n"
           "  --preview=features                 Specify preview feature to be used by adding (+) or removing (-) preview features from the default" "\n"
           R"(                                   Preview Features: features ::= [","feature])"                                                       "\n"
@@ -2268,6 +2364,10 @@ void BuildOptions::help(std::ostream& os)
           "                                     (ex: --profile=0 --minShapes=<spec> --optShapes=<spec> --maxShapes=<spec> --profile=1 ...)"         "\n"
           "  --calibProfile                     Select the optimization profile to calibrate by index. (default = "
                                                                                                                 << defaultOptProfileIndex << ")"    "\n"
+          "  --weightStreamingBudget            Set the weight streaming budget in megabytes (MiB). A value of 0 will set it to "                   "\n"
+          "                                     ::getMinimumStreamingBudget. A value of -1 will build a weight-streamable engine but disable"       "\n"
+          "                                     weight streaming at runtime."                                                                       "\n"
+          "  --markDebug                        Specify list of names of tensors to be marked as debug tensors. Separate names with a comma"        "\n"
           ;
     // clang-format on
     os << std::flush;
@@ -2337,9 +2437,15 @@ void InferenceOptions::help(std::ostream& os)
           "  --useProfile                Set the optimization profile for the inference context "
                                                                                    "(default = " << defaultOptProfileIndex << " )."  << std::endl <<
           "  --allocationStrategy=spec   Specify how the internal device memory for inference is allocated."                         << std::endl <<
-          R"(                            Strategy: spec ::= "static", "profile"")"                                                   << std::endl <<
+          R"(                            Strategy: spec ::= "static", "profile", "runtime")"                                         << std::endl <<
           "                                  static = Allocate device memory based on max size across all profiles."                 << std::endl <<
-          "                                  profile = Allocate device memory based on max size of the current profile."             << std::endl;
+          "                                  profile = Allocate device memory based on max size of the current profile."             << std::endl <<
+          "                                  runtime = Allocate device memory based on the actual input shapes."                     << std::endl <<
+          "  --saveDebugTensors          Specify list of names of tensors to turn on the debug state"                                << std::endl <<
+          "                              and filename to save raw outputs to."                                                       << std::endl <<
+          "                              These tensors must be specified as debug tensors during build time."                         << std::endl <<
+          R"(                            Input values spec ::= Ival[","spec])"                                                       << std::endl <<
+          R"(                                         Ival ::= name":"file)"                                                         << std::endl;
     // clang-format on
 }
 
@@ -2403,17 +2509,6 @@ void AllOptions::help(std::ostream& os)
     os << std::endl;
     InferenceOptions::help(os);
     os << std::endl;
-    // clang-format off
-    os << "=== Build and Inference Batch Options ==="                                                                   << std::endl <<
-          "                              When using explicit batch, if shapes are specified only for inference, they "  << std::endl <<
-          "                              will be used also as min/opt/max in the build profile; if shapes are "         << std::endl <<
-          "                              specified only for the build, the opt shapes will be used also for inference;" << std::endl <<
-          "                              if both are specified, they must be compatible; and if explicit batch is "     << std::endl <<
-          "                              enabled but neither is specified, the model must provide complete static"      << std::endl <<
-          "                              dimensions, including batch size, for all inputs"                              << std::endl <<
-          "                              Using ONNX models automatically forces explicit batch."                        << std::endl <<
-    std::endl;
-    // clang-format on
     ReportingOptions::help(os);
     os << std::endl;
     SystemOptions::help(os);

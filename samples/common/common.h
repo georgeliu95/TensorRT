@@ -21,7 +21,6 @@
 #include "NvInferPlugin.h"
 #include "logger.h"
 #include "safeCommon.h"
-#include "sampleEntrypoints.h"
 #include "utils/timingCache.h"
 #include <algorithm>
 #include <cassert>
@@ -198,77 +197,6 @@ private:
     std::vector<std::string> mLayerNames;
     std::map<std::string, Record> mProfile;
 };
-
-//! Locate path to file, given its filename or filepath suffix and possible dirs it might lie in.
-//! Function will also walk back MAX_DEPTH dirs from CWD to check for such a file path.
-inline std::string locateFile(
-    const std::string& filepathSuffix, const std::vector<std::string>& directories, bool reportError = true)
-{
-    const int MAX_DEPTH{10};
-    bool found{false};
-    std::string filepath;
-
-    for (auto& dir : directories)
-    {
-        if (!dir.empty() && dir.back() != '/')
-        {
-#ifdef _MSC_VER
-            filepath = dir + "\\" + filepathSuffix;
-#else
-            filepath = dir + "/" + filepathSuffix;
-#endif
-        }
-        else
-        {
-            filepath = dir + filepathSuffix;
-        }
-
-        for (int i = 0; i < MAX_DEPTH && !found; i++)
-        {
-            const std::ifstream checkFile(filepath);
-            found = checkFile.is_open();
-            if (found)
-            {
-                break;
-            }
-
-            filepath = "../" + filepath; // Try again in parent dir
-        }
-
-        if (found)
-        {
-            break;
-        }
-
-        filepath.clear();
-    }
-
-    // Could not find the file
-    if (filepath.empty())
-    {
-        const std::string dirList = std::accumulate(directories.begin() + 1, directories.end(), directories.front(),
-            [](const std::string& a, const std::string& b) { return a + "\n\t" + b; });
-        std::cout << "Could not find " << filepathSuffix << " in data directories:\n\t" << dirList << std::endl;
-
-        if (reportError)
-        {
-            std::cout << "&&&& FAILED" << std::endl;
-            exit(EXIT_FAILURE);
-        }
-    }
-
-    return filepath;
-}
-
-inline void readPGMFile(const std::string& fileName, uint8_t* buffer, int32_t inH, int32_t inW)
-{
-    std::ifstream infile(fileName, std::ifstream::binary);
-    assert(infile.is_open() && "Attempting to read from a file that is not open.");
-    std::string magic, w, h, max;
-    infile >> magic >> w >> h >> max;
-    infile.seekg(1, infile.cur);
-    infile.read(reinterpret_cast<char*>(buffer), inH * inW);
-}
 
 namespace samplesCommon
 {
@@ -496,22 +424,6 @@ inline float getMaxValue(const float* buffer, int64_t size)
     assert(buffer != nullptr);
     assert(size > 0);
     return *std::max_element(buffer, buffer + size);
-}
-
-inline int32_t calculateSoftmax(float* const prob, int32_t const numDigits)
-{
-    ASSERT(prob != nullptr);
-    ASSERT(numDigits == 10);
-    float sum{0.0F};
-    std::transform(prob, prob + numDigits, prob, [&sum](float v) -> float {
-        sum += exp(v);
-        return exp(v);
-    });
-
-    ASSERT(sum != 0.0F);
-    std::transform(prob, prob + numDigits, prob, [sum](float v) -> float { return v / sum; });
-    int32_t idx = std::max_element(prob, prob + numDigits) - prob;
-    return idx;
 }
 
 // Ensures that every tensor used by a network has a dynamic range set.
@@ -975,37 +887,6 @@ inline std::unique_ptr<DynamicLibrary> loadLibrary(std::string const& path)
 {
     // make_unique not available until C++14 - we still need to support C++11 builds.
     return std::unique_ptr<DynamicLibrary>(new DynamicLibrary{path});
-}
-
-inline void initSafeCuda()
-{
-    // According to CUDA initialization in NVIDIA CUDA SAFETY API REFERENCE FOR DRIVE OS
-    // We will need to do the following in order
-    // 1. Initialize the calling thread with CUDA specific information (Call any CUDA RT API identified as init)
-    // 2. Query/Configure and choose the desired CUDA device
-    // 3. CUDA context initialization. (Call cudaDeviceGetLimit or cuCtxCreate)
-    size_t stackSizeLimit = 0;
-    int32_t deviceIndex = 0;
-    CHECK(cudaGetDevice(&deviceIndex));
-    CHECK(cudaDeviceGetLimit(&stackSizeLimit, cudaLimitStackSize));
-}
-
-inline int32_t getSMVersion()
-{
-    int32_t deviceIndex = 0;
-    CHECK(cudaGetDevice(&deviceIndex));
-    int32_t major, minor;
-    CHECK(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, deviceIndex));
-    CHECK(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, deviceIndex));
-
-    return ((major << 8) | minor);
-}
-
-inline bool isSMSafe()
-{
-    const int32_t smVersion = getSMVersion();
-    return smVersion == 0x0700 || smVersion == 0x0705 || smVersion == 0x0800 || smVersion == 0x0806
-        || smVersion == 0x0807;
 }
 
 inline int32_t getMaxPersistentCacheSize()

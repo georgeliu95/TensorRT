@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,6 +35,7 @@
 using namespace nvinfer1;
 using namespace nvinfer1::plugin;
 using namespace nvinfer1::plugin::bert;
+using namespace nvinfer1::pluginInternal;
 
 namespace
 {
@@ -364,7 +365,16 @@ DataType QKVToContextPluginDynamic::getOutputDataType(
 void QKVToContextPluginDynamic::attachToContext(
     cudnnContext* cudnn, cublasContext* cublas, nvinfer1::IGpuAllocator* allocator) noexcept
 {
-    mCublas = cublas;
+    try
+    {
+        mCublasWrapper = createPluginCublasWrapper(allocator);
+        mCublas = mCublasWrapper->getCublasHandle();
+        PLUGIN_VALIDATE(mCublas != nullptr);
+    }
+    catch (const std::exception& e)
+    {
+        caughtError(e);
+    }
 }
 
 // IPluginV2 Methods
@@ -877,7 +887,16 @@ DataType QKVToContextVarSeqlenPlugin::getOutputDataType(
 void QKVToContextVarSeqlenPlugin::attachToContext(
     cudnnContext* cudnn, cublasContext* cublas, nvinfer1::IGpuAllocator* allocator) noexcept
 {
-    mCublas = cublas;
+    try
+    {
+        mCublasWrapper = createPluginCublasWrapper(allocator);
+        mCublas = mCublasWrapper->getCublasHandle();
+        PLUGIN_VALIDATE(mCublas != nullptr);
+    }
+    catch (const std::exception& e)
+    {
+        caughtError(e);
+    }
 }
 
 // IPluginV2 Methods

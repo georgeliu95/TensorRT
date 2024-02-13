@@ -26,7 +26,6 @@ namespace LayerTypeDoc
 
 constexpr const char* descr = R"trtdoc(Type of Layer)trtdoc";
 constexpr const char* CONVOLUTION = R"trtdoc(Convolution layer)trtdoc";
-constexpr const char* FULLY_CONNECTED = R"trtdoc(Fully connected layer)trtdoc";
 constexpr const char* GRID_SAMPLE = R"trtdoc(Grid sample layer)trtdoc";
 constexpr const char* NMS = R"trtdoc(NMS layer)trtdoc";
 constexpr const char* ACTIVATION = R"trtdoc(Activation layer)trtdoc";
@@ -47,7 +46,6 @@ constexpr const char* GATHER = R"trtdoc(Gather layer)trtdoc";
 constexpr const char* MATRIX_MULTIPLY = R"trtdoc(Matrix multiply layer)trtdoc";
 constexpr const char* RAGGED_SOFTMAX = R"trtdoc(Ragged softmax layer)trtdoc";
 constexpr const char* CONSTANT = R"trtdoc(Constant layer)trtdoc";
-constexpr const char* RNN_V2 = R"trtdoc(RNNv2 layer)trtdoc";
 constexpr const char* IDENTITY = R"trtdoc(Identity layer)trtdoc";
 constexpr const char* CAST = R"trtdoc(Cast layer)trtdoc";
 constexpr const char* PLUGIN_V2 = R"trtdoc(PluginV2 layer)trtdoc";
@@ -73,7 +71,7 @@ constexpr const char* ONE_HOT = R"trtdoc(OneHot layer)trtdoc";
 constexpr char const* NON_ZERO = R"trtdoc(NonZero layer)trtdoc";
 constexpr char const* REVERSE_SEQUENCE = R"trtdoc(ReverseSequence layer)trtdoc";
 constexpr char const* NORMALIZATION = R"trtdoc(Normalization layer)trtdoc";
-
+constexpr const char* PLUGIN_V3 = R"trtdoc(PluginV3 layer)trtdoc";
 } // namespace LayerTypeDoc
 
 namespace TensorLocationDoc
@@ -200,7 +198,7 @@ constexpr const char* descr = R"trtdoc(
 
     :ivar dtype: :class:`DataType` The data type of a tensor. The type is unchanged if the type is invalid for the given tensor.
 
-    :ivar broadcast_across_batch: :class:`bool` Whether to enable broadcast of tensor across the batch. When a tensor is broadcast across a batch, it has the same value for every member in the batch. Memory is only allocated once for the single member. This method is only valid for network input tensors, since the flags of layer output tensors are inferred based on layer inputs and parameters. If this state is modified for a tensor in the network, the states of all dependent tensors will be recomputed.
+    :ivar broadcast_across_batch: :class:`bool` [DEPRECATED] Deprecated in TensorRT 10.0. Always false since the implicit batch dimensions support has been removed.
 
     :ivar location: :class:`TensorLocation` The storage location of a tensor.
     :ivar is_network_input: :class:`bool` Whether the tensor is a network input.
@@ -209,7 +207,7 @@ constexpr const char* descr = R"trtdoc(
     :ivar is_shape: :class:`bool` Whether the tensor is a shape tensor.
     :ivar allowed_formats: :class:`int32` The allowed set of TensorFormat candidates. This should be an integer consisting of one or more :class:`TensorFormat` s, combined via bitwise OR after bit shifting. For example, ``1 << int(TensorFormat.CHW4) | 1 << int(TensorFormat.CHW32)``.
 )trtdoc"
-;
+        ;
 constexpr const char* set_dynamic_range = R"trtdoc(
     Set dynamic range for the tensor.
     NOTE: It is suggested to use ``tensor.dynamic_range = (min, max)`` instead.
@@ -372,33 +370,6 @@ constexpr const char* descr = R"trtdoc(
 )trtdoc";
 } // namespace IConvolutionLayerDoc
 
-namespace IFullyConnectedLayerDoc
-{
-constexpr const char* descr = R"trtdoc(
-    A fully connected layer in an :class:`INetworkDefinition` .
-
-    This layer expects an input tensor of three or more non-batch dimensions.  The input is automatically reshaped into an `MxV` tensor `X`, where `V` is a product of the last three dimensions and `M` is a product of the remaining dimensions (where the product over 0 dimensions is defined as 1).  For example:
-
-    - If the input tensor has shape `{C, H, W}`, then the tensor is reshaped into `{1, C*H*W}` .
-    - If the input tensor has shape `{P, C, H, W}`, then the tensor is reshaped into `{P, C*H*W}` .
-
-    The layer then performs:
-
-    :math:`Y := matmul(X, W^T) + bias`
-
-    Where `X` is the `MxV` tensor defined above, `W` is the `KxV` weight tensor of the layer, and `bias` is a row vector size `K` that is broadcasted to `MxK` .  `K` is the number of output channels, and configurable via :attr:`IFullyConnectedLayer.num_output_channels` .  If `bias` is not specified, it is implicitly `0` .
-
-    The `MxK` result `Y` is then reshaped such that the last three dimensions are `{K, 1, 1}` and the remaining dimensions match the dimensions of the input tensor. For example:
-
-    - If the input tensor has shape `{C, H, W}`, then the output tensor will have shape `{K, 1, 1}` .
-    - If the input tensor has shape `{P, C, H, W}`, then the output tensor will have shape `{P, K, 1, 1}` .
-
-    :ivar num_output_channels: :class:`int` The number of output channels `K` from the fully connected layer.
-    :ivar kernel: :class:`Weights` The kernel weights, given as a `KxC` matrix in row-major order.
-    :ivar bias: :class:`Weights` The bias weights. Bias is optional. To omit bias, set this to an empty :class:`Weights` object.
-)trtdoc";
-} // namespace IFullyConnectedLayerDoc
-
 namespace ActivationTypeDoc
 {
 constexpr const char* descr = R"trtdoc(The type of activation to perform.)trtdoc";
@@ -523,17 +494,12 @@ constexpr const char* descr = R"trtdoc(
 
     :ivar axes: :class:`int` The axis along which softmax is computed. Currently, only one axis can be set.
 
-    |  The axis is specified by setting the bit corresponding to the axis to 1, as a bit mask.
-    |  For example, consider an NCHW tensor as input (three non-batch dimensions).
-    |
-    |  In implicit mode :
-    |  Bit 0 corresponds to the C dimension boolean.
-    |  Bit 1 corresponds to the H dimension boolean.
-    |  Bit 2 corresponds to the W dimension boolean.
+    The axis is specified by setting the bit corresponding to the axis to 1, as a bit mask.
+
+    For example, consider an NCHW tensor as input (three non-batch dimensions).
 
     By default, softmax is performed on the axis which is the number of axes minus three. It is 0 if there are fewer than 3 non-batch axes. For example, if the input is NCHW, the default axis is C. If the input is NHW, then the default axis is H.
 
-    |  In explicit mode :
     |  Bit 0 corresponds to the N dimension boolean.
     |  Bit 1 corresponds to the C dimension boolean.
     |  Bit 2 corresponds to the H dimension boolean.
@@ -542,8 +508,7 @@ constexpr const char* descr = R"trtdoc(
     |  there are fewer than 3 axes. For example, if the input is NCHW, the default axis is C. If the input
     |  is NHW, then the default axis is N.
     |
-    |  For example, to perform softmax on axis R of a NPQRCHW input, set bit 2 with implicit batch mode,
-    |  set bit 3 with explicit batch mode.
+    |  For example, to perform softmax on axis R of a NPQRCHW input, set bit 3.
 
     The following constraints must be satisfied to execute this layer on DLA:
 
@@ -563,7 +528,7 @@ constexpr const char* descr = R"trtdoc(
     The output channel size is the sum of the channel sizes of the inputs.
     The other output sizes are the same as the other input sizes, which must all match.
 
-    :ivar axis: :class:`int` The axis along which concatenation occurs. The default axis is the number of tensor dimensions minus three, or zero if the tensor has fewer than three dimensions. For example, for a tensor with dimensions NCHW, it is C. For implicit batch mode, the number of tensor dimensions does NOT include the implicit batch dimension.
+    :ivar axis: :class:`int` The axis along which concatenation occurs. The default axis is the number of tensor dimensions minus three, or zero if the tensor has fewer than three dimensions. For example, for a tensor with dimensions NCHW, it is C.
 )trtdoc";
 } // namespace IConcatenationLayerDoc
 
@@ -627,7 +592,7 @@ constexpr const char* descr = R"trtdoc(
     A gather layer in an :class:`INetworkDefinition` .
 
     :ivar axis: :class:`int` The non-batch dimension axis to gather on. The axis must be less than the number of non-batch dimensions in the data input.
-    :ivar num_elementwise_dims: :class:`int` The number of leading dimensions of indices tensor to be handled elementwise. For `GatherMode.DEFAULT`, it must be 0 if there is an implicit batch dimension. It can be 0 or 1 if there is not an implicit batch dimension. For `GatherMode::kND`, it can be between 0 and one less than rank(data). For `GatherMode::kELEMENT`, it must be 0.
+    :ivar num_elementwise_dims: :class:`int` The number of leading dimensions of indices tensor to be handled elementwise. For `GatherMode.DEFAULT`, it can be 0 or 1. For `GatherMode::kND`, it can be between 0 and one less than rank(data). For `GatherMode::kELEMENT`, it must be 0.
     :ivar mode: :class:`GatherMode` The gather mode.
 )trtdoc";
 } // namespace IGatherLayerDoc
@@ -657,201 +622,6 @@ constexpr const char* DEFAULT = R"trtdoc(Similar to ONNX Gather. This is the def
 constexpr const char* ELEMENT = R"trtdoc(Similar to ONNX GatherElements.)trtdoc";
 constexpr const char* ND = R"trtdoc(Similar to ONNX GatherND.)trtdoc";
 } // namespace GatherModeDoc
-
-namespace RNNOperationDoc
-{
-constexpr const char* descr = R"trtdoc(
-    The RNN operations that may be performed by an RNN layer.
-
-    **Equation definitions**
-
-    In the equations below, we use the following naming convention:
-
-    |  `t` := current time step
-    |  `i` := input gate
-    |  `o` := output gate
-    |  `f` := forget gate
-    |  `z` := update gate
-    |  `r` := reset gate
-    |  `c` := cell gate
-    |  `h` := hidden gate
-
-    |  `g[t]` denotes the output of gate g at timestep `t`, e.g.`f[t]` is the output of the forget gate `f` .
-    |  `X[t]` := input tensor for timestep `t`
-    |  `C[t]` := cell state for timestep `t`
-    |  `H[t]` := hidden state for timestep `t`
-
-    |  `W[g]` := `W` (input) parameter weight matrix for gate `g`
-    |  `R[g]` := `U` (recurrent) parameter weight matrix for gate `g`
-    |  `Wb[g]` := `W` (input) parameter bias vector for gate `g`
-    |  `Rb[g]` := `U` (recurrent) parameter bias vector for gate `g`
-
-    Unless otherwise specified, all operations apply pointwise to elements of each operand tensor.
-
-    |  `ReLU(X)` := `max(X, 0)`
-    |  `tanh(X)` := hyperbolic tangent of `X`
-    |  `sigmoid(X)` := `1 / (1 + exp(-X))`
-    |  `exp(X)` := `e^X`
-    |  `A.B` denotes matrix multiplication of `A` and `B` .
-    |  `A*B` denotes pointwise multiplication of `A` and `B` .
-
-    **Equations**
-
-    Depending on the value of RNNOperation chosen, each sub-layer of the RNN layer will perform one of the following operations:
-
-    **RELU**
-
-    :math:`H[t] := ReLU(W[i].X[t] + R[i].H[t-1] + Wb[i] + Rb[i])`
-
-    **TANH**
-
-    :math:`H[t] := tanh(W[i].X[t] + R[i].H[t-1] + Wb[i] + Rb[i])`
-
-    **LSTM**
-
-    |  :math:`i[t] := sigmoid(W[i].X[t] + R[i].H[t-1] + Wb[i] + Rb[i])`
-    |  :math:`f[t] := sigmoid(W[f].X[t] + R[f].H[t-1] + Wb[f] + Rb[f])`
-    |  :math:`o[t] := sigmoid(W[o].X[t] + R[o].H[t-1] + Wb[o] + Rb[o])`
-    |  :math:`c[t] :=    tanh(W[c].X[t] + R[c].H[t-1] + Wb[c] + Rb[c])`
-
-
-    |  :math:`C[t] := f[t]*C[t-1] + i[t]*c[t]`
-    |  :math:`H[t] := o[t]*tanh(C[t])`
-
-    **GRU**
-
-    |  :math:`z[t] := sigmoid(W[z].X[t] + R[z].H[t-1] + Wb[z] + Rb[z])`
-    |  :math:`r[t] := sigmoid(W[r].X[t] + R[r].H[t-1] + Wb[r] + Rb[r])`
-    |  :math:`h[t] := tanh(W[h].X[t] + r[t]*(R[h].H[t-1] + Rb[h]) + Wb[h])`
-    |  :math:`H[t] := (1 - z[t])*h[t] + z[t]*H[t-1]`
-)trtdoc";
-
-constexpr const char* RELU = R"trtdoc(Single gate RNN w/ ReLU activation)trtdoc";
-constexpr const char* TANH = R"trtdoc(Single gate RNN w/ TANH activation)trtdoc";
-constexpr const char* LSTM = R"trtdoc(Four-gate LSTM network w/o peephole connections)trtdoc";
-constexpr const char* GRU = R"trtdoc(Three-gate network consisting of Gated Recurrent Units)trtdoc";
-
-} // namespace RNNOperationDoc
-
-namespace RNNDirectionDoc
-{
-constexpr const char* descr = R"trtdoc(The RNN direction that may be performed by an RNN layer.)trtdoc";
-
-constexpr const char* UNIDIRECTION = R"trtdoc(Network iterates from first input to last input)trtdoc";
-constexpr const char* BIDIRECTION
-    = R"trtdoc(Network iterates from first to last (and vice versa) and outputs concatenated)trtdoc";
-} // namespace RNNDirectionDoc
-
-namespace RNNInputModeDoc
-{
-constexpr const char* descr = R"trtdoc(
-    The RNN input modes that may occur with an RNN layer.
-
-        If the RNN is configured with :const:`RNNInputMode.LINEAR` , then for each gate `g` in the first layer of the RNN,
-        the input vector `X[t]` (length `E`) is left-multiplied by the gate's corresponding weight matrix `W[g]`
-        (dimensions `HxE`) as usual, before being used to compute the gate output as described by :class:`RNNOperation` .
-
-        If the RNN is configured with :const:`RNNInputMode.SKIP` , then this initial matrix multiplication is "skipped"
-        and `W[g]` is conceptually an identity matrix. In this case, the input vector `X[t]` must have length `H`
-        (the size of the hidden state).
-)trtdoc";
-
-constexpr const char* LINEAR = R"trtdoc(Perform the normal matrix multiplication in the first recurrent layer)trtdoc";
-constexpr const char* SKIP = R"trtdoc(No operation is performed on the first recurrent layer)trtdoc";
-} // namespace RNNInputModeDoc
-
-namespace RNNGateTypeDoc
-{
-constexpr const char* descr = R"trtdoc(
-    The RNN input modes that may occur with an RNN layer.
-
-        If the RNN is configured with :const:`RNNInputMode.LINEAR` , then for each gate `g` in the first layer of the RNN,
-        the input vector `X[t]` (length `E`) is left-multiplied by the gate's corresponding weight matrix `W[g]`
-        (dimensions `HxE`) as usual, before being used to compute the gate output as described by :class:`RNNOperation` .
-
-        If the RNN is configured with :const:`RNNInputMode.SKIP` , then this initial matrix multiplication is "skipped"
-        and `W[g]` is conceptually an identity matrix. In this case, the input vector `X[t]` must have length `H`
-        (the size of the hidden state).
-)trtdoc";
-
-constexpr const char* INPUT = R"trtdoc(Input Gate)trtdoc";
-constexpr const char* OUTPUT = R"trtdoc(Output Gate)trtdoc";
-constexpr const char* FORGET = R"trtdoc(Forget Gate)trtdoc";
-constexpr const char* UPDATE = R"trtdoc(Update Gate)trtdoc";
-constexpr const char* RESET = R"trtdoc(Reset Gate)trtdoc";
-constexpr const char* CELL = R"trtdoc(Cell Gate)trtdoc";
-constexpr const char* HIDDEN = R"trtdoc(Hidden Gate)trtdoc";
-} // namespace RNNGateTypeDoc
-
-namespace IRNNv2LayerDoc
-{
-constexpr const char* descr = R"trtdoc(
-    An RNN layer in an :class:`INetworkDefinition` , version 2
-
-    :ivar num_layers: :class:`int` The layer count of the RNN.
-    :ivar hidden_size: :class:`int` The hidden size of the RNN.
-    :ivar max_seq_length: :class:`int` The maximum sequence length of the RNN.
-    :ivar data_length: :class:`int` The embedding length of the RNN.
-
-    :ivar seq_lengths: :class:`ITensor` Individual sequence lengths in the batch with the :class:`ITensor` provided.
-        The :attr:`seq_lengths` :class:`ITensor` should be a {N1, ..., Np} tensor, where N1..Np are the index dimensions
-        of the input tensor to the RNN.
-        If :attr:`seq_lengths` is not specified, then the RNN layer assumes all sequences are size :attr:`max_seq_length` .
-        All sequence lengths in :attr:`seq_lengths` should be in the range [1, :attr:`max_seq_length` ]. Zero-length sequences are not supported.
-        This tensor must be of type :class:`int32` .
-    :ivar op: :class:`RNNOperation` The operation of the RNN layer.
-    :ivar input_mode: :class:`int` The input mode of the RNN layer.
-    :ivar direction: :class:`int` The direction of the RNN layer.
-
-    :ivar hidden_state: :class:`ITensor` the initial hidden state of the RNN with the provided :attr:`hidden_state` :class:`ITensor` .
-        The :attr:`hidden_state` :class:`ITensor` should have the dimensions `{N1, ..., Np, L, H}`, where:
-        `N1..Np` are the index dimensions specified by the input tensor
-        `L` is the number of layers in the RNN, equal to :attr:`num_layers`
-        `H` is the hidden state for each layer, equal to :attr:`hidden_size` if :attr:`direction` is :const:`RNNDirection.UNIDIRECTION` , and 2x :attr:`hidden_size` otherwise.
-    :ivar cell_state: :class:`ITensor` The initial cell state of the LSTM with the provided :attr:`cell_state` :class:`ITensor` .
-        The :attr:`cell_state` :class:`ITensor` should have the dimensions `{N1, ..., Np, L, H}`, where:
-        `N1..Np` are the index dimensions specified by the input tensor
-        `L` is the number of layers in the RNN, equal to :attr:`num_layers`
-        `H` is the hidden state for each layer, equal to :attr:`hidden_size` if :attr:`direction` is :const:`RNNDirection.UNIDIRECTION`, and 2x :attr:`hidden_size` otherwise.
-        It is an error to set this on an RNN layer that is not configured with :const:`RNNOperation.LSTM` .
-)trtdoc";
-
-constexpr const char* set_weights_for_gate = R"trtdoc(
-    Set the weight parameters for an individual gate in the RNN.
-
-    :arg layer_index: The index of the layer that contains this gate.
-    :arg gate: The name of the gate within the RNN layer. The gate name must correspond to one of the gates used by this layer's :class:`RNNOperation` .
-    :arg is_w: True if the weight parameters are for the input matrix W[g] and false if they are for the recurrent input matrix R[g]. See :class:`RNNOperation` for equations showing how these matrices are used in the RNN gate.
-    :arg weights: The weight structure holding the weight parameters, which are stored as a row-major 2D matrix. For more information, see `IRNNv2Layer::setWeights() <https://docs.nvidia.com/deeplearning/tensorrt/api/c_api/classnvinfer1_1_1_i_r_n_nv2_layer.html#a7f5953b1f91c5fec5b79b4d63ab4d306>`_.
-)trtdoc";
-constexpr const char* get_weights_for_gate = R"trtdoc(
-    Get the weight parameters for an individual gate in the RNN.
-
-    :arg layer_index: The index of the layer that contains this gate.
-    :arg gate: The name of the gate within the RNN layer.
-    :arg is_w: True if the weight parameters are for the input matrix W[g] and false if they are for the recurrent input matrix R[g].
-
-    :returns: The weight parameters.
-)trtdoc";
-constexpr const char* set_bias_for_gate = R"trtdoc(
-    Set the bias parameters for an individual gate in the RNN.
-
-    :arg layer_index: The index of the layer that contains this gate.
-    :arg gate: The name of the gate within the RNN layer. The gate name must correspond to one of the gates used by this layer's :class:`RNNOperation` .
-    :arg is_w: True if the bias parameters are for the input bias Wb[g] and false if they are for the recurrent input bias Rb[g]. See
-            :class:`RNNOperation` for equations showing how these bias vectors are used in the RNN gate.
-    :arg bias: The weight structure holding the bias parameters, which should be an array of size :attr:`hidden_size` .
-)trtdoc";
-constexpr const char* get_bias_for_gate = R"trtdoc(
-    Get the bias parameters for an individual gate in the RNN.
-
-    :arg layer_index: The index of the layer that contains this gate.
-    :arg gate: The name of the gate within the RNN layer.
-    :arg is_w: True if the bias parameters are for the input bias Wb[g] and false if they are for the recurrent input bias Rb[g].
-
-    :returns: The bias parameters.
-)trtdoc";
-} // namespace IRNNv2LayerDoc
 
 namespace IPluginV2LayerDoc
 {
@@ -1064,7 +834,6 @@ constexpr const char* descr
     = R"trtdoc(Controls how ISliceLayer and IGridSample handles out of bounds coordinates)trtdoc";
 
 constexpr const char* STRICT_BOUNDS = R"trtdoc(Fail with error when the coordinates are out of bounds.)trtdoc";
-constexpr const char* DEFAULT = R"trtdoc([DEPRECATED] Use STRICT_BOUNDS.)trtdoc";
 constexpr const char* WRAP = R"trtdoc(Coordinates wrap around periodically.)trtdoc";
 constexpr const char* CLAMP = R"trtdoc(Out of bounds indices are clamped to bounds)trtdoc";
 constexpr const char* FILL = R"trtdoc(Use fill input value when coordinates are out of bounds.)trtdoc";
@@ -1328,8 +1097,7 @@ constexpr const char* descr = R"trtdoc(
 constexpr const char* set_input = R"trtdoc(
     Sets the input tensor for the given index.
 
-    If index == 1 and num_inputs == 1, and there is no implicit batch dimension,
-    in which case num_inputs changes to 2.
+    If index == 1 and num_inputs == 1, num_inputs changes to 2.
     Once such additional input is set, resize layer works in dynamic mode.
     When index == 1 and num_inputs == 1, the output dimensions are used from
     the input tensor, overriding the dimensions supplied by `shape`.
@@ -2035,7 +1803,7 @@ constexpr const char* descr = R"trtdoc(
     :ivar num_inputs: :class:`int` The number of inputs of the network.
     :ivar num_outputs: :class:`int` The number of outputs of the network.
     :ivar name: :class:`str` The name of the network. This is used so that it can be associated with a built engine. The name must be at most 128 characters in length. TensorRT makes no use of this string except storing it as part of the engine so that it may be retrieved at runtime. A name unique to the builder will be generated by default.
-    :ivar has_implicit_batch_dimension: :class:`bool` Whether the network was created with an implicit batch dimension. This is a network-wide property. Either all tensors in the network have an implicit batch dimension or none of them do. This is True when the INetworkDefinition is created with default flags: ``create_network()``. To specify explicit batch, set the flag: ``create_network(flags=1 << int(tensorrt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))``.
+    :ivar has_implicit_batch_dimension: :class:`bool` [DEPRECATED] Deprecated in TensorRT 10.0. Always flase since the implicit batch dimensions support has been removed.
     :ivar error_recorder: :class:`IErrorRecorder` Application-implemented error reporting interface for TensorRT objects.
     :flags: :int: A bitset of the ``NetworkDefinitionCreationFlag`` s set for this network.
 )trtdoc";
@@ -2097,18 +1865,6 @@ constexpr const char* add_convolution_nd = R"trtdoc(
     :arg bias: The optional bias weights for the convolution.
 
     :returns: The new convolution layer, or :class:`None` if it could not be created.
-)trtdoc";
-
-constexpr const char* add_fully_connected = R"trtdoc(
-    Add a fully connected layer to the network.
-    See :class:`IFullyConnectedLayer` for more information.
-
-    :arg input: The input tensor to the layer.
-    :arg num_outputs: The number of outputs of the layer.
-    :arg kernel: The kernel weights for the convolution.
-    :arg bias: The optional bias weights for the convolution.
-
-    :returns: The new fully connected layer, or :class:`None` if it could not be created.
 )trtdoc";
 
 constexpr const char* add_activation = R"trtdoc(
@@ -2386,52 +2142,6 @@ constexpr const char* add_constant = R"trtdoc(
     :arg weights: The constant value, represented as weights.
 
     :returns: The new constant layer, or :class:`None` if it could not be created.
-)trtdoc";
-
-constexpr const char* add_rnn_v2 = R"trtdoc(
-    Add an RNNv2 layer to the network.
-    See :class:`IRNNv2Layer` for more information.
-
-    Add an ``layer_count`` deep RNN layer to the network with ``hidden_size`` internal states that can take a batch with fixed or variable sequence lengths.
-
-    :arg input: The input tensor to the layer (see below).
-    :arg layer_count: The number of layers in the RNN.
-    :arg hidden_size: Size of the internal hidden state for each layer.
-    :arg max_seq_length: Maximum sequence length for the input.
-    :arg op: The type of RNN to execute.
-
-    By default, the layer is configured with :const:`RNNDirection.UNIDIRECTION` and :const:`RNNInputMode.LINEAR` . To change these settings, set :attr:`IRNNv2Layer.direction` and :attr:`IRNNv2Layer.input_mode` .
-
-    Weights and biases for the added layer should be set using :meth:`IRNNv2Layer.set_weights_for_gate()` and :meth:`IRNNv2Layer.set_bias_for_gate()` prior to building an engine using this network.
-
-    The input tensors must be of the type :const:`float32` or :const:`float16` .
-    The layout of the weights is row major and must be the same datatype as the input tensor.
-    ``weights`` contain 8 matrices and ``bias`` contains 8 vectors.
-
-    See :meth:`IRNNv2Layer.set_weights_for_gate()` and :meth:`IRNNv2Layer.set_bias_for_gate()` for details on the required input format for ``weights`` and ``bias`` .
-
-    The ``input`` ITensor should contain zero or more index dimensions `{N1, ..., Np}`, followed by two dimensions, defined as follows:
-
-    |  `S_max` is the maximum allowed sequence length (number of RNN iterations)
-    |  `E` specifies the embedding length (unless :const:`RNNInputMode.SKIP` is set, in which case it should match :attr:`IRNNv2Layer.hidden_size` ).
-
-    By default, all sequences in the input are assumed to be size ``max_seq_length`` .  To provide explicit sequence lengths for each input sequence in the batch, set :attr:`IRNNv2Layer.seq_lengths` .
-
-    The RNN layer outputs up to three tensors.
-
-    The first output tensor is the output of the final RNN layer across all timesteps, with dimensions `{N1, ..., Np, S_max, H}`:
-
-    |  `N1..Np` are the index dimensions specified by the input tensor
-    |  `S_max` is the maximum allowed sequence length (number of RNN iterations)
-    |  `H` is an output hidden state (equal to :attr:`IRNNv2Layer.hidden_size` or 2x :attr:`IRNNv2Layer.hidden_size` )
-
-    The second tensor is the final hidden state of the RNN across all layers, and if the RNN is an LSTM (i.e. :attr:`IRNNv2Layer.op` is :const:`RNNOperation.LSTM` ), then the third tensor is the final cell state of the RNN across all layers.  Both the second and third output tensors have dimensions `{N1, ..., Np, L, H}`:
-
-    |  `N1..Np` are the index dimensions specified by the input tensor
-    |  `L` is the number of layers in the RNN, equal to :attr:`IRNNv2Layer.num_layers`
-    |  `H` is the hidden state for each layer, equal to :attr:`IRNNv2Layer.hidden_size` if getDirection is :const:`RNNDirection.UNIDIRECTION`, and 2x :attr:`IRNNv2Layer.hidden_size` otherwise.
-
-    :returns: The new RNNv2 layer, or :class:`None` if it could not be created.
 )trtdoc";
 
 constexpr const char* add_identity = R"trtdoc(

@@ -26,11 +26,9 @@ set_ifndef(TRT_OUT_DIR ${CMAKE_BINARY_DIR})
 if(CMAKE_VERSION VERSION_LESS 3.20)
     file(TO_CMAKE_PATH "${TRT_LIB_DIR}" TRT_LIB_DIR)
     file(TO_CMAKE_PATH "${TRT_OUT_DIR}" TRT_OUT_DIR)
-    file(TO_CMAKE_PATH "${CUDNN_ROOT_DIR}" CUDNN_ROOT_DIR)
 else()
     cmake_path(SET TRT_LIB_DIR ${TRT_LIB_DIR})
     cmake_path(SET TRT_OUT_DIR ${TRT_OUT_DIR})
-    cmake_path(SET CUDNN_ROOT_DIR ${CUDNN_ROOT_DIR})
 endif()
 
 # Required to export symbols to build *.libs
@@ -68,7 +66,7 @@ endif()
 set(CMAKE_SKIP_BUILD_RPATH True)
 
 project(TensorRT
-        LANGUAGES C CXX CUDA
+        LANGUAGES CXX CUDA
         VERSION ${TRT_VERSION}
         DESCRIPTION "TensorRT is a C++ library that facilitates high-performance inference on NVIDIA GPUs and deep learning accelerators."
         HOMEPAGE_URL "https://github.com/NVIDIA/TensorRT")
@@ -140,14 +138,7 @@ endif()
 
 include_directories(
     ${CUDA_INCLUDE_DIRS}
-    ${CUDNN_ROOT_DIR}/include
 )
-find_library(CUDNN_LIB cudnn HINTS
-    ${CUDA_TOOLKIT_ROOT_DIR} ${CUDNN_ROOT_DIR} PATH_SUFFIXES lib64 lib/x64 lib)
-find_library(CUBLAS_LIB cublas HINTS
-    ${CUDA_TOOLKIT_ROOT_DIR} PATH_SUFFIXES lib64 lib lib/x64 lib/stubs)
-find_library(CUBLASLT_LIB cublasLt HINTS
-    ${CUDA_TOOLKIT_ROOT_DIR} PATH_SUFFIXES lib64 lib lib/x64 lib/stubs)
 if(BUILD_PARSERS)
     configure_protobuf(${PROTOBUF_VERSION})
 endif()
@@ -215,13 +206,13 @@ endif()
 if(BUILD_PLUGINS)
     add_subdirectory(plugin)
 else()
-    find_library_create_target(nvinfer_plugin nvinfer_plugin SHARED ${TRT_LIB_DIR} ${TRT_OUT_DIR})
+    find_library_create_target(nvinfer_plugin nvinfer_plugin SHARED ${TRT_OUT_DIR} ${TRT_LIB_DIR})
 endif()
 
 if(BUILD_PARSERS)
     add_subdirectory(parsers)
 else()
-    find_library_create_target(nvonnxparser nvonnxparser SHARED ${TRT_LIB_DIR} ${TRT_OUT_DIR})
+    find_library_create_target(nvonnxparser nvonnxparser SHARED ${TRT_OUT_DIR} ${TRT_LIB_DIR})
 endif()
 
 if(BUILD_SAMPLES)

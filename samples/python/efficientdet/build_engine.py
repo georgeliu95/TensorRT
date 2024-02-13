@@ -143,9 +143,8 @@ class EngineBuilder:
         :param dynamic_batch_size: Dynamic batch size to build the engine with, if given,
         batch_size is ignored, pass as a comma-separated string or int list as MIN,OPT,MAX
         """
-        network_flags = (1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH))
 
-        self.network = self.builder.create_network(network_flags)
+        self.network = self.builder.create_network(0)
         self.parser = trt.OnnxParser(self.network, self.trt_logger)
 
         onnx_path = os.path.realpath(onnx_path)

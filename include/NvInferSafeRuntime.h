@@ -1,13 +1,18 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 #ifndef NV_INFER_SAFE_RUNTIME_H
@@ -262,6 +267,7 @@ public:
 
     //!
     //! \brief Get the extent of an input or output tensor.
+    //!
     //! \param tensorName The name of an input or output tensor.
     //!
     //! \warning The string tensorName must be NULL terminated and have a length of 1024 bytes or less including the
@@ -931,6 +937,7 @@ public:
     //! The plugin creator that is specified by \p creator is removed from TensorRT and no longer tracked.
     //!
     //! \param creator The plugin creator to deregister.
+    //!
     //! \return True if the plugin creator was deregistered, false if it was not found in the registry or otherwise
     //! could
     //!     not be deregistered.

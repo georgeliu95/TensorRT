@@ -1,13 +1,18 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 #ifndef NV_INFER_RUNTIME_PLUGIN_H
@@ -40,8 +45,12 @@ namespace nvinfer1
 //!
 using PluginFormat = TensorFormat;
 
+//!
+//! \brief Bit at the plugin version to identify that it is a plugin.
+//!
 static constexpr int32_t kPLUGIN_VERSION_PYTHON_BIT = 0x40;
 
+//!
 //! \struct PluginTensorDesc
 //!
 //! \brief Fields that a plugin might see for an input or output.
@@ -64,6 +73,7 @@ struct PluginTensorDesc
     float scale;
 };
 
+//!
 //! \struct PluginVersion
 //!
 //! \brief Definition of plugin versions.
@@ -85,6 +95,8 @@ enum class PluginVersion : uint8_t
 };
 
 //!
+//! \enum PluginCreatorVersion
+//!
 //! \brief Enum to identify version of the plugin creator.
 //!
 enum class PluginCreatorVersion : int32_t
@@ -95,6 +107,7 @@ enum class PluginCreatorVersion : int32_t
     kV1_PYTHON = kPLUGIN_VERSION_PYTHON_BIT
 };
 
+//!
 //! \class IPluginV2
 //!
 //! \brief Plugin class for user-implemented layers.
@@ -131,6 +144,7 @@ public:
 
     //!
     //! \brief Return the plugin type. Should match the plugin name returned by the corresponding plugin creator
+    //!
     //! \see IPluginCreator::getPluginName()
     //!
     //! \warning The string returned must be NULL-terminated and have a length of 1024 bytes or less including the
@@ -145,6 +159,7 @@ public:
 
     //!
     //! \brief Return the plugin version. Should match the plugin version returned by the corresponding plugin creator
+    //!
     //! \see IPluginCreator::getPluginVersion()
     //!
     //! \warning The string returned must be NULL-terminated and have a length of 1024 bytes or less including the
@@ -202,6 +217,7 @@ public:
     //!
     //! \param type DataType requested.
     //! \param format PluginFormat requested.
+    //!
     //! \return true if the plugin supports the type-format combination.
     //!
     //! This function is called by the implementations of INetworkDefinition, IBuilder, and
@@ -273,6 +289,7 @@ public:
     //!
     //! \brief Release resources acquired during plugin layer initialization. This is called when the engine is
     //! destroyed.
+    //!
     //! \see initialize()
     //!
     //! \usage
@@ -291,6 +308,7 @@ public:
     //! sufficient for any batch size up to the maximum.
     //!
     //! \param maxBatchSize The maximum batch size, which will be a positive integer.
+    //!
     //! \return The workspace size in bytes, i.e. the device memory size that the plugin requires for its internal
     //! computations.
     //!
@@ -426,6 +444,7 @@ protected:
 // @endcond
 };
 
+//!
 //! \class IPluginV2Ext
 //!
 //! \brief Plugin class for user-implemented layers.
@@ -469,6 +488,7 @@ public:
         int32_t index, nvinfer1::DataType const* inputTypes, int32_t nbInputs) const noexcept
         = 0;
 
+    //!
     //! \brief Return true if the output tensor is broadcast across a batch.
     //!
     //! \param outputIndex The index of the output tensor, which will be in the valid range between 0 and
@@ -486,10 +506,13 @@ public:
     //!   - Thread-safe: Yes, this method is required to be thread-safe and may be called from multiple threads
     //!                  when building networks on multiple devices sharing the same plugin.
     //!
-    virtual bool isOutputBroadcastAcrossBatch(
+    //! \deprecated Deprecated in TensorRT 10.0. Implicit batch support is removed in TensorRT 10.0.
+    //!
+    TRT_DEPRECATED virtual bool isOutputBroadcastAcrossBatch(
         int32_t outputIndex, bool const* inputIsBroadcasted, int32_t nbInputs) const noexcept
         = 0;
 
+    //!
     //! \brief Return true if the plugin can use an input tensor that is broadcast across batch without replication.
     //!
     //! \param inputIndex Index of input that could be broadcast. Will be in the valid range between 0 and
@@ -512,7 +535,9 @@ public:
     //!   - Thread-safe: Yes, this method is required to be thread-safe and may be called from multiple threads
     //!                  when building networks on multiple devices sharing the same plugin.
     //!
-    virtual bool canBroadcastInputAcrossBatch(int32_t inputIndex) const noexcept = 0;
+    //! \deprecated Deprecated in TensorRT 10.0. Implicit batch support is removed in TensorRT 10.0.
+    //!
+    TRT_DEPRECATED virtual bool canBroadcastInputAcrossBatch(int32_t inputIndex) const noexcept = 0;
 
     //!
     //! \brief Configure the layer with input and output data types.
@@ -670,6 +695,7 @@ protected:
     }
 };
 
+//!
 //! \class IPluginV2IOExt
 //!
 //! \brief Plugin class for user-implemented layers.
@@ -777,11 +803,17 @@ protected:
 private:
     // Following are obsolete base class methods, and must not be implemented or used.
 
+    //!
+    //! \brief Set plugin configuration.
+    //!
     void configurePlugin(Dims const*, int32_t, Dims const*, int32_t, DataType const*, DataType const*, bool const*,
         bool const*, PluginFormat, int32_t) noexcept final
     {
     }
 
+    //!
+    //! \brief Check if provided data type is supported.
+    //!
     bool supportsFormat(DataType, PluginFormat) const noexcept final
     {
         return false;
@@ -790,9 +822,9 @@ private:
 
 //!
 //! \enum PluginFieldType
+//!
 //! \brief The possible field types for custom layer.
 //!
-
 enum class PluginFieldType : int32_t
 {
     //! FP16 field type.
@@ -831,22 +863,13 @@ enum class PluginFieldType : int32_t
 class PluginField
 {
 public:
-    //!
-    //! \brief Plugin field attribute name
-    //!
+    //! Plugin field attribute name
     AsciiChar const* name;
-    //!
-    //! \brief Plugin field attribute data
-    //!
+    //! Plugin field attribute data
     void const* data;
-    //!
-    //! \brief Plugin field attribute type
-    //! \see PluginFieldType
-    //!
+    //! Plugin field attribute type
     PluginFieldType type;
-    //!
-    //! \brief Number of data entries in the Plugin attribute
-    //!
+    //! Number of data entries in the Plugin attribute
     int32_t length;
 
     PluginField(AsciiChar const* const name_ = nullptr, void const* const data_ = nullptr,
@@ -859,7 +882,11 @@ public:
     }
 };
 
-//! Plugin field collection struct.
+//!
+//! \struct PluginFieldCollection
+//!
+//! \brief Plugin field collection struct.
+//!
 struct PluginFieldCollection
 {
     //! Number of PluginField entries.
@@ -869,33 +896,63 @@ struct PluginFieldCollection
 };
 
 //!
+//! \enum PluginCapabilityType
+//!
+//! \brief Enumerates the different capability types a IPluginV3 object may have
+//!
+enum class PluginCapabilityType : int32_t
+{
+    //! Core capability. Every IPluginV3 object must have this.
+    kCORE = 0,
+    //! Build capability. IPluginV3 objects provided to TensorRT build phase must have this.
+    kBUILD = 1,
+    //! Runtime capability. IPluginV3 objects provided to TensorRT build and execution phases must have this.
+    kRUNTIME = 2
+};
+
+//!
+//! \enum TensorRTPhase
+//!
+//! \brief Indicates a phase of operation of TensorRT
+//!
+enum class TensorRTPhase : int32_t
+{
+    //! Build phase of TensorRT
+    kBUILD = 0,
+    //! Execution phase of TensorRT
+    kRUNTIME = 1
+};
+
+//!
+//! \class IPluginCreatorInterface
+//!
+//! \brief Base class for all plugin creator versions
+//!
+//! \see IPluginCreator and IPluginRegistry
+//!
+class IPluginCreatorInterface : public IVersionedInterface
+{
+public:
+    ~IPluginCreatorInterface() noexcept override = default;
+
+protected:
+    IPluginCreatorInterface() = default;
+    IPluginCreatorInterface(IPluginCreatorInterface const&) = default;
+    IPluginCreatorInterface(IPluginCreatorInterface&&) = default;
+    IPluginCreatorInterface& operator=(IPluginCreatorInterface const&) & = default;
+    IPluginCreatorInterface& operator=(IPluginCreatorInterface&&) & = default;
+};
+
+//!
 //! \class IPluginCreator
 //!
 //! \brief Plugin creator class for user implemented layers.
 //!
 //! \see IPlugin and IPluginFactory
 //!
-
-class IPluginCreator
+class IPluginCreator : public nvinfer1::IPluginCreatorInterface
 {
 public:
-    //!
-    //! \brief Return the version of the API the plugin creator was compiled with. The
-    //!  upper byte is reserved by TensorRT and is used to differentiate between plugin creator versions.
-    //!
-    //! Do not override this method as it is used by the TensorRT library to maintain backwards-compatibility with
-    //! plugin creators.
-    //!
-    //! \usage
-    //! - Allowed context for the API call
-    //!   - Thread-safe: Yes, the implementation provided here is safe to call from any thread.
-    //!
-    virtual int32_t getTensorRTVersion() const noexcept
-    {
-        return static_cast<int32_t>((static_cast<uint32_t>(PluginCreatorVersion::kV1) << 24U)
-            | (static_cast<uint32_t>(NV_TENSORRT_VERSION) & 0xFFFFFFU));
-    }
-
     //!
     //! \brief Return the plugin name.
     //!
@@ -926,6 +983,7 @@ public:
 
     //!
     //! \brief Return a list of fields that need to be passed to createPlugin.
+    //!
     //! \see PluginFieldCollection
     //!
     //! \usage
@@ -999,15 +1057,23 @@ public:
     virtual AsciiChar const* getPluginNamespace() const noexcept = 0;
 
     IPluginCreator() = default;
-    virtual ~IPluginCreator() = default;
+    ~IPluginCreator() override = default;
 
 protected:
-// @cond SuppressDoxyWarnings
+    // @cond SuppressDoxyWarnings
     IPluginCreator(IPluginCreator const&) = default;
     IPluginCreator(IPluginCreator&&) = default;
     IPluginCreator& operator=(IPluginCreator const&) & = default;
     IPluginCreator& operator=(IPluginCreator&&) & = default;
     // @endcond
+public:
+    //!
+    //! \brief Return version information associated with this interface. Applications must not override this method.
+    //!
+    InterfaceInfo getInterfaceInfo() const noexcept override
+    {
+        return InterfaceInfo{"PLUGIN CREATOR_V1", 1, 0};
+    }
 };
 
 } // namespace nvinfer1

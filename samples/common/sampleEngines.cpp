@@ -80,9 +80,8 @@ nvinfer1::ICudaEngine* LazilyDeserializedEngine::get()
 
     if (mEngine == nullptr)
     {
-        auto const& engineBlob = getBlob();
-        SMP_RETVAL_IF_FALSE(
-            !engineBlob.empty(), "Engine blob is empty. Nothing to deserialize!", nullptr, sample::gLogError);
+        SMP_RETVAL_IF_FALSE(getFileReader().isOpen() || !getBlob().empty(), "Engine is empty. Nothing to deserialize!",
+            nullptr, sample::gLogError);
 
         using time_point = std::chrono::time_point<std::chrono::high_resolution_clock>;
         using duration = std::chrono::duration<float>;
@@ -124,7 +123,16 @@ nvinfer1::ICudaEngine* LazilyDeserializedEngine::get()
         {
             mRuntime->getPluginRegistry().loadLibrary(pluginPath.c_str());
         }
-        mEngine.reset(mRuntime->deserializeCudaEngine(engineBlob.data, engineBlob.size));
+
+        if (getFileReader().isOpen())
+        {
+            mEngine.reset(mRuntime->deserializeCudaEngine(getFileReader()));
+        }
+        else
+        {
+            auto const& engineBlob = getBlob();
+            mEngine.reset(mRuntime->deserializeCudaEngine(engineBlob.data, engineBlob.size));
+        }
         SMP_RETVAL_IF_FALSE(mEngine != nullptr, "Engine deserialization failed", nullptr, sample::gLogError);
 
         time_point const deserializeEndTime{std::chrono::high_resolution_clock::now()};
@@ -233,13 +241,10 @@ Parser modelToNetwork(ModelOptions const& model, BuildOptions const& build, nvin
         using namespace nvonnxparser;
         parser.onnxParser.reset(createONNXParser(network));
         ASSERT(parser.onnxParser != nullptr);
-        // For version or hardware compatible engines, we must use TensorRT's native InstanceNorm implementation for
-        // compatibility.
-        if (build.versionCompatible || (build.hardwareCompatibilityLevel != nvinfer1::HardwareCompatibilityLevel::kNONE)
-            || build.nativeInstanceNorm)
+        // kNATIVE_INSTANCENORM is ON by default in the parser and must be cleared to use the plugin implementation.
+        if (build.pluginInstanceNorm)
         {
-            auto parserflags = 1U << static_cast<uint32_t>(OnnxParserFlag::kNATIVE_INSTANCENORM);
-            parser.onnxParser->setFlags(parserflags);
+            parser.onnxParser->clearFlag(OnnxParserFlag::kNATIVE_INSTANCENORM);
         }
         if (!parser.onnxParser->parseFromFile(
                 model.baseModel.model.c_str(), static_cast<int>(sample::gLogger.getReportableSeverity())))
@@ -588,6 +593,32 @@ void setLayerDeviceTypes(
     }
 }
 
+void markDebugTensors(INetworkDefinition& network, StringSet const& debugTensors)
+{
+    for (int64_t inputIndex = 0; inputIndex < network.getNbInputs(); ++inputIndex)
+    {
+        auto* t = network.getInput(inputIndex);
+        auto const tensorName = t->getName();
+        if (debugTensors.count(tensorName) > 0)
+        {
+            network.markDebug(*t);
+        }
+    }
+    for (int64_t layerIndex = 0; layerIndex < network.getNbLayers(); ++layerIndex)
+    {
+        auto* layer = network.getLayer(layerIndex);
+        for (int64_t outputIndex = 0; outputIndex < layer->getNbOutputs(); ++outputIndex)
+        {
+            auto* t = layer->getOutput(outputIndex);
+            auto const tensorName = t->getName();
+            if (debugTensors.count(tensorName) > 0)
+            {
+                network.markDebug(*t);
+            }
+        }
+    }
+}
+
 void setMemoryPoolLimits(IBuilderConfig& config, BuildOptions const& build)
 {
     auto const roundToBytes = [](double const sizeInMB) { return static_cast<size_t>(sizeInMB * (1 << 20)); };
@@ -621,6 +652,10 @@ void setMemoryPoolLimits(IBuilderConfig& config, BuildOptions const& build)
     {
         config.setMemoryPoolLimit(MemoryPoolType::kDLA_GLOBAL_DRAM, roundToBytes(build.dlaGlobalDRAM));
     }
+    if (build.tacticSharedMem >= 0)
+    {
+        config.setMemoryPoolLimit(MemoryPoolType::kTACTIC_SHARED_MEMORY, roundToBytes(build.tacticSharedMem));
+    }
 }
 
 void setPreviewFeatures(IBuilderConfig& config, BuildOptions const& build)
@@ -632,7 +667,8 @@ void setPreviewFeatures(IBuilderConfig& config, BuildOptions const& build)
             config.setPreviewFeature(feat, build.previewFeatures.at(featVal));
         }
     };
-    setFlag(PreviewFeature::kPROFILE_SHARING_0806);
+    // unused
+    static_cast<void>(setFlag);
 }
 
 } // namespace
@@ -887,7 +923,7 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
 
     if (build.weightless)
     {
-        config.setFlag(BuilderFlag::kWEIGHTLESS);
+        config.setFlag(BuilderFlag::kSTRIP_PLAN);
     }
 
     if (build.versionCompatible)
@@ -1082,6 +1118,11 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
         setLayerDeviceTypes(network, config, build.layerDeviceTypes);
     }
 
+    if (!build.debugTensors.empty())
+    {
+        markDebugTensors(network, build.debugTensors);
+    }
+
     if (build.safe && sys.DLACore == -1)
     {
         config.setEngineCapability(EngineCapability::kSAFETY);
@@ -1137,6 +1178,11 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
     if (build.maxAuxStreams != defaultMaxAuxStreams)
     {
         config.setMaxAuxStreams(build.maxAuxStreams);
+    }
+
+    if (build.weightStreamingBudget != BuildOptions::kUNSET_WEIGHT_STREAMING)
+    {
+        config.setFlag(BuilderFlag::kWEIGHT_STREAMING);
     }
 
     return true;
@@ -1206,8 +1252,7 @@ bool modelToBuildEnv(
     env.builder.reset(createBuilder());
     SMP_RETVAL_IF_FALSE(env.builder != nullptr, "Builder creation failed", false, err);
     env.builder->setErrorRecorder(&gRecorder);
-    auto networkFlags = 1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
-    networkFlags |= (build.stronglyTyped)
+    auto networkFlags = (build.stronglyTyped)
         ? 1U << static_cast<uint32_t>(nvinfer1::NetworkDefinitionCreationFlag::kSTRONGLY_TYPED)
         : 0U;
     for (auto const& pluginPath : sys.dynamicPlugins)
@@ -1297,18 +1342,25 @@ std::pair<std::vector<std::string>, std::vector<WeightsRole>> getMissingLayerWei
 }
 } // namespace
 
-bool loadEngineToBuildEnv(std::string const& engine, bool enableConsistency, BuildEnvironment& env, std::ostream& err)
+bool loadStreamingEngineToBuildEnv(std::string const& filepath, BuildEnvironment& env, std::ostream& err)
+{
+    auto& reader = env.engine.getFileReader();
+    SMP_RETVAL_IF_FALSE(reader.open(filepath), "", false, err << "Error opening engine file: " << filepath);
+    return true;
+}
+
+bool loadEngineToBuildEnv(std::string const& filepath, bool enableConsistency, BuildEnvironment& env, std::ostream& err)
 {
     auto const tBegin = std::chrono::high_resolution_clock::now();
-    std::ifstream engineFile(engine, std::ios::binary);
-    SMP_RETVAL_IF_FALSE(engineFile.good(), "", false, err << "Error opening engine file: " << engine);
+    std::ifstream engineFile(filepath, std::ios::binary);
+    SMP_RETVAL_IF_FALSE(engineFile.good(), "", false, err << "Error opening engine file: " << filepath);
     engineFile.seekg(0, std::ifstream::end);
     int64_t fsize = engineFile.tellg();
     engineFile.seekg(0, std::ifstream::beg);
 
     std::vector<uint8_t> engineBlob(fsize);
     engineFile.read(reinterpret_cast<char*>(engineBlob.data()), fsize);
-    SMP_RETVAL_IF_FALSE(engineFile.good(), "", false, err << "Error loading engine file: " << engine);
+    SMP_RETVAL_IF_FALSE(engineFile.good(), "", false, err << "Error loading engine file: " << filepath);
     auto const tEnd = std::chrono::high_resolution_clock::now();
     float const loadTime = std::chrono::duration<float>(tEnd - tBegin).count();
     sample::gLogInfo << "Engine loaded in " << loadTime << " sec." << std::endl;
@@ -1326,10 +1378,23 @@ bool loadEngineToBuildEnv(std::string const& engine, bool enableConsistency, Bui
 
 bool printPlanVersion(BuildEnvironment& env, std::ostream& err)
 {
-    SMP_RETVAL_IF_FALSE(env.engine.getBlob().data != nullptr, "Plan file is empty", false, err);
-    SMP_RETVAL_IF_FALSE(env.engine.getBlob().size >= 28, "Plan file is incorrect", false, err);
-    auto const blob = static_cast<uint8_t*>(env.engine.getBlob().data);
-    auto const blob32 = static_cast<uint32_t*>(env.engine.getBlob().data);
+    constexpr int64_t kPLAN_SIZE{28};
+    std::vector<uint8_t> data(kPLAN_SIZE);
+    auto blob = data.data();
+
+    auto& reader = env.engine.getFileReader();
+    if (reader.isOpen())
+    {
+        SMP_RETVAL_IF_FALSE(reader.read(data.data(), kPLAN_SIZE) == kPLAN_SIZE, "Failed to read plan file", false, err);
+    }
+    else
+    {
+        SMP_RETVAL_IF_FALSE(env.engine.getBlob().data != nullptr, "Plan file is empty", false, err);
+        SMP_RETVAL_IF_FALSE(env.engine.getBlob().size >= 28, "Plan file is incorrect", false, err);
+        blob = static_cast<uint8_t*>(env.engine.getBlob().data);
+    }
+    auto blob32 = reinterpret_cast<uint32_t*>(blob);
+
     //! Correct TensorRT plan file starts with this tag
     constexpr uint32_t kPLAN_FILE_TAG{0x74727466U};
     SMP_RETVAL_IF_FALSE(blob32[0] == kPLAN_FILE_TAG, "Failed to verify a plan tag.", false, err);
@@ -1400,7 +1465,14 @@ bool getEngineBuildEnv(
 
     if (build.load)
     {
-        createEngineSuccess = loadEngineToBuildEnv(build.engine, build.safe && build.consistency, env, err);
+        if (build.safe)
+        {
+            createEngineSuccess = loadEngineToBuildEnv(build.engine, build.safe && build.consistency, env, err);
+        }
+        else
+        {
+            createEngineSuccess = loadStreamingEngineToBuildEnv(build.engine, env, err);
+        }
     }
     else
     {
@@ -1421,6 +1493,13 @@ bool getEngineBuildEnv(
         auto& engineBlob = env.engine.getBlob();
         engineFile.write(static_cast<char const*>(engineBlob.data), engineBlob.size);
         SMP_RETVAL_IF_FALSE(!engineFile.fail(), "Saving engine to file failed.", false, err);
+        engineFile.flush();
+        engineFile.close();
+        if (!build.safe)
+        {
+            env.engine.releaseBlob();
+            SMP_RETVAL_IF_FALSE(loadStreamingEngineToBuildEnv(build.engine, env, err), "Reading engine file failed.", false, err);
+        }
     }
 
     return true;
@@ -1464,12 +1543,6 @@ std::vector<std::pair<WeightsRole, Weights>> getAllRefitWeightsForLayer(const IL
         return {std::make_pair(WeightsRole::kKERNEL, layer.getKernelWeights()),
             std::make_pair(WeightsRole::kBIAS, layer.getBiasWeights())};
     }
-    case LayerType::kFULLY_CONNECTED:
-    {
-        auto const& layer = static_cast<const nvinfer1::IFullyConnectedLayer&>(l);
-        return {std::make_pair(WeightsRole::kKERNEL, layer.getKernelWeights()),
-            std::make_pair(WeightsRole::kBIAS, layer.getBiasWeights())};
-    }
     case LayerType::kSCALE:
     {
         auto const& layer = static_cast<const nvinfer1::IScaleLayer&>(l);
@@ -1509,7 +1582,6 @@ std::vector<std::pair<WeightsRole, Weights>> getAllRefitWeightsForLayer(const IL
     case LayerType::kREDUCE:
     case LayerType::kRESIZE:
     case LayerType::kREVERSE_SEQUENCE:
-    case LayerType::kRNN_V2:
     case LayerType::kSCATTER:
     case LayerType::kSELECT:
     case LayerType::kSHAPE:

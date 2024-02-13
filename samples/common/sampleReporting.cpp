@@ -499,7 +499,7 @@ void exportJSONOutput(
         os << sep << R"({ "name" : ")" << binding.first << "\"" << std::endl;
         sep = ", ";
         os << "  " << sep << R"("dimensions" : ")";
-        bindings.dumpBindingDimensions(binding.second, context, os);
+        bindings.dumpBindingDimensions(binding.first, context, os);
         os << "\"" << std::endl;
         os << "  " << sep << "\"values\" : [ ";
         bindings.dumpBindingValues(context, binding.second, os, sep, batch);

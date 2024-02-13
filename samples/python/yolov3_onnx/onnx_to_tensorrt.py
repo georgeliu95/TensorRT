@@ -69,7 +69,7 @@ def get_engine(onnx_file_path, engine_file_path=""):
     def build_engine():
         """Takes an ONNX file and creates a TensorRT engine to run inference with"""
         with trt.Builder(TRT_LOGGER) as builder, builder.create_network(
-            common.EXPLICIT_BATCH
+           0 
         ) as network, builder.create_builder_config() as config, trt.OnnxParser(
             network, TRT_LOGGER
         ) as parser, trt.Runtime(

@@ -418,16 +418,6 @@ constexpr const char* descr = R"trtdoc(
     
     These expressions are can be used in overrides of `IPluginV2DynamicExt::get_output_dimensions()` to define output dimensions in terms of input dimensions.
 )trtdoc";
-
-constexpr const char* is_constant = R"trtdoc(
-    Return true if expression is a build-time constant
-
-)trtdoc";
-
-constexpr const char* get_constant_value = R"trtdoc(
-    If `is_constant()`, returns value of the constant. If not `is_constant()`, return int32 minimum.
-
-)trtdoc";
 } // namespace IDimensionExprDoc
 
 namespace IExprBuilderDoc
@@ -439,24 +429,14 @@ constexpr const char* descr = R"trtdoc(
 
     Clients should assume that any values constructed by the `IExprBuilder` are destroyed after `IPluginV2DynamicExt::get_output_dimensions()` returns.
 )trtdoc";
-
-constexpr const char* constant = R"trtdoc(
-    Return pointer to `IDimensionExpr` for given value.
-
-)trtdoc";
-
-constexpr const char* operation = R"trtdoc(
-    Return pointer to `IDimensionExpr` that represents the given operation applied to first and second. Returns nullptr if op is not a valid `DimensionOperation`.
-
-)trtdoc";
 } // namespace IExprBuilderDoc
 
 namespace DimensionOperationDoc
 {
 constexpr const char* descr = R"trtdoc(
-    An operation on two `IDimensionExpr` s, which represent integer expressions used in dimension computations.
+    An operation on two IDimensionExprs, which represent integer expressions used in dimension computations.
 
-    For example, given two `IDimensionExpr` s `x` and `y` and an `IExprBuilder` `eb`, `eb.operation(DimensionOperation.SUM, x, y)` creates a representation of `x + y`.
+    For example, given two IDimensionExprs x and y and an IExprBuilder eb, eb.operation(DimensionOperation.SUM, x, y) creates a representation of x + y.
 )trtdoc";
 } // namespace DimensionOperationDoc
 
@@ -483,6 +463,13 @@ constexpr const char* descr = R"trtdoc(
     :ivar fields: :class:`list` PluginField entries.
 )trtdoc";
 } // namespace PluginFieldCollectionDoc
+
+namespace IPluginCreatorInterfaceDoc
+{
+constexpr const char* descr = R"trtdoc(
+    Base class for for plugin sub-interfaces.
+)trtdoc";
+} // namespace IPluginCreatorInterfaceDoc
 
 namespace IPluginCreatorDoc
 {
@@ -544,17 +531,26 @@ constexpr const char* descr = R"trtdoc(
     :ivar parent_search_enabled: bool variable indicating whether parent search is enabled. Default is True.
 )trtdoc";
 
-constexpr const char* register_creator = R"trtdoc(
-    Register a plugin creator.
+constexpr const char* register_creator_iplugincreator = R"trtdoc(
+    Register a plugin creator implementing IPluginCreator.
 
     :arg creator: The IPluginCreator instance.
     :arg plugin_namespace: The namespace of the plugin creator.
 
-    :returns: False if one with the same type is already registered.
+    :returns: False if any plugin creator with the same name, version and namespace is already registered.
 )trtdoc";
 
-constexpr const char* deregister_creator = R"trtdoc(
-    Deregister a previously registered plugin creator.
+constexpr const char* register_creator = R"trtdoc(
+    Register a plugin creator.
+
+    :arg creator: The plugin creator instance.
+    :arg plugin_namespace: The namespace of the plugin creator.
+
+    :returns: False if any plugin creator with the same name, version and namespace is already registered..
+)trtdoc";
+
+constexpr const char* deregister_creator_iplugincreator = R"trtdoc(
+    Deregister a previously registered plugin creator inheriting from IPluginCreator.
 
     Since there may be a desire to limit the number of plugins,
     this function provides a mechanism for removing plugin creators registered in TensorRT.
@@ -566,8 +562,35 @@ constexpr const char* deregister_creator = R"trtdoc(
             or otherwise could not be deregistered.
 )trtdoc";
 
+constexpr const char* deregister_creator = R"trtdoc(
+    Deregister a previously registered plugin creator.
+
+    Since there may be a desire to limit the number of plugins,
+    this function provides a mechanism for removing plugin creators registered in TensorRT.
+    The plugin creator that is specified by ``creator`` is removed from TensorRT and no longer tracked.
+
+    :arg creator: The plugin creator instance.
+
+    :returns: ``True`` if the plugin creator was deregistered, ``False`` if it was not found in the registry
+            or otherwise could not be deregistered.
+)trtdoc";
+
 constexpr const char* get_plugin_creator = R"trtdoc(
-    Return plugin creator based on type and version
+    Return plugin creator based on type, version and namespace
+
+    .. warning::
+        Returns None if a plugin creator with matching name, version, and namespace is found, but is not a 
+        descendent of IPluginCreator
+
+    :arg type: The type of the plugin.
+    :arg version: The version of the plugin.
+    :arg plugin_namespace: The namespace of the plugin.
+
+    :returns: An :class:`IPluginCreator` .
+)trtdoc";
+
+constexpr const char* get_creator = R"trtdoc(
+    Return plugin creator based on type, version and namespace
 
     :arg type: The type of the plugin.
     :arg version: The version of the plugin.
@@ -618,5 +641,12 @@ constexpr const char* init_libnvinfer_plugins = R"trtdoc(
     :arg namespace: Namespace used to register all the plugins in this library.
 )trtdoc";
 } // namespace FreeFunctionsDoc
+
+namespace PluginCreatorVersionDoc
+{
+constexpr char const* descr = R"trtdoc(
+    Enum to identify version of the plugin creator.
+)trtdoc";
+} // namespace PluginCreatorVersionDoc
 
 } // namespace tensorrt

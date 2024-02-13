@@ -85,7 +85,9 @@ void loadFromFile(std::string const& fileName, char* dst, size_t size)
     {
         file.seekg(0, std::ios::end);
         int64_t fileSize = static_cast<int64_t>(file.tellg());
-        if (fileSize != size)
+        // Due to change from int32_t to int64_t VC engines created with earlier versions
+        // may expect input of the half of the size
+        if (fileSize != static_cast<int64_t>(size) && fileSize != static_cast<int64_t>(size * 2))
         {
             std::ostringstream msg;
             msg << "Unexpected file size for input file: " << fileName << ". Note: Input binding size is: " << size
@@ -354,8 +356,6 @@ void setSparseWeights(L& l, int32_t k, int32_t trs, std::vector<int8_t>& sparseW
 // Explicit instantiation
 template void setSparseWeights<IConvolutionLayer>(
     IConvolutionLayer& l, int32_t k, int32_t trs, std::vector<int8_t>& sparseWeights);
-template void setSparseWeights<IFullyConnectedLayer>(
-    IFullyConnectedLayer& l, int32_t k, int32_t trs, std::vector<int8_t>& sparseWeights);
 
 void sparsify(nvinfer1::INetworkDefinition& network, std::vector<std::vector<int8_t>>& sparseWeights)
 {
@@ -372,13 +372,6 @@ void sparsify(nvinfer1::INetworkDefinition& network, std::vector<std::vector<int
             auto const trs = std::accumulate(dims.d, dims.d + dims.nbDims, 1, std::multiplies<int32_t>());
             sparseWeights.emplace_back();
             setSparseWeights(conv, k, trs, sparseWeights.back());
-        }
-        else if (t == nvinfer1::LayerType::kFULLY_CONNECTED)
-        {
-            auto& fc = *static_cast<nvinfer1::IFullyConnectedLayer*>(layer);
-            auto const k = fc.getNbOutputChannels();
-            sparseWeights.emplace_back();
-            setSparseWeights(fc, k, 1, sparseWeights.back());
         }
     }
 

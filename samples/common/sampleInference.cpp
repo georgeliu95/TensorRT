@@ -199,6 +199,54 @@ void FillBindingClosure<nvinfer1::safe::ICudaEngine, nvinfer1::safe::IExecutionC
     tensorInfo.dataType = engine->getTensorDataType(name);
 }
 
+namespace
+{
+bool allocateContextMemory(InferenceEnvironment& iEnv, InferenceOptions const& inference)
+{
+    auto* engine = iEnv.engine.get();
+    iEnv.deviceMemory.resize(inference.infStreams);
+    // Delay context memory allocation until input shapes are specified because runtime allocation would require actual
+    // input shapes.
+    for (int32_t i = 0; i < inference.infStreams; ++i)
+    {
+        auto const& ec = iEnv.contexts.at(i);
+        if (inference.memoryAllocationStrategy == MemoryAllocationStrategy::kSTATIC)
+        {
+            sample::gLogInfo << "Created execution context with device memory size: "
+                             << (engine->getDeviceMemorySize() / 1.0_MiB) << " MiB" << std::endl;
+        }
+        else
+        {
+            size_t sizeToAlloc{0};
+            const char* allocReason{nullptr};
+            if (inference.memoryAllocationStrategy == MemoryAllocationStrategy::kPROFILE)
+            {
+                auto const p = inference.optProfileIndex;
+                sizeToAlloc = engine->getDeviceMemorySizeForProfile(p);
+                allocReason = "current profile";
+            }
+            else if (inference.memoryAllocationStrategy == MemoryAllocationStrategy::kRUNTIME)
+            {
+                sizeToAlloc = ec->updateDeviceMemorySizeForShapes();
+                allocReason = "current input shapes";
+            }
+            else
+            {
+                sample::gLogError << "Unrecognizable memory allocation strategy." << std::endl;
+                return false;
+            }
+            iEnv.deviceMemory.at(i) = std::move(TrtDeviceBuffer(sizeToAlloc));
+            ec->setDeviceMemory(iEnv.deviceMemory.at(i).get());
+            sample::gLogInfo << "Maximum device memory size across all profiles: "
+                             << (engine->getDeviceMemorySize() / 1.0_MiB) << " MiB" << std::endl;
+            sample::gLogInfo << "Only allocated device memory enough for " << allocReason << ": "
+                             << (sizeToAlloc / 1.0_MiB) << " MiB" << std::endl;
+        }
+    }
+    return true;
+}
+} // namespace
+
 bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inference, SystemOptions const& system)
 {
     int32_t device{};
@@ -249,6 +297,26 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
     // Release serialized blob to save memory space.
     iEnv.engine.releaseBlob();
 
+    // Setup weight streaming if enabled
+    if (inference.weightStreamingBudget != BuildOptions::kUNSET_WEIGHT_STREAMING)
+    {
+        int64_t limit = inference.weightStreamingBudget;
+        if (limit > -1)
+        {
+            // Convert the limit from megabytes to bytes
+            limit = limit << 20;
+        }
+        int64_t maxSize = engine->getStreamableWeightsSize();
+        bool success = engine->setWeightStreamingBudget(limit);
+        SMP_RETVAL_IF_FALSE(
+            limit >= maxSize || success, "Failed to set weight streaming limit!", false, sample::gLogError);
+        if (limit > 0 && limit < maxSize)
+        {
+            sample::gLogInfo << "Weight streaming is enabled with a weights device memory limit of " << (limit >> 20)
+                             << " MiB (" << limit << " bytes)." << std::endl;
+        }
+    }
+
     int32_t const nbOptProfiles = engine->getNbOptimizationProfiles();
 
     if (inference.optProfileIndex >= nbOptProfiles)
@@ -269,7 +337,6 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
     cudaStream_t setOptProfileStream;
     CHECK(cudaStreamCreate(&setOptProfileStream));
 
-    iEnv.deviceMemory.resize(inference.infStreams);
     for (int32_t s = 0; s < inference.infStreams; ++s)
     {
         IExecutionContext* ec{nullptr};
@@ -308,23 +375,6 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
                     << std::endl;
             }
             return false;
-        }
-
-        if (inference.memoryAllocationStrategy == MemoryAllocationStrategy::kSTATIC)
-        {
-            sample::gLogInfo << "Created execution context with device memory size: "
-                             << (engine->getDeviceMemorySize() / 1.0_MiB) << " MiB" << std::endl;
-        }
-        else
-        {
-            auto const p = inference.optProfileIndex;
-            auto const sizeToAlloc = engine->getDeviceMemorySizeForProfile(p);
-            iEnv.deviceMemory.at(s) = std::move(TrtDeviceBuffer(sizeToAlloc));
-            ec->setDeviceMemory(iEnv.deviceMemory.at(s).get());
-            sample::gLogInfo << "Maximum device memory size across all profiles: "
-                             << (engine->getDeviceMemorySize() / 1.0_MiB) << " MiB" << std::endl;
-            sample::gLogInfo << "Only allocated device memory enough for current profile: " << (sizeToAlloc / 1.0_MiB)
-                             << " MiB" << std::endl;
         }
 
         iEnv.contexts.emplace_back(ec);
@@ -448,8 +498,25 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
         }
     }
 
+    // Create Debug Listener and turn on debug states if client requested dumping debug tensors.
+    if (!inference.debugTensorFileNames.empty())
+    {
+        iEnv.listener.reset(new DebugTensorWriter(inference.debugTensorFileNames));
+        iEnv.contexts.front()->setDebugListener(iEnv.listener.get());
+        for (auto const& s : inference.debugTensorFileNames)
+        {
+            iEnv.contexts.front()->setTensorDebugState(s.first.c_str(), true);
+        }
+    }
+
+    if (!allocateContextMemory(iEnv, inference))
+    {
+        return false;
+    }
+
     auto const* context = iEnv.contexts.front().get();
-    return FillStdBindings(engine, context, inference.inputs, iEnv.bindings, 1, endBindingIndex, inference.optProfileIndex)();
+    return FillStdBindings(
+        engine, context, inference.inputs, iEnv.bindings, 1, endBindingIndex, inference.optProfileIndex)();
 }
 
 TaskInferenceEnvironment::TaskInferenceEnvironment(
@@ -1169,9 +1236,9 @@ bool timeDeserialize(InferenceEnvironment& iEnv, SystemOptions const& sys)
         engine.reset(nullptr);
         safeEngine.reset(nullptr);
         auto startClock = std::chrono::high_resolution_clock::now();
-        auto& engineBlob = iEnv.engine.getBlob();
         if (iEnv.safe)
         {
+            auto& engineBlob = iEnv.engine.getBlob();
             safeEngine.reset(safeRT->deserializeCudaEngine(engineBlob.data, engineBlob.size));
             deserializeOK = (safeEngine != nullptr);
         }
@@ -1181,8 +1248,11 @@ bool timeDeserialize(InferenceEnvironment& iEnv, SystemOptions const& sys)
             {
                 rt->getPluginRegistry().loadLibrary(pluginPath.c_str());
             }
-            engine.reset(rt->deserializeCudaEngine(engineBlob.data, engineBlob.size));
+            auto& reader = iEnv.engine.getFileReader();
+            ASSERT(reader.isOpen());
+            engine.reset(rt->deserializeCudaEngine(reader));
             deserializeOK = (engine != nullptr);
+            reader.close();
         }
         auto endClock = std::chrono::high_resolution_clock::now();
         // return NAN if deserialization failed.
@@ -1470,8 +1540,8 @@ template <>
 void Bindings::dumpBindingValues<nvinfer1::IExecutionContext>(nvinfer1::IExecutionContext const& context,
     int32_t binding, std::ostream& os, std::string const& separator /*= " "*/, int32_t batch /*= 1*/) const
 {
-    Dims dims = context.getBindingDimensions(binding);
     auto const tensorName = context.getEngine().getIOTensorName(binding);
+    Dims dims = context.getTensorShape(tensorName);
     Dims strides = context.getTensorStrides(tensorName);
     int32_t vectorDim = context.getEngine().getTensorVectorizedDim(tensorName);
     int32_t const spv = context.getEngine().getTensorComponentsPerElement(tensorName);
@@ -1497,15 +1567,15 @@ std::string genFilenameSafeString(std::string const& s)
 }
 
 template <typename ContextType>
-Dims getBindingDimensions(ContextType const& /*context*/, int32_t /*binding*/)
+Dims getBindingDimensions(ContextType const& /*context*/, std::string const& /*name*/)
 {
     ASSERT(0 && "Unimplemented");
 }
 
 template <>
-Dims getBindingDimensions(nvinfer1::IExecutionContext const& context, int32_t binding)
+Dims getBindingDimensions(nvinfer1::IExecutionContext const& context, std::string const& name)
 {
-    return context.getBindingDimensions(binding);
+    return context.getTensorShape(name.c_str());
 }
 } // namespace
 
@@ -1528,7 +1598,7 @@ void Bindings::dumpRawBindingToFiles(ContextType const& context, std::ostream& o
             outputBuffer = binding.buffer->getHostBuffer();
         }
 
-        Dims dims = getBindingDimensions(context, bIndex);
+        Dims dims = getBindingDimensions(context, name);
         std::string dimsStr;
         std::string dotStr;
 
@@ -1559,19 +1629,18 @@ template void Bindings::dumpRawBindingToFiles<nvinfer1::IExecutionContext>(
 
 template <>
 void Bindings::dumpBindingDimensions<nvinfer1::IExecutionContext>(
-    int binding, nvinfer1::IExecutionContext const& context, std::ostream& os) const
+    std::string const& name, nvinfer1::IExecutionContext const& context, std::ostream& os) const
 {
-    auto const dims = context.getBindingDimensions(binding);
+    auto const dims = context.getTensorShape(name.c_str());
     // Do not add a newline terminator, because the caller may be outputting a JSON string.
     os << dims;
 }
 
 template <>
 void Bindings::dumpBindingDimensions<nvinfer1::safe::IExecutionContext>(
-    int binding, nvinfer1::safe::IExecutionContext const& context, std::ostream& os) const
+    std::string const& name, nvinfer1::safe::IExecutionContext const& context, std::ostream& os) const
 {
-    auto const tensorName = context.getEngine().getIOTensorName(binding);
-    auto const dims = context.getEngine().getTensorShape(tensorName);
+    auto const dims = context.getEngine().getTensorShape(name.c_str());
     // Do not add a newline terminator, because the caller may be outputting a JSON string.
     os << dims;
 }
@@ -1653,6 +1722,29 @@ bool Bindings::setSafeTensorAddresses(nvinfer1::safe::IExecutionContext& context
             }
         }
     }
+    return true;
+}
+
+bool DebugTensorWriter::processDebugTensor(void const* addr, nvinfer1::TensorLocation location, nvinfer1::DataType type,
+    nvinfer1::Dims const& shape, char const* name, cudaStream_t stream)
+{
+    CHECK(cudaStreamSynchronize(stream));
+    // Store data from callback.
+    int64_t size = std::accumulate(shape.d, shape.d + shape.nbDims, 1LL, std::multiplies<int64_t>{})
+        * samplesCommon::elementSize(type);
+    std::vector<char> hostDataOut(size, 0);
+    CHECK(cudaMemcpy(hostDataOut.data(), addr, size, cudaMemcpyDeviceToHost));
+
+    auto it = mDebugTensorFileNames.find(name);
+    ASSERT(it != mDebugTensorFileNames.end());
+    std::string fileName = it->second;
+
+    std::ofstream f(fileName, std::ios::out | std::ios::binary);
+    ASSERT(f && "Cannot open file for write");
+    f.write(hostDataOut.data(), size);
+    f.close();
+
+    CHECK(cudaStreamSynchronize(stream));
     return true;
 }
 

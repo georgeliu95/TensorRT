@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -79,8 +79,8 @@ protected:
     std::string mNamespace;
 };
 
-std::shared_ptr<cudnnContext*> createPluginCudnnHandle(void* executionContextIdentifier);
-std::shared_ptr<cublasContext*> createPluginCublasHandle(void* executionContextIdentifier);
+std::shared_ptr<nvinfer1::pluginInternal::CudnnWrapper> createPluginCudnnWrapper(void* executionContextIdentifier);
+std::shared_ptr<nvinfer1::pluginInternal::CublasWrapper> createPluginCublasWrapper(void* executionContextIdentifier);
 } // namespace pluginInternal
 
 namespace plugin
@@ -136,6 +136,10 @@ struct CudaBind
         }
     }
 };
+
+// Convert a 64-bit dimension to a 32-bit dimension.
+// Throw exception if it doesn't fit.
+int32_t dimToInt32(int64_t);
 
 } // namespace plugin
 } // namespace nvinfer1

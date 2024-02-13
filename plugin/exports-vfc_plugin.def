@@ -17,3 +17,4 @@ LIBRARY nvinfer_vc_plugin
 EXPORTS
 setLoggerFinder
 getPluginCreators
+getCreators

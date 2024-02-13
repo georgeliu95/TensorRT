@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -68,18 +68,21 @@ cudaError_t ModulatedDeformConvForwardCUDAKernelLauncher(TScalar const* input, T
     TScalar const* bias, TScalar const* offset, TScalar const* mask, TScalar* output, void* workspace, int32_t batch,
     int32_t channels, int32_t height, int32_t width, int32_t channelsOut, int32_t kernelW, int32_t kernelH,
     int32_t strideW, int32_t strideH, int32_t padW, int32_t padH, int32_t dilationW, int32_t dilationH, int32_t group,
-    int32_t deformableGroup, int32_t im2colStep, cublasHandle_t cublasHandle, cudaStream_t stream);
+    int32_t deformableGroup, int32_t im2colStep, nvinfer1::pluginInternal::cublasHandle_t cublasHandle,
+    cudaStream_t stream);
 
 void ModulatedDeformConvForwardCUDAKernelLauncherFloat(float const* input, float const* weight, float const* bias,
     float const* offset, float const* mask, float* output, void* workspace, int32_t batch, int32_t channels,
     int32_t height, int32_t width, int32_t channelsOut, int32_t kernelW, int32_t kernelH, int32_t strideW,
     int32_t strideH, int32_t padW, int32_t padH, int32_t dilationW, int32_t dilationH, int32_t group,
-    int32_t deformableGroup, int32_t im2colStep, cublasHandle_t cublasHandle, cudaStream_t stream);
+    int32_t deformableGroup, int32_t im2colStep, nvinfer1::pluginInternal::cublasHandle_t cublasHandle,
+    cudaStream_t stream);
 
 void ModulatedDeformConvForwardCUDAKernelLauncherHalf(half const* input, half const* weight, half const* bias,
     half const* offset, half const* mask, half* output, void* workspace, int32_t batch, int32_t channels,
     int32_t height, int32_t width, int32_t channelsOut, int32_t kernelW, int32_t kernelH, int32_t strideW,
     int32_t strideH, int32_t padW, int32_t padH, int32_t dilationW, int32_t dilationH, int32_t group,
-    int32_t deformableGroup, int32_t im2colStep, cublasHandle_t cublasHandle, cudaStream_t stream);
+    int32_t deformableGroup, int32_t im2colStep, nvinfer1::pluginInternal::cublasHandle_t cublasHandle,
+    cudaStream_t stream);
 
 #endif // TRT_MODULATED_DEFORM_CONV_PLUGIN_KERNEL_H

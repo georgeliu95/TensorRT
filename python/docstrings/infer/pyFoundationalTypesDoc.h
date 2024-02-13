@@ -64,10 +64,8 @@ namespace WeightsRoleDoc
 {
 constexpr const char* descr
     = R"trtdoc(How a layer uses particular Weights. The power weights of an IScaleLayer are omitted.  Refitting those is not supported.)trtdoc";
-constexpr const char* KERNEL
-    = R"trtdoc(Kernel for :class:`IConvolutionLayer` , :class:`IDeconvolutionLayer` , or :class:`IFullyConnectedLayer` .)trtdoc";
-constexpr const char* BIAS
-    = R"trtdoc(Bias for :class:`IConvolutionLayer` , :class:`IDeconvolutionLayer` , or :class:`IFullyConnectedLayer` .)trtdoc";
+constexpr const char* KERNEL = R"trtdoc(Kernel for :class:`IConvolutionLayer` or :class:`IDeconvolutionLayer` .)trtdoc";
+constexpr const char* BIAS = R"trtdoc(Bias for :class:`IConvolutionLayer` or :class:`IDeconvolutionLayer` .)trtdoc";
 constexpr const char* SHIFT = R"trtdoc(Shift part of :class:`IScaleLayer` .)trtdoc";
 constexpr const char* SCALE = R"trtdoc(Scale part of :class:`IScaleLayer` .)trtdoc";
 constexpr const char* CONSTANT = R"trtdoc(Weights for :class:`IConstantLayer` .)trtdoc";
@@ -181,6 +179,27 @@ constexpr const char* descr = R"trtdoc(
     Structure to define 4D tensor.
 )trtdoc";
 } // namespace Dims4Doc
+
+namespace IVersionedInterfaceDoc
+{
+constexpr const char* descr = R"trtdoc(
+    Base class for all versioned interfaces.
+)trtdoc";
+} // namespace IVersionedInterfaceDoc
+
+namespace APILanguageDoc
+{
+constexpr const char* descr = R"trtdoc(
+    The language used in the implementation of a TensorRT interface.
+)trtdoc";
+} // namespace APILanguageDoc
+
+namespace InterfaceInfoDoc
+{
+constexpr const char* descr = R"trtdoc(
+    Version information for a TensorRT interface.
+)trtdoc";
+} // namespace InterfaceInfoDoc
 
 namespace DimsNCHWDoc
 {

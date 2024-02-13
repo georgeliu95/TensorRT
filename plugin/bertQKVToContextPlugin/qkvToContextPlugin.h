@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,8 +23,9 @@
 #define TRT_QKV_TO_CONTEXT_PLUGIN_H
 
 #include "NvInferPlugin.h"
-#include "cublas_v2.h"
+#include "common/cublasWrapper.h"
 #include "zeroPadding2d.h"
+#include <math.h>
 #include <string>
 #include <vector>
 
@@ -52,7 +53,7 @@ public:
         , mStrideQKV(0)
         , mLdOut(0)
         , mStrideOut(0)
-        , mRsqrtHeadSize(1.F / sqrtf(headSize))
+        , mRsqrtHeadSize(1.F / std::sqrt(headSize))
     {
     }
 
@@ -76,11 +77,12 @@ public:
 
     virtual void run(nvinfer1::PluginTensorDesc const& inputDesc, nvinfer1::PluginTensorDesc const& outputDesc,
         void const* qkvPtr, void const* maskPtr, void* output, void* workspace, cudaStream_t stream,
-        cublasHandle_t cublas)
+        nvinfer1::pluginInternal::cublasHandle_t cublas)
         = 0;
 
     virtual void run(nvinfer1::PluginTensorDesc const* inputDesc, nvinfer1::PluginTensorDesc const* outputDesc,
-        void const* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream, cublasHandle_t cublas)
+        void const* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream,
+        nvinfer1::pluginInternal::cublasHandle_t cublas)
         = 0;
 
     virtual size_t getSerializationSize() const noexcept;
@@ -189,7 +191,9 @@ private:
     bool mHasImask{};
     nvinfer1::DataType mType{};
     float mDqProbs{};
-    cublasHandle_t mCublas{};
+    nvinfer1::pluginInternal::cublasHandle_t mCublas{};
+    // the wrapper pointer is shared among all plugins attached to the same context.
+    std::shared_ptr<nvinfer1::pluginInternal::CublasWrapper> mCublasWrapper;
 
     using IPluginV2::getOutputDimensions;
     using IPluginV2::getWorkspaceSize;
@@ -291,7 +295,9 @@ private:
     int32_t mHdim{};
     bool mUseVarSeqlen{};
     bool mUseInt8ScaleMax{true};
-    cublasHandle_t mCublas{};
+    nvinfer1::pluginInternal::cublasHandle_t mCublas{};
+    // the wrapper pointer is shared among all plugins attached to the same context.
+    std::shared_ptr<nvinfer1::pluginInternal::CublasWrapper> mCublasWrapper;
 
     using IPluginV2::getOutputDimensions;
     using IPluginV2::getWorkspaceSize;
@@ -336,11 +342,11 @@ public:
 
     void run(nvinfer1::PluginTensorDesc const& inputDesc, nvinfer1::PluginTensorDesc const& outputDesc,
         void const* qkvPtr, void const* maskPtr, void* output, void* workspace, cudaStream_t stream,
-        cublasHandle_t cublas) override;
+        nvinfer1::pluginInternal::cublasHandle_t cublas) override;
 
     void run(nvinfer1::PluginTensorDesc const* inputDesc, nvinfer1::PluginTensorDesc const* outputDesc,
         void const* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream,
-        cublasHandle_t cublas) override;
+        nvinfer1::pluginInternal::cublasHandle_t cublas) override;
 
     size_t getWorkspaceSize() const override;
 
@@ -366,11 +372,11 @@ public:
 
     void run(nvinfer1::PluginTensorDesc const& inputDesc, nvinfer1::PluginTensorDesc const& outputDesc,
         void const* qkvPtr, void const* maskPtr, void* output, void* workspace, cudaStream_t stream,
-        cublasHandle_t cublas) override;
+        nvinfer1::pluginInternal::cublasHandle_t cublas) override;
 
     void run(nvinfer1::PluginTensorDesc const* inputDesc, nvinfer1::PluginTensorDesc const* outputDesc,
         void const* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream,
-        cublasHandle_t cublas) override;
+        nvinfer1::pluginInternal::cublasHandle_t cublas) override;
 
     size_t getWorkspaceSize() const override;
 
@@ -394,11 +400,11 @@ public:
 
     void run(nvinfer1::PluginTensorDesc const& inputDesc, nvinfer1::PluginTensorDesc const& outputDesc,
         void const* qkvPtr, void const* maskPtr, void* output, void* workspace, cudaStream_t stream,
-        cublasHandle_t cublas) override;
+        nvinfer1::pluginInternal::cublasHandle_t cublas) override;
 
     void run(nvinfer1::PluginTensorDesc const* inputDesc, nvinfer1::PluginTensorDesc const* outputDesc,
         void const* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream,
-        cublasHandle_t cublas) override;
+        nvinfer1::pluginInternal::cublasHandle_t cublas) override;
 
     size_t getWorkspaceSize() const override;
 
@@ -423,11 +429,11 @@ public:
 
     void run(nvinfer1::PluginTensorDesc const& inputDesc, nvinfer1::PluginTensorDesc const& outputDesc,
         void const* qkvPtr, void const* maskPtr, void* output, void* workspace, cudaStream_t stream,
-        cublasHandle_t cublas) override;
+        nvinfer1::pluginInternal::cublasHandle_t cublas) override;
 
     void run(nvinfer1::PluginTensorDesc const* inputDesc, nvinfer1::PluginTensorDesc const* outputDesc,
         void const* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream,
-        cublasHandle_t cublas) override;
+        nvinfer1::pluginInternal::cublasHandle_t cublas) override;
 
     size_t getWorkspaceSize() const override;
 
@@ -452,11 +458,11 @@ public:
 
     void run(nvinfer1::PluginTensorDesc const& inputDesc, nvinfer1::PluginTensorDesc const& outputDesc,
         void const* qkvPtr, void const* maskPtr, void* output, void* workspace, cudaStream_t stream,
-        cublasHandle_t cublas) override;
+        nvinfer1::pluginInternal::cublasHandle_t cublas) override;
 
     void run(nvinfer1::PluginTensorDesc const* inputDesc, nvinfer1::PluginTensorDesc const* outputDesc,
         void const* const* inputs, void* const* outputs, void* workspace, cudaStream_t stream,
-        cublasHandle_t cublas) override;
+        nvinfer1::pluginInternal::cublasHandle_t cublas) override;
 
     size_t getWorkspaceSize() const override;
 

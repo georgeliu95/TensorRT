@@ -28,7 +28,7 @@ from polygraphy.backend.trt import (
 
 from polygraphy.json import to_json, from_json
 
-from utils import checkCudaErrors, KernelHelper, parseArgs
+from utils import checkCudaErrors, KernelHelper, parseArgs, CudaCtxManager
 from cuda import cuda
 
 circ_pad_half_kernel = r'''
@@ -104,6 +104,8 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
         self.plugin_type = "CircPadPlugin"
         self.plugin_version = "1"
 
+        self.cuDevice = None
+
         if fc is not None:
             assert set([f.name for f in fc]) == set(["pads", "N"]), "Field collection invalid"
             for f in fc:
@@ -113,6 +115,8 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
                     self.N = int(f.data)
 
     def initialize(self):
+        err, self.cuDevice = cuda.cuDeviceGet(0)
+        CudaCtxManager.refer(self.cuDevice)
         self.all_pads_d = checkCudaErrors(cuda.cuMemAlloc(np.int32().itemsize * self.N * 2))
         self.orig_dims_d = checkCudaErrors(cuda.cuMemAlloc(np.int32().itemsize * self.N))
         self.Y_shape_d = checkCudaErrors(cuda.cuMemAlloc(np.int32().itemsize * self.N))
@@ -146,7 +150,7 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
         orig_dims = np.array(self.X_shape, dtype=np.int32)
         out_dims = np.array(self.X_shape, dtype=np.int32)
 
-        for i in range(np.size(pads) // 2):
+        for i in range(np.size(self.pads) // 2):
             out_dims[self.N - i - 1] += self.pads[i * 2] + self.pads[i * 2 + 1]
             all_pads[self.N * 2 - 2 * i - 2] = self.pads[i * 2]
             all_pads[self.N * 2 - 2 * i - 1] = self.pads[i * 2 + 1]
@@ -200,7 +204,7 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
         stream_ptr = np.array([stream], dtype=np.uint64)
 
         if inp_dtype == np.float32:
-            kernelHelper = KernelHelper(circ_pad_float_kernel, int(cuDevice))
+            kernelHelper = KernelHelper(circ_pad_float_kernel, int(self.cuDevice))
             _circ_pad_float_kernel = kernelHelper.getFunction(b'circ_pad_float')
             checkCudaErrors(cuda.cuLaunchKernel(_circ_pad_float_kernel,
                                         numBlocks, 1, 1,
@@ -209,7 +213,7 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
                                         stream_ptr,
                                         kernelArgs, 0))
         elif inp_dtype == np.float16:
-            kernelHelper = KernelHelper(circ_pad_half_kernel, int(cuDevice))
+            kernelHelper = KernelHelper(circ_pad_half_kernel, int(self.cuDevice))
             _circ_pad_half_kernel = kernelHelper.getFunction(b'circ_pad_half')
             checkCudaErrors(cuda.cuLaunchKernel(_circ_pad_half_kernel,
                                         numBlocks, 1, 1,
@@ -233,6 +237,8 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
         if self.Y_shape_d:
             checkCudaErrors(cuda.cuMemFree(self.Y_shape_d))
 
+        CudaCtxManager.derefer()
+
     # 
     # The following defaults take effect since the respective methods are not overriden
     #
@@ -244,9 +250,6 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
     #     return 0
     
     # def destroy(self):
-    #     pass
-
-    # def terminate(self):
     #     pass
 
 
@@ -282,7 +285,7 @@ if __name__ == "__main__":
     err, cuDevice = cuda.cuDeviceGet(0)
 
     # Create context
-    err, cuContext = cuda.cuCtxCreate(0, cuDevice)
+    CudaCtxManager.refer(cuDevice)
 
     inp_shape = (100, 2, 32, 32)
     X = np.random.normal(size=inp_shape).astype(precision)
@@ -328,3 +331,5 @@ if __name__ == "__main__":
             print("Inference result correct!")
         else:
             print("Inference result incorrect!")
+
+    CudaCtxManager.derefer()

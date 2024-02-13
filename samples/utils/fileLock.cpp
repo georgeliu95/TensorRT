@@ -36,7 +36,7 @@ FileLock::FileLock(ILogger& logger, std::string const& fileName)
         mLogger.log(ILogger::Severity::kVERBOSE, ss.str().c_str());
     }
     // MS docs said this is a blocking IO if "FILE_FLAG_OVERLAPPED" is not provided
-    auto mHandle = CreateFileA(lockFileName.c_str(), GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, 0, NULL);
+    mHandle = CreateFileA(lockFileName.c_str(), GENERIC_WRITE, 0, NULL, OPEN_ALWAYS, 0, NULL);
     if (mHandle == INVALID_HANDLE_VALUE)
     {
         throw std::runtime_error("Failed to lock " + lockFileName + "!");
@@ -45,7 +45,7 @@ FileLock::FileLock(ILogger& logger, std::string const& fileName)
     // We once enabled the file lock on QNX, lockf(F_TLOCK) return -1 and the reported error is
     // The error generated was 89, which means that the function is not implemented.
 #else
-    auto mHandle = fopen(lockFileName.c_str(), "wb+");
+    mHandle = fopen(lockFileName.c_str(), "wb+");
     if (mHandle == nullptr)
     {
         throw std::runtime_error("Cannot open " + lockFileName + "!");

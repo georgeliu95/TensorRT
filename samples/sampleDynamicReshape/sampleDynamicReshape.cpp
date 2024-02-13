@@ -161,8 +161,7 @@ bool SampleDynamicReshape::buildPreprocessorEngine(const SampleUniquePtr<nvinfer
     const SampleUniquePtr<nvinfer1::IRuntime>& runtime, cudaStream_t profileStream)
 {
     // Create the preprocessor engine using a network that supports full dimensions (createNetworkV2).
-    auto preprocessorNetwork = makeUnique(
-        builder->createNetworkV2(1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH)));
+    auto preprocessorNetwork = makeUnique(builder->createNetworkV2(0));
     if (!preprocessorNetwork)
     {
         sample::gLogError << "Create network failed." << std::endl;
@@ -258,8 +257,7 @@ bool SampleDynamicReshape::buildPredictionEngine(const SampleUniquePtr<nvinfer1:
     const SampleUniquePtr<nvinfer1::IRuntime>& runtime, cudaStream_t profileStream)
 {
     // Create a network using the parser.
-    const auto explicitBatch = 1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
-    auto network = makeUnique(builder->createNetworkV2(explicitBatch));
+    auto network = makeUnique(builder->createNetworkV2(0));
     if (!network)
     {
         sample::gLogError << "Create network failed." << std::endl;
@@ -396,7 +394,7 @@ bool SampleDynamicReshape::infer()
         mInput.deviceBuffer.data(), mInput.hostBuffer.data(), mInput.hostBuffer.nbBytes(), cudaMemcpyHostToDevice));
 
     // Set the input size for the preprocessor
-    CHECK_RETURN_W_MSG(mPreprocessorContext->setBindingDimensions(0, inputDims), false, "Invalid binding dimensions.");
+    CHECK_RETURN_W_MSG(mPreprocessorContext->setInputShape("input", inputDims), false, "Invalid binding dimensions.");
 
     // We can only run inference once all dynamic input shapes have been specified.
     if (!mPreprocessorContext->allInputDimensionsSpecified())

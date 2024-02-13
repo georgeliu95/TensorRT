@@ -69,6 +69,7 @@ set(PLUGIN_LISTS
     reorgPlugin
     resizeNearestPlugin
     roiAlignPlugin
+    scatterElementsPlugin
     scatterPlugin
     specialSlicePlugin
     splitPlugin
@@ -120,7 +121,6 @@ target_include_directories(${SHARED_TARGET}
     PUBLIC ${PROJECT_SOURCE_DIR}/include
     PRIVATE ${PROJECT_SOURCE_DIR}/common
     PUBLIC ${CUDA_INSTALL_DIR}/include
-    PUBLIC ${CUDNN_ROOT_DIR}/include
     PRIVATE ${TARGET_DIR}
 )
 
@@ -150,10 +150,7 @@ set_target_properties(${SHARED_TARGET} PROPERTIES VERSION ${TRT_VERSION} SOVERSI
 set_property(TARGET ${SHARED_TARGET} PROPERTY CUDA_STANDARD 14)
 
 target_link_libraries(${SHARED_TARGET}
-    ${CUBLAS_LIB}
-    ${CUBLASLT_LIB}
     ${CUDART_LIB}
-    ${CUDNN_LIB}
     ${nvinfer_LIB_PATH}
     ${CMAKE_DL_LIBS}
 )
@@ -174,7 +171,6 @@ target_include_directories(${STATIC_TARGET}
     PUBLIC ${CUB_ROOT_DIR}
     PRIVATE ${PROJECT_SOURCE_DIR}/common
     PUBLIC ${CUDA_INSTALL_DIR}/include
-    PUBLIC ${CUDNN_ROOT_DIR}/include
     PRIVATE ${TARGET_DIR}
 )
 

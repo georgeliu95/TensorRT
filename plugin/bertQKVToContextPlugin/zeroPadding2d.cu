@@ -179,6 +179,7 @@ size_t QkvPaddingRunner::getWorkspaceSize(int32_t sumSeqLen, int32_t numHeads)
 
 void* QkvPaddingRunner::get16BytesAlignedPointer(void* workspace, size_t offset)
 {
+    PLUGIN_VALIDATE(workspace != nullptr);
     auto addr = reinterpret_cast<uintptr_t>(workspace) + offset;
     auto shift = 16 - (addr & 0xF);
     if (shift == 16)

@@ -1,13 +1,18 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 #ifndef NV_INFER_RUNTIME_BASE_H
@@ -96,9 +101,11 @@ using char_t = char;
 using AsciiChar = char_t;
 
 //! Forward declare IErrorRecorder for use in other interfaces.
+namespace v_1_0
+{
 class IErrorRecorder;
-//! Forward declare IGpuAllocator for use in other interfaces.
-class IGpuAllocator;
+}
+using IErrorRecorder = v_1_0::IErrorRecorder;
 
 namespace impl
 {
@@ -178,29 +185,29 @@ struct EnumMaxImpl<DataType>
 //! \class Dims
 //! \brief Structure to define the dimensions of a tensor.
 //!
-//! TensorRT can also return an invalid dims structure. This structure is represented by nbDims == -1
-//! and d[i] == 0 for all d.
+//! TensorRT can also return an "invalid dims" structure. This structure is
+//! represented by nbDims == -1 and d[i] == 0 for all i.
 //!
-//! TensorRT can also return an "unknown rank" dims structure. This structure is represented by nbDims == -1
-//! and d[i] == -1 for all d.
+//! TensorRT can also return an "unknown rank" dims structure. This structure is
+//! represented by nbDims == -1 and d[i] == -1 for all i.
 //!
-class Dims32
+class Dims64
 {
 public:
     //! The maximum rank (number of dimensions) supported for a tensor.
     static constexpr int32_t MAX_DIMS{8};
+
     //! The rank (number of dimensions).
     int32_t nbDims;
+
     //! The extent of each dimension.
-    int32_t d[MAX_DIMS];
+    int64_t d[MAX_DIMS];
 };
 
 //!
-//! Alias for Dims32.
+//! Alias for Dims64.
 //!
-//! \warning: This alias might change in the future.
-//!
-using Dims = Dims32;
+using Dims = Dims64;
 
 //!
 //! \enum TensorFormat
@@ -339,6 +346,76 @@ enum class TensorFormat : int32_t
     kDHWC = 12
 };
 
+using InterfaceKind = char const*;
+
+//!
+//! \class InterfaceInfo
+//!
+//! \brief Version information associated with a TRT interface
+//!
+class InterfaceInfo
+{
+public:
+    InterfaceKind kind;
+    int32_t major;
+    int32_t minor;
+};
+
+//!
+//! \enum APILanguage
+//!
+//! \brief Programming language used in the implementation of a TRT interface
+//!
+enum class APILanguage : int32_t
+{
+    kCPP = 0,
+    kPYTHON = 1
+};
+
+namespace impl
+{
+//! Maximum number of elements in APILanguage enum. \see APILanguage
+template <>
+struct EnumMaxImpl<APILanguage>
+{
+    //! Declaration of kVALUE that represents the maximum number of elements in the APILanguage enum.
+    static constexpr int32_t kVALUE = 2;
+};
+} // namespace impl
+
+//!
+//! \class IVersionedInterface
+//!
+//! \brief An Interface class for version control.
+//!
+class IVersionedInterface
+{
+public:
+    //!
+    //! \brief The language used to build the implementation of this Interface.
+    //!
+    //! Applications must not override this method.
+    //!
+    virtual APILanguage getAPILanguage() const noexcept
+    {
+        return APILanguage::kCPP;
+    }
+
+    //!
+    //! \brief Get information about the Interface.
+    //!
+    virtual InterfaceInfo getInterfaceInfo() const noexcept = 0;
+
+    virtual ~IVersionedInterface() noexcept = default;
+
+protected:
+    IVersionedInterface() = default;
+    IVersionedInterface(IVersionedInterface const&) = default;
+    IVersionedInterface(IVersionedInterface&&) = default;
+    IVersionedInterface& operator=(IVersionedInterface const&) & = default;
+    IVersionedInterface& operator=(IVersionedInterface&&) & = default;
+};
+
 namespace impl
 {
 //! Maximum number of elements in TensorFormat enum. \see TensorFormat
@@ -350,6 +427,12 @@ struct EnumMaxImpl<TensorFormat>
 };
 } // namespace impl
 
+
+//!
+//! \enum AllocatorFlag
+//!
+//! \brief Allowed type of memory allocation.
+//!
 enum class AllocatorFlag : int32_t
 {
     //! TensorRT may call realloc() on this allocation.
@@ -369,6 +452,11 @@ struct EnumMaxImpl<AllocatorFlag>
 
 using AllocatorFlags = uint32_t;
 
+//! DO NOT REFER TO namespace v_1_0 IN CODE. ALWAYS USE nvinfer1 INSTEAD.
+//! The name v_1_0 may change in future versions of TensoRT.
+namespace v_1_0
+{
+
 //!
 //! \class IGpuAllocator
 //!
@@ -376,11 +464,12 @@ using AllocatorFlags = uint32_t;
 //!
 //! \warning The lifetime of an IGpuAllocator object must exceed that of all objects that use it.
 //!
-class IGpuAllocator
+//!
+class IGpuAllocator : public IVersionedInterface
 {
 public:
     //!
-    //! A thread-safe callback implemented by the application to handle acquisition of GPU memory.
+    //! \brief A thread-safe callback implemented by the application to handle acquisition of GPU memory.
     //!
     //! \param size The size of the memory block required (in bytes).
     //! \param alignment The required alignment of memory. Alignment will be zero
@@ -400,18 +489,16 @@ public:
     //! \usage
     //! - Allowed context for the API call
     //!   - Thread-safe: Yes, this method is required to be thread-safe and may be called from multiple threads.
+    //! \deprecated Deprecated in TensorRT 10.0. Superseded by allocateAsync
     //!
-    virtual void* allocate(uint64_t const size, uint64_t const alignment, AllocatorFlags const flags) noexcept = 0;
+    TRT_DEPRECATED virtual void* allocate(
+        uint64_t const size, uint64_t const alignment, AllocatorFlags const flags) noexcept = 0;
 
-    //!
-    //! Destructor declared virtual as general good practice for a class with virtual methods.
-    //! TensorRT never calls the destructor for an IGpuAllocator defined by the application.
-    //!
-    virtual ~IGpuAllocator() = default;
+    ~IGpuAllocator() override = default;
     IGpuAllocator() = default;
 
     //!
-    //! A thread-safe callback implemented by the application to resize an existing allocation.
+    //! \brief A thread-safe callback implemented by the application to resize an existing allocation.
     //!
     //! Only allocations which were allocated with AllocatorFlag::kRESIZABLE will be resized.
     //!
@@ -436,6 +523,7 @@ public:
     //! \param alignment The alignment used by the original allocation. This will be the same value that was previously
     //!        passed to the allocate() or reallocate() call that returned baseAddr.
     //! \param newSize The new memory size required (in bytes).
+    //!
     //! \return The address of the reallocated memory, or nullptr. If a non-null address is returned, it is
     //!         guaranteed to have the specified alignment.
     //!
@@ -446,18 +534,73 @@ public:
     //! - Allowed context for the API call
     //!   - Thread-safe: Yes, this method is required to be thread-safe and may be called from multiple threads.
     //!
-    virtual void* reallocate(void* /*baseAddr*/, uint64_t /*alignment*/, uint64_t /*newSize*/) noexcept
+    virtual void* reallocate(void* const /*baseAddr*/, uint64_t /*alignment*/, uint64_t /*newSize*/) noexcept
     {
         return nullptr;
     }
 
     //!
-    //! A thread-safe callback implemented by the application to handle release of GPU memory.
+    //! \brief A thread-safe callback implemented by the application to handle release of GPU memory.
     //!
     //! TensorRT may pass a nullptr to this function if it was previously returned by allocate().
     //!
-    //! \param memory A memory address that was previously returned by an allocate() or reallocate() call of the same allocator
-    //!        object.
+    //! \param memory A memory address that was previously returned by an allocate() or reallocate() call of the same
+    //! allocator object.
+    //!
+    //! \return True if the acquired memory is released successfully.
+    //!
+    //! \note The implementation must guarantee thread safety for concurrent allocate/reallocate/deallocate
+    //! requests.
+    //!
+    //! \usage
+    //! - Allowed context for the API call
+    //!   - Thread-safe: Yes, this method is required to be thread-safe and may be called from multiple threads.
+    //! \deprecated Deprecated in TensorRT 10.0. Superseded by deallocateAsync
+    //!
+    TRT_DEPRECATED virtual bool deallocate(void* const memory) noexcept = 0;
+
+    //!
+    //! \brief A thread-safe callback implemented by the application to handle stream-ordered acquisition of GPU memory.
+    //! This functionality is implemented in IGpuAsyncAllocator class; See \see IGpuAsyncAllocator.
+    //! This implementation here is just a wrap around of the syncronous method and should not be used.
+
+    //!
+    //! \param size The size of the memory block required (in bytes).
+    //! \param alignment The required alignment of memory. Alignment will be zero
+    //!        or a power of 2 not exceeding the alignment guaranteed by cudaMalloc.
+    //!        Thus this allocator can be safely implemented with cudaMalloc/cudaFree.
+    //!        An alignment value of zero indicates any alignment is acceptable.
+    //! \param flags Reserved for future use. In the current release, 0 will be passed.
+    //! \param stream specifies the cudaStream for asynchronous usage.
+    //!
+    //! \return If the allocation was successful, the start address of a device memory block of the requested size.
+    //! If an allocation request of size 0 is made, nullptr must be returned.
+    //! If an allocation request cannot be satisfied, nullptr must be returned.
+    //! If a non-null address is returned, it is guaranteed to have the specified alignment.
+    //!
+    //! \note The implementation must guarantee thread safety for concurrent allocate/reallocate/deallocate
+    //! requests.
+    //!
+    //! \usage
+    //! - Allowed context for the API call
+    //!   - Thread-safe: Yes, this method is required to be thread-safe and may be called from multiple threads.
+    //!
+    virtual void* allocateAsync(
+        uint64_t const size, uint64_t const alignment, AllocatorFlags const flags, cudaStream_t /*stream*/) noexcept
+    {
+        return allocate(size, alignment, flags);
+    }
+    //!
+    //! \brief A thread-safe callback implemented by the application to handle release of GPU memory, asynchronously.
+    //! This functionality is implemented in IGpuAsyncAllocator class; See \see IGpuAsyncAllocator.
+    //! This implementation here is just a wrap around of the syncronous method and should not be used.
+    //!
+    //! TensorRT may pass a nullptr to this function if it was previously returned by allocate().
+    //!
+    //! \param memory A memory address that was previously returned by an allocate() or reallocate() call of the same
+    //! allocator object.
+    //! \param stream specifies the cudaStream for asynchronous usage.
+    //!
     //! \return True if the acquired memory is released successfully.
     //!
     //! \note The implementation must guarantee thread safety for concurrent allocate/reallocate/deallocate
@@ -467,16 +610,30 @@ public:
     //! - Allowed context for the API call
     //!   - Thread-safe: Yes, this method is required to be thread-safe and may be called from multiple threads.
     //!
-    virtual bool deallocate(void* const memory) noexcept = 0;
+    virtual bool deallocateAsync(void* const memory, cudaStream_t /*stream*/) noexcept
+    {
+        return deallocate(memory);
+    }
+    //!
+    //! \brief Get information about the Interface.
+    //!
+    InterfaceInfo getInterfaceInfo() const noexcept override
+    {
+        return {"IGpuAllocator", 1, 0};
+    }
 
 protected:
-// @cond SuppressDoxyWarnings
+    // @cond SuppressDoxyWarnings
     IGpuAllocator(IGpuAllocator const&) = default;
     IGpuAllocator(IGpuAllocator&&) = default;
     IGpuAllocator& operator=(IGpuAllocator const&) & = default;
     IGpuAllocator& operator=(IGpuAllocator&&) & = default;
-// @endcond
+    // @endcond
 };
+
+} // namespace v_1_0
+
+using IGpuAllocator = v_1_0::IGpuAllocator;
 
 //!
 //! \class ILogger
@@ -496,7 +653,7 @@ public:
     //!
     //! \enum Severity
     //!
-    //! The severity corresponding to a log message.
+    //! \brief The severity corresponding to a log message.
     //!
     enum class Severity : int32_t
     {
@@ -513,7 +670,7 @@ public:
     };
 
     //!
-    //! A callback implemented by the application to handle logging messages;
+    //! \brief A callback implemented by the application to handle logging messages;
     //!
     //! \param severity The severity of the message.
     //! \param msg A null-terminated log message.
@@ -662,53 +819,36 @@ struct EnumMaxImpl<ErrorCode>
 };
 } // namespace impl
 
-//!
-//! \class IErrorRecorder
-//!
-//! \brief Reference counted application-implemented error reporting interface for TensorRT objects.
-//!
-//! The error reporting mechanism is a user-defined object that interacts with the internal state of the object
-//! that it is assigned to in order to determine information about abnormalities in execution. The error recorder
-//! gets both an error enum that is more descriptive than pass/fail and also a string description that gives more
-//! detail on the exact failure modes. In the safety context, the error strings are all limited to 128 bytes
-//! or less in length, including the NULL terminator.
-//!
-//! The ErrorRecorder gets passed along to any class that is created from another class that has an ErrorRecorder
-//! assigned to it. For example, assigning an ErrorRecorder to an IBuilder allows all INetwork's, ILayer's, and
-//! ITensor's to use the same error recorder. For functions that have their own ErrorRecorder accessor functions.
-//! This allows registering a different error recorder or de-registering of the error recorder for that specific
-//! object.
-//!
-//! ErrorRecorder objects that are used in the safety runtime must define an implementation-dependent upper limit
-//! of errors whose information can be stored, and drop errors above this upper limit. The limit must fit in int32_t.
-//! The IErrorRecorder::hasOverflowed() method is used to signal that one or more errors have been dropped.
-//!
-//! The ErrorRecorder object implementation must be thread safe. All locking and synchronization is pushed to the
-//! interface implementation and TensorRT does not hold any synchronization primitives when calling the interface
-//! functions.
-//!
-//! The lifetime of the ErrorRecorder object must exceed the lifetime of all TensorRT objects that use it.
-//!
-class IErrorRecorder
+namespace v_1_0
+{
+class IErrorRecorder : public IVersionedInterface
 {
 public:
     //!
-    //! A typedef of a C-style string for reporting error descriptions.
+    //! \brief Return version information associated with this interface. Applications must not override this method.
+    //!
+    InterfaceInfo getInterfaceInfo() const noexcept override
+    {
+        return InterfaceInfo{"IErrorRecorder", 1, 0};
+    }
+
+    //!
+    //! \brief A typedef of a C-style string for reporting error descriptions.
     //!
     using ErrorDesc = char const*;
 
     //!
-    //! The length limit for an error description in bytes, excluding the '\0' string terminator.
+    //! \brief The length limit for an error description in bytes, excluding the '\0' string terminator.
     //!
     static constexpr size_t kMAX_DESC_LENGTH{127U};
 
     //!
-    //! A typedef of a 32-bit integer for reference counting.
+    //! \brief A typedef of a 32-bit integer for reference counting.
     //!
     using RefCount = int32_t;
 
     IErrorRecorder() = default;
-    virtual ~IErrorRecorder() noexcept = default;
+    ~IErrorRecorder() noexcept override = default;
 
     // Public API used to retrieve information from the error recorder.
 
@@ -886,6 +1026,36 @@ protected:
     IErrorRecorder& operator=(IErrorRecorder&&) & = default;
     // @endcond
 }; // class IErrorRecorder
+} // namespace v_1_0
+
+//!
+//! \class IErrorRecorder
+//!
+//! \brief Reference counted application-implemented error reporting interface for TensorRT objects.
+//!
+//! The error reporting mechanism is a user-defined object that interacts with the internal state of the object
+//! that it is assigned to in order to determine information about abnormalities in execution. The error recorder
+//! gets both an error enum that is more descriptive than pass/fail and also a string description that gives more
+//! detail on the exact failure modes. In the safety context, the error strings are all limited to 128 bytes
+//! or less in length, including the NULL terminator.
+//!
+//! The ErrorRecorder gets passed along to any class that is created from another class that has an ErrorRecorder
+//! assigned to it. For example, assigning an ErrorRecorder to an IBuilder allows all INetwork's, ILayer's, and
+//! ITensor's to use the same error recorder. For functions that have their own ErrorRecorder accessor functions.
+//! This allows registering a different error recorder or de-registering of the error recorder for that specific
+//! object.
+//!
+//! ErrorRecorder objects that are used in the safety runtime must define an implementation-dependent upper limit
+//! of errors whose information can be stored, and drop errors above this upper limit. The limit must fit in int32_t.
+//! The IErrorRecorder::hasOverflowed() method is used to signal that one or more errors have been dropped.
+//!
+//! The ErrorRecorder object implementation must be thread safe. All locking and synchronization is pushed to the
+//! interface implementation and TensorRT does not hold any synchronization primitives when calling the interface
+//! functions.
+//!
+//! The lifetime of the ErrorRecorder object must exceed the lifetime of all TensorRT objects that use it.
+//!
+using IErrorRecorder = v_1_0::IErrorRecorder;
 
 //!
 //! \enum TensorIOMode
@@ -903,6 +1073,51 @@ enum class TensorIOMode : int32_t
     //! Tensor is output by the engine.
     kOUTPUT = 2
 };
+
+namespace v_1_0
+{
+class IStreamReader : public IVersionedInterface
+{
+public:
+    //!
+    //! TensorRT never calls the destructor for an IStreamReader defined by the
+    //! application.
+    //!
+    ~IStreamReader() override = default;
+    IStreamReader() = default;
+
+    InterfaceInfo getInterfaceInfo() const noexcept override
+    {
+        return InterfaceInfo{"IStreamReader", 1, 0};
+    }
+
+    //!
+    //! \brief Read the next number of bytes in the stream.
+    //!
+    //! \param destination The memory to write to
+    //! \param nbBytes The number of bytes to read
+    //!
+    //! \returns The number of bytes read. Negative values will be considered an automatic error.
+    //!
+    virtual int64_t read(void* destination, int64_t nbBytes) = 0;
+
+protected:
+    IStreamReader(IStreamReader const&) = default;
+    IStreamReader(IStreamReader&&) = default;
+    IStreamReader& operator=(IStreamReader const&) & = default;
+    IStreamReader& operator=(IStreamReader&&) & = default;
+};
+} // namespace v_1_0
+
+//!
+//! \class IStreamReader
+//!
+//! \brief Application-implemented class for reading data in a stream-based manner.
+//!
+//! \note To ensure compatibility of source code with future versions of TensorRT, use IStreamReader, not
+//!       v_1_0::IStreamReader
+//!
+using IStreamReader = v_1_0::IStreamReader;
 
 namespace impl
 {

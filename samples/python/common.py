@@ -30,8 +30,6 @@ try:
 except NameError:
     FileNotFoundError = IOError
 
-EXPLICIT_BATCH = 1 << (int)(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
-
 def check_cuda_err(err):
     if isinstance(err, cuda.CUresult):
         if err != cuda.CUresult.CUDA_SUCCESS:

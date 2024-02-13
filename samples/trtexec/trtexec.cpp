@@ -122,11 +122,18 @@ bool initNvinfer()
     static LibraryPtr libnvinferPtr{};
     auto fetchPtrs = [](DynamicLibrary* l) {
         pCreateInferRuntimeInternal = l->symbolAddress<void*(void*, int32_t)>("createInferRuntime_INTERNAL");
-
-        if (gUseRuntime == RuntimeMode::kFULL)
+        try
         {
             pCreateInferRefitterInternal
                 = l->symbolAddress<void*(void*, void*, int32_t)>("createInferRefitter_INTERNAL");
+        }
+        catch (const std::exception& e)
+        {
+            sample::gLogWarning << "Could not load function createInferRefitter_INTERNAL : " << e.what() << std::endl;
+        }
+
+        if (gUseRuntime == RuntimeMode::kFULL)
+        {
             pCreateInferBuilderInternal = l->symbolAddress<void*(void*, int32_t)>("createInferBuilder_INTERNAL");
         }
     };
