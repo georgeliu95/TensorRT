@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,9 +19,15 @@
 #include "common/checkMacrosPlugin.h"
 #include "cudaDriverWrapper.h"
 
+namespace nvinfer1
+{
+namespace pluginInternal
+{
+
 #if defined(_WIN32)
 #if !defined(WIN32_LEAN_AND_MEAN)
 #define WIN32_LEAN_AND_MEAN
+// Ensure that macros appearing in multiple files are only defined once.
 #endif // defined(WIN32_LEAN_AND_MEAN)
 #include <windows.h>
 #define dllOpen(name) (void*) LoadLibraryA(name)
@@ -37,31 +43,41 @@ auto const kCUBLAS_PLUGIN_LIBNAME
 auto const kCUBLAS_PLUGIN_LIBNAME = std::string{"libcublas.so."} + std::to_string(nvinfer1::getCudaLibVersionMaj());
 #endif
 
-namespace nvinfer1
-{
-namespace pluginInternal
-{
 using namespace nvinfer1;
 
-CublasWrapper::CublasWrapper()
+// If tryLoadingCublas failed, the CublasWrapper object won't be created.
+CublasWrapper::CublasWrapper(bool initHandle)
+    : mLibrary(tryLoadingCublas())
 {
-    mLibrary = dllOpen(kCUBLAS_PLUGIN_LIBNAME.c_str());
-    mFail2LoadMsg = "Failed to load " + kCUBLAS_PLUGIN_LIBNAME + ".";
-    // cublas library is available
-    if (mLibrary != nullptr)
+    PLUGIN_VALIDATE(mLibrary != nullptr);
+    auto load_sym = [](void* handle, char const* name) {
+        void* ret = dllGetSym(handle, name);
+        std::string loadError = "Fail to load symbol " + std::string(name) + " from the cublas library.";
+        PLUGIN_VALIDATE(ret != nullptr, loadError.c_str());
+        return ret;
+    };
+    *(void**) (&_cublasCreate) = load_sym(mLibrary, "cublasCreate_v2");
+    *(void**) (&_cublasDestroy) = load_sym(mLibrary, "cublasDestroy_v2");
+    *(void**) (&_cublasSetStream) = load_sym(mLibrary, "cublasSetStream_v2");
+    *(void**) (&_cublasGetPointerMode) = load_sym(mLibrary, "cublasGetPointerMode_v2");
+    *(void**) (&_cublasSetPointerMode) = load_sym(mLibrary, "cublasSetPointerMode_v2");
+    *(void**) (&_cublasGetMathMode) = load_sym(mLibrary, "cublasGetMathMode");
+    *(void**) (&_cublasSetMathMode) = load_sym(mLibrary, "cublasSetMathMode");
+    *(void**) (&_cublasDscal) = load_sym(mLibrary, "cublasDscal_v2");
+    *(void**) (&_cublasSasum) = load_sym(mLibrary, "cublasSasum_v2");
+    *(void**) (&_cublasScopy) = load_sym(mLibrary, "cublasScopy_v2");
+    *(void**) (&_cublasSscal) = load_sym(mLibrary, "cublasSscal_v2");
+    *(void**) (&_cublasSgemm) = load_sym(mLibrary, "cublasSgemm_v2");
+    *(void**) (&_cublasHgemm) = load_sym(mLibrary, "cublasHgemm");
+    *(void**) (&_cublasHgemmStridedBatched) = load_sym(mLibrary, "cublasHgemmStridedBatched");
+    *(void**) (&_cublasSgemmStridedBatched) = load_sym(mLibrary, "cublasSgemmStridedBatched");
+    *(void**) (&_cublasGemmEx) = load_sym(mLibrary, "cublasGemmEx");
+    *(void**) (&_cublasGemmStridedBatchedEx) = load_sym(mLibrary, "cublasGemmStridedBatchedEx");
+
+    if (initHandle)
     {
-        PLUGIN_ASSERT(mLibrary != nullptr);
-        _cublasCreate = reinterpret_cast<cublasCreateType>(dllGetSym(mLibrary, "cublasCreate_v2"));
-        _cublasDestroy = reinterpret_cast<cublasDestroyType>(dllGetSym(mLibrary, "cublasDestroy_v2"));
-        PLUGIN_VALIDATE_MSG(cublasCreate(&mHandle) == CUBLAS_STATUS_SUCCESS, "Could not create cublas handle.");
-        PLUGIN_ASSERT(mHandle != nullptr);
-    }
-    else
-    {
-        mHandle = nullptr;
-        nvinfer1::plugin::gLogWarning << "Unable to dynamically load " << kCUBLAS_PLUGIN_LIBNAME
-                                      << ". Cublas handle is set to nullptr. Please provide the library if needed."
-                                      << std::endl;
+        PLUGIN_VALIDATE(cublasCreate(&mHandle) == CUBLAS_STATUS_SUCCESS, "Could not create cublas handle.");
+        PLUGIN_VALIDATE(mHandle != nullptr);
     }
 }
 
@@ -69,17 +85,22 @@ CublasWrapper::~CublasWrapper()
 {
     if (mHandle != nullptr)
     {
-        PLUGIN_VALIDATE_MSG(cublasDestroy(mHandle) == CUBLAS_STATUS_SUCCESS, "Could not destroy cublas handle.");
+        PLUGIN_VALIDATE(cublasDestroy(mHandle) == CUBLAS_STATUS_SUCCESS, "Could not destroy cublas handle.");
         mHandle = nullptr;
     }
 
-    if (mLibrary != nullptr)
-    {
-        dllClose(mLibrary);
-    }
+    dllClose(mLibrary);
 }
 
-cublasContext* CublasWrapper::getCublasHandle() const
+void* CublasWrapper::tryLoadingCublas()
+{
+    void* cublasLib = dllOpen(kCUBLAS_PLUGIN_LIBNAME.c_str());
+    std::string errorMsg = "Failed to load " + kCUBLAS_PLUGIN_LIBNAME + ".";
+    PLUGIN_VALIDATE(cublasLib != nullptr, errorMsg.c_str());
+    return cublasLib;
+}
+
+cublasContext* CublasWrapper::getCublasHandle()
 {
     return mHandle;
 }
@@ -91,15 +112,115 @@ bool CublasWrapper::isValid() const
 
 cublasStatus_t CublasWrapper::cublasCreate(cublasContext** handle)
 {
-    PLUGIN_VALIDATE_MSG(mLibrary != nullptr, mFail2LoadMsg.c_str());
-    return _cublasCreate(handle);
+    return (*_cublasCreate)(handle);
 }
 
 cublasStatus_t CublasWrapper::cublasDestroy(cublasContext* handle)
 {
-    PLUGIN_VALIDATE_MSG(mLibrary != nullptr, mFail2LoadMsg.c_str());
-    return _cublasDestroy(handle);
+    return (*_cublasDestroy)(handle);
 }
+
+cublasStatus_t CublasWrapper::cublasSetStream(cublasHandle_t handle, cudaStream_t streamId)
+{
+    return (*_cublasSetStream)(handle, streamId);
+}
+
+cublasStatus_t CublasWrapper::cublasGetPointerMode(cublasHandle_t handle, cublasPointerMode_t* mode)
+{
+    return (*_cublasGetPointerMode)(handle, mode);
+}
+
+cublasStatus_t CublasWrapper::cublasSetPointerMode(cublasHandle_t handle, cublasPointerMode_t mode)
+{
+    return (*_cublasSetPointerMode)(handle, mode);
+}
+
+cublasStatus_t CublasWrapper::cublasGetMathMode(cublasHandle_t handle, cublasMath_t* mode)
+{
+    return (*_cublasGetMathMode)(handle, mode);
+}
+
+cublasStatus_t CublasWrapper::cublasSetMathMode(cublasHandle_t handle, cublasMath_t mode)
+{
+    return (*_cublasSetMathMode)(handle, mode);
+}
+
+cublasStatus_t CublasWrapper::cublasDscal(cublasHandle_t handle, int n, float const* alpha, float* x, int incx)
+{
+    return (*_cublasDscal)(handle, n, alpha, x, incx);
+}
+
+cublasStatus_t CublasWrapper::cublasSasum(cublasHandle_t handle, int n, float const* x, int incx, float* result)
+{
+    return (*_cublasSasum)(handle, n, x, incx, result);
+}
+
+cublasStatus_t CublasWrapper::cublasScopy(cublasHandle_t handle, int n, float const* x, int incx, float* y, int incy)
+{
+    return (*_cublasScopy)(handle, n, x, incx, y, incy);
+}
+
+cublasStatus_t CublasWrapper::cublasSscal(cublasHandle_t handle, int n, float const* alpha, float* x, int incx)
+{
+    return (*_cublasSscal)(handle, n, alpha, x, incx);
+}
+
+cublasStatus_t CublasWrapper::cublasSgemm(cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
+    int m, int n, int k, float const* alpha, float const* A, int lda, float const* B, int ldb, float const* beta,
+    float* C, int ldc)
+{
+    return (*_cublasSgemm)(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
+}
+
+cublasStatus_t CublasWrapper::cublasHgemm(cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
+    int m, int n, int k, __half const* alpha, __half const* A, int lda, __half const* B, int ldb, __half const* beta,
+    __half* C, int ldc)
+{
+    return (*_cublasHgemm)(handle, transa, transb, m, n, k, alpha, A, lda, B, ldb, beta, C, ldc);
+}
+
+cublasStatus_t CublasWrapper::cublasHgemmStridedBatched(cublasHandle_t handle, cublasOperation_t transa,
+    cublasOperation_t transb, int m, int n, int k, __half const* alpha, __half const* A, int lda, long long int strideA,
+    __half const* B, int ldb, long long int strideB, __half const* beta, __half* C, int ldc, long long int strideC,
+    int batchCount)
+{
+    return (*_cublasHgemmStridedBatched)(
+        handle, transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, batchCount);
+}
+
+cublasStatus_t CublasWrapper::cublasSgemmStridedBatched(cublasHandle_t handle, cublasOperation_t transa,
+    cublasOperation_t transb, int m, int n, int k, float const* alpha, float const* A, int lda, long long int strideA,
+    float const* B, int ldb, long long int strideB, float const* beta, float* C, int ldc, long long int strideC,
+    int batchCount)
+{
+    return (*_cublasSgemmStridedBatched)(
+        handle, transa, transb, m, n, k, alpha, A, lda, strideA, B, ldb, strideB, beta, C, ldc, strideC, batchCount);
+}
+
+cublasStatus_t CublasWrapper::cublasGemmEx(cublasHandle_t handle, cublasOperation_t transa, cublasOperation_t transb,
+    int m, int n, int k, void const* alpha, void const* A, cudaDataType Atype, int lda, void const* B,
+    cudaDataType Btype, int ldb, void const* beta, void* C, cudaDataType Ctype, int ldc, cudaDataType computeType,
+    cublasGemmAlgo_t algo)
+{
+    return (*_cublasGemmEx)(
+        handle, transa, transb, m, n, k, alpha, A, Atype, lda, B, Btype, ldb, beta, C, Ctype, ldc, computeType, algo);
+}
+
+cublasStatus_t CublasWrapper::cublasGemmStridedBatchedEx(cublasHandle_t handle, cublasOperation_t transa,
+    cublasOperation_t transb, int m, int n, int k, void const* alpha, void const* A, cudaDataType Atype, int lda,
+    long long int strideA, void const* B, cudaDataType Btype, int ldb, long long int strideB, void const* beta, void* C,
+    cudaDataType Ctype, int ldc, long long int strideC, int batchCount, cudaDataType computeType, cublasGemmAlgo_t algo)
+{
+    return (*_cublasGemmStridedBatchedEx)(handle, transa, transb, m, n, k, alpha, A, Atype, lda, strideA, B, Btype, ldb,
+        strideB, beta, C, Ctype, ldc, strideC, batchCount, computeType, algo);
+}
+
+CublasWrapper& getCublasWrapper()
+{
+    // Initialize a global cublasWrapper instance to be used to call cublas functions.
+    static CublasWrapper sGCublasWrapper;
+    return sGCublasWrapper;
+};
 
 } // namespace pluginInternal
 } // namespace nvinfer1

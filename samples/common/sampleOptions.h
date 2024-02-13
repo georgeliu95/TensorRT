@@ -24,6 +24,7 @@
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -87,6 +88,7 @@ enum class MemoryAllocationStrategy
 {
     kSTATIC,  //< Allocate device memory based on max size across all profiles.
     kPROFILE, //< Allocate device memory based on max size of the current profile.
+    kRUNTIME, //< Allocate device memory based on the current input shapes.
 };
 
 //!
@@ -140,6 +142,8 @@ using LayerPrecisions = std::unordered_map<std::string, nvinfer1::DataType>;
 using LayerOutputTypes = std::unordered_map<std::string, std::vector<nvinfer1::DataType>>;
 using LayerDeviceTypes = std::unordered_map<std::string, nvinfer1::DeviceType>;
 
+using StringSet = std::unordered_set<std::string>;
+
 class Options
 {
 public:
@@ -184,6 +188,7 @@ public:
     double dlaSRAM{-1.0};
     double dlaLocalDRAM{-1.0};
     double dlaGlobalDRAM{-1.0};
+    double tacticSharedMem{-1.0};
     int32_t avgTiming{defaultAvgTiming};
     size_t calibProfile{defaultOptProfileIndex};
     bool tf32{true};
@@ -197,6 +202,8 @@ public:
     LayerPrecisions layerPrecisions;
     LayerOutputTypes layerOutputTypes;
     LayerDeviceTypes layerDeviceTypes;
+    StringSet debugTensors;
+    StringSet debugTensorStates;
     bool safe{false};
     bool buildDLAStandalone{false};
     bool allowGPUFallback{false};
@@ -207,9 +214,8 @@ public:
     bool load{false};
     bool refittable{false};
     bool weightless{false};
-    bool heuristic{false};
     bool versionCompatible{false};
-    bool nativeInstanceNorm{false};
+    bool pluginInstanceNorm{false};
     bool excludeLeanRuntime{false};
     bool disableCompilationCache{false};
     int32_t builderOptimizationLevel{defaultBuilderOptimizationLevel};
@@ -237,6 +243,9 @@ public:
     std::string leanDLLPath{};
     int32_t maxAuxStreams{defaultMaxAuxStreams};
     bool getPlanVersionOnly{false};
+
+    static constexpr int64_t kUNSET_WEIGHT_STREAMING{-2};
+    int64_t weightStreamingBudget{kUNSET_WEIGHT_STREAMING};
 
     void parse(Arguments& arguments) override;
 
@@ -285,6 +294,9 @@ public:
     ShapeProfile shapes;
     nvinfer1::ProfilingVerbosity nvtxVerbosity{nvinfer1::ProfilingVerbosity::kLAYER_NAMES_ONLY};
     MemoryAllocationStrategy memoryAllocationStrategy{MemoryAllocationStrategy::kSTATIC};
+    std::unordered_map<std::string, std::string> debugTensorFileNames;
+
+    int64_t weightStreamingBudget{BuildOptions::kUNSET_WEIGHT_STREAMING};
 
     void parse(Arguments& arguments) override;
 

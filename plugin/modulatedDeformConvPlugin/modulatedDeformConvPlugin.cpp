@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,6 +29,7 @@
 #include <chrono>
 
 using namespace nvinfer1;
+using namespace nvinfer1::pluginInternal;
 using nvinfer1::plugin::ModulatedDeformableConvPluginDynamic;
 using nvinfer1::plugin::ModulatedDeformableConvPluginDynamicCreator;
 
@@ -138,10 +139,6 @@ void ModulatedDeformableConvPluginDynamic::configurePlugin(nvinfer1::DynamicPlug
 {
     try
     {
-        if (mCublasHandle == nullptr)
-        {
-            PLUGIN_CUBLASASSERT(cublasCreate(&mCublasHandle));
-        }
         if (nbInputs == 5)
         {
             mWithBias = true;
@@ -271,16 +268,21 @@ void ModulatedDeformableConvPluginDynamic::destroy() noexcept
 }
 
 void ModulatedDeformableConvPluginDynamic::attachToContext(
-    cudnnContext* cudnnContext, cublasContext* cublasContext, nvinfer1::IGpuAllocator* gpuAllocator) noexcept {}
-
-void ModulatedDeformableConvPluginDynamic::detachFromContext() noexcept
+    cudnnContext* cudnnContext, cublasContext* cublasContext, nvinfer1::IGpuAllocator* gpuAllocator) noexcept
 {
-    if(mCublasHandle)
+    try
     {
-        PLUGIN_CUBLASASSERT(cublasDestroy(mCublasHandle));
-        mCublasHandle = nullptr;
+        mCublasWrapper = createPluginCublasWrapper(gpuAllocator);
+        mCublasHandle = mCublasWrapper->getCublasHandle();
+        PLUGIN_VALIDATE(mCublasHandle);
+    }
+    catch (std::exception const& e)
+    {
+        caughtError(e);
     }
 }
+
+void ModulatedDeformableConvPluginDynamic::detachFromContext() noexcept {}
 
 void ModulatedDeformableConvPluginDynamic::setPluginNamespace(char const* libNamespace) noexcept
 {

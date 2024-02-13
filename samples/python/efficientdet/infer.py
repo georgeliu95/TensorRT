@@ -65,8 +65,8 @@ class TensorRTInfer:
                 profile_shape = self.engine.get_profile_shape(0, name)
                 assert len(profile_shape) == 3  # min,opt,max
                 # Set the *max* profile as binding shape
-                self.context.set_binding_shape(i, profile_shape[2])
-                shape = self.context.get_binding_shape(i)
+                self.context.set_input_shape(name, profile_shape[2])
+                shape = self.context.get_tensor_shape(name)
             if is_input:
                 self.batch_size = shape[0]
             size = dtype.itemsize

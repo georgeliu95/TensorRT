@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -50,6 +50,7 @@ public:
                 {
                     return;
                 }
+                delete obj;
                 // Clears observer to avoid growth of mObservers, in case users create/destroy
                 // plugin handle contexts frequently.
                 std::shared_ptr<T_> observedObjHolder;
@@ -73,6 +74,7 @@ public:
             result = std::shared_ptr<T_>{mCreator().release(), std::move(deleter)};
             mObservers.at(executionContextIdentifier) = result;
         }
+
         return result;
     };
 
@@ -83,31 +85,27 @@ private:
     std::unordered_map</*contextIdentifier*/ void*, std::weak_ptr<T_>> mObservers;
 }; // class PerContextPluginHandleSingletonCreator
 
-std::unique_ptr<cudnnContext*> createPluginCudnnHandleImpl()
+std::unique_ptr<CudnnWrapper> createPluginCudnnWrapperImpl()
 {
-    CudnnWrapper wrapper;
-    auto cudnnHandle = std::make_unique<cudnnContext*>(wrapper.getCudnnHandle());
-    return cudnnHandle;
+    return std::make_unique<CudnnWrapper>(/*initHandle*/ true);
 }
 
-std::unique_ptr<cublasContext*> createPluginCublasHandleImpl()
+std::unique_ptr<CublasWrapper> createPluginCublasWrapperImpl()
 {
-    CublasWrapper wrapper;
-    auto cublasHandle = std::make_unique<cublasContext*>(wrapper.getCublasHandle());
-    return cublasHandle;
+    return std::make_unique<CublasWrapper>(/*initHandle*/ true);
 }
 
-static PerContextPluginHandleSingletonCreator<cudnnContext*> gCreatePluginCudnnHandleWrapper(
-    createPluginCudnnHandleImpl);
-static PerContextPluginHandleSingletonCreator<cublasContext*> gCreatePluginCublasHandleWrapper(
-    createPluginCublasHandleImpl);
+static PerContextPluginHandleSingletonCreator<CudnnWrapper> gCreatePluginCudnnHandleWrapper(
+    createPluginCudnnWrapperImpl);
+static PerContextPluginHandleSingletonCreator<CublasWrapper> gCreatePluginCublasHandleWrapper(
+    createPluginCublasWrapperImpl);
 
-std::shared_ptr<cudnnContext*> createPluginCudnnHandle(void* executionContextIdentifier)
+std::shared_ptr<CudnnWrapper> createPluginCudnnWrapper(void* executionContextIdentifier)
 {
     return gCreatePluginCudnnHandleWrapper(executionContextIdentifier);
 }
 
-std::shared_ptr<cublasContext*> createPluginCublasHandle(void* executionContextIdentifier)
+std::shared_ptr<CublasWrapper> createPluginCublasWrapper(void* executionContextIdentifier)
 {
     return gCreatePluginCublasHandleWrapper(executionContextIdentifier);
 }
@@ -137,6 +135,18 @@ void validateRequiredAttributesExist(std::set<std::string> requiredFieldNames, P
         std::string msg_str = msg.str();
         PLUGIN_ERROR(msg_str.c_str());
     }
+}
+
+int32_t dimToInt32(int64_t d)
+{
+    if (d < std::numeric_limits<int32_t>::min() || d > std::numeric_limits<int32_t>::max())
+    {
+        std::stringstream msg{};
+        msg << "Plugin cannot handle dimension outside of int32_t range: " << d;
+        std::string msg_str = msg.str();
+        PLUGIN_ERROR(msg_str.c_str());
+    }
+    return static_cast<int32_t>(d);
 }
 
 } // namespace plugin

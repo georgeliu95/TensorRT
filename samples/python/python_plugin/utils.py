@@ -19,6 +19,7 @@ from cuda import cuda, cudart, nvrtc
 import numpy as np
 import os
 import argparse
+import threading
 
 def parseArgs():
     parser = argparse.ArgumentParser(description="Options for Circular Padding plugin C++ example")
@@ -96,3 +97,34 @@ class KernelHelper:
 
     def getFunction(self, name):
         return checkCudaErrors(cuda.cuModuleGetFunction(self.module, name))
+
+class AtomicInt():
+    def __init__(self, val = 0):
+        assert type(val) is int
+        self.val = val
+        self._lock = threading.Lock()
+
+    def increment(self):
+        with self._lock:
+            self.val += 1
+
+    def decrement(self):
+        with self._lock:
+            self.val -= 1
+
+class CudaCtxManager:
+    cuda_ctx = None
+    ref_count = AtomicInt()
+
+    @classmethod
+    def refer(cls, device):
+        if cls.ref_count.val == 0:
+            _, cls.cuda_ctx = cuda.cuCtxCreate(0, device)
+        cls.ref_count.increment()
+
+    @classmethod
+    def derefer(cls):
+        assert cls.ref_count.val >= 1
+        cls.ref_count.decrement()
+        if cls.ref_count.val == 0:
+           checkCudaErrors(cuda.cuCtxDestroy(cls.cuda_ctx))

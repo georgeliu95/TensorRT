@@ -45,6 +45,7 @@
 | [reorgPlugin](reorgPlugin) | Reorg_TRT | 1 |
 | [roiAlignPlugin](roiAlignPlugin) | ROIAlign_TRT | 1 |
 | [resizeNearestPlugin](resizeNearestPlugin) | ResizeNearest_TRT | 1 |
+| [scatterElementsPlugin](scatterElementsPlugin) | ScatterElements | 1 |
 | [scatterPlugin](scatterPlugin) | ScatterND | 1 |
 | [skipLayerNormPlugin](skipLayerNormPlugin) | CustomSkipLayerNormPluginDynamic | 1, 2, 3 |
 | [specialSlicePlugin](specialSlicePlugin) [DEPRECATED] | SpecialSlice_TRT | 1 |

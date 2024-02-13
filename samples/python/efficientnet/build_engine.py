@@ -138,9 +138,8 @@ class EngineBuilder:
         Parse the ONNX graph and create the corresponding TensorRT network definition.
         :param onnx_path: The path to the ONNX graph to load.
         """
-        network_flags = 1 << int(trt.NetworkDefinitionCreationFlag.EXPLICIT_BATCH)
 
-        self.network = self.builder.create_network(network_flags)
+        self.network = self.builder.create_network(0)
         self.parser = trt.OnnxParser(self.network, self.trt_logger)
 
         onnx_path = os.path.realpath(onnx_path)

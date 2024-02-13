@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,6 +29,7 @@
 
 #include "bertQKVToContextPlugin/fused_multihead_attention_v2/include/fused_multihead_attention_v2.h"
 using namespace nvinfer1;
+using namespace nvinfer1::pluginInternal;
 
 namespace nvinfer1
 {
@@ -347,14 +348,15 @@ std::pair<int, int> tuneBatchedGemm(
 {
     const int nruns = 500;
     cublasHandle_t cublas;
-    PLUGIN_CUBLASASSERT(cublasCreate(&cublas));
+    CublasWrapper& wrapper = getCublasWrapper();
+    PLUGIN_CUBLASASSERT(wrapper.cublasCreate(&cublas));
     cudaStream_t stream;
     PLUGIN_CUASSERT(cudaStreamCreate(&stream));
     cudaEvent_t start, stop;
     PLUGIN_CUASSERT(cudaEventCreate(&start));
     PLUGIN_CUASSERT(cudaEventCreate(&stop));
-    PLUGIN_CUBLASASSERT(cublasSetStream(cublas, stream));
-    PLUGIN_CUBLASASSERT(cublasSetMathMode(cublas, CUBLAS_TENSOR_OP_MATH));
+    PLUGIN_CUBLASASSERT(wrapper.cublasSetStream(cublas, stream));
+    PLUGIN_CUBLASASSERT(wrapper.cublasSetMathMode(cublas, CUBLAS_TENSOR_OP_MATH));
 
     using T = half;
     const int omatSize = S * S;
@@ -437,7 +439,7 @@ std::pair<int, int> tuneBatchedGemm(
     PLUGIN_CUASSERT(cudaEventDestroy(start));
     PLUGIN_CUASSERT(cudaEventDestroy(stop));
     PLUGIN_CUASSERT(cudaStreamDestroy(stream));
-    PLUGIN_CUBLASASSERT(cublasDestroy(cublas));
+    PLUGIN_CUBLASASSERT(wrapper.cublasDestroy(cublas));
     return std::make_pair(best1, best2);
 }
 
@@ -529,9 +531,11 @@ void UnfusedMHARunner::run(const PluginTensorDesc* inputDesc, const PluginTensor
 void UnfusedMHARunner::run(const PluginTensorDesc& inputDesc, const PluginTensorDesc& outputDesc, const void* qkvPtr,
     const void* maskPtr, void* output, void* workspace, cudaStream_t stream, cublasHandle_t cublas)
 {
+    CublasWrapper& wrapper = getCublasWrapper();
     const int* maskIdx = static_cast<const int*>(maskPtr);
 
-    PLUGIN_CUBLASASSERT(cublasSetStream(cublas, stream));
+    PLUGIN_CUBLASASSERT(wrapper.cublasSetStream(cublas, stream));
+    PLUGIN_VALIDATE(workspace != nullptr);
 
     // Q, K, V: BxNxSxH (inputs)
     // Q * K': BxNxSxS (-> scratch1)
@@ -548,7 +552,7 @@ void UnfusedMHARunner::run(const PluginTensorDesc& inputDesc, const PluginTensor
         half* pptr = qkptr + mOmatSize * mNumMats;
         half alpha = 1.f;
         half beta = 0.f;
-        PLUGIN_CUBLASASSERT(::cublasGemmStridedBatchedEx(cublas, CUBLAS_OP_T, CUBLAS_OP_N, mS, mS, mHeadSize, &alpha,
+        PLUGIN_CUBLASASSERT(wrapper.cublasGemmStridedBatchedEx(cublas, CUBLAS_OP_T, CUBLAS_OP_N, mS, mS, mHeadSize, &alpha,
             kptr, CUDA_R_16F, mLdQKV, mStrideQKV, qptr, CUDA_R_16F, mLdQKV, mStrideQKV, &beta, qkptr, CUDA_R_16F, mS,
             mOmatSize, mNumMats, CUDA_R_16F, static_cast<cublasGemmAlgo_t>(mAlgoBatchedEx1)));
 
@@ -563,7 +567,7 @@ void UnfusedMHARunner::run(const PluginTensorDesc& inputDesc, const PluginTensor
         }
 
         // compute P*V (as V*P)
-        PLUGIN_CUBLASASSERT(cublasGemmStridedBatchedEx(cublas, CUBLAS_OP_N, CUBLAS_OP_N, mHeadSize, mS, mS, &alpha,
+        PLUGIN_CUBLASASSERT(wrapper.cublasGemmStridedBatchedEx(cublas, CUBLAS_OP_N, CUBLAS_OP_N, mHeadSize, mS, mS, &alpha,
             vptr, CUDA_R_16F, mLdQKV, mStrideQKV, pptr, CUDA_R_16F, mS, mOmatSize, &beta, output, CUDA_R_16F, mLdOut,
             mStrideOut, mNumMats, CUDA_R_16F, static_cast<cublasGemmAlgo_t>(mAlgoBatchedEx2)));
     }

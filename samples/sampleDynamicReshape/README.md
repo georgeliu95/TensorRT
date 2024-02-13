@@ -34,7 +34,7 @@ Specifically, this sample:
 ### Creating the preprocessing network
 
 First, create a network with full dims support:
-`auto preprocessorNetwork = makeUnique(builder->createNetworkV2(1U << static_cast<int32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH)));`
+`auto preprocessorNetwork = makeUnique(builder->createNetworkV2(0));`
 
 Next, add an input layer that accepts an input with a dynamic shape, followed by a resize layer that will reshape the input to the shape the model expects:
 ```
@@ -50,8 +50,7 @@ The -1 dimensions denote dimensions that will be supplied at runtime.
 
 First, create an empty full-dims network, and parser:
 ```
-const auto explicitBatch = 1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
-auto network = makeUnique(builder->createNetworkV2(explicitBatch));
+auto network = makeUnique(builder->createNetworkV2(0));
 auto parser = nvonnxparser::createParser(*network, sample::gLogger.getTRTLogger());
 ```
 
@@ -156,7 +155,7 @@ CHECK(cudaMemcpy(mInput.deviceBuffer.data(), mInput.hostBuffer.data(), mInput.ho
 ```
 
 Since the preprocessor engine accepts dynamic shapes, specify the actual shape of the current input to the execution context:
-`mPreprocessorContext->setBindingDimensions(0, inputDims);`
+`mPreprocessorContext->setInputShape(inputTensorName, inputDims);`, where inputTensorName is the name of the input tensor on binding index 0.
 
 Next, run the preprocessor using the `executeV2` function. The example writes the output of the preprocessor engine directly to the input device buffer of the MNIST engine:
 ```

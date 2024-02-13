@@ -121,6 +121,9 @@ Doing inference...
 Passed
 ```
 
+There is also an option `--version-compatible` to enable engine version compatibility.
+To build and refit a version compatible engine, run the command `python3 build_and_refit_engine.py --version-compatible` and the output should look similar to the above cases.
+
 # Additional resources
 
 The following resources provide a deeper understanding about the model used in this sample:
@@ -145,6 +148,9 @@ October 2020: This sample was recreated, updated and reviewed.
 August 2023: 
   - Add support for refitting engines from GPU weights.
   - Removed support for Python versions < 3.8.
+
+January 2024:
+  - Add support for refitting version compatible engines.
 
 # Known issues
 

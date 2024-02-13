@@ -20,8 +20,8 @@
 #include "infer/pyPluginDoc.h"
 #include "utils.h"
 #include <cuda_runtime_api.h>
-#include <pybind11/stl.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 
 #if EXPORT_ALL_BINDINGS
 #include "NvInferPlugin.h"
@@ -58,11 +58,6 @@ constexpr uint32_t kBYTE_MASK{0xFFU};
 inline PluginVersion getPluginVersion(int32_t const version)
 {
     return static_cast<PluginVersion>(version >> kTHREE_BYTE_SHIFT & kBYTE_MASK);
-}
-
-inline PluginCreatorVersion getPluginCreatorVersion(int32_t const version)
-{
-    return static_cast<PluginCreatorVersion>(version >> kTHREE_BYTE_SHIFT & kBYTE_MASK);
 }
 
 class PyIDimensionExprImpl : public IDimensionExpr
@@ -591,6 +586,11 @@ class IPluginCreatorImpl : public IPluginCreator
 public:
     IPluginCreatorImpl() = default;
 
+    APILanguage getAPILanguage() const noexcept override
+    {
+        return APILanguage::kPYTHON;
+    }
+
     AsciiChar const* getPluginName() const noexcept override
     {
         try
@@ -736,12 +736,6 @@ public:
     }
 
 private:
-    int32_t getTensorRTVersion() const noexcept override
-    {
-        return static_cast<int32_t>((static_cast<uint32_t>(PluginCreatorVersion::kV1_PYTHON) << 24U)
-            | (static_cast<uint32_t>(NV_TENSORRT_VERSION) & 0xFFFFFFU));
-    }
-
     nvinfer1::PluginFieldCollection mFC;
     std::string mNamespace;
     std::string mName;
@@ -881,6 +875,54 @@ static const auto get_plugin_creator_list = [](IPluginRegistry& self) {
     return new std::vector<IPluginCreator*>(ptr, ptr + numCreators);
 };
 
+static const auto get_all_creators = [](IPluginRegistry& self) -> std::vector<py::object>* {
+    int32_t numCreators{0};
+    IPluginCreatorInterface* const* ptr = self.getAllCreators(&numCreators);
+    // Python will free when done.
+    auto vec = std::make_unique<std::vector<py::object>>(numCreators);
+    try
+    {
+        std::generate(vec->begin(), vec->end(), [&ptr, i = 0]() mutable -> py::object {
+            if (std::strcmp(ptr[i]->getInterfaceInfo().kind, "PLUGIN CREATOR_V1") == 0)
+            {
+                auto v1Creator = static_cast<IPluginCreator const*>(ptr[i]);
+                return py::cast(static_cast<IPluginCreator const*>(ptr[i++]));
+            }
+            utils::throwPyError(PyExc_RuntimeError, "Unknown plugin creator type");
+            return py::none{};
+        });
+        return vec.release();
+    }
+    catch (std::exception const& e)
+    {
+        std::cerr << "[ERROR] Exception caught in get_all_creators(): " << e.what() << std::endl;
+    }
+    catch (...)
+    {
+        std::cerr << "[ERROR] Exception caught in get_all_creators()" << std::endl;
+    }
+    return nullptr;
+};
+
+static const auto get_creator = [](IPluginRegistry& self, char const* pluginType, char const* pluginVersion,
+                                    char const* pluginNamespace) -> py::object {
+    IPluginCreatorInterface* creator = self.getCreator(pluginType, pluginVersion, pluginNamespace);
+    if (creator == nullptr)
+    {
+        return py::none{};
+    }
+    else
+    {
+        if (std::strcmp(creator->getInterfaceInfo().kind, "PLUGIN CREATOR_V1") == 0)
+        {
+            auto v1Creator = static_cast<IPluginCreator*>(creator);
+            return py::cast(static_cast<IPluginCreator*>(v1Creator));
+        }
+        utils::throwPyError(PyExc_RuntimeError, "Unknown plugin creator type");
+        return py::none{};
+    }
+};
+
 // For IPluginCreator
 static const auto creator_create_plugin
     = [](IPluginCreator& self, std::string const& name, PluginFieldCollection const* fc) {
@@ -902,7 +944,7 @@ static const auto deserialize_plugin = [](IPluginCreator& self, std::string cons
 };
 
 static const auto IPluginCreator_set_field_names = [](IPluginCreator& self, PluginFieldCollection pfc) {
-    if(getPluginCreatorVersion(self.getTensorRTVersion()) == PluginCreatorVersion::kV1_PYTHON)
+    if (self.getAPILanguage() == APILanguage::kPYTHON)
     {
         auto pluginCreator = static_cast<IPluginCreatorImpl*>(&self);
         pluginCreator->setFieldNames(pfc);
@@ -912,7 +954,7 @@ static const auto IPluginCreator_set_field_names = [](IPluginCreator& self, Plug
 };
 
 static const auto IPluginCreator_set_name = [](IPluginCreator& self, std::string name) {
-    if(getPluginCreatorVersion(self.getTensorRTVersion()) == PluginCreatorVersion::kV1_PYTHON)
+    if (self.getAPILanguage() == APILanguage::kPYTHON)
     {
         auto pluginCreator = static_cast<IPluginCreatorImpl*>(&self);
         pluginCreator->setName(std::move(name));
@@ -922,7 +964,7 @@ static const auto IPluginCreator_set_name = [](IPluginCreator& self, std::string
 };
 
 static const auto IPluginCreator_set_plugin_version = [](IPluginCreator& self, std::string pluginVersion) {
-    if(getPluginCreatorVersion(self.getTensorRTVersion()) == PluginCreatorVersion::kV1_PYTHON)
+    if (self.getAPILanguage() == APILanguage::kPYTHON)
     {
         auto pluginCreator = static_cast<IPluginCreatorImpl*>(&self);
         pluginCreator->setPluginVersion(std::move(pluginVersion));
@@ -1034,8 +1076,8 @@ size_t docGetSerializationSize(PyIPluginV2DynamicExt& self)
 void bindPlugin(py::module& m)
 {
     py::class_<IDimensionExpr, PyIDimensionExprImpl, std::unique_ptr<IDimensionExpr, py::nodelete>>(m, "IDimensionExpr", IDimensionExprDoc::descr, py::module_local())
-        .def("isConstant", &IDimensionExpr::isConstant, IDimensionExprDoc::is_constant)
-        .def("getConstantValue", &IDimensionExpr::getConstantValue, IDimensionExprDoc::get_constant_value);
+        .def("isConstant", &IDimensionExpr::isConstant)
+        .def("getConstantValue", &IDimensionExpr::getConstantValue);
 
     py::class_<DimsExprs>(m, "DimsExprs", DimsExprsDoc::descr, py::module_local())
         .def(py::init<>())
@@ -1048,8 +1090,8 @@ void bindPlugin(py::module& m)
 
     py::class_<IExprBuilder, PyIExprBuilderImpl, std::unique_ptr<IExprBuilder, py::nodelete>>(m, "IExprBuilder", IExprBuilderDoc::descr, py::module_local())
         .def(py::init<>())
-        .def("constant", &IExprBuilder::constant, "value"_a, IExprBuilderDoc::constant, py::return_value_policy::reference_internal)
-        .def("operation", &IExprBuilder::operation, "op"_a, "first"_a, "second"_a, IExprBuilderDoc::operation, py::return_value_policy::reference_internal);
+        .def("constant", &IExprBuilder::constant, py::return_value_policy::reference_internal)
+        .def("operation", &IExprBuilder::operation, py::return_value_policy::reference_internal);
 
     py::class_<PluginTensorDesc>(m, "PluginTensorDesc", PluginTensorDescDoc::descr, py::module_local())
         .def(py::init<>())
@@ -1104,6 +1146,7 @@ void bindPlugin(py::module& m)
     py::class_<PyIPluginV2DynamicExt, IPluginV2DynamicExt, IPluginV2, PyIPluginV2DynamicExtImpl, std::unique_ptr<PyIPluginV2DynamicExt>>(m, "IPluginV2DynamicExt", IPluginV2DynamicExtDoc::descr, py::module_local())
         .def(py::init<>())
         .def(py::init<const PyIPluginV2DynamicExt&>())
+        .def_property_readonly_static("FORMAT_COMBINATION_LIMIT", [](py::object) { return IPluginV2DynamicExt::kFORMAT_COMBINATION_LIMIT; })
         // The following defs are only for documenting the API for Python-based plugins
         .def("initialize", &docInitialize, IPluginV2DynamicExtDoc::initialize)
         .def("terminate", &docTerminate, IPluginV2DynamicExtDoc::terminate)
@@ -1195,12 +1238,19 @@ void bindPlugin(py::module& m)
     // which can then be converted to an actual C++ PluginFieldCollection.
     py::implicitly_convertible<std::vector<nvinfer1::PluginField>, PluginFieldCollection>();
 
-    py::class_<IPluginCreator, IPluginCreatorImpl>(m, "IPluginCreator", IPluginCreatorDoc::descr, py::module_local())
+    py::class_<IPluginCreatorInterface, IVersionedInterface>(
+        m, "IPluginCreatorInterface", IPluginCreatorInterfaceDoc::descr, py::module_local());
+
+    py::class_<IPluginCreator, IPluginCreatorImpl, IPluginCreatorInterface, IVersionedInterface>(
+        m, "IPluginCreator", IPluginCreatorDoc::descr, py::module_local())
         .def(py::init<>())
-        .def_property_readonly("tensorrt_version", &IPluginCreator::getTensorRTVersion)
-        .def_property("name", &IPluginCreator::getPluginName, py::cpp_function(lambdas::IPluginCreator_set_name, py::keep_alive<1, 2>{}))
-        .def_property("plugin_version", &IPluginCreator::getPluginVersion, py::cpp_function(lambdas::IPluginCreator_set_plugin_version, py::keep_alive<1, 2>{}))
-        .def_property("field_names", lambdas::get_field_names, py::cpp_function(lambdas::IPluginCreator_set_field_names, py::keep_alive<1, 2>{}), py::return_value_policy::reference_internal)
+        .def_property("name", &IPluginCreator::getPluginName,
+            py::cpp_function(lambdas::IPluginCreator_set_name, py::keep_alive<1, 2>{}))
+        .def_property("plugin_version", &IPluginCreator::getPluginVersion,
+            py::cpp_function(lambdas::IPluginCreator_set_plugin_version, py::keep_alive<1, 2>{}))
+        .def_property("field_names", lambdas::get_field_names,
+            py::cpp_function(lambdas::IPluginCreator_set_field_names, py::keep_alive<1, 2>{}),
+            py::return_value_policy::reference_internal)
         .def_property("plugin_namespace", &IPluginCreator::getPluginNamespace,
             py::cpp_function(&IPluginCreator::setPluginNamespace, py::keep_alive<1, 2>{}))
         .def("create_plugin", lambdas::creator_create_plugin, "name"_a, "field_collection"_a,
@@ -1208,16 +1258,19 @@ void bindPlugin(py::module& m)
         .def("deserialize_plugin", lambdas::deserialize_plugin, "name"_a, "serialized_plugin"_a,
             IPluginCreatorDoc::deserialize_plugin)
         .def("deserialize_plugin", &docDeserializePlugin, "name"_a, "serialized_plugin"_a,
-            IPluginCreatorDoc::deserialize_plugin_python)  // Should never be used. For documenting C++ -> Python API only.
-        ; 
+            IPluginCreatorDoc::deserialize_plugin_python) // Should never be used. For documenting C++ -> Python API
+                                                          // only.
+        ;
 
     py::class_<IPluginRegistry, std::unique_ptr<IPluginRegistry, py::nodelete>>(
         m, "IPluginRegistry", IPluginRegistryDoc::descr, py::module_local())
         .def_property_readonly("plugin_creator_list", lambdas::get_plugin_creator_list)
-        .def("register_creator", &IPluginRegistry::registerCreator, "creator"_a, "plugin_namespace"_a = "",
-            py::keep_alive<1, 2>{}, IPluginRegistryDoc::register_creator)
-        .def("deregister_creator", &IPluginRegistry::deregisterCreator, "creator"_a,
-            IPluginRegistryDoc::deregister_creator)
+        .def_property_readonly("all_creators", lambdas::get_all_creators)
+        .def("register_creator",
+            py::overload_cast<IPluginCreator&, AsciiChar const* const>(&IPluginRegistry::registerCreator), "creator"_a,
+            "plugin_namespace"_a = "", py::keep_alive<1, 2>{}, IPluginRegistryDoc::register_creator_iplugincreator)
+        .def("deregister_creator", py::overload_cast<IPluginCreator const&>(&IPluginRegistry::deregisterCreator),
+            "creator"_a, IPluginRegistryDoc::deregister_creator_iplugincreator)
         .def("get_plugin_creator", &IPluginRegistry::getPluginCreator, "type"_a, "version"_a, "plugin_namespace"_a = "",
             py::return_value_policy::reference_internal, IPluginRegistryDoc::get_plugin_creator)
         .def_property("error_recorder", &IPluginRegistry::getErrorRecorder,
@@ -1227,7 +1280,19 @@ void bindPlugin(py::module& m)
         .def("load_library", &IPluginRegistry::loadLibrary, "plugin_path"_a,
             py::return_value_policy::reference_internal, IPluginRegistryDoc::load_library)
         .def("deregister_library", &IPluginRegistry::deregisterLibrary, "handle"_a,
-            IPluginRegistryDoc::deregister_library);
+            IPluginRegistryDoc::deregister_library)
+        .def("register_creator",
+            py::overload_cast<IPluginCreatorInterface&, AsciiChar const* const>(&IPluginRegistry::registerCreator),
+            "creator"_a, "plugin_namespace"_a = "", py::keep_alive<1, 2>{}, IPluginRegistryDoc::register_creator)
+        .def("deregister_creator",
+            py::overload_cast<IPluginCreatorInterface const&>(&IPluginRegistry::deregisterCreator), "creator"_a,
+            IPluginRegistryDoc::deregister_creator)
+        .def("get_creator", lambdas::get_creator, "type"_a, "version"_a, "plugin_namespace"_a = "",
+            py::return_value_policy::reference_internal, IPluginRegistryDoc::get_creator);
+
+    py::enum_<PluginCreatorVersion>(m, "PluginCreatorVersion", PluginCreatorVersionDoc::descr, py::module_local())
+        .value("V1", PluginCreatorVersion::kV1)
+        .value("V1_PYTHON", PluginCreatorVersion::kV1_PYTHON);
 
     m.def("get_plugin_registry", &getPluginRegistry, py::return_value_policy::reference,
         FreeFunctionsDoc::get_plugin_registry);

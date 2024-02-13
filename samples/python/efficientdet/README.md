@@ -211,7 +211,7 @@ trtexec \
     --onnx=/path/to/model.onnx \
     --saveEngine=/path/to/engine.trt \
     --optShapes=input:$INPUT_SHAPE \
-    --workspace=1024
+    --memPoolSize=workspace:1024
 ```
 
 Where `$INPUT_SHAPE` defines the input spec to build the engine with, e.g. `--optShapes=input:8x512x512x3`. Other common `trtexec` functionality for lower precision modes or other options will also work as expected.

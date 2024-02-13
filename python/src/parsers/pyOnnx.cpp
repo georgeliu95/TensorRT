@@ -49,6 +49,7 @@ static const auto error_code_str = [](ErrorCode self) {
     case ErrorCode::kUNSUPPORTED_NODE_DATATYPE: return "UNSUPPORTED_NODE_DATATYPE";
     case ErrorCode::kUNSUPPORTED_NODE_DYNAMIC: return "UNSUPPORTED_NODE_DYNAMIC";
     case ErrorCode::kUNSUPPORTED_NODE_SHAPE: return "UNSUPPORTED_NODE_SHAPE";
+    case ErrorCode::kREFIT_FAILED: return "REFIT_FAILED";
     }
     return "UNKNOWN";
 };
@@ -109,6 +110,14 @@ static const auto get_local_function_stack = [](IParserError& self) {
     return localFunctionStack;
 };
 
+static const auto refitFromBytes = [](IParserRefitter& self, const py::buffer& model, const char* path = nullptr) {
+    py::buffer_info info = model.request();
+    return self.refitFromBytes(info.ptr, info.size * info.itemsize, path);
+};
+
+static const auto refitFromFile
+    = [](IParserRefitter& self, const std::string& model) { return self.refitFromFile(model.c_str()); };
+
 } // namespace lambdas
 
 void bindOnnx(py::module& m)
@@ -158,6 +167,7 @@ void bindOnnx(py::module& m)
         .value("UNSUPPORTED_NODE_DATATYPE", ErrorCode::kUNSUPPORTED_NODE_DATATYPE)
         .value("UNSUPPORTED_NODE_DYNAMIC", ErrorCode::kUNSUPPORTED_NODE_DYNAMIC)
         .value("UNSUPPORTED_NODE_SHAPE", ErrorCode::kUNSUPPORTED_NODE_SHAPE)
+        .value("REFIT_FAILED", ErrorCode::kREFIT_FAILED)
         .def("__str__", lambdas::error_code_str)
         .def("__repr__", lambdas::error_code_str);
 
@@ -175,6 +185,17 @@ void bindOnnx(py::module& m)
             ParserErrorDoc::local_function_stack_size)
         .def("__str__", lambdas::parser_error_str)
         .def("__repr__", lambdas::parser_error_str);
+
+    py::class_<IParserRefitter>(m, "OnnxParserRefitter", OnnxParserRefitterDoc::descr, py::module_local())
+        .def(py::init(&nvonnxparser::createParserRefitter), "refitter"_a, "logger"_a, OnnxParserRefitterDoc::init,
+            py::keep_alive<1, 3>{}, py::keep_alive<2, 1>{})
+        .def("refit_from_bytes", lambdas::refitFromBytes, "model"_a, "path"_a = nullptr,
+            OnnxParserRefitterDoc::refit_from_bytes, py::call_guard<py::gil_scoped_release>{})
+        .def("refit_from_file", lambdas::refitFromFile, "model"_a, OnnxParserRefitterDoc::refit_from_file,
+            py::call_guard<py::gil_scoped_release>{})
+        .def_property_readonly("num_errors", &IParserRefitter::getNbErrors)
+        .def("get_error", &IParserRefitter::getError, "index"_a, OnnxParserRefitterDoc::get_error)
+        .def("clear_errors", &IParserRefitter::clearErrors, OnnxParserRefitterDoc::clear_errors);
 
     // Free functions.
     m.def("get_nv_onnx_parser_version", &getNvOnnxParserVersion, get_nv_onnx_parser_version);

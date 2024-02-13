@@ -27,6 +27,7 @@
 #include "NvOnnxParser.h"
 #include "sampleOptions.h"
 #include "sampleUtils.h"
+#include "streamReader.h"
 
 namespace sample
 {
@@ -82,6 +83,7 @@ public:
         , mTempfileControls(tempfileControls)
         , mLeanDLLPath(leanDLLPath)
     {
+        mFileReader = std::make_unique<samplesCommon::FileStreamReader>();
     }
 
     //!
@@ -114,6 +116,8 @@ public:
     //!
     EngineBlob const getBlob() const
     {
+        ASSERT((!mFileReader || !mFileReader->isOpen())
+            && "Attempting to access the glob when there is an open file reader!");
         if (!mEngineBlob.empty())
         {
             return EngineBlob{const_cast<void*>(static_cast<void const*>(mEngineBlob.data())), mEngineBlob.size()};
@@ -157,6 +161,15 @@ public:
     }
 
     //!
+    //! \brief Get the file stream reader used for deserialization
+    //!
+    samplesCommon::FileStreamReader& getFileReader()
+    {
+        ASSERT(mFileReader);
+        return *mFileReader;
+    }
+
+    //!
     //! \brief Get if safe mode is enabled.
     //!
     bool isSafe()
@@ -174,6 +187,7 @@ private:
     bool mVersionCompatible{false};
     int32_t mDLACore{-1};
     std::vector<uint8_t> mEngineBlob;
+    std::unique_ptr<samplesCommon::FileStreamReader> mFileReader;
 
     // Directly use the host memory of a serialized engine instead of duplicating the engine in CPU memory.
     std::unique_ptr<nvinfer1::IHostMemory> mEngineBlobHostMemory;
@@ -332,6 +346,8 @@ nvinfer1::consistency::IConsistencyChecker* createConsistencyChecker(
 //! \brief Run consistency check on serialized engine.
 //!
 bool checkSafeEngine(void const* serializedEngine, int32_t const engineSize);
+
+bool loadStreamingEngineToBuildEnv(std::string const& engine, BuildEnvironment& env, std::ostream& err);
 
 bool loadEngineToBuildEnv(std::string const& engine, bool enableConsistency, BuildEnvironment& env, std::ostream& err);
 } // namespace sample

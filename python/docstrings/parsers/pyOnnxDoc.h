@@ -109,8 +109,11 @@ constexpr const char* set_flag = R"trtdoc(
 constexpr const char* get_layer_output_tensor = R"trtdoc(
     Get the i-th output ITensor object for the ONNX layer "name".
 
+   In the case of multiple nodes sharing the same name this function will return
+   the output tensors of the first instance of the node in the ONNX graph.
+
     :arg name: The name of the ONNX layer.
-    
+
     :arg i: The index of the output.
 
     :returns: The output tensor or None if the layer was not found or an invalid index was provided.
@@ -132,6 +135,45 @@ constexpr const char* get_used_vc_plugin_libraries = R"trtdoc(
 )trtdoc";
 } // namespace OnnxParserDoc
 
+namespace OnnxParserRefitterDoc
+{
+constexpr const char* descr = R"trtdoc(
+    This is an interface designed to refit weights from an ONNX model.
+)trtdoc";
+
+constexpr const char* init = R"trtdoc(
+    :arg refitter: The Refitter object used to refit the model.
+    :arg logger: The logger to use.
+)trtdoc";
+
+constexpr const char* refit_from_bytes = R"trtdoc(
+    Load a serialized ONNX model from memory and perform weight refit.
+
+    :arg model: The serialized ONNX model.
+    :arg path: The path to the model file. Only required if the model has externally stored weights.
+
+    :returns: true if all the weights in the engine were refit successfully.
+)trtdoc";
+
+constexpr const char* refit_from_file = R"trtdoc(
+    Load and parse a ONNX model from disk and perform weight refit.
+
+    :arg model: The path to an ONNX model.
+
+    :returns: true if the model was loaded successfully, and if all the weights in the engine were refit successfully.
+)trtdoc";
+
+constexpr const char* get_error = R"trtdoc(
+    Get an error that occurred during prior calls to :func:`refitFromBytes` or :func:`refitFromFile`.
+
+    :arg index: Index of the error
+)trtdoc";
+
+constexpr const char* clear_errors = R"trtdoc(
+    Clear errors from prior calls to :func:`refitFromBytes` or :func:`refitFromFile`.
+)trtdoc";
+} // namespace OnnxParserRefitterDoc
+
 namespace ErrorCodeDoc
 {
 constexpr const char* descr = R"trtdoc(
@@ -147,7 +189,7 @@ constexpr const char* descr = R"trtdoc(
 constexpr const char* NATIVE_INSTANCENORM = R"trtdoc(
    Parse the ONNX model into the INetworkDefinition with the intention of using TensorRT's native layer implementation over the plugin implementation for InstanceNormalization nodes.
    This flag is required when building version-compatible or hardware-compatible engines.
-   There may be performance degradations when this flag is enabled.
+   The flag is ON by default.
 )trtdoc";
 } // namespace OnnxParserFlagDoc
 

@@ -44,7 +44,7 @@ def make_trt_network_and_engine(input_shape, axis):
     plugin = plugin_creator.create_plugin(name="CustomHardmax", field_collection=field_collection)
 
     builder = trt.Builder(TRT_LOGGER)
-    network = builder.create_network(common.EXPLICIT_BATCH)
+    network = builder.create_network(0)
     config = builder.create_builder_config()
     config.set_tactic_sources(config.get_tactic_sources() | 1 << int(trt.TacticSource.CUBLAS))
     runtime = trt.Runtime(TRT_LOGGER)

@@ -1,13 +1,18 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
- * SPDX-License-Identifier: LicenseRef-NvidiaProprietary
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * NVIDIA CORPORATION, its affiliates and licensors retain all intellectual
- * property and proprietary rights in and to this material, related
- * documentation and any modifications thereto. Any use, reproduction,
- * disclosure or distribution of this material and related documentation
- * without an express license agreement from NVIDIA CORPORATION or
- * its affiliates is strictly prohibited.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 #ifndef NV_INFER_RUNTIME_COMMON_H
@@ -45,15 +50,17 @@ namespace nvinfer1
 //! \warning In the automotive safety context, be sure to call IPluginRegistry::setErrorRecorder() to register
 //! an error recorder with the registry before using other methods in the registry.
 //!
-
 class IPluginRegistry
 {
 public:
-    //! Pointer for plugin library handle.
-    using PluginLibraryHandle = void*;
     //!
-    //! \brief Register a plugin creator. Returns false if one with same type
-    //! is already registered.
+    //! \brief Pointer for plugin library handle.
+    //!
+    using PluginLibraryHandle = void*;
+
+    //!
+    //! \brief Register a plugin creator implementing IPluginCreator. Returns false if any plugin creator with the same
+    //! name, version or namespace is already registered.
     //!
     //! \warning The string pluginNamespace must be 1024 bytes or less including the NULL terminator and must be NULL
     //! terminated.
@@ -68,6 +75,9 @@ public:
     //! \brief Return all the registered plugin creators and the number of
     //! registered plugin creators. Returns nullptr if none found.
     //!
+    //! \warning If any plugin creators are registered or deregistered after calling this function, the returned pointer
+    //! is not guaranteed to be valid thereafter.
+    //!
     //! \usage
     //! - Allowed context for the API call
     //!   - Thread-safe: No
@@ -81,13 +91,15 @@ public:
     //! \warning The strings pluginName, pluginVersion, and pluginNamespace must be 1024 bytes or less including the
     //! NULL terminator and must be NULL terminated.
     //!
+    //! \warning Returns nullptr if a plugin creator with matching name, version, and namespace is found, but is not a
+    //! descendent of IPluginCreator
+    //!
     //! \usage
     //! - Allowed context for the API call
     //!   - Thread-safe: Yes
     //!
     virtual IPluginCreator* getPluginCreator(AsciiChar const* const pluginName, AsciiChar const* const pluginVersion,
-        AsciiChar const* const pluginNamespace = "") noexcept
-        = 0;
+        AsciiChar const* const pluginNamespace = "") noexcept = 0;
 
     // @cond SuppressDoxyWarnings
     IPluginRegistry() = default;
@@ -95,7 +107,7 @@ public:
     IPluginRegistry(IPluginRegistry&&) = delete;
     IPluginRegistry& operator=(IPluginRegistry const&) & = delete;
     IPluginRegistry& operator=(IPluginRegistry&&) & = delete;
-// @endcond
+    // @endcond
 
 protected:
     virtual ~IPluginRegistry() noexcept = default;
@@ -110,7 +122,7 @@ public:
     //! a recorder has been registered.
     //!
     //! \param recorder The error recorder to register with this interface.
-    //
+    //!
     //! \see getErrorRecorder()
     //!
     //! \usage
@@ -137,15 +149,14 @@ public:
     virtual IErrorRecorder* getErrorRecorder() const noexcept = 0;
 
     //!
-    //! \brief Deregister a previously registered plugin creator.
+    //! \brief Deregister a previously registered plugin creator implementing IPluginCreator.
     //!
     //! Since there may be a desire to limit the number of plugins,
     //! this function provides a mechanism for removing plugin creators registered in TensorRT.
     //! The plugin creator that is specified by \p creator is removed from TensorRT and no longer tracked.
     //!
     //! \return True if the plugin creator was deregistered, false if it was not found in the registry or otherwise
-    //! could
-    //!     not be deregistered.
+    //! could not be deregistered.
     //!
     //! \usage
     //! - Allowed context for the API call
@@ -189,6 +200,61 @@ public:
     //! \param handle the plugin library handle to deregister.
     //!
     virtual void deregisterLibrary(PluginLibraryHandle handle) noexcept = 0;
+
+    //!
+    //! \brief Register a plugin creator. Returns false if a plugin creator with the same type
+    //! is already registered.
+    //!
+    //! \warning The string pluginNamespace must be 1024 bytes or less including the NULL terminator and must be NULL
+    //! terminated.
+    //!
+    //! \usage
+    //! - Allowed context for the API call
+    //!   - Thread-safe: Yes; calls to this method will be synchronized by a mutex.
+    //!
+    virtual bool registerCreator(IPluginCreatorInterface& creator, AsciiChar const* const pluginNamespace) noexcept = 0;
+
+    //!
+    //! \brief Return all registered plugin creators. Returns nullptr if none found.
+    //!
+    //! \warning If any plugin creators are registered or deregistered after calling this function, the returned pointer
+    //! is not guaranteed to be valid thereafter.
+    //!
+    //! \usage
+    //! - Allowed context for the API call
+    //!   - Thread-safe: No
+    //!
+    virtual IPluginCreatorInterface* const* getAllCreators(int32_t* const numCreators) const noexcept = 0;
+
+    //!
+    //! \brief Return a registered plugin creator based on plugin name, version, and namespace associated with the
+    //! plugin during network creation.
+    //!
+    //! \warning The strings pluginName, pluginVersion, and pluginNamespace must be 1024 bytes or less including the
+    //! NULL terminator and must be NULL terminated.
+    //!
+    //! \usage
+    //! - Allowed context for the API call
+    //!   - Thread-safe: Yes
+    //!
+    virtual IPluginCreatorInterface* getCreator(AsciiChar const* const pluginName, AsciiChar const* const pluginVersion,
+        AsciiChar const* const pluginNamespace = "") noexcept = 0;
+
+    //!
+    //! \brief Deregister a previously registered plugin creator.
+    //!
+    //! Since there may be a desire to limit the number of plugins,
+    //! this function provides a mechanism for removing plugin creators registered in TensorRT.
+    //! The plugin creator that is specified by \p creator is removed from TensorRT and no longer tracked.
+    //!
+    //! \return True if the plugin creator was deregistered, false if it was not found in the registry or otherwise
+    //! could not be deregistered.
+    //!
+    //! \usage
+    //! - Allowed context for the API call
+    //!   - Thread-safe: Yes
+    //!
+    virtual bool deregisterCreator(IPluginCreatorInterface const& creator) noexcept = 0;
 };
 
 } // namespace nvinfer1

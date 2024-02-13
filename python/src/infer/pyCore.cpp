@@ -153,11 +153,6 @@ Dims castDimsFromPyIterable(PyIterable& in)
 }
 
 template <typename PyIterable>
-bool setBindingDimensions(IExecutionContext& self, int32_t bindingIndex, PyIterable& in)
-{
-    return self.setBindingDimensions(bindingIndex, castDimsFromPyIterable<PyIterable>(in));
-}
-template <typename PyIterable>
 bool setInputShape(IExecutionContext& self, char const* tensorName, PyIterable& in)
 {
     return self.setInputShape(tensorName, castDimsFromPyIterable<PyIterable>(in));
@@ -226,6 +221,18 @@ std::vector<std::vector<int32_t>> get_tensor_profile_values(
     }
     return shapes;
 };
+
+// For IGpuAllocator
+void* allocate_async(
+    IGpuAllocator& self, uint64_t const size, uint64_t const alignment, AllocatorFlags const flags, size_t streamHandle)
+{
+    return self.allocateAsync(size, alignment, flags, reinterpret_cast<cudaStream_t>(streamHandle));
+}
+
+bool deallocate_async(IGpuAllocator& self, void* const memory, size_t streamHandle)
+{
+    return self.deallocateAsync(memory, reinterpret_cast<cudaStream_t>(streamHandle));
+}
 
 // For IBuilderConfig
 static const auto netconfig_get_profile_stream
@@ -345,7 +352,6 @@ void serialization_config_set_flags(ISerializationConfig& self, uint32_t flags)
 
 // For IDebugListener, this function is intended to be override by client.
 // The bindings here will never be called and is for documentation purpose only.
-
 void docProcessDebugTensor(IDebugListener& self, void const* addr, TensorLocation location, DataType type,
     Dims const& shape, char const* name, size_t stream)
 {
@@ -354,55 +360,60 @@ void docProcessDebugTensor(IDebugListener& self, void const* addr, TensorLocatio
 
 } // namespace lambdas
 
+namespace PyGpuAllocatorHelper
+{
+template <typename TAllocator, typename... Args>
+void* allocHelper(TAllocator* allocator, const char* pyFuncName, bool showWarning, Args&&... args) noexcept
+{
+    try
+    {
+        py::gil_scoped_acquire gil{};
+        py::function pyAllocFunc = utils::getOverride(static_cast<TAllocator*>(allocator), pyFuncName, showWarning);
+
+        if (!pyAllocFunc)
+        {
+            return nullptr;
+        }
+
+        py::object ptr = pyAllocFunc(std::forward<Args>(args)...);
+        try
+        {
+            return reinterpret_cast<void*>(ptr.cast<size_t>());
+        }
+        catch (const py::cast_error& e)
+        {
+            std::cerr << "[ERROR] Return value of allocate() could not be interpreted as an int" << std::endl;
+        }
+    }
+    catch (std::exception const& e)
+    {
+        std::cerr << "[ERROR] Exception caught in allocate(): " << e.what() << std::endl;
+    }
+    catch (...)
+    {
+        std::cerr << "[ERROR] Exception caught in allocate()" << std::endl;
+        return nullptr;
+    }
+
+    return nullptr;
+}
+
+} // namespace PyGpuAllocatorHelper
+
 class PyGpuAllocator : public IGpuAllocator
 {
 public:
     using IGpuAllocator::IGpuAllocator;
 
-    template <typename... Args>
-    void* allocHelper(const char* pyFuncName, bool showWarning, Args&&... args) noexcept
-    {
-        try
-        {
-            py::gil_scoped_acquire gil{};
-            py::function pyAllocFunc = utils::getOverride(static_cast<IGpuAllocator*>(this), pyFuncName, showWarning);
-
-            if (!pyAllocFunc)
-            {
-                return nullptr;
-            }
-
-            py::object ptr = pyAllocFunc(std::forward<Args>(args)...);
-            try
-            {
-                return reinterpret_cast<void*>(ptr.cast<size_t>());
-            }
-            catch (const py::cast_error& e)
-            {
-                std::cerr << "[ERROR] Return value of allocate() could not be interpreted as an int" << std::endl;
-            }
-        }
-        catch (std::exception const& e)
-        {
-            std::cerr << "[ERROR] Exception caught in allocate(): " << e.what() << std::endl;
-        }
-        catch (...)
-        {
-            std::cerr << "[ERROR] Exception caught in allocate()" << std::endl;
-            return nullptr;
-        }
-
-        return nullptr;
-    }
-
     void* allocate(uint64_t size, uint64_t alignment, AllocatorFlags flags) noexcept override
     {
-        return allocHelper("allocate", true, size, alignment, flags);
+        return PyGpuAllocatorHelper::allocHelper<IGpuAllocator>(this, "allocate", true, size, alignment, flags);
     }
 
     void* reallocate(void* baseAddr, uint64_t alignment, uint64_t newSize) noexcept override
     {
-        return allocHelper("reallocate", true, reinterpret_cast<size_t>(baseAddr), alignment, newSize);
+        return PyGpuAllocatorHelper::allocHelper<IGpuAllocator>(
+            this, "reallocate", true, reinterpret_cast<size_t>(baseAddr), alignment, newSize);
     }
 
     bool deallocate(void* memory) noexcept override
@@ -430,7 +441,60 @@ public:
         }
         return false;
     }
-};
+
+}; // PyGpuAllocator
+
+///////////
+
+class PyGpuAsyncAllocator : public IGpuAsyncAllocator
+{
+public:
+    using IGpuAsyncAllocator::IGpuAsyncAllocator;
+
+    void* allocateAsync(uint64_t size, uint64_t alignment, AllocatorFlags flags, cudaStream_t stream) noexcept override
+    {
+        intptr_t cudaStreamPtr = reinterpret_cast<intptr_t>(stream);
+        return PyGpuAllocatorHelper::allocHelper<IGpuAsyncAllocator>(
+            this, "allocate_async", true, size, alignment, cudaStreamPtr, flags);
+    }
+
+    void* reallocate(void* baseAddr, uint64_t alignment, uint64_t newSize) noexcept override
+    {
+        return PyGpuAllocatorHelper::allocHelper<IGpuAsyncAllocator>(
+            this, "reallocate", true, reinterpret_cast<size_t>(baseAddr), alignment, newSize);
+    }
+
+    bool deallocateAsync(void* memory, cudaStream_t stream) noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+            py::function pyDeallocateAsync
+                = utils::getOverride(static_cast<IGpuAsyncAllocator*>(this), "deallocate_async");
+            if (!pyDeallocateAsync)
+            {
+                return false;
+            }
+
+            py::object status{};
+            intptr_t cudaStreamPtr = reinterpret_cast<intptr_t>(stream);
+            status = pyDeallocateAsync(reinterpret_cast<size_t>(memory), cudaStreamPtr);
+            return status.cast<bool>();
+        }
+        catch (std::exception const& e)
+        {
+            std::cerr << "[ERROR] Exception caught in deallocate(): " << e.what() << std::endl;
+        }
+        catch (...)
+        {
+            std::cerr << "[ERROR] Exception caught in deallocate()" << std::endl;
+        }
+        return false;
+    }
+
+}; // PyGpuAllocator
+
+/////////////////////////////
 
 class PyOutputAllocator : public IOutputAllocator
 {
@@ -490,6 +554,37 @@ public:
     }
 };
 
+class PyStreamReader : public IStreamReader
+{
+public:
+    int64_t read(void* destination, int64_t size) noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+            py::function pyFunc = utils::getOverride(static_cast<IStreamReader*>(this), "read");
+
+            if (!pyFunc)
+            {
+                return 0;
+            }
+
+            py::object bytesRead = pyFunc(reinterpret_cast<size_t>(destination), size);
+            return bytesRead.cast<int64_t>();
+        }
+        catch (std::exception const& e)
+        {
+            std::cerr << "[ERROR] Exception caught in read(): " << e.what() << std::endl;
+        }
+        catch (...)
+        {
+            std::cerr << "[ERROR] Exception caught in read()" << std::endl;
+        }
+
+        return 0;
+    }
+};
+
 class PyDebugListener : public IDebugListener
 {
 public:
@@ -506,7 +601,7 @@ public:
                 return false;
             }
 
-            pyFunc(this, reinterpret_cast<size_t>(addr), location, type, shape, name, reinterpret_cast<size_t>(stream));
+            pyFunc(reinterpret_cast<size_t>(addr), location, type, shape, name, reinterpret_cast<size_t>(stream));
         }
         catch (std::exception const& e)
         {
@@ -891,15 +986,9 @@ void bindCore(py::module& m)
             "name", &IExecutionContext::getName, py::cpp_function(&IExecutionContext::setName, py::keep_alive<1, 2>{}))
         // For writeonly properties, we use a nullptr getter.
         .def_property("device_memory", nullptr, &lambdas::context_set_device_memory)
+        .def("update_device_memory_size_for_shapes", &IExecutionContext::updateDeviceMemorySizeForShapes,
+            IExecutionContextDoc::update_device_memory_size_for_shapes)
         .def_property_readonly("active_optimization_profile", &IExecutionContext::getOptimizationProfile)
-        .def("set_binding_shape", utils::deprecate(lambdas::setBindingDimensions<py::tuple>, "set_input_shape"),
-            "binding"_a, "shape"_a, IExecutionContextDoc::set_binding_shape)
-        .def("set_binding_shape", utils::deprecate(lambdas::setBindingDimensions<py::list>, "set_input_shape"),
-            "binding"_a, "shape"_a, IExecutionContextDoc::set_binding_shape)
-        .def("set_binding_shape", utils::deprecateMember(&IExecutionContext::setBindingDimensions, "set_input_shape"),
-            "binding"_a, "shape"_a, IExecutionContextDoc::set_binding_shape)
-        .def("get_binding_shape", utils::deprecateMember(&IExecutionContext::getBindingDimensions, "get_tensor_shape"),
-            "binding"_a, IExecutionContextDoc::get_binding_shape)
         // Start of enqueueV3 related APIs.
         .def("get_tensor_strides", &IExecutionContext::getTensorStrides, "name"_a,
             IExecutionContextDoc::get_tensor_strides)
@@ -948,9 +1037,11 @@ void bindCore(py::module& m)
         .def("set_debug_listener", &IExecutionContext::setDebugListener, "listener"_a,
             IExecutionContextDoc::set_debug_listener)
         .def("get_debug_listener", &IExecutionContext::getDebugListener, IExecutionContextDoc::get_debug_listener)
-        .def("set_debug_state", &IExecutionContext::setDebugState, "name"_a, "flag"_a,
-            IExecutionContextDoc::set_debug_state)
-        .def("get_debug_state", &IExecutionContext::getDebugState, "name"_a, IExecutionContextDoc::set_debug_state)
+        .def("set_tensor_debug_state", &IExecutionContext::setTensorDebugState, "name"_a, "flag"_a,
+            IExecutionContextDoc::set_tensor_debug_state)
+        .def("get_debug_state", &IExecutionContext::getDebugState, "name"_a, IExecutionContextDoc::get_debug_state)
+        .def("set_all_tensors_debug_state", &IExecutionContext::setAllTensorsDebugState, "flag"_a,
+            IExecutionContextDoc::set_all_tensors_debug_state)
                ;
 
     py::enum_<ExecutionContextAllocationStrategy>(m, "ExecutionContextAllocationStrategy", py::arithmetic{},
@@ -963,7 +1054,9 @@ void bindCore(py::module& m)
 
     py::class_<ICudaEngine>(m, "ICudaEngine", ICudaEngineDoc::descr, py::module_local())
         .def("__getitem__", lambdas::engine_getitem)
-        .def_property_readonly("has_implicit_batch_dimension", &ICudaEngine::hasImplicitBatchDimension)
+        .def_property_readonly("has_implicit_batch_dimension",
+            utils::deprecateMember(
+                &ICudaEngine::hasImplicitBatchDimension, "Implicit batch dimensions support has been removed"))
         .def_property_readonly("num_layers", &ICudaEngine::getNbLayers)
         .def("serialize", &ICudaEngine::serialize, ICudaEngineDoc::serialize, py::call_guard<py::gil_scoped_release>{})
         .def("create_serialization_config", &ICudaEngine::createSerializationConfig,
@@ -988,16 +1081,6 @@ void bindCore(py::module& m)
             "profile_index"_a, "binding"_a, ICudaEngineDoc::get_profile_shape)
         .def("get_profile_shape", utils::deprecate(lambdas::engine_get_profile_shape_str, "get_tensor_profile_shape"),
             "profile_index"_a, "binding"_a, ICudaEngineDoc::get_profile_shape)
-        .def("is_shape_binding", utils::deprecateMember(&ICudaEngine::isShapeBinding, "is_shape_inference_io"),
-            "binding"_a, ICudaEngineDoc::is_shape_binding)
-        .def("is_execution_binding", utils::deprecateMember(&ICudaEngine::isExecutionBinding, "get_tensor_location"),
-            "binding"_a, ICudaEngineDoc::is_execution_binding)
-        .def("get_binding_format_desc",
-            utils::deprecateMember(&ICudaEngine::getBindingFormatDesc, "get_tensor_format_desc"), "index"_a,
-            ICudaEngineDoc::get_binding_format_desc)
-        .def("get_binding_vectorized_dim",
-            utils::deprecateMember(&ICudaEngine::getBindingVectorizedDim, "get_tensor_vectorized_dim"), "index"_a,
-            ICudaEngineDoc::get_binding_vectorized_dim)
         // Start of enqueueV3 related APIs.
         .def_property_readonly("num_io_tensors", &ICudaEngine::getNbIOTensors)
         .def("get_tensor_name", &ICudaEngine::getIOTensorName, "index"_a, ICudaEngineDoc::get_tensor_name)
@@ -1086,17 +1169,48 @@ void bindCore(py::module& m)
             py::keep_alive<0, 1>{})
         .def_property_readonly("hardware_compatibility_level", &ICudaEngine::getHardwareCompatibilityLevel)
         .def_property_readonly("num_aux_streams", &ICudaEngine::getNbAuxStreams)
+        // Weight streaming APIs
+        .def_property(
+            "weight_streaming_budget", &ICudaEngine::getWeightStreamingBudget, &ICudaEngine::setWeightStreamingBudget)
+        .def_property_readonly("minimum_weight_streaming_budget", &ICudaEngine::getMinimumWeightStreamingBudget)
+        .def_property_readonly("streamable_weights_size", &ICudaEngine::getStreamableWeightsSize)
+        .def("is_debug_tensor", &ICudaEngine::isDebugTensor, "name"_a, ICudaEngineDoc::is_debug_tensor)
                 .def("__del__", &utils::doNothingDel<ICudaEngine>);
 
     py::enum_<AllocatorFlag>(m, "AllocatorFlag", py::arithmetic{}, AllocatorFlagDoc::descr, py::module_local())
         .value("RESIZABLE", AllocatorFlag::kRESIZABLE, AllocatorFlagDoc::RESIZABLE);
 
-    py::class_<IGpuAllocator, PyGpuAllocator>(m, "IGpuAllocator", GpuAllocatorDoc::descr, py::module_local())
+    py::class_<IGpuAllocator, PyGpuAllocator, IVersionedInterface>(
+        m, "IGpuAllocator", GpuAllocatorDoc::descr, py::module_local())
         .def(py::init<>())
-        .def("allocate", &IGpuAllocator::allocate, "size"_a, "alignment"_a, "flags"_a, GpuAllocatorDoc::allocate)
+        .def("allocate",
+            utils::deprecateMember(&IGpuAllocator::allocate, "Deprecated in TensorRT 10.0. Superseded by allocate"),
+            "size"_a, "alignment"_a, "flags"_a, GpuAllocatorDoc::allocate)
         .def("reallocate", &IGpuAllocator::reallocate, "address"_a, "alignment"_a, "new_size"_a,
             GpuAllocatorDoc::reallocate)
-        .def("deallocate", &IGpuAllocator::deallocate, "memory"_a, GpuAllocatorDoc::deallocate);
+        .def("deallocate",
+            utils::deprecateMember(
+                &IGpuAllocator::deallocate, "Deprecated in TensorRT 10.0. Superseded by deallocate_async"),
+            "memory"_a, GpuAllocatorDoc::deallocate)
+        .def("allocate_async", &lambdas::allocate_async, "size"_a, "alignment"_a, "flags"_a, "stream"_a,
+            GpuAllocatorDoc::allocate_async)
+        .def("deallocate_async", &lambdas::deallocate_async, "memory"_a, "stream"_a, GpuAllocatorDoc::deallocate_async);
+
+    py::class_<IGpuAsyncAllocator, PyGpuAsyncAllocator, IGpuAllocator>(
+        m, "IGpuAsyncAllocator", GpuAsyncAllocatorDoc::descr, py::module_local())
+        .def(py::init<>())
+        .def("allocate",
+            utils::deprecateMember(
+                &IGpuAsyncAllocator::allocate, "Deprecated in TensorRT 10.0. Superseded by allocate"),
+            "size"_a, "alignment"_a, "flags"_a, GpuAsyncAllocatorDoc::allocate)
+        .def("deallocate",
+            utils::deprecateMember(
+                &IGpuAsyncAllocator::deallocate, "Deprecated in TensorRT 10.0. Superseded by deallocate_async"),
+            "memory"_a, GpuAsyncAllocatorDoc::deallocate)
+        .def("allocate_async", &lambdas::allocate_async, "size"_a, "alignment"_a, "flags"_a, "stream"_a,
+            GpuAsyncAllocatorDoc::allocate_async)
+        .def("deallocate_async", &lambdas::deallocate_async, "memory"_a, "stream"_a,
+            GpuAsyncAllocatorDoc::deallocate_async);
 
     py::class_<IOutputAllocator, PyOutputAllocator>(
         m, "IOutputAllocator", OutputAllocatorDoc::descr, py::module_local())
@@ -1106,6 +1220,10 @@ void bindCore(py::module& m)
             "alignment"_a, OutputAllocatorDoc::reallocate_output)
         .def("notify_shape", &IOutputAllocator::notifyShape, "tensor_name"_a, "shape"_a,
             OutputAllocatorDoc::notify_shape);
+
+    py::class_<IStreamReader, PyStreamReader>(m, "IStreamReader", StreamReaderDoc::descr, py::module_local())
+        .def(py::init<>())
+        .def("read", &IStreamReader::read, "destination"_a, "size"_a, StreamReaderDoc::read);
 
     py::enum_<BuilderFlag>(m, "BuilderFlag", py::arithmetic{}, BuilderFlagDoc::descr, py::module_local())
         .value("FP16", BuilderFlag::kFP16, BuilderFlagDoc::FP16)
@@ -1132,7 +1250,10 @@ void bindCore(py::module& m)
             BuilderFlagDoc::ERROR_ON_TIMING_CACHE_MISS)
         .value("DISABLE_COMPILATION_CACHE", BuilderFlag::kDISABLE_COMPILATION_CACHE,
             BuilderFlagDoc::DISABLE_COMPILATION_CACHE)
-        .value("WEIGHTLESS", BuilderFlag::kWEIGHTLESS, BuilderFlagDoc::WEIGHTLESS);
+        .value("WEIGHTLESS", BuilderFlag::kWEIGHTLESS, BuilderFlagDoc::WEIGHTLESS)
+        .value("STRIP_PLAN", BuilderFlag::kSTRIP_PLAN, BuilderFlagDoc::STRIP_PLAN)
+        .value("REFIT_IDENTICAL", BuilderFlag::kREFIT_IDENTICAL, BuilderFlagDoc::REFIT_IDENTICAL)
+        .value("WEIGHT_STREAMING", BuilderFlag::kWEIGHT_STREAMING, BuilderFlagDoc::WEIGHT_STREAMING);
 
     py::enum_<SerializationFlag>(
         m, "SerializationFlag", py::arithmetic{}, SerializationFlagDoc::descr, py::module_local())
@@ -1145,7 +1266,8 @@ void bindCore(py::module& m)
         .value("DLA_MANAGED_SRAM", MemoryPoolType::kDLA_MANAGED_SRAM, MemoryPoolTypeDoc::DLA_MANAGED_SRAM)
         .value("DLA_LOCAL_DRAM", MemoryPoolType::kDLA_LOCAL_DRAM, MemoryPoolTypeDoc::DLA_LOCAL_DRAM)
         .value("DLA_GLOBAL_DRAM", MemoryPoolType::kDLA_GLOBAL_DRAM, MemoryPoolTypeDoc::DLA_GLOBAL_DRAM)
-        .value("TACTIC_DRAM", MemoryPoolType::kTACTIC_DRAM, MemoryPoolTypeDoc::TACTIC_DRAM);
+        .value("TACTIC_DRAM", MemoryPoolType::kTACTIC_DRAM, MemoryPoolTypeDoc::TACTIC_DRAM)
+        .value("TACTIC_SHARED_MEMORY", MemoryPoolType::kTACTIC_SHARED_MEMORY, MemoryPoolTypeDoc::TACTIC_SHARED_MEMORY);
 
     py::enum_<QuantizationFlag>(m, "QuantizationFlag", py::arithmetic{}, QuantizationFlagDoc::descr, py::module_local())
         .value("CALIBRATE_BEFORE_FUSION", QuantizationFlag::kCALIBRATE_BEFORE_FUSION,
@@ -1276,8 +1398,6 @@ void bindCore(py::module& m)
 
     py::enum_<NetworkDefinitionCreationFlag>(m, "NetworkDefinitionCreationFlag", py::arithmetic{},
         NetworkDefinitionCreationFlagDoc::descr, py::module_local())
-        .value("EXPLICIT_BATCH", NetworkDefinitionCreationFlag::kEXPLICIT_BATCH,
-            NetworkDefinitionCreationFlagDoc::EXPLICIT_BATCH)
         .value("STRONGLY_TYPED", NetworkDefinitionCreationFlag::kSTRONGLY_TYPED,
             NetworkDefinitionCreationFlagDoc::STRONGLY_TYPED);
 
@@ -1315,7 +1435,10 @@ void bindCore(py::module& m)
         .def(py::init(&nvinfer1::createInferRuntime), "logger"_a, RuntimeDoc::init, py::keep_alive<1, 2>{})
         .def("deserialize_cuda_engine", lambdas::runtime_deserialize_cuda_engine, "serialized_engine"_a,
             RuntimeDoc::deserialize_cuda_engine, py::call_guard<py::gil_scoped_release>{}, py::keep_alive<0, 1>{})
-        .def_property("DLA_core", &IRuntime::getDLACore, &IRuntime::setDLACore)
+        .def("deserialize_cuda_engine", py::overload_cast<IStreamReader&>(&IRuntime::deserializeCudaEngine),
+            "stream_reader"_a, RuntimeDoc::deserialize_cuda_engine_reader, py::call_guard<py::gil_scoped_release>{},
+            py::keep_alive<0, 1>{})
+               .def_property("DLA_core", &IRuntime::getDLACore, &IRuntime::setDLACore)
         .def_property_readonly("num_DLA_cores", &IRuntime::getNbDLACores)
         .def_property("gpu_allocator", nullptr, py::cpp_function(&IRuntime::setGpuAllocator, py::keep_alive<1, 2>{}))
         .def_property("error_recorder", &IRuntime::getErrorRecorder,
@@ -1375,6 +1498,8 @@ void bindCore(py::module& m)
         .def_property("weights_validation", &IRefitter::getWeightsValidation, &IRefitter::setWeightsValidation)
         .def("refit_cuda_engine_async", lambdas::refitter_refit_cuda_engine_async, "stream_handle"_a,
             RefitterDoc::refit_cuda_engine_async, py::call_guard<py::gil_scoped_release>{})
+        .def("get_weights_prototype", &IRefitter::getWeightsPrototype, "weights_name"_a,
+            RefitterDoc::get_weights_prototype)
         .def("__del__", &utils::doNothingDel<IRefitter>);
 #endif // EXPORT_ALL_BINDINGS
 

@@ -136,8 +136,7 @@ bool SampleNamedDimensions::build()
         return false;
     }
 
-    auto const explicitBatch = 1U << static_cast<uint32_t>(NetworkDefinitionCreationFlag::kEXPLICIT_BATCH);
-    auto network = SampleUniquePtr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(explicitBatch));
+    auto network = SampleUniquePtr<nvinfer1::INetworkDefinition>(builder->createNetworkV2(0));
     if (!network)
     {
         return false;

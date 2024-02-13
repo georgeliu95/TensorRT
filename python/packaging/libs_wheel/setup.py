@@ -24,11 +24,6 @@ package_name = "##TENSORRT_MODULE##_libs"
 
 def get_requirements():
     reqs = ["nvidia-cuda-runtime-cu##CUDA_MAJOR##"]
-    if "##TENSORRT_MODULE##" == "tensorrt":
-        reqs += [
-            "nvidia-cudnn-cu##CUDA_MAJOR##",
-            "nvidia-cublas-cu##CUDA_MAJOR##",
-        ]
     return reqs
 
 

@@ -39,8 +39,6 @@ def try_load_libs_from_dir(path):
 
 DEPENDENCY_PATHS = [
     os.path.join("nvidia", "cuda_runtime"),
-    os.path.join("nvidia", "cublas"),
-    os.path.join("nvidia", "cudnn"),
     os.path.join("nvidia", "cuda_nvrtc"),
 ]
 for dep_path in DEPENDENCY_PATHS:

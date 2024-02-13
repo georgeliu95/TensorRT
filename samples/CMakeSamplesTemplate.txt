@@ -91,8 +91,6 @@ target_compile_options(${TARGET_NAME} PUBLIC "-fno-rtti")
 
 set(SAMPLE_DEP_LIBS
     ${CUDART_LIB}
-    ${CUBLAS_LIB}
-    ${CUDNN_LIB}
     ${nvinfer_LIB_PATH}
     ${RT_LIB}
     ${CMAKE_DL_LIBS}

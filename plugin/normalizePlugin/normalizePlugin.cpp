@@ -1,5 +1,5 @@
 /*
- * SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+ * SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
  * SPDX-License-Identifier: Apache-2.0
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,12 +17,11 @@
 #include "normalizePlugin.h"
 #include "common/half.h"
 #include <cstring>
-#include <cublas_v2.h>
-#include <cudnn.h>
 #include <iostream>
 #include <sstream>
 
 using namespace nvinfer1;
+using namespace nvinfer1::pluginInternal;
 using nvinfer1::plugin::Normalize;
 using nvinfer1::plugin::NormalizePluginCreator;
 
@@ -243,7 +242,16 @@ void Normalize::configurePlugin(Dims const* inputDims, int32_t nbInputs, Dims co
 // Attach the plugin object to an execution context and grant the plugin the access to some context resource.
 void Normalize::attachToContext(cudnnContext* cudnn, cublasContext* cublas, IGpuAllocator* gpuAllocator) noexcept
 {
-    mCublas = cublas;
+    try
+    {
+        mCublasWrapper = createPluginCublasWrapper(gpuAllocator);
+        mCublas = mCublasWrapper->getCublasHandle();
+        PLUGIN_VALIDATE(mCublas != nullptr);
+    }
+    catch (const std::exception& e)
+    {
+        caughtError(e);
+    }
 }
 
 // Detach the plugin object from its execution context.

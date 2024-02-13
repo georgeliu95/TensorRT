@@ -242,8 +242,8 @@ public:
     //!
     //! \brief Create a BufferManager for handling buffer interactions with engine.
     //!
-    BufferManager(std::shared_ptr<nvinfer1::ICudaEngine> engine, const int batchSize = 0,
-        const nvinfer1::IExecutionContext* context = nullptr)
+    BufferManager(std::shared_ptr<nvinfer1::ICudaEngine> engine, int32_t const batchSize = 0,
+        nvinfer1::IExecutionContext const* context = nullptr)
         : mEngine(engine)
         , mBatchSize(batchSize)
     {
@@ -285,7 +285,7 @@ public:
     //!
     //! \brief Returns a vector of device buffers.
     //!
-    const std::vector<void*>& getDeviceBindings() const
+    std::vector<void*> const& getDeviceBindings() const
     {
         return mDeviceBindings;
     }
@@ -294,7 +294,7 @@ public:
     //! \brief Returns the device buffer corresponding to tensorName.
     //!        Returns nullptr if no such tensor can be found.
     //!
-    void* getDeviceBuffer(const std::string& tensorName) const
+    void* getDeviceBuffer(std::string const& tensorName) const
     {
         return getBuffer(false, tensorName);
     }
@@ -303,7 +303,7 @@ public:
     //! \brief Returns the host buffer corresponding to tensorName.
     //!        Returns nullptr if no such tensor can be found.
     //!
-    void* getHostBuffer(const std::string& tensorName) const
+    void* getHostBuffer(std::string const& tensorName) const
     {
         return getBuffer(true, tensorName);
     }
@@ -312,7 +312,7 @@ public:
     //! \brief Returns the size of the host and device buffers that correspond to tensorName.
     //!        Returns kINVALID_SIZE_VALUE if no such tensor can be found.
     //!
-    size_t size(const std::string& tensorName) const
+    size_t size(std::string const& tensorName) const
     {
         auto record = mNames.find(tensorName);
         if (record == mNames.end())
@@ -332,7 +332,7 @@ public:
         assert(bufSize % sizeof(T) == 0);
         T* typedBuf = static_cast<T*>(buf);
         size_t numItems = bufSize / sizeof(T);
-        for (int i = 0; i < static_cast<int>(numItems); i++)
+        for (int32_t i = 0; i < static_cast<int>(numItems); i++)
         {
             // Handle rowCount == 1 case
             if (rowCount == 1 && i != static_cast<int>(numItems) - 1)
@@ -368,7 +368,7 @@ public:
     //!
     //! \brief Copy the contents of input host buffers to input device buffers asynchronously.
     //!
-    void copyInputToDeviceAsync(const cudaStream_t& stream = 0)
+    void copyInputToDeviceAsync(cudaStream_t const& stream = 0)
     {
         memcpyBuffers(true, false, true, stream);
     }
@@ -376,7 +376,7 @@ public:
     //!
     //! \brief Copy the contents of output device buffers to output host buffers asynchronously.
     //!
-    void copyOutputToHostAsync(const cudaStream_t& stream = 0)
+    void copyOutputToHostAsync(cudaStream_t const& stream = 0)
     {
         memcpyBuffers(false, true, true, stream);
     }
@@ -384,7 +384,7 @@ public:
     ~BufferManager() = default;
 
 private:
-    void* getBuffer(const bool isHost, const std::string& tensorName) const
+    void* getBuffer(bool const isHost, std::string const& tensorName) const
     {
         auto record = mNames.find(tensorName);
         if (record == mNames.end())
@@ -398,7 +398,7 @@ private:
         return mEngine->getTensorIOMode(tensorName.c_str()) == nvinfer1::TensorIOMode::kINPUT;
     }
 
-    void memcpyBuffers(const bool copyInput, const bool deviceToHost, const bool async, const cudaStream_t& stream = 0)
+    void memcpyBuffers(bool const copyInput, bool const deviceToHost, bool const async, cudaStream_t const& stream = 0)
     {
         for (auto const& n : mNames)
         {

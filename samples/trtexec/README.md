@@ -117,8 +117,8 @@ Tuning throughput may require running multiple concurrent streams of execution. 
 threshold, and we can increase the throughput, even at the expense of some latency. For example, saving engines with different precisions and assume that both
 execute within 2ms, the latency threshold:
 ```
-trtexec --onnx=resnet50.onnx --saveEngine=g1.trt --int8 --buildOnly
-trtexec --onnx=resnet50.onnx --saveEngine=g2.trt --best --buildOnly
+trtexec --onnx=resnet50.onnx --saveEngine=g1.trt --int8 --skipInference
+trtexec --onnx=resnet50.onnx --saveEngine=g2.trt --best --skipInference
 ```
 Now, the saved engines can be tried to find the combination precision/streams below 2 ms that maximizes the throughput:
 ```

@@ -20,6 +20,10 @@ name = "torch_"
 url = "https://download.pytorch.org/whl/cu121"
 secondary = true
 
+[[tool.poetry.source]]
+name = "nvidia_internal"
+url = "https://urm.nvidia.com/artifactory/api/pypi/sw-tensorrt-pypi/simple"
+
 [tool.poetry.dependencies]
 python = ">=3.8,<4"
 numpy = "^1.24.4"
@@ -27,11 +31,11 @@ transformers = "4.31.0"
 torch = {version = "2.1.0+cu121", source = "torch_"}
 tabulate = "^0.9.0"
 toml = "^0.10.2"
-polygraphy = {version = "0.47.1", source = "ngc_"}
-onnx = "1.13.1"
-onnx-graphsurgeon = {version = "0.3.27", source = "ngc_"}
+polygraphy = {version = "0.49.6", source = "nvidia_internal"}
+onnx = "1.15.0"
+onnx-graphsurgeon = {version = "0.5.0", source = "nvidia_internal"}
 sentencepiece = "*"
-protobuf = "*"
+protobuf = "3.20.3"
 cuda-python = "*"
 Pillow = "^10.0.0"
 datasets = "^2.14.4"
