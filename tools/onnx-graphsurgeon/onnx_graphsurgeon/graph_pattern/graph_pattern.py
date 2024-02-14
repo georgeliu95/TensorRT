@@ -257,7 +257,7 @@ class GraphPattern:
     # Match an onnx node and its subgraph with the current pattern.
     def match(self, onnx_node: Node, from_inbound: bool, from_tensor_index: int, mapped_onnx_nodes: set, onnx_graph_output_tensors: set):
         if onnx_node.name in mapped_onnx_nodes:
-            return False, None
+            return None
         if self.op is not None: # is single node
             if self._single_node_match(onnx_node):
                 mapped_onnx_nodes.add(onnx_node.name)
