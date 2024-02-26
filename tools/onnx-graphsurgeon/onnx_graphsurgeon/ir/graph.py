@@ -182,8 +182,15 @@ class Graph(object):
                     )
                 return lambda *args, **kwargs: methods[0](self, *args, **kwargs)
 
+            found_in_other_opsets = {opset for opset, opset_map in Graph.OPSET_FUNC_MAP.items() if name in opset_map}
+
             G_LOGGER.error(
-                "No function: {:} registered for opset: {:}".format(name, self.opset)
+                f"Function: '{name}' was not registered for opset {self.opset}. "
+                + (
+                    f"Note: '{name}' was registered for opsets: {found_in_other_opsets}."
+                    if found_in_other_opsets
+                    else ""
+                )
             )
             raise err
 
@@ -946,7 +953,9 @@ class Graph(object):
 
                 def all_tensors_const(tensors):
                     # Ignore omitted optional inputs.
-                    return all([t.name in graph_constants for t in tensors if not t.is_empty()])
+                    return all(
+                        [t.name in graph_constants for t in tensors if not t.is_empty()]
+                    )
 
                 if not all_tensors_const(node.inputs):
                     return False

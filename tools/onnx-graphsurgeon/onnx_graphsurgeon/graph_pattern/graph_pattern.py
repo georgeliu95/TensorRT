@@ -15,16 +15,18 @@
 # limitations under the License.
 #
 
+from typing import Dict, List, Union
+
+from onnx_graphsurgeon.ir.graph import Constant, Graph, Node
 from onnx_graphsurgeon.logger import G_LOGGER
-from typing_extensions import Self # from typing import Self if python version >= 3.11
-from typing import List, Union, Dict
-from onnx_graphsurgeon.ir.graph import Graph, Node, Constant
+
 
 class PatternMapping(dict):
     """
     Represents a graph pattern mapping result.
     """
-    def __init__(self, onnx_node = None) -> None:
+
+    def __init__(self, onnx_node=None) -> None:
         super().__init__()
         self.onnx_node = onnx_node
 
@@ -34,14 +36,17 @@ class PatternMapping(dict):
             self.inputs = onnx_node.inputs
             self.outputs = onnx_node.outputs
 
-        self.constants = dict() # constant name -> onnx tensor mapping
+        self.constants = dict()  # constant name -> onnx tensor mapping
 
     def set_input_onnx_tensor(self, onnx_tensor, index):
         length = len(self.inputs)
         for _ in range(index - length + 1):
             self.inputs.append(None)
-        if self.inputs[index] is not None and self.inputs[index].name != onnx_tensor.name:
-            return False    # This input tensor has been set up by another onnx tensor
+        if (
+            self.inputs[index] is not None
+            and self.inputs[index].name != onnx_tensor.name
+        ):
+            return False  # This input tensor has been set up by another onnx tensor
         self.inputs[index] = onnx_tensor
         return True
 
@@ -49,8 +54,11 @@ class PatternMapping(dict):
         length = len(self.outputs)
         for _ in range(index - length + 1):
             self.outputs.append(None)
-        if self.outputs[index] is not None and self.outputs[index].name != onnx_tensor.name:
-            return False    # This output tensor has been set up by another onnx tensor
+        if (
+            self.outputs[index] is not None
+            and self.outputs[index].name != onnx_tensor.name
+        ):
+            return False  # This output tensor has been set up by another onnx tensor
         self.outputs[index] = onnx_tensor
         return True
 
@@ -80,8 +88,15 @@ class PatternMapping(dict):
 
     def __str__(self) -> str:
         if self.onnx_node is None:
-            return "{" + str.join(', ', [f"{key}: {str(value)}" for key, value in self.items()]) + "}"
+            return (
+                "{"
+                + str.join(
+                    ", ", [f"{key}: {str(value)}" for key, value in self.items()]
+                )
+                + "}"
+            )
         return self.onnx_node.name
+
 
 class GraphPattern:
     """
@@ -98,17 +113,21 @@ class GraphPattern:
     def __init__(self) -> None:
         self.op = None  # op (str)
         self.check_func = None  # callback function for single node
-        self.nodes: Dict[str, Self] = dict()     # pattern node name -> GraphPattern nodes(single or subpattern)
-        self.node_inputs: Dict[str, List[int]] = dict()   # pattern node name -> input tensors
-        self.node_outputs: Dict[str, List[int]] = dict()  # pattern node name -> output tensors
-        self.num_tensors = 0   # number of all tensors in the pattern
+        # pattern node name -> GraphPattern nodes(single or subpattern)
+        self.nodes: Dict[str, "GraphPattern"] = dict()
+        # pattern node name -> input tensors
+        self.node_inputs: Dict[str, List[int]] = dict()
+        # pattern node name -> output tensors
+        self.node_outputs: Dict[str, List[int]] = dict()
+        self.num_tensors = 0  # number of all tensors in the pattern
         self.tensor_inputs: Dict[int, List[str]] = dict()  # tensor id -> input node
         self.tensor_outputs: Dict[int, List[str]] = dict()  # tensor id -> output nodes
         self.input_tensors: List[int] = []  # a list of input tensor ids of this pattern
-        self.output_tensors: List[int] = []  # a list of output tensor ids of this pattern
-        self.constant_tensors: Dict[int, str] = dict()  # # tensor id -> tensor name of constant tensors.
+        self.output_tensors: List[int] = []
+        # tensor id -> tensor name of constant tensors.
+        self.constant_tensors: Dict[int, str] = dict()
 
-    def _add_tensor(self, input_node = None) -> int:
+    def _add_tensor(self, input_node=None) -> int:
         tensor_id = self.num_tensors
         self.tensor_inputs[tensor_id] = []
         if input_node is not None:
@@ -129,7 +148,7 @@ class GraphPattern:
         self.input_tensors.append(tensor_id)
         return tensor_id
 
-    def constant(self, name = None) -> int:
+    def constant(self, name=None) -> int:
         """
         Add a constant tensor. If name is not provided, a default name will be assigned.
 
@@ -147,14 +166,21 @@ class GraphPattern:
 
     def set_output_tensors(self, output_tensors) -> None:
         for tensor_id in output_tensors:
-            assert tensor_id in self.tensor_inputs     # assert the output tensors belong to this pattern.
+            assert tensor_id in self.tensor_inputs
         self.output_tensors = output_tensors
 
-    def _init_single_node(self, op, check_func = None) -> None:
+    def _init_single_node(self, op, check_func=None) -> None:
         self.op = op
         self.check_func = check_func
 
-    def add(self, name: str, op: Union[Self, str], check_func=None, inputs=None, num_output_tensors=1):
+    def add(
+        self,
+        name: str,
+        op: Union["GraphPattern", str],
+        check_func=None,
+        inputs=None,
+        num_output_tensors=1,
+    ):
         """
         Add an op node or a subpattern node to the current pattern.
 
@@ -212,27 +238,36 @@ class GraphPattern:
                 return tensor_id, outbound_node
         return None, None
 
-
     def _single_node_match(self, onnx_node: Node) -> bool:
         assert self.op is not None
         with G_LOGGER.indent():
             if self.op != onnx_node.op:
-                G_LOGGER.info("No match because: Op did not match. Node op was: {:} but pattern op was: {:}.".format(onnx_node.op, self.op))
+                G_LOGGER.info(
+                    "No match because: Op did not match. Node op was: {:} but pattern op was: {:}.".format(
+                        onnx_node.op, self.op
+                    )
+                )
                 return False
             if self.check_func is not None:
                 if not self.check_func(onnx_node):
                     G_LOGGER.info("No match because: check_func returned false.")
                     return False
-            G_LOGGER.info("Single node is matched: {:}, {:}".format(self.op, onnx_node.name))
+            G_LOGGER.info(
+                "Single node is matched: {:}, {:}".format(self.op, onnx_node.name)
+            )
         return True
 
-    def _get_tensor_index_for_node(self, node: str, tensor_id: int, is_node_input: bool):
+    def _get_tensor_index_for_node(
+        self, node: str, tensor_id: int, is_node_input: bool
+    ):
         if is_node_input:
             return self.node_inputs[node].index(tensor_id)
         else:
             return self.node_outputs[node].index(tensor_id)
 
-    def get_inbound_or_outbound_onnx_node(self, mapping: PatternMapping, is_inbound: bool, tensor_index: int):
+    def get_inbound_or_outbound_onnx_node(
+        self, mapping: PatternMapping, is_inbound: bool, tensor_index: int
+    ):
         if self.op is not None:
             onnx_node = mapping._get_node()
             return onnx_node
@@ -242,7 +277,10 @@ class GraphPattern:
                 return self.nodes[inbound_node].get_inbound_or_outbound_onnx_node(
                     mapping[inbound_node],
                     is_inbound=True,
-                    tensor_index=self._get_tensor_index_for_node(inbound_node, inbound_tensor, is_node_input=True))
+                    tensor_index=self._get_tensor_index_for_node(
+                        inbound_node, inbound_tensor, is_node_input=True
+                    ),
+                )
 
         else:
             outbound_tensor, outbound_node = self._get_outbound(tensor_index)
@@ -250,15 +288,24 @@ class GraphPattern:
                 return self.nodes[outbound_node].get_inbound_or_outbound_onnx_node(
                     mapping[outbound_node],
                     is_inbound=False,
-                    tensor_index=self._get_tensor_index_for_node(outbound_node, outbound_tensor, is_node_input=False))
+                    tensor_index=self._get_tensor_index_for_node(
+                        outbound_node, outbound_tensor, is_node_input=False
+                    ),
+                )
         return None
 
-
     # Match an onnx node and its subgraph with the current pattern.
-    def match(self, onnx_node: Node, from_inbound: bool, from_tensor_index: int, mapped_onnx_nodes: set, onnx_graph_output_tensors: set):
+    def match(
+        self,
+        onnx_node: Node,
+        from_inbound: bool,
+        from_tensor_index: int,
+        mapped_onnx_nodes: set,
+        onnx_graph_output_tensors: set,
+    ):
         if onnx_node.name in mapped_onnx_nodes:
             return None
-        if self.op is not None: # is single node
+        if self.op is not None:  # is single node
             if self._single_node_match(onnx_node):
                 mapped_onnx_nodes.add(onnx_node.name)
                 return PatternMapping(onnx_node=onnx_node)
@@ -273,18 +320,47 @@ class GraphPattern:
         assert initial_node is not None
 
         mapping = PatternMapping()
-        match = self._match_node(initial_node, onnx_node, from_tensor, mapping, mapped_onnx_nodes, onnx_graph_output_tensors, from_inbound)
+        match = self._match_node(
+            initial_node,
+            onnx_node,
+            from_tensor,
+            mapping,
+            mapped_onnx_nodes,
+            onnx_graph_output_tensors,
+            from_inbound,
+        )
         if match:
             return mapping
         else:
             return None
 
     # Match an onnx node and its subgraph with a starting pattern node(can be a subpattern node or a single node) and its subgraph. This is the actual dfs.
-    def _match_node(self, node_name: str, onnx_node: Node, from_tensor: int, mapping: PatternMapping, mapped_onnx_nodes: set, onnx_graph_output_tensors: set, from_inbound: bool) -> bool:
+    def _match_node(
+        self,
+        node_name: str,
+        onnx_node: Node,
+        from_tensor: int,
+        mapping: PatternMapping,
+        mapped_onnx_nodes: set,
+        onnx_graph_output_tensors: set,
+        from_inbound: bool,
+    ) -> bool:
         with G_LOGGER.indent():
-            G_LOGGER.info("Checking node: {:} against pattern node: {:}.".format(onnx_node.name, node_name))
-        tensor_index_for_node = self._get_tensor_index_for_node(node_name, from_tensor, is_node_input=from_inbound)
-        subgraph_mapping = self.nodes[node_name].match(onnx_node, from_inbound, tensor_index_for_node, mapped_onnx_nodes, onnx_graph_output_tensors)
+            G_LOGGER.info(
+                "Checking node: {:} against pattern node: {:}.".format(
+                    onnx_node.name, node_name
+                )
+            )
+        tensor_index_for_node = self._get_tensor_index_for_node(
+            node_name, from_tensor, is_node_input=from_inbound
+        )
+        subgraph_mapping = self.nodes[node_name].match(
+            onnx_node,
+            from_inbound,
+            tensor_index_for_node,
+            mapped_onnx_nodes,
+            onnx_graph_output_tensors,
+        )
         if subgraph_mapping is not None:
             mapping[node_name] = subgraph_mapping
         else:
@@ -292,45 +368,77 @@ class GraphPattern:
 
         input_onnx_tensors = subgraph_mapping.inputs
         if len(input_onnx_tensors) != len(self.node_inputs[node_name]):
-            return False    # Number of node inputs should equal to number of input onnx tensors of the node.
-        for node_input_tensor, onnx_tensor in zip(self.node_inputs[node_name], input_onnx_tensors):
+            return False  # Number of node inputs should equal to number of input onnx tensors of the node.
+        for node_input_tensor, onnx_tensor in zip(
+            self.node_inputs[node_name], input_onnx_tensors
+        ):
             if onnx_tensor is None:
                 return False
             # tensor paired up.
             if node_input_tensor in self.input_tensors:
-                if not mapping.set_input_onnx_tensor(onnx_tensor, self.input_tensors.index(node_input_tensor)):
-                    return False    # this tensor is mapped to another onnx tensor
+                if not mapping.set_input_onnx_tensor(
+                    onnx_tensor, self.input_tensors.index(node_input_tensor)
+                ):
+                    return False  # this tensor is mapped to another onnx tensor
                 continue
             if node_input_tensor in self.constant_tensors:
                 if not isinstance(onnx_tensor, Constant):
-                    return False    # constant tensor not match
-                if not mapping.set_constant_onnx_tensor(onnx_tensor, self.constant_tensors[node_input_tensor]):
-                    return False    # this constant tensor is mapped to another onnx tensor
+                    return False  # constant tensor not match
+                if not mapping.set_constant_onnx_tensor(
+                    onnx_tensor, self.constant_tensors[node_input_tensor]
+                ):
+                    # this constant tensor is mapped to another onnx tensor
+                    return False
                 continue
             if len(self.tensor_inputs[node_input_tensor]) != len(onnx_tensor.inputs):
                 return False
-            for input_node, input_onnx_node in zip(self.tensor_inputs[node_input_tensor], onnx_tensor.inputs):
+            for input_node, input_onnx_node in zip(
+                self.tensor_inputs[node_input_tensor], onnx_tensor.inputs
+            ):
                 # dfs ends when revisiting a node. We need to check if the edges are matched.
                 if input_node in mapping:
-                    outbound_tensor_index = self._get_tensor_index_for_node(input_node, node_input_tensor, is_node_input=False)
-                    outbound_onnx_node_of_input_node = self.nodes[input_node].get_inbound_or_outbound_onnx_node(mapping[input_node], is_inbound=False, tensor_index=outbound_tensor_index)
-                    if outbound_onnx_node_of_input_node is None or outbound_onnx_node_of_input_node.name != input_onnx_node.name:
+                    outbound_tensor_index = self._get_tensor_index_for_node(
+                        input_node, node_input_tensor, is_node_input=False
+                    )
+                    outbound_onnx_node_of_input_node = self.nodes[
+                        input_node
+                    ].get_inbound_or_outbound_onnx_node(
+                        mapping[input_node],
+                        is_inbound=False,
+                        tensor_index=outbound_tensor_index,
+                    )
+                    if (
+                        outbound_onnx_node_of_input_node is None
+                        or outbound_onnx_node_of_input_node.name != input_onnx_node.name
+                    ):
                         return False
                     continue
-                match = self._match_node(input_node, input_onnx_node, node_input_tensor, mapping, mapped_onnx_nodes, onnx_graph_output_tensors, from_inbound=False)
+                match = self._match_node(
+                    input_node,
+                    input_onnx_node,
+                    node_input_tensor,
+                    mapping,
+                    mapped_onnx_nodes,
+                    onnx_graph_output_tensors,
+                    from_inbound=False,
+                )
                 if not match:
                     return False
 
         output_onnx_tensors = subgraph_mapping.outputs
         if len(output_onnx_tensors) != len(self.node_outputs[node_name]):
-            return False    # Number of node outputs should be equal to number of output onnx tensors of the node.
-        for node_output_tensor, onnx_tensor in zip(self.node_outputs[node_name], output_onnx_tensors):
+            return False  # Number of node outputs should be equal to number of output onnx tensors of the node.
+        for node_output_tensor, onnx_tensor in zip(
+            self.node_outputs[node_name], output_onnx_tensors
+        ):
             if onnx_tensor is None:
                 return False
             # tensor matched
             if node_output_tensor in self.output_tensors:
-                if not mapping.set_output_onnx_tensor(onnx_tensor, self.output_tensors.index(node_output_tensor)):
-                    return False    # this tensor is mapped to another onnx tensor
+                if not mapping.set_output_onnx_tensor(
+                    onnx_tensor, self.output_tensors.index(node_output_tensor)
+                ):
+                    return False  # this tensor is mapped to another onnx tensor
                 continue
             if onnx_tensor.name in onnx_graph_output_tensors:
                 return False  # The pattern tensor is not an output but the onnx tensor is an output tensor of the onnx graph.
@@ -338,15 +446,37 @@ class GraphPattern:
             # For sub-patterns, each input tensor can only have 1 output node. Otherwise the following test will fail.
             if len(self.tensor_outputs[node_output_tensor]) != len(onnx_tensor.outputs):
                 return False
-            for output_node, output_onnx_node in zip(self.tensor_outputs[node_output_tensor], onnx_tensor.outputs):
+            for output_node, output_onnx_node in zip(
+                self.tensor_outputs[node_output_tensor], onnx_tensor.outputs
+            ):
                 # dfs ends when revisiting a node. We need to check if the edges are matched.
                 if output_node in mapping:
-                    inbound_tensor_index = self._get_tensor_index_for_node(output_node, node_output_tensor, is_node_input=True)
-                    inbound_onnx_node_of_output_node = self.nodes[output_node].get_inbound_or_outbound_onnx_node(mapping[output_node], is_inbound=True, tensor_index=inbound_tensor_index)
-                    if inbound_onnx_node_of_output_node is None or inbound_onnx_node_of_output_node.name != output_onnx_node.name:
+                    inbound_tensor_index = self._get_tensor_index_for_node(
+                        output_node, node_output_tensor, is_node_input=True
+                    )
+                    inbound_onnx_node_of_output_node = self.nodes[
+                        output_node
+                    ].get_inbound_or_outbound_onnx_node(
+                        mapping[output_node],
+                        is_inbound=True,
+                        tensor_index=inbound_tensor_index,
+                    )
+                    if (
+                        inbound_onnx_node_of_output_node is None
+                        or inbound_onnx_node_of_output_node.name
+                        != output_onnx_node.name
+                    ):
                         return False
                     continue
-                match = self._match_node(output_node, output_onnx_node, node_output_tensor, mapping, mapped_onnx_nodes, onnx_graph_output_tensors, from_inbound=True)
+                match = self._match_node(
+                    output_node,
+                    output_onnx_node,
+                    node_output_tensor,
+                    mapping,
+                    mapped_onnx_nodes,
+                    onnx_graph_output_tensors,
+                    from_inbound=True,
+                )
                 if not match:
                     return False
         return True
@@ -366,7 +496,13 @@ class GraphPattern:
         for node in graph.nodes:
             G_LOGGER.info("Start a subgraph matching...")
             mapped_onnx_nodes = set()
-            mapping = self.match(node, from_inbound=True, from_tensor_index=0, mapped_onnx_nodes=mapped_onnx_nodes, onnx_graph_output_tensors=onnx_graph_output_tensors)
+            mapping = self.match(
+                node,
+                from_inbound=True,
+                from_tensor_index=0,
+                mapped_onnx_nodes=mapped_onnx_nodes,
+                onnx_graph_output_tensors=onnx_graph_output_tensors,
+            )
             if mapping is not None:
                 G_LOGGER.info("Found a matched subgraph!")
                 mappings.append(mapping)

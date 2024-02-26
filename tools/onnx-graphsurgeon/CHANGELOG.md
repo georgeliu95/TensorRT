@@ -3,6 +3,12 @@
 Dates are in YYYY-MM-DD format.
 
 
+## v0.5.1 (2024-02-23)
+### Changed
+- Removed dependency on `typing_extensions` package.
+- Improved error messages when a function registered with a graph is not registered for the current opset.
+
+
 ## v0.5.0 (2024-01-12)
 ### Added
 - Added a `GraphPattern` API which can be used to find matching subgraphs in a graph.
