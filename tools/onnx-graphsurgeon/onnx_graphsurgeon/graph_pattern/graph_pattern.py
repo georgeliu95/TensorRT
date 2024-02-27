@@ -303,11 +303,11 @@ class GraphPattern:
         mapped_onnx_nodes: set,
         onnx_graph_output_tensors: set,
     ):
-        if onnx_node.name in mapped_onnx_nodes:
+        if onnx_node.id in mapped_onnx_nodes:
             return None
         if self.op is not None:  # is single node
             if self._single_node_match(onnx_node):
-                mapped_onnx_nodes.add(onnx_node.name)
+                mapped_onnx_nodes.add(onnx_node.id)
                 return PatternMapping(onnx_node=onnx_node)
             else:
                 return None
@@ -493,17 +493,18 @@ class GraphPattern:
         """
         mappings = []
         onnx_graph_output_tensors = set(tensor.name for tensor in graph.outputs)
-        for node in graph.nodes:
-            G_LOGGER.info("Start a subgraph matching...")
-            mapped_onnx_nodes = set()
-            mapping = self.match(
-                node,
-                from_inbound=True,
-                from_tensor_index=0,
-                mapped_onnx_nodes=mapped_onnx_nodes,
-                onnx_graph_output_tensors=onnx_graph_output_tensors,
-            )
-            if mapping is not None:
-                G_LOGGER.info("Found a matched subgraph!")
-                mappings.append(mapping)
+        with graph.node_ids():
+            for node in graph.nodes:
+                G_LOGGER.info("Start a subgraph matching...")
+                mapped_onnx_nodes = set()
+                mapping = self.match(
+                    node,
+                    from_inbound=True,
+                    from_tensor_index=0,
+                    mapped_onnx_nodes=mapped_onnx_nodes,
+                    onnx_graph_output_tensors=onnx_graph_output_tensors,
+                )
+                if mapping is not None:
+                    G_LOGGER.info("Found a matched subgraph!")
+                    mappings.append(mapping)
         return mappings
