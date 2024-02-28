@@ -55,8 +55,15 @@ static const auto error_code_str = [](ErrorCode self) {
 };
 
 static const auto parser_error_str = [](IParserError& self) {
-    return "In node " + std::to_string(self.node()) + " with name: " + self.nodeName() + " and operator: "
-        + self.nodeOperator() + " (" + self.func() + "): " + error_code_str(self.code()) + ": " + self.desc();
+    const std::string node_info = "In node " + std::to_string(self.node()) + " with name: " + self.nodeName()
+        + " and operator: " + self.nodeOperator() + " ";
+    const std::string error_info
+        = std::string("(") + self.func() + "): " + error_code_str(self.code()) + ": " + self.desc();
+    if (self.code() == ErrorCode::kMODEL_DESERIALIZE_FAILED || self.code() == ErrorCode::kREFIT_FAILED)
+    {
+        return error_info;
+    }
+    return node_info + error_info;
 };
 
 static const auto parse = [](IParser& self, const py::buffer& model, const char* path = nullptr) {

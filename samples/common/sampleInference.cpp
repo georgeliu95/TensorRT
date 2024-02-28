@@ -298,23 +298,18 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
     iEnv.engine.releaseBlob();
 
     // Setup weight streaming if enabled
-    if (inference.weightStreamingBudget != BuildOptions::kUNSET_WEIGHT_STREAMING)
+    if (inference.weightStreamingBudget > InferenceOptions::kUNSET_WEIGHT_STREAMING)
     {
-        int64_t limit = inference.weightStreamingBudget;
-        if (limit > -1)
+        int64_t const limit = inference.weightStreamingBudget;
+        int64_t budget{limit};
+        if (limit == 0)
         {
-            // Convert the limit from megabytes to bytes
-            limit = limit << 20;
+            budget = engine->getMinimumWeightStreamingBudget();
         }
-        int64_t maxSize = engine->getStreamableWeightsSize();
-        bool success = engine->setWeightStreamingBudget(limit);
-        SMP_RETVAL_IF_FALSE(
-            limit >= maxSize || success, "Failed to set weight streaming limit!", false, sample::gLogError);
-        if (limit > 0 && limit < maxSize)
-        {
-            sample::gLogInfo << "Weight streaming is enabled with a weights device memory limit of " << (limit >> 20)
-                             << " MiB (" << limit << " bytes)." << std::endl;
-        }
+        bool success = engine->setWeightStreamingBudget(budget);
+        SMP_RETVAL_IF_FALSE(success, "Failed to set weight streaming limit!", false, sample::gLogError);
+        sample::gLogInfo << "Weight streaming is enabled with a weights device memory limit of " << budget << " bytes."
+                         << std::endl;
     }
 
     int32_t const nbOptProfiles = engine->getNbOptimizationProfiles();
@@ -1244,15 +1239,15 @@ bool timeDeserialize(InferenceEnvironment& iEnv, SystemOptions const& sys)
         }
         else
         {
+            auto& reader = iEnv.engine.getFileReader();
+            reader.reset();
+            ASSERT(reader.isOpen());
             for (auto const& pluginPath : sys.dynamicPlugins)
             {
                 rt->getPluginRegistry().loadLibrary(pluginPath.c_str());
             }
-            auto& reader = iEnv.engine.getFileReader();
-            ASSERT(reader.isOpen());
             engine.reset(rt->deserializeCudaEngine(reader));
             deserializeOK = (engine != nullptr);
-            reader.close();
         }
         auto endClock = std::chrono::high_resolution_clock::now();
         // return NAN if deserialization failed.

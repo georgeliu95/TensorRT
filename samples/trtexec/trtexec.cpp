@@ -234,6 +234,7 @@ int main(int argc, char** argv)
 
                 if (!args.empty())
                 {
+                    AllOptions::help(std::cout);
                     for (auto const& arg : args)
                     {
                         sample::gLogError << "Unknown option: " << arg.first << " " << arg.second.first << std::endl;
@@ -243,13 +244,13 @@ int main(int argc, char** argv)
             }
             catch (std::invalid_argument const& arg)
             {
+                AllOptions::help(std::cout);
                 sample::gLogError << arg.what() << std::endl;
                 failed = true;
             }
 
             if (failed)
             {
-                AllOptions::help(std::cout);
                 return sample::gLogger.reportFail(sampleTest);
             }
         }
@@ -284,23 +285,16 @@ int main(int argc, char** argv)
         std::vector<LibraryPtr> pluginLibs;
         if (gUseRuntime == RuntimeMode::kFULL)
         {
-            if (!options.build.versionCompatible)
-            {
-                sample::gLogInfo << "Loading standard plugins" << std::endl;
+            sample::gLogInfo << "Loading standard plugins" << std::endl;
 #if !TRT_STATIC
-                nvinferPluginLib = loadLibrary(kNVINFER_PLUGIN_LIBNAME);
-                auto pInitLibNvinferPlugins
-                    = nvinferPluginLib->symbolAddress<bool(void*, char const*)>("initLibNvInferPlugins");
+            nvinferPluginLib = loadLibrary(kNVINFER_PLUGIN_LIBNAME);
+            auto pInitLibNvinferPlugins
+                = nvinferPluginLib->symbolAddress<bool(void*, char const*)>("initLibNvInferPlugins");
 #else
-                auto pInitLibNvinferPlugins = initLibNvInferPlugins;
+            auto pInitLibNvinferPlugins = initLibNvInferPlugins;
 #endif
-                ASSERT(pInitLibNvinferPlugins != nullptr);
-                pInitLibNvinferPlugins(&sample::gLogger.getTRTLogger(), "");
-            }
-            else
-            {
-                sample::gLogInfo << "Not loading standard plugins since --versionCompatible is specified." << std::endl;
-            }
+            ASSERT(pInitLibNvinferPlugins != nullptr);
+            pInitLibNvinferPlugins(&sample::gLogger.getTRTLogger(), "");
             for (auto const& pluginPath : options.system.plugins)
             {
                 sample::gLogInfo << "Loading supplied plugin library: " << pluginPath << std::endl;

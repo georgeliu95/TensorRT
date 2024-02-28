@@ -457,14 +457,6 @@ using AllocatorFlags = uint32_t;
 namespace v_1_0
 {
 
-//!
-//! \class IGpuAllocator
-//!
-//! \brief Application-implemented class for controlling allocation on the GPU.
-//!
-//! \warning The lifetime of an IGpuAllocator object must exceed that of all objects that use it.
-//!
-//!
 class IGpuAllocator : public IVersionedInterface
 {
 public:
@@ -489,6 +481,7 @@ public:
     //! \usage
     //! - Allowed context for the API call
     //!   - Thread-safe: Yes, this method is required to be thread-safe and may be called from multiple threads.
+    //!
     //! \deprecated Deprecated in TensorRT 10.0. Superseded by allocateAsync
     //!
     TRT_DEPRECATED virtual void* allocate(
@@ -561,9 +554,11 @@ public:
 
     //!
     //! \brief A thread-safe callback implemented by the application to handle stream-ordered acquisition of GPU memory.
-    //! This functionality is implemented in IGpuAsyncAllocator class; See \see IGpuAsyncAllocator.
-    //! This implementation here is just a wrap around of the syncronous method and should not be used.
-
+    //!
+    //! The default behavior is to call method allocate(), which is synchronous and thus loses
+    //! any performance benefits of asynchronous allocation. If you want the benefits of asynchronous
+    //! allocation, see discussion of IGpuAsyncAllocator vs. IGpuAllocator in the documentation
+    //! for nvinfer1::IGpuAllocator.
     //!
     //! \param size The size of the memory block required (in bytes).
     //! \param alignment The required alignment of memory. Alignment will be zero
@@ -591,9 +586,12 @@ public:
         return allocate(size, alignment, flags);
     }
     //!
-    //! \brief A thread-safe callback implemented by the application to handle release of GPU memory, asynchronously.
-    //! This functionality is implemented in IGpuAsyncAllocator class; See \see IGpuAsyncAllocator.
-    //! This implementation here is just a wrap around of the syncronous method and should not be used.
+    //! \brief A thread-safe callback implemented by the application to handle stream-ordered release of GPU memory.
+    //!
+    //! The default behavior is to call method deallocate(), which is synchronous and thus loses
+    //! any performance benefits of asynchronous deallocation. If you want the benefits of asynchronous
+    //! deallocation, see discussion of IGpuAsyncAllocator vs. IGpuAllocator in the documentation
+    //! for nvinfer1::IGpuAllocator.
     //!
     //! TensorRT may pass a nullptr to this function if it was previously returned by allocate().
     //!
@@ -606,6 +604,11 @@ public:
     //! \note The implementation must guarantee thread safety for concurrent allocate/reallocate/deallocate
     //! requests.
     //!
+    //! \note The implementation is not required to be asynchronous. It is permitted to synchronize,
+    //! albeit doing so will lose the performance advantage of asynchronous deallocation.
+    //! Either way, it is critical that it not actually free the memory until the current
+    //! stream position is reached.
+    //!
     //! \usage
     //! - Allowed context for the API call
     //!   - Thread-safe: Yes, this method is required to be thread-safe and may be called from multiple threads.
@@ -614,6 +617,7 @@ public:
     {
         return deallocate(memory);
     }
+
     //!
     //! \brief Get information about the Interface.
     //!
@@ -633,6 +637,26 @@ protected:
 
 } // namespace v_1_0
 
+//!
+//! \class IGpuAllocator
+//!
+//! \brief Application-implemented class for controlling allocation on the GPU.
+//!
+//! \warning The lifetime of an IGpuAllocator object must exceed that of all objects that use it.
+//!
+//! This class is intended as a base class for allocators that implement synchronous allocation.
+//! If you want the benefits of asynchronous allocation, you can do either of:
+//!
+//! * Derive your class from IGpuAllocator and override all four of its virtual methods
+//!   for allocation/deallocation, including the two deprecated methods.
+//!
+//! * Derive your class from IGpuAsyncAllocator and override its two pure virtual
+//!   methods for allocation/deallocation.
+//!
+//! The latter style is preferred because it does not tie code to deprecated methods.
+//!
+//! \see IGpuAsyncAllocator.
+//!
 using IGpuAllocator = v_1_0::IGpuAllocator;
 
 //!
@@ -1118,6 +1142,68 @@ protected:
 //!       v_1_0::IStreamReader
 //!
 using IStreamReader = v_1_0::IStreamReader;
+
+namespace v_1_0
+{
+
+class IPluginResource : public IVersionedInterface
+{
+public:
+    //!
+    //! \brief Return version information associated with this interface. Applications must not override this method.
+    //!
+    InterfaceInfo getInterfaceInfo() const noexcept override
+    {
+        return InterfaceInfo{"IPluginResource", 1, 0};
+    }
+    //!
+    //! \brief Free the underlying resource
+    //!
+    //! This will only be called for IPluginResource objects that were produced from IPluginResource::clone()
+    //!
+    //! The IPluginResource object on which release() is called must still be in a clone-able state
+    //! after release() returns
+    //!
+    //! \return 0 for success, else non-zero
+    //! \usage
+    //! - Allowed context for the API call
+    //!   - Thread-safe: No; this method is not required to be thread-safe
+    //!
+    virtual int32_t release() noexcept = 0;
+
+    //!
+    //! \brief Clone the resource object
+    //!
+    //! \note Resource initialization (if any) may be skipped for non-cloned objects since only clones will be
+    //! registered by TensorRT
+    //!
+    //! \return Pointer to cloned object. nullptr if there was an issue.
+    //!
+    //! \usage
+    //! - Allowed context for the API call
+    //!   - Thread-safe: Yes; this method is required to be thread-safe and may be called from multiple threads.
+    //!
+    virtual IPluginResource* clone() noexcept = 0;
+
+    ~IPluginResource() noexcept override = default;
+
+    IPluginResource() = default;
+    IPluginResource(IPluginResource const&) = default;
+    IPluginResource(IPluginResource&&) = default;
+    IPluginResource& operator=(IPluginResource const&) & = default;
+    IPluginResource& operator=(IPluginResource&&) & = default;
+}; // class IPluginResource
+} // namespace v_1_0
+
+//!
+//! \class IPluginResource
+//!
+//! \brief Interface for plugins to define custom resources that could be shared through the plugin registry
+//!
+//! \see IPluginRegistry::acquirePluginResource
+//! \see IPluginRegistry::releasePluginResource
+//!
+using IPluginResource = v_1_0::IPluginResource;
 
 namespace impl
 {

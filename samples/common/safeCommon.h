@@ -56,7 +56,7 @@
         }                                                                                                              \
     } while (0)
 
-#undef SAFE_ASSERT(
+#undef SAFE_ASSERT
 #define SAFE_ASSERT(condition)                                                                                         \
     do                                                                                                                 \
     {                                                                                                                  \
