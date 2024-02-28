@@ -1,4 +1,6 @@
 # TensorRT FP8 Inference for NeMo models
+**Deprecation:** For all users using TensorRT to accelerate Large Language Model inference, please use [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM/). TensorRT-LLM includes full model coverage and functionalities of HuggingFace demo and NeMo demo. It also contains more optimizations and functionalities (e.g. model quantization, in-flight batching, etc.), multi-GPU support, better model coverage and much better inference performance. HuggingFace Demo and NeMo demo will not be maintained, and they will be removed from OSS in TRT 10.0 release.
+
 This repository demonstrates TensorRT inference with NeMo Megatron models in FP8/FP16/BF16 precision.
 
 Currently, this repository supports [NeMo GPT](https://huggingface.co/nvidia/nemo-megatron-gpt-5B/tree/fp8) models only.

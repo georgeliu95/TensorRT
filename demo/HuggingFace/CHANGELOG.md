@@ -20,6 +20,9 @@ Uses [semantic versioning](https://semver.org/).
 - `Fixed` for any bug fixes.
 - `Security` in case of vulnerabilities.
 
+# [3.0.0] - 2024-02-11
+- Deprecated the entire HF demo to TensorRT-LLM
+
 # [2.0.7] - 2023-11-15
 - Removed FASTER_DYNAMIC_SHAPES_0805 preview feature because it is enabled by default and removed
 
