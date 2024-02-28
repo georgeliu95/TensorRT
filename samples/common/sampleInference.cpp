@@ -298,7 +298,7 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
     iEnv.engine.releaseBlob();
 
     // Setup weight streaming if enabled
-    if (inference.weightStreamingBudget > InferenceOptions::kUNSET_WEIGHT_STREAMING)
+    if (inference.weightStreamingBudget > InferenceOptions::kDISABLE_WEIGHT_STREAMING)
     {
         int64_t const limit = inference.weightStreamingBudget;
         int64_t budget{limit};

@@ -149,10 +149,12 @@ bool ScatterElementsPlugin::supportsFormatCombination(
 
         auto mytype = inOut[pos].type;
         auto firsttype = inOut[kDATA_TENSOR_IDX].type;
+
         // Only INT64 is supported for indices
         return pos == kINDICES_TENSOR_IDX ? (mytype == DataType::kINT64)
                                           : (mytype == firsttype)
-                && (mytype == DataType::kFLOAT || mytype == DataType::kHALF || mytype == DataType::kINT32
+                && (mytype == DataType::kFLOAT || mytype == DataType::kHALF
+                    || (hasBfloat16AtomicAdd() && mytype == DataType::kBF16) || mytype == DataType::kINT32
                     || mytype == DataType::kINT64);
     }
     catch (std::exception const& e)

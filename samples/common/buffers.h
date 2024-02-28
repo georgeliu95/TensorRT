@@ -240,6 +240,32 @@ public:
     static const size_t kINVALID_SIZE_VALUE = ~size_t(0);
 
     //!
+    //! \brief Create a BufferManager for handling buffer interactions with engine, when the I/O tensor volumes
+    //! are provided
+    //!
+    BufferManager(
+        std::shared_ptr<nvinfer1::ICudaEngine> engine, std::vector<int64_t> const& volumes, int32_t batchSize = 0)
+        : mEngine(engine)
+        , mBatchSize(batchSize)
+    {
+        // Create host and device buffers
+        for (int32_t i = 0; i < mEngine->getNbIOTensors(); i++)
+        {
+            auto const name = engine->getIOTensorName(i);
+            mNames[name] = i;
+
+            nvinfer1::DataType type = mEngine->getTensorDataType(name);
+
+            std::unique_ptr<ManagedBuffer> manBuf{new ManagedBuffer()};
+            manBuf->deviceBuffer = DeviceBuffer(volumes[i], type);
+            manBuf->hostBuffer = HostBuffer(volumes[i], type);
+            void* deviceBuffer = manBuf->deviceBuffer.data();
+            mDeviceBindings.emplace_back(deviceBuffer);
+            mManagedBuffers.emplace_back(std::move(manBuf));
+        }
+    }
+
+    //!
     //! \brief Create a BufferManager for handling buffer interactions with engine.
     //!
     BufferManager(std::shared_ptr<nvinfer1::ICudaEngine> engine, int32_t const batchSize = 0,

@@ -281,7 +281,7 @@ private:
 //!
 //! \brief Print layer info to logger or export it to output JSON file.
 //!
-bool printLayerInfo(
+void printLayerInfo(
     ReportingOptions const& reporting, nvinfer1::ICudaEngine* engine, nvinfer1::IExecutionContext* context);
 
 //!

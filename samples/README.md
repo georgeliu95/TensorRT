@@ -17,6 +17,7 @@
 | [sampleDynamicReshape](sampleDynamicReshape) | C++ | ONNX | Digit Recognition With Dynamic Shapes In TensorRT |
 | [sampleINT8API](sampleINT8API) | C++ | ONNX | Performing Inference In INT8 Precision |
 | [sampleNamedDimensions](sampleNamedDimensions) | C++ | ONNX | Working with named input dimensions |
+| [sampleNonZeroPlugin](sampleNonZeroPlugin) | C++ | INetwork | Adding plugin with data-dependent output shapes |
 | [sampleOnnxMnistCoordConvAC](sampleOnnxMnistCoordConvAC) | C++ | ONNX | Implementing CoordConv with a custom plugin |
 | [sampleIOFormats](sampleIOFormats) | C++ | ONNX | Specifying TensorRT I/O Formats |
 | [sampleProgressMonitor](sampleProgressMonitor) | C++ | ONNX | Progress Monitor API usage |

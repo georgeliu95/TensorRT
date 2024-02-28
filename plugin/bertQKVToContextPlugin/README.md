@@ -70,6 +70,9 @@ documentation.
 
 
 ## Changelog
+Feb 2024
+The issue of the V2 plugin not supporting head sizes of 32 or less and variable sequences of 64, 96, and 384 has been resolved.
+
 Oct 2023
 Support explicit int8.
 

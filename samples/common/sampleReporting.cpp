@@ -515,7 +515,7 @@ void exportJSONOutput(nvinfer1::IExecutionContext const& context, Bindings const
 template void exportJSONOutput(nvinfer1::safe::IExecutionContext const& context, Bindings const& bindings,
     std::string const& fileName, int32_t batch);
 
-bool printLayerInfo(
+void printLayerInfo(
     ReportingOptions const& reporting, nvinfer1::ICudaEngine* engine, nvinfer1::IExecutionContext* context)
 {
     if (reporting.layerInfo)
@@ -529,7 +529,6 @@ bool printLayerInfo(
         std::ofstream os(reporting.exportLayerInfo, std::ofstream::trunc);
         os << getLayerInformation(engine, context, nvinfer1::LayerInformationFormat::kJSON) << std::flush;
     }
-    return true;
 }
 
 void printOptimizationProfileInfo(ReportingOptions const& reporting, nvinfer1::ICudaEngine const* engine)

@@ -16,7 +16,7 @@
 #
 
 import ctypes
-from typing import Optional, List
+from typing import Optional, List, Union
 
 import numpy as np
 import tensorrt as trt
@@ -39,9 +39,11 @@ def cuda_call(call):
         res = res[0]
     return res
 
+
 class HostDeviceMem:
     """Pair of host and device memory, where the host memory is wrapped in a numpy array"""
-    def __init__(self, size: int, dtype: np.dtype):
+    def __init__(self, size: int, dtype: Optional[np.dtype] = None):
+        dtype = dtype or np.dtype(np.uint8)
         nbytes = size * dtype.itemsize
         host_mem = cuda_call(cudart.cudaMallocHost(nbytes))
         pointer_type = ctypes.POINTER(np.ctypeslib.as_ctypes_type(dtype))
@@ -55,12 +57,16 @@ class HostDeviceMem:
         return self._host
 
     @host.setter
-    def host(self, arr: np.ndarray):
-        if arr.size > self.host.size:
-            raise ValueError(
-                f"Tried to fit an array of size {arr.size} into host memory of size {self.host.size}"
-            )
-        np.copyto(self.host[:arr.size], arr.flat, casting='safe')
+    def host(self, data: Union[np.ndarray, bytes]):
+        if isinstance(data, np.ndarray):
+            if data.size > self.host.size:
+                raise ValueError(
+                    f"Tried to fit an array of size {data.size} into host memory of size {self.host.size}"
+                )
+            np.copyto(self.host[:data.size], data.flat, casting='safe')
+        else:
+            assert self.host.dtype == np.uint8
+            self.host[:self.nbytes] = np.frombuffer(data, dtype=np.uint8)
 
     @property
     def device(self) -> int:
@@ -98,10 +104,15 @@ def allocate_buffers(engine: trt.ICudaEngine, profile_idx: Optional[int] = None)
             raise ValueError(f"Binding {binding} has dynamic shape, " +\
                 "but no profile was specified.")
         size = trt.volume(shape)
-        dtype = np.dtype(trt.nptype(engine.get_tensor_dtype(binding)))
+        trt_type = engine.get_tensor_dtype(binding)
 
         # Allocate host and device buffers
-        bindingMemory = HostDeviceMem(size, dtype)
+        if trt.nptype(trt_type):
+            dtype = np.dtype(trt.nptype(trt_type))
+            bindingMemory = HostDeviceMem(size, dtype)
+        else: # no numpy support: create a byte array instead (BF16, FP8, INT4)
+            size = int(size * trt_type.itemsize)
+            bindingMemory = HostDeviceMem(size)
 
         # Append the device buffer to device bindings.
         bindings.append(int(bindingMemory.device))

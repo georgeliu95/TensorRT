@@ -68,6 +68,7 @@ struct Args
     std::vector<std::string> dataDirs;
     std::string saveEngine;
     std::string loadEngine;
+    bool rowMajor{true};
 };
 
 //!
@@ -84,8 +85,9 @@ inline bool parseArgs(Args& args, int32_t argc, char* argv[])
         int32_t arg;
         static struct option long_options[] = {{"help", no_argument, 0, 'h'}, {"datadir", required_argument, 0, 'd'},
             {"int8", no_argument, 0, 'i'}, {"fp16", no_argument, 0, 'f'}, {"bf16", no_argument, 0, 'z'},
-            {"saveEngine", required_argument, 0, 's'}, {"loadEngine", required_argument, 0, 'o'},
-            {"useDLACore", required_argument, 0, 'u'}, {"batch", required_argument, 0, 'b'}, {nullptr, 0, nullptr, 0}};
+            {"columnMajor", no_argument, 0, 'c'}, {"saveEngine", required_argument, 0, 's'},
+            {"loadEngine", required_argument, 0, 'o'}, {"useDLACore", required_argument, 0, 'u'},
+            {"batch", required_argument, 0, 'b'}, {nullptr, 0, nullptr, 0}};
         int32_t option_index = 0;
         arg = getopt_long(argc, argv, "hd:iu", long_options, &option_index);
         if (arg == -1)
@@ -122,6 +124,7 @@ inline bool parseArgs(Args& args, int32_t argc, char* argv[])
         case 'i': args.runInInt8 = true; break;
         case 'f': args.runInFp16 = true; break;
         case 'z': args.runInBf16 = true; break;
+        case 'c': args.rowMajor = false; break;
         case 'u':
             if (optarg)
             {

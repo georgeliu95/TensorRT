@@ -586,7 +586,7 @@ class IPluginCreatorImpl : public IPluginCreator
 public:
     IPluginCreatorImpl() = default;
 
-    APILanguage getAPILanguage() const noexcept override
+    APILanguage getAPILanguage() const noexcept final
     {
         return APILanguage::kPYTHON;
     }
@@ -723,7 +723,7 @@ public:
         mIsFCInitialized = true;
     }
 
-    void setName(std::string name)
+    void setPluginName(std::string name)
     {
         mName = std::move(name);
         mIsNameInitialized = true;
@@ -747,6 +747,997 @@ private:
     bool mIsPluginVersionInitialized{false};
 };
 
+class PyIPluginV3Impl : public IPluginV3
+{
+public:
+    using IPluginV3::IPluginV3;
+    PyIPluginV3Impl() = default;
+    PyIPluginV3Impl(const IPluginV3& a){};
+
+    APILanguage getAPILanguage() const noexcept final
+    {
+        return APILanguage::kPYTHON;
+    }
+
+    IPluginCapability* getCapabilityInterface(PluginCapabilityType type) noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+
+            py::function pyGetCapabilityInterface
+                = utils::getOverride(static_cast<const IPluginV3*>(this), "get_capability_interface");
+            if (!pyGetCapabilityInterface)
+            {
+                utils::throwPyError(PyExc_RuntimeError, "no implementation provided for get_capability_interface()");
+            }
+
+            auto pyResult = pyGetCapabilityInterface(type).release();
+
+            try
+            {
+                if (type == PluginCapabilityType::kCORE)
+                {
+                    return pyResult.cast<IPluginV3OneCore*>();
+                }
+                if (type == PluginCapabilityType::kBUILD)
+                {
+                    return pyResult.cast<IPluginV3OneBuild*>();
+                }
+                if (type == PluginCapabilityType::kRUNTIME)
+                {
+                    return pyResult.cast<IPluginV3OneRuntime*>();
+                }
+            }
+            PLUGIN_API_CATCH_CAST("get_capability_interface", "nvinfer1::IPluginCapability")
+            return nullptr;
+        }
+        PLUGIN_API_CATCH("get_capability_interface")
+        return nullptr;
+    }
+
+    nvinfer1::IPluginV3* clone() noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+
+            py::function pyClone = utils::getOverride(static_cast<const IPluginV3*>(this), "clone");
+            if (!pyClone)
+            {
+                utils::throwPyError(PyExc_RuntimeError, "no implementation provided for clone()");
+            }
+
+            // Release so that pybind11 does not manage lifetime anymore
+            // We will manually decrement ref count in the destructor so that Python could garbage collect
+            py::handle handle = pyClone().release();
+
+            try
+            {
+                return handle.cast<IPluginV3*>();
+            }
+            PLUGIN_API_CATCH_CAST("clone", "nvinfer1::IPluginV3")
+            return nullptr;
+        }
+        PLUGIN_API_CATCH("clone")
+        return nullptr;
+    }
+
+    ~PyIPluginV3Impl() override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+
+            py::function pyDestroy = py::get_override(static_cast<IPluginV3 const*>(this), "destroy");
+
+            if (pyDestroy)
+            {
+                pyDestroy();
+            }
+
+            // Remove reference to the Python plugin object so that it could be garbage-collected
+            py::cast(this).dec_ref();
+        }
+        PLUGIN_API_CATCH("destroy")
+    }
+};
+
+class PyIPluginResourceImpl : public IPluginResource
+{
+public:
+    using IPluginResource::IPluginResource;
+    PyIPluginResourceImpl() = default;
+    PyIPluginResourceImpl(const IPluginResource& a){};
+
+    int32_t release() noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+
+            py::function pyRelease = utils::getOverride(static_cast<IPluginResource const*>(this), "release");
+
+            if (!pyRelease)
+            {
+                utils::throwPyError(PyExc_RuntimeError, "no implementation provided for release()");
+            }
+
+            try
+            {
+                pyRelease();
+            }
+            catch (py::error_already_set& e)
+            {
+                std::cerr << "[ERROR] Exception thrown from release() " << e.what() << std::endl;
+            }
+        }
+        PLUGIN_API_CATCH("release")
+        return -1;
+    }
+
+    IPluginResource* clone() noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+
+            py::function pyClone = utils::getOverride(static_cast<IPluginResource const*>(this), "clone");
+
+            if (!pyClone)
+            {
+                utils::throwPyError(PyExc_RuntimeError, "no implementation provided for clone()");
+            }
+
+            try
+            {
+                auto handle = pyClone().release();
+                try
+                {
+                    return handle.cast<IPluginResource*>();
+                }
+                PLUGIN_API_CATCH_CAST("clone", "nvinfer1::IPluginResource")
+            }
+            catch (py::error_already_set& e)
+            {
+                std::cerr << "[ERROR] Exception thrown from clone() " << e.what() << std::endl;
+            }
+        }
+        PLUGIN_API_CATCH("clone")
+        return nullptr;
+    }
+
+    ~PyIPluginResourceImpl() override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+
+            // Remove reference to the Python IPluginResource object so that it could be garbage-collected
+            py::cast(this).dec_ref();
+        }
+        PLUGIN_API_CATCH("IPluginResource destruction")
+    }
+};
+
+class PyIPluginV3OneBuildImpl : public IPluginV3OneBuild
+{
+public:
+    using IPluginV3OneBuild::IPluginV3OneBuild;
+    PyIPluginV3OneBuildImpl() = default;
+    PyIPluginV3OneBuildImpl(const IPluginV3OneBuild& a){};
+
+    APILanguage getAPILanguage() const noexcept final
+    {
+        return APILanguage::kPYTHON;
+    }
+
+    int32_t getNbOutputs() const noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+            if (!mIsNbOutputsInitialized)
+            {
+                utils::throwPyError(PyExc_AttributeError, "num_outputs not initialized");
+            }
+            return mNbOutputs;
+        }
+        PLUGIN_API_CATCH("num_outputs")
+        return -1;
+    }
+
+    int32_t getNbTactics() noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+
+            try
+            {
+                py::function pyGetValidTactics
+                    = utils::getOverride(static_cast<IPluginV3OneBuild const*>(this), "get_valid_tactics");
+
+                if (!pyGetValidTactics)
+                {
+                    utils::throwPyError(PyExc_RuntimeError, "no implementation provided for get_valid_tactics()");
+                }
+
+                py::object pyResult = pyGetValidTactics();
+                auto result = pyResult.cast<std::vector<int32_t>>();
+                return static_cast<int32_t>(result.size());
+            }
+            PLUGIN_API_CATCH_CAST("get_valid_tactics", "std::vector<int32_t>")
+            catch (py::error_already_set& e)
+            {
+                std::cerr << "[ERROR] Exception thrown from get_valid_tactics() " << e.what() << std::endl;
+            }
+        }
+        PLUGIN_API_CATCH("tactics")
+        return -1;
+    }
+
+    int32_t getValidTactics(int32_t* tactics, int32_t nbTactics) noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+
+            try
+            {
+                py::function pyGetValidTactics
+                    = utils::getOverride(static_cast<IPluginV3OneBuild const*>(this), "get_valid_tactics");
+
+                if (!pyGetValidTactics)
+                {
+                    utils::throwPyError(PyExc_RuntimeError, "no implementation provided for get_valid_tactics()");
+                }
+
+                py::object pyResult = pyGetValidTactics();
+                auto result = pyResult.cast<std::vector<int32_t>>();
+                std::copy(result.begin(), result.end(), tactics);
+                return 0;
+            }
+            PLUGIN_API_CATCH_CAST("get_valid_tactics", "std::vector<int32_t>")
+            catch (py::error_already_set& e)
+            {
+                std::cerr << "[ERROR] Exception thrown from get_valid_tactics() " << e.what() << std::endl;
+            }
+        }
+        PLUGIN_API_CATCH("tactics")
+        return -1;
+    }
+
+    bool supportsFormatCombination(
+        int32_t pos, DynamicPluginTensorDesc const* inOut, int32_t nbInputs, int32_t nbOutputs) noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+
+            py::function pySupportsFormatCombination
+                = utils::getOverride(static_cast<IPluginV3OneBuild*>(this), "supports_format_combination");
+            if (!pySupportsFormatCombination)
+            {
+                utils::throwPyError(PyExc_RuntimeError, "no implementation provided for supports_format_combination()");
+            }
+
+            std::vector<DynamicPluginTensorDesc> inOutVector;
+            for (int32_t idx = 0; idx < nbInputs + nbOutputs; ++idx)
+            {
+                inOutVector.push_back(*(inOut + idx));
+            }
+
+            py::object pyResult = pySupportsFormatCombination(pos, inOutVector, nbInputs);
+
+            try
+            {
+                auto result = pyResult.cast<bool>();
+                return result;
+            }
+            PLUGIN_API_CATCH_CAST("supports_format_combination", "bool")
+            return false;
+        }
+        PLUGIN_API_CATCH("supports_format_combination")
+        return false;
+    }
+
+    int32_t getOutputDataTypes(
+        DataType* outputTypes, int32_t nbOutputs, const DataType* inputTypes, int32_t nbInputs) const noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+
+            py::function pyGetOutputDataTypes
+                = utils::getOverride(static_cast<IPluginV3OneBuild const*>(this), "get_output_data_types");
+            if (!pyGetOutputDataTypes)
+            {
+                utils::throwPyError(PyExc_RuntimeError, "no implementation provided for get_output_data_types()");
+            }
+
+            std::vector<DataType> inVector;
+            for (int32_t idx = 0; idx < nbInputs; ++idx)
+            {
+                inVector.push_back(*(inputTypes + idx));
+            }
+
+            try
+            {
+                py::object pyResult = pyGetOutputDataTypes(inVector);
+                auto result = pyResult.cast<std::vector<DataType>>();
+
+                if (static_cast<int32_t>(result.size()) != nbOutputs)
+                {
+                    utils::throwPyError(PyExc_RuntimeError,
+                        "get_output_data_types() returned a list with a different length than num_outputs");
+                }
+
+                std::copy(result.begin(), result.end(), outputTypes);
+                return 0;
+            }
+            PLUGIN_API_CATCH_CAST("get_output_data_types", "std::vector<nvinfer1::DataType>")
+            catch (py::error_already_set& e)
+            {
+                std::cerr << "[ERROR] Exception thrown from get_output_data_types() " << e.what() << std::endl;
+            }
+        }
+        PLUGIN_API_CATCH("get_output_data_types")
+        return -1;
+    }
+
+    int32_t getOutputShapes(DimsExprs const* inputs, int32_t nbInputs, DimsExprs const* shapeInputs,
+        int32_t nbShapeInputs, DimsExprs* outputs, int32_t nbOutputs, IExprBuilder& exprBuilder) noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+
+            py::function pyGetOutputShapes
+                = utils::getOverride(static_cast<IPluginV3OneBuild*>(this), "get_output_shapes");
+            if (!pyGetOutputShapes)
+            {
+                utils::throwPyError(PyExc_RuntimeError, "no implementation provided for get_output_shapes()");
+            }
+
+            std::vector<DimsExprs> inVector;
+            for (int32_t idx = 0; idx < nbInputs; ++idx)
+            {
+                inVector.push_back(*(inputs + idx));
+            }
+
+            std::vector<DimsExprs> shapeInVector;
+            for (int32_t idx = 0; idx < nbShapeInputs; ++idx)
+            {
+                shapeInVector.push_back(*(shapeInputs + idx));
+            }
+
+            py::object pyResult = pyGetOutputShapes(inVector, shapeInVector, &exprBuilder);
+
+            try
+            {
+                auto result = pyResult.cast<std::vector<DimsExprs>>();
+                if (static_cast<int32_t>(result.size()) != nbOutputs)
+                {
+                    utils::throwPyError(PyExc_RuntimeError,
+                        "get_output_shapes() returned a list with a different length than num_outputs");
+                }
+                std::copy(result.begin(), result.end(), outputs);
+                return 0;
+            }
+            PLUGIN_API_CATCH_CAST("get_output_shapes", "std::vector<nvinfer1::DimsExprs>")
+            catch (py::error_already_set& e)
+            {
+                std::cerr << "[ERROR] Exception thrown from get_output_shapes() " << e.what() << std::endl;
+            }
+            return -1;
+        }
+        PLUGIN_API_CATCH("get_output_shapes")
+        return -1;
+    }
+
+    int32_t configurePlugin(DynamicPluginTensorDesc const* in, int32_t nbInputs, DynamicPluginTensorDesc const* out,
+        int32_t nbOutputs) noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+
+            py::function pyConfigurePlugin
+                = utils::getOverride(static_cast<IPluginV3OneBuild*>(this), "configure_plugin");
+
+            if (!pyConfigurePlugin)
+            {
+                utils::throwPyError(PyExc_RuntimeError, "no implementation provided for configure_plugin()");
+            }
+
+            std::vector<DynamicPluginTensorDesc> inVector;
+            for (int32_t idx = 0; idx < nbInputs; ++idx)
+            {
+                inVector.push_back(*(in + idx));
+            }
+
+            std::vector<DynamicPluginTensorDesc> outVector;
+            for (int32_t idx = 0; idx < nbOutputs; ++idx)
+            {
+                outVector.push_back(*(out + idx));
+            }
+
+            try
+            {
+                pyConfigurePlugin(inVector, outVector);
+                return 0;
+            }
+            catch (py::error_already_set& e)
+            {
+                std::cerr << "[ERROR] Exception thrown from configure_plugin() " << e.what() << std::endl;
+            }
+        }
+        PLUGIN_API_CATCH("configure_plugin")
+        return -1;
+    }
+
+    size_t getWorkspaceSize(DynamicPluginTensorDesc const* inputs, int32_t nbInputs,
+        DynamicPluginTensorDesc const* outputs, int32_t nbOutputs) const noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+
+            py::function pyGetWorkspaceSize
+                = py::get_override(static_cast<IPluginV3OneBuild const*>(this), "get_workspace_size");
+
+            if (!pyGetWorkspaceSize)
+            {
+                // if no implementation is provided for get_workspace_size(), default to zero workspace size required
+                return 0U;
+            }
+
+            std::vector<DynamicPluginTensorDesc> inVector;
+            for (int32_t idx = 0; idx < nbInputs; ++idx)
+            {
+                inVector.push_back(*(inputs + idx));
+            }
+
+            std::vector<DynamicPluginTensorDesc> outVector;
+            for (int32_t idx = 0; idx < nbOutputs; ++idx)
+            {
+                outVector.push_back(*(outputs + idx));
+            }
+
+            py::object pyResult = pyGetWorkspaceSize(inVector, outVector);
+
+            try
+            {
+                auto result = pyResult.cast<size_t>();
+                return result;
+            }
+            PLUGIN_API_CATCH_CAST("get_workspace_size", "size_t")
+            return 0U;
+        }
+        PLUGIN_API_CATCH("get_workspace_size")
+        return 0U;
+    }
+
+    char const* getTimingCacheID() noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+            if (!mIsTimingCachedIdInitialized)
+            {
+                return nullptr;
+            }
+            return mTimingCachedId.c_str();
+        }
+        PLUGIN_API_CATCH("timing_cache_id")
+        return nullptr;
+    }
+
+    char const* getMetadataString() noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+            if (!mIsMetadataStringInitialized)
+            {
+                return nullptr;
+            }
+            return mMetadataString.c_str();
+        }
+        PLUGIN_API_CATCH("metadata_string")
+        return nullptr;
+    }
+
+    int32_t getFormatCombinationLimit() noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+            if (!mIsFormatCombinationLimitInitialized)
+            {
+                return IPluginV3OneBuild::kDEFAULT_FORMAT_COMBINATION_LIMIT;
+            }
+            return mFormatCombinationLimit;
+        }
+        PLUGIN_API_CATCH("format_combination_limit")
+        return -1;
+    }
+
+    void setNbOutputs(int32_t nbOutputs)
+    {
+        mNbOutputs = nbOutputs;
+        mIsNbOutputsInitialized = true;
+    }
+
+    void setFormatCombinationLimit(int32_t formatCombinationLimit)
+    {
+        mFormatCombinationLimit = formatCombinationLimit;
+        mIsFormatCombinationLimitInitialized = true;
+    }
+
+    void setTimingCachedId(std::string timingCachedId)
+    {
+        mTimingCachedId = std::move(timingCachedId);
+        mIsTimingCachedIdInitialized = true;
+    }
+
+    void setMetadataString(std::string metadataString)
+    {
+        mMetadataString = std::move(metadataString);
+        mIsMetadataStringInitialized = true;
+    }
+
+private:
+    int32_t mNbOutputs{};
+    int32_t mFormatCombinationLimit{};
+    std::string mTimingCachedId{};
+    std::string mMetadataString{};
+
+    bool mIsNbOutputsInitialized{false};
+    bool mIsTimingCachedIdInitialized{false};
+    bool mIsFormatCombinationLimitInitialized{false};
+    bool mIsMetadataStringInitialized{false};
+};
+
+class PyIPluginV3OneRuntimeImpl : public IPluginV3OneRuntime
+{
+public:
+    using IPluginV3OneRuntime::IPluginV3OneRuntime;
+    PyIPluginV3OneRuntimeImpl() = default;
+    PyIPluginV3OneRuntimeImpl(const IPluginV3OneRuntime& a){};
+
+    APILanguage getAPILanguage() const noexcept final
+    {
+        return APILanguage::kPYTHON;
+    }
+
+    int32_t enqueue(PluginTensorDesc const* inputDesc, PluginTensorDesc const* outputDesc, void const* const* inputs,
+        void* const* outputs, void* workspace, cudaStream_t stream) noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+
+            py::function pyEnqueue = utils::getOverride(static_cast<IPluginV3OneRuntime*>(this), "enqueue");
+            if (!pyEnqueue)
+            {
+                utils::throwPyError(PyExc_RuntimeError, "no implementation provided for enqueue()");
+            }
+
+            std::vector<PluginTensorDesc> inVector;
+            for (int32_t idx = 0; idx < mNbInputs; ++idx)
+            {
+                inVector.push_back(*(inputDesc + idx));
+            }
+            std::vector<PluginTensorDesc> outVector;
+            for (int32_t idx = 0; idx < mNbOutputs; ++idx)
+            {
+                outVector.push_back(*(outputDesc + idx));
+            }
+
+            std::vector<intptr_t> inPtrs;
+            for (int32_t idx = 0; idx < mNbInputs; ++idx)
+            {
+                inPtrs.push_back(reinterpret_cast<intptr_t>(inputs[idx]));
+            }
+            std::vector<intptr_t> outPtrs;
+            for (int32_t idx = 0; idx < mNbOutputs; ++idx)
+            {
+                outPtrs.push_back(reinterpret_cast<intptr_t>(outputs[idx]));
+            }
+
+            intptr_t workspacePtr = reinterpret_cast<intptr_t>(workspace);
+            intptr_t cudaStreamPtr = reinterpret_cast<intptr_t>(stream);
+
+            try
+            {
+                pyEnqueue(inVector, outVector, inPtrs, outPtrs, workspacePtr, cudaStreamPtr);
+            }
+            catch (py::error_already_set& e)
+            {
+                std::cerr << "[ERROR] Exception thrown from enqueue() " << e.what() << std::endl;
+                return -1;
+            }
+            return 0;
+        }
+        PLUGIN_API_CATCH("enqueue")
+        return -1;
+    }
+
+    int32_t setTactic(int32_t tactic) noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+
+            py::function pySetTactic = utils::getOverride(static_cast<IPluginV3OneRuntime*>(this), "set_tactic");
+            if (!pySetTactic)
+            {
+                utils::throwPyError(PyExc_RuntimeError, "no implementation provided for set_tactic()");
+            }
+
+            try
+            {
+                pySetTactic(tactic);
+            }
+            catch (py::error_already_set& e)
+            {
+                std::cerr << "[ERROR] Exception thrown from set_tactic() " << e.what() << std::endl;
+                return -1;
+            }
+            return 0;
+        }
+        PLUGIN_API_CATCH("set_tactic")
+        return -1;
+    }
+
+    int32_t onShapeChange(
+        PluginTensorDesc const* in, int32_t nbInputs, PluginTensorDesc const* out, int32_t nbOutputs) noexcept override
+    {
+        try
+        {
+            mNbInputs = nbInputs;
+            mNbOutputs = nbOutputs;
+
+            py::gil_scoped_acquire gil{};
+
+            py::function pyConfigurePlugin
+                = utils::getOverride(static_cast<IPluginV3OneRuntime*>(this), "on_shape_change");
+            if (!pyConfigurePlugin)
+            {
+                utils::throwPyError(PyExc_RuntimeError, "no implementation provided for on_shape_change()");
+            }
+
+            std::vector<PluginTensorDesc> inVector;
+            for (int32_t idx = 0; idx < nbInputs; ++idx)
+            {
+                inVector.push_back(*(in + idx));
+            }
+
+            std::vector<PluginTensorDesc> outVector;
+            for (int32_t idx = 0; idx < nbOutputs; ++idx)
+            {
+                outVector.push_back(*(out + idx));
+            }
+
+            try
+            {
+                pyConfigurePlugin(inVector, outVector);
+            }
+            catch (py::error_already_set& e)
+            {
+                std::cerr << "[ERROR] Exception thrown from on_shape_change() " << e.what() << std::endl;
+                return -1;
+            }
+            return 0;
+        }
+        PLUGIN_API_CATCH("on_shape_change")
+        return -1;
+    }
+
+    IPluginV3* attachToContext(IPluginResourceContext* context) noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+
+            py::function pyAttachToContext
+                = utils::getOverride(static_cast<const IPluginV3OneRuntime*>(this), "attach_to_context");
+            if (!pyAttachToContext)
+            {
+                utils::throwPyError(PyExc_RuntimeError, "no implementation provided for attach_to_context()");
+            }
+
+            py::handle handle = pyAttachToContext(context).release();
+
+            try
+            {
+                return handle.cast<IPluginV3*>();
+            }
+            PLUGIN_API_CATCH_CAST("attach_to_context", "nvinfer1::IPluginV3")
+            return nullptr;
+        }
+        PLUGIN_API_CATCH("attach_to_context")
+        return nullptr;
+    }
+
+    PluginFieldCollection const* getFieldsToSerialize() noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+
+            py::function pyGetFieldsToSerialize
+                = utils::getOverride(static_cast<const IPluginV3OneRuntime*>(this), "get_fields_to_serialize");
+            if (!pyGetFieldsToSerialize)
+            {
+                utils::throwPyError(PyExc_RuntimeError, "no implementation provided for get_fields_to_serialize()");
+            }
+
+            py::object result = pyGetFieldsToSerialize();
+
+            try
+            {
+                return result.cast<PluginFieldCollection*>();
+            }
+            PLUGIN_API_CATCH_CAST("get_fields_to_serialize", "nvinfer1::PluginFieldCollection")
+            return nullptr;
+        }
+        PLUGIN_API_CATCH("get_fields_to_serialize")
+        return nullptr;
+    }
+
+    void setPluginType(std::string pluginType)
+    {
+        mPluginType = std::move(pluginType);
+        mIsPluginTypeInitialized = true;
+    }
+
+    void setPluginVersion(std::string pluginVersion)
+    {
+        mPluginVersion = std::move(pluginVersion);
+        mIsPluginVersionInitialized = true;
+    }
+
+private:
+    int32_t mNbInputs{};
+    int32_t mNbOutputs{};
+    std::string mNamespace;
+    std::string mPluginType;
+    std::string mPluginVersion;
+
+    bool mIsNbOutputsInitialized{false};
+    bool mIsNamespaceInitialized{false};
+    bool mIsPluginTypeInitialized{false};
+    bool mIsPluginVersionInitialized{false};
+};
+
+class PyIPluginV3OneCoreImpl : public IPluginV3OneCore
+{
+public:
+    using IPluginV3OneCore::IPluginV3OneCore;
+    PyIPluginV3OneCoreImpl() = default;
+    PyIPluginV3OneCoreImpl(const IPluginV3OneCore& a){};
+
+    APILanguage getAPILanguage() const noexcept final
+    {
+        return APILanguage::kPYTHON;
+    }
+
+    char const* getPluginName() const noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+            if (!mIsPluginNameInitialized)
+            {
+                utils::throwPyError(PyExc_AttributeError, "plugin_name not initialized");
+            }
+            return mPluginName.c_str();
+        }
+        PLUGIN_API_CATCH("plugin_name")
+        return nullptr;
+    }
+
+    char const* getPluginVersion() const noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+            if (!mIsPluginVersionInitialized)
+            {
+                utils::throwPyError(PyExc_AttributeError, "plugin_version not initialized");
+            }
+            return mPluginVersion.c_str();
+        }
+        PLUGIN_API_CATCH("plugin_version")
+        return nullptr;
+    }
+
+    const char* getPluginNamespace() const noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+            // getPluginNamespace() is not passed through to the Python side
+            if (!mIsPluginNamespaceInitialized)
+            {
+                utils::throwPyError(PyExc_AttributeError, "plugin_namespace not initialized");
+            }
+            return mPluginNamespace.c_str();
+        }
+        PLUGIN_API_CATCH("plugin_namespace")
+        return nullptr;
+    }
+
+    void setPluginName(std::string pluginName)
+    {
+        mPluginName = std::move(pluginName);
+        mIsPluginNameInitialized = true;
+    }
+
+    void setPluginNamespace(std::string pluginNamespace)
+    {
+        mPluginNamespace = std::move(pluginNamespace);
+        mIsPluginNamespaceInitialized = true;
+    }
+
+    void setPluginVersion(std::string pluginVersion)
+    {
+        mPluginVersion = std::move(pluginVersion);
+        mIsPluginVersionInitialized = true;
+    }
+
+private:
+    std::string mPluginNamespace;
+    std::string mPluginName;
+    std::string mPluginVersion;
+
+    bool mIsPluginNamespaceInitialized{false};
+    bool mIsPluginNameInitialized{false};
+    bool mIsPluginVersionInitialized{false};
+};
+
+class IPluginCreatorV3OneImpl : public IPluginCreatorV3One
+{
+public:
+    IPluginCreatorV3OneImpl() = default;
+
+    APILanguage getAPILanguage() const noexcept final
+    {
+        return APILanguage::kPYTHON;
+    }
+
+    char const* getPluginName() const noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+            if (!mIsNameInitialized)
+            {
+                utils::throwPyError(PyExc_AttributeError, "name not initialized");
+            }
+            return mName.c_str();
+        }
+        PLUGIN_API_CATCH("name")
+        return nullptr;
+    }
+
+    const char* getPluginVersion() const noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+            if (!mIsPluginVersionInitialized)
+            {
+                utils::throwPyError(PyExc_AttributeError, "plugin_version not initialized");
+            }
+            return mPluginVersion.c_str();
+        }
+        PLUGIN_API_CATCH("plugin_version")
+        return nullptr;
+    }
+
+    PluginFieldCollection const* getFieldNames() noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+            if (!mIsFCInitialized)
+            {
+                utils::throwPyError(PyExc_AttributeError, "field_names not initialized");
+            }
+            return &mFC;
+        }
+        PLUGIN_API_CATCH("field_names")
+        return nullptr;
+    }
+
+    IPluginV3* createPlugin(const char* name, const PluginFieldCollection* fc, TensorRTPhase phase) noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+
+            py::function pyCreatePlugin = utils::getOverride(static_cast<IPluginCreatorV3One*>(this), "create_plugin");
+            if (!pyCreatePlugin)
+            {
+                utils::throwPyError(PyExc_RuntimeError, "no implementation provided for create_plugin()");
+            }
+
+            std::string nameString{name};
+
+            py::handle handle = pyCreatePlugin(nameString, fc, phase).release();
+            try
+            {
+                return handle.cast<IPluginV3*>();
+            }
+            PLUGIN_API_CATCH_CAST("create_plugin", "IPluginV3*")
+            return nullptr;
+        }
+        PLUGIN_API_CATCH("create_plugin")
+        return nullptr;
+    }
+
+    const char* getPluginNamespace() const noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+            if (!mIsNamespaceInitialized)
+            {
+                utils::throwPyError(PyExc_AttributeError, "plugin_namespace not initialized");
+            }
+            return mNamespace.c_str();
+        }
+        PLUGIN_API_CATCH("plugin_namespace")
+        return nullptr;
+    }
+
+    void setFieldNames(PluginFieldCollection fc)
+    {
+        mFC = fc;
+        mIsFCInitialized = true;
+    }
+
+    void setPluginName(std::string name)
+    {
+        mName = std::move(name);
+        mIsNameInitialized = true;
+    }
+
+    void setPluginVersion(std::string pluginVersion)
+    {
+        mPluginVersion = std::move(pluginVersion);
+        mIsPluginVersionInitialized = true;
+    }
+
+    void setPluginNamespace(std::string pluginNamespace)
+    {
+        mNamespace = std::move(pluginNamespace);
+        mIsNamespaceInitialized = true;
+    }
+
+private:
+    nvinfer1::PluginFieldCollection mFC;
+    std::string mNamespace;
+    std::string mName;
+    std::string mPluginVersion;
+
+    bool mIsFCInitialized{false};
+    bool mIsNamespaceInitialized{false};
+    bool mIsNameInitialized{false};
+    bool mIsPluginVersionInitialized{false};
+};
+
+namespace
+{
+bool isPython(IVersionedInterface const& versionedInterface)
+{
+    return versionedInterface.getAPILanguage() == APILanguage::kPYTHON;
+}
+} // namespace
 
 // Long lambda functions should go here rather than being inlined into the bindings (1 liners are OK).
 namespace lambdas
@@ -929,48 +1920,45 @@ static const auto creator_create_plugin
           return self.createPlugin(name.c_str(), fc);
       };
 
-static const auto get_field_names = [](IPluginCreator& self) -> const PluginFieldCollection* {
-    const PluginFieldCollection* fieldCollection = self.getFieldNames();
-    if (!fieldCollection)
-    {
-        return &EMPTY_PLUGIN_FIELD_COLLECTION;
-    }
-    return fieldCollection;
-};
+static const auto creator_create_plugin_v3
+    = [](IPluginCreatorV3One& self, std::string const& name, PluginFieldCollection const* fc, TensorRTPhase phase) {
+          return self.createPlugin(name.c_str(), fc, phase);
+      };
 
 static const auto deserialize_plugin = [](IPluginCreator& self, std::string const& name, py::buffer& serializedPlugin) {
     py::buffer_info info = serializedPlugin.request();
     return self.deserializePlugin(name.c_str(), info.ptr, info.size * info.itemsize);
 };
 
-static const auto IPluginCreator_set_field_names = [](IPluginCreator& self, PluginFieldCollection pfc) {
-    if (self.getAPILanguage() == APILanguage::kPYTHON)
+static const auto IPluginV3_get_format_combination_limit = [](IPluginV3OneBuild& self, int32_t formatCombinationLimit) {
+    if (isPython(self))
     {
-        auto pluginCreator = static_cast<IPluginCreatorImpl*>(&self);
-        pluginCreator->setFieldNames(pfc);
+        auto plugin = static_cast<PyIPluginV3OneBuildImpl*>(&self);
+        plugin->setFormatCombinationLimit(formatCombinationLimit);
         return;
     }
-    utils::throwPyError(PyExc_AttributeError, "Can't set attribute");
+    utils::throwPyError(
+        PyExc_AttributeError, "Can't set attribute: format_combination_limit is read-only for C++ plugins");
 };
 
-static const auto IPluginCreator_set_name = [](IPluginCreator& self, std::string name) {
-    if (self.getAPILanguage() == APILanguage::kPYTHON)
+static const auto IPluginV3_get_metadata_string = [](IPluginV3OneBuild& self, std::string metadataString) {
+    if (isPython(self))
     {
-        auto pluginCreator = static_cast<IPluginCreatorImpl*>(&self);
-        pluginCreator->setName(std::move(name));
+        auto plugin = static_cast<PyIPluginV3OneBuildImpl*>(&self);
+        plugin->setMetadataString(std::move(metadataString));
         return;
     }
-    utils::throwPyError(PyExc_AttributeError, "Can't set attribute");
+    utils::throwPyError(PyExc_AttributeError, "Can't set attribute: metadata_string is read-only for C++ plugins");
 };
 
-static const auto IPluginCreator_set_plugin_version = [](IPluginCreator& self, std::string pluginVersion) {
-    if (self.getAPILanguage() == APILanguage::kPYTHON)
+static const auto IPluginV3_get_timing_cache_id = [](IPluginV3OneBuild& self, std::string timingCacheId) {
+    if (isPython(self))
     {
-        auto pluginCreator = static_cast<IPluginCreatorImpl*>(&self);
-        pluginCreator->setPluginVersion(std::move(pluginVersion));
+        auto plugin = static_cast<PyIPluginV3OneBuildImpl*>(&self);
+        plugin->setTimingCachedId(std::move(timingCacheId));
         return;
     }
-    utils::throwPyError(PyExc_AttributeError, "Can't set attribute");
+    utils::throwPyError(PyExc_AttributeError, "Can't set attribute: timing_cache_id is read-only for C++ plugins");
 };
 
 // For base Dims class
@@ -1004,78 +1992,232 @@ static const auto dimsexprs_setter = [](DimsExprs& self, int32_t const pyIndex, 
     self.d[index] = item;
 };
 
+// IPluginV3 lambdas
+
+static const auto IPluginV3_set_num_outputs = [](IPluginV3OneBuild& self, int32_t numOutputs) {
+    if (isPython(self))
+    {
+        auto plugin = static_cast<PyIPluginV3OneBuildImpl*>(&self);
+        plugin->setNbOutputs(numOutputs);
+        return;
+    }
+    utils::throwPyError(PyExc_AttributeError, "Can't set attribute: num_outputs is read-only for C++ plugins");
+};
+
 } // namespace lambdas
+
+namespace helpers
+{
+template <typename T>
+inline PluginFieldCollection const* getFieldNames(T& self)
+{
+    PluginFieldCollection const* fieldCollection = self.getFieldNames();
+    if (!fieldCollection)
+    {
+        return &EMPTY_PLUGIN_FIELD_COLLECTION;
+    }
+    return fieldCollection;
+}
+
+template <typename T, typename U>
+inline void setPluginName(T& self, std::string name)
+{
+    if (isPython(self))
+    {
+        auto object = static_cast<U*>(&self);
+        object->setPluginName(std::move(name));
+        return;
+    }
+    utils::throwPyError(PyExc_AttributeError, "Can't set attribute: read-only for C++ plugins");
+}
+
+template <typename T, typename U>
+inline void setPluginVersion(T& self, std::string pluginVersion)
+{
+    if (isPython(self))
+    {
+        auto object = static_cast<U*>(&self);
+        object->setPluginVersion(std::move(pluginVersion));
+        return;
+    }
+    utils::throwPyError(PyExc_AttributeError, "Can't set attribute: read-only for C++ plugins");
+}
+
+template <typename T, typename U>
+inline void setPluginNamespace(T& self, std::string namespace_)
+{
+    if (isPython(self))
+    {
+        auto object = static_cast<U*>(&self);
+        object->setPluginNamespace(std::move(namespace_));
+        return;
+    }
+    utils::throwPyError(PyExc_AttributeError, "Can't set attribute: read-only for C++ plugins");
+}
+
+template <typename T, typename U>
+inline void setPluginCreatorFieldNames(T& self, PluginFieldCollection pfc)
+{
+    if (isPython(self))
+    {
+        auto pluginCreator = static_cast<U*>(&self);
+        pluginCreator->setFieldNames(pfc);
+        return;
+    }
+    utils::throwPyError(PyExc_AttributeError, "Can't set attribute: read-only for C++ plugins");
+}
+
+} // namespace helpers
 
 // NOTE: Fake bindings are provided solely to document the API in the C++ -> Python direction for these methods
 // These bindings will never be called.
+namespace pluginDoc
+{
 
-py::bytes docSerialize(PyIPluginV2DynamicExt& self)
+py::bytes serialize(PyIPluginV2DynamicExt& self)
 {
     return py::bytes();
 }
 
-DataType docGetOutputDataType(PyIPluginV2DynamicExt& self, int32_t index, std::vector<DataType> const& inputTypes)
+DataType getOutputDataType(PyIPluginV2DynamicExt& self, int32_t index, std::vector<DataType> const& inputTypes)
 {
     return DataType{};
 };
 
-PyIPluginV2DynamicExt* docDeserializePlugin(
+PyIPluginV2DynamicExt* deserializePlugin(
     PyIPluginV2DynamicExt& self, std::string const& name, py::bytes const& serializedPlugin)
 {
     return nullptr;
 }
 
-DimsExprs docGetOutputDimensions(
+DimsExprs getOutputDimensions(
     PyIPluginV2DynamicExt& self, int32_t outputIndex, std::vector<DimsExprs> const& inputs, IExprBuilder& exprBuilder)
 {
     return DimsExprs{};
 }
 
-void docConfigurePlugin(PyIPluginV2DynamicExt& self, std::vector<DynamicPluginTensorDesc> const& in,
+void configurePlugin(PyIPluginV2DynamicExt& self, std::vector<DynamicPluginTensorDesc> const& in,
     std::vector<DynamicPluginTensorDesc> const& out)
 {
 }
 
-size_t docGetWorkspaceSize(PyIPluginV2DynamicExt& self, std::vector<PluginTensorDesc> const& inputDesc,
+size_t getWorkspaceSize(PyIPluginV2DynamicExt& self, std::vector<PluginTensorDesc> const& inputDesc,
     std::vector<PluginTensorDesc> const& outputDesc)
 {
     return 0U;
 }
 
-bool docSupportsFormatCombination(
+bool supportsFormatCombination(
     PyIPluginV2DynamicExt& self, int32_t pos, std::vector<PluginTensorDesc> const& inOut, int32_t nbInputs)
 {
     return false;
 }
 
-void docEnqueue(PyIPluginV2DynamicExt& self, std::vector<PluginTensorDesc> const& inputDesc,
+void enqueue(PyIPluginV2DynamicExt& self, std::vector<PluginTensorDesc> const& inputDesc,
     std::vector<PluginTensorDesc> const& outputDesc, const std::vector<intptr_t>& inputs,
     std::vector<intptr_t>& outputs, intptr_t workspace, long stream)
 {
 }
 
-int32_t docInitialize(PyIPluginV2DynamicExt& self)
+int32_t initialize(PyIPluginV2DynamicExt& self)
 {
     return -1;
 }
 
-void docTerminate(PyIPluginV2DynamicExt& self) {}
+void terminate(PyIPluginV2DynamicExt& self) {}
 
-void docDestroy(PyIPluginV2DynamicExt& self) {}
+void destroy(PyIPluginV2DynamicExt& self) {}
 
-PyIPluginV2DynamicExt* docClone(PyIPluginV2DynamicExt& self)
+PyIPluginV2DynamicExt* clone(PyIPluginV2DynamicExt& self)
 {
     return nullptr;
 }
 
-size_t docGetSerializationSize(PyIPluginV2DynamicExt& self)
+size_t getSerializationSize(PyIPluginV2DynamicExt& self)
 {
     return 0U;
 }
 
+IPluginCapability* getCapabilityInterface(IPluginV3& self, PluginCapabilityType type)
+{
+    return nullptr;
+}
+
+std::vector<DataType> getOutputDataTypes(IPluginV3& self, std::vector<DataType> const& inputTypes)
+{
+    return {};
+};
+
+std::vector<DimsExprs> getOutputShapes(IPluginV3& self, std::vector<DimsExprs> const& inputs,
+    std::vector<DimsExprs> const& shapeInputs, IExprBuilder& exprBuilder)
+{
+    return {};
+}
+
+void configurePluginV3(
+    IPluginV3& self, std::vector<DynamicPluginTensorDesc> const& in, std::vector<DynamicPluginTensorDesc> const& out)
+{
+}
+
+void onShapeChange(IPluginV3& self, std::vector<PluginTensorDesc> const& in, std::vector<PluginTensorDesc> const& out)
+{
+}
+
+size_t getWorkspaceSizeV3(IPluginV3& self, std::vector<DynamicPluginTensorDesc> const& inputDesc,
+    std::vector<DynamicPluginTensorDesc> const& outputDesc)
+{
+    return 0U;
+}
+
+bool supportsFormatCombinationV3(
+    IPluginV3& self, int32_t pos, std::vector<DynamicPluginTensorDesc> const& inOut, int32_t nbInputs)
+{
+    return false;
+}
+
+void enqueueV3(IPluginV3& self, std::vector<PluginTensorDesc> const& inputDesc,
+    std::vector<PluginTensorDesc> const& outputDesc, const std::vector<intptr_t>& inputs,
+    std::vector<intptr_t>& outputs, intptr_t workspace, long stream)
+{
+}
+
+void destroyV3(IPluginV3& self) {}
+
+IPluginV3* cloneV3(IPluginV3& self)
+{
+    return nullptr;
+}
+
+IPluginV3* attachToContext(IPluginV3& self, IPluginResourceContext& context)
+{
+    return nullptr;
+}
+
+PluginFieldCollection* getFieldsToSerialize(IPluginV3& self)
+{
+    return nullptr;
+}
+
+std::vector<int32_t> getValidTactics(IPluginV3& self)
+{
+    return {};
+}
+
+void setTactic(IPluginV3& self, int32_t tactic) {}
+
+void release(IPluginResource& self) {}
+
+IPluginResource* clonePluginResource(IPluginResource& self)
+{
+    return nullptr;
+}
+
+} // namespace pluginDoc
+
 void bindPlugin(py::module& m)
 {
-    py::class_<IDimensionExpr, PyIDimensionExprImpl, std::unique_ptr<IDimensionExpr, py::nodelete>>(m, "IDimensionExpr", IDimensionExprDoc::descr, py::module_local())
+    py::class_<IDimensionExpr, PyIDimensionExprImpl, std::unique_ptr<IDimensionExpr, py::nodelete>>(
+        m, "IDimensionExpr", IDimensionExprDoc::descr, py::module_local())
         .def("isConstant", &IDimensionExpr::isConstant)
         .def("getConstantValue", &IDimensionExpr::getConstantValue);
 
@@ -1100,17 +2242,21 @@ void bindPlugin(py::module& m)
         .def_readwrite("format", &PluginTensorDesc::format)
         .def_readwrite("scale", &PluginTensorDesc::scale);
 
-    py::class_<DynamicPluginTensorDesc>(m, "DynamicPluginTensorDesc", DynamicPluginTensorDescDoc::descr, py::module_local())
+    py::class_<DynamicPluginTensorDesc>(
+        m, "DynamicPluginTensorDesc", DynamicPluginTensorDescDoc::descr, py::module_local())
         .def(py::init<>())
         .def_readwrite("desc", &DynamicPluginTensorDesc::desc)
         .def_readwrite("min", &DynamicPluginTensorDesc::min)
+        .def_readwrite("opt", &DynamicPluginTensorDesc::opt)
         .def_readwrite("max", &DynamicPluginTensorDesc::max);
 
     py::class_<IPluginV2>(m, "IPluginV2", IPluginV2Doc::descr, py::module_local())
         .def_property("num_outputs", &IPluginV2::getNbOutputs, lambdas::IPluginV2_set_num_outputs)
         .def_property_readonly("tensorrt_version", &IPluginV2::getTensorRTVersion)
-        .def_property("plugin_type", &IPluginV2::getPluginType, py::cpp_function(lambdas::IPluginV2_set_plugin_type, py::keep_alive<1, 2>{}))
-        .def_property("plugin_version", &IPluginV2::getPluginVersion, py::cpp_function(lambdas::IPluginV2_set_plugin_version, py::keep_alive<1, 2>{}))
+        .def_property("plugin_type", &IPluginV2::getPluginType,
+            py::cpp_function(lambdas::IPluginV2_set_plugin_type, py::keep_alive<1, 2>{}))
+        .def_property("plugin_version", &IPluginV2::getPluginVersion,
+            py::cpp_function(lambdas::IPluginV2_set_plugin_version, py::keep_alive<1, 2>{}))
         .def_property("plugin_namespace", &IPluginV2::getPluginNamespace,
             py::cpp_function(&IPluginV2::setPluginNamespace, py::keep_alive<1, 2>{}))
         .def("get_output_shape", lambdas::IPluginV2_get_output_shape, "index"_a, "input_shapes"_a,
@@ -1143,23 +2289,96 @@ void bindPlugin(py::module& m)
 
     py::class_<IPluginV2DynamicExt, IPluginV2, std::unique_ptr<IPluginV2DynamicExt, py::nodelete>>(m, "IPluginV2DynamicExtBase", py::module_local());
 
-    py::class_<PyIPluginV2DynamicExt, IPluginV2DynamicExt, IPluginV2, PyIPluginV2DynamicExtImpl, std::unique_ptr<PyIPluginV2DynamicExt>>(m, "IPluginV2DynamicExt", IPluginV2DynamicExtDoc::descr, py::module_local())
+    py::class_<PyIPluginV2DynamicExt, IPluginV2DynamicExt, IPluginV2, PyIPluginV2DynamicExtImpl,
+        std::unique_ptr<PyIPluginV2DynamicExt>>(
+        m, "IPluginV2DynamicExt", IPluginV2DynamicExtDoc::descr, py::module_local())
         .def(py::init<>())
         .def(py::init<const PyIPluginV2DynamicExt&>())
-        .def_property_readonly_static("FORMAT_COMBINATION_LIMIT", [](py::object) { return IPluginV2DynamicExt::kFORMAT_COMBINATION_LIMIT; })
+        .def_property_readonly_static(
+            "FORMAT_COMBINATION_LIMIT", [](py::object) { return IPluginV2DynamicExt::kFORMAT_COMBINATION_LIMIT; })
         // The following defs are only for documenting the API for Python-based plugins
-        .def("initialize", &docInitialize, IPluginV2DynamicExtDoc::initialize)
-        .def("terminate", &docTerminate, IPluginV2DynamicExtDoc::terminate)
-        .def("serialize", &docSerialize, IPluginV2DynamicExtDoc::serialize)
-        .def("get_output_datatype", &docGetOutputDataType, "index"_a, "input_types"_a, IPluginV2DynamicExtDoc::get_output_data_type)
-        .def("destroy", &docDestroy, IPluginV2DynamicExtDoc::destroy)
-        .def("get_serialization_size", &docGetSerializationSize, IPluginV2DynamicExtDoc::get_serialization_size)
-        .def("get_output_dimensions", &docGetOutputDimensions, "output_index"_a, "inputs"_a, "expr_builder"_a, IPluginV2DynamicExtDoc::get_output_dimensions)
-        .def("get_workspace_size", &docGetWorkspaceSize, "in"_a, "out"_a, IPluginV2DynamicExtDoc::get_workspace_size)
-        .def("configure_plugin", &docConfigurePlugin, "pos"_a, "in_out"_a, IPluginV2DynamicExtDoc::configure_plugin)
-        .def("supports_format_combination", &docSupportsFormatCombination, "pos"_a, "in_out"_a, "num_inputs"_a, IPluginV2DynamicExtDoc::supports_format_combination)
-        .def("enqueue", &docEnqueue, "input_desc"_a, "output_desc"_a, "inputs"_a, "outputs"_a, "workspace"_a, "stream"_a, IPluginV2DynamicExtDoc::enqueue)
-        .def("clone", &docClone, IPluginV2DynamicExtDoc::clone);
+        .def("initialize", &pluginDoc::initialize, IPluginV2DynamicExtDoc::initialize)
+        .def("terminate", &pluginDoc::terminate, IPluginV2DynamicExtDoc::terminate)
+        .def("serialize", &pluginDoc::serialize, IPluginV2DynamicExtDoc::serialize)
+        .def("get_output_datatype", &pluginDoc::getOutputDataType, "index"_a, "input_types"_a,
+            IPluginV2DynamicExtDoc::get_output_data_type)
+        .def("destroy", &pluginDoc::destroy, IPluginV2DynamicExtDoc::destroy)
+        .def("get_serialization_size", &pluginDoc::getSerializationSize, IPluginV2DynamicExtDoc::get_serialization_size)
+        .def("get_output_dimensions", &pluginDoc::getOutputDimensions, "output_index"_a, "inputs"_a, "expr_builder"_a,
+            IPluginV2DynamicExtDoc::get_output_dimensions)
+        .def("get_workspace_size", &pluginDoc::getWorkspaceSize, "in"_a, "out"_a,
+            IPluginV2DynamicExtDoc::get_workspace_size)
+        .def("configure_plugin", &pluginDoc::configurePlugin, "pos"_a, "in_out"_a,
+            IPluginV2DynamicExtDoc::configure_plugin)
+        .def("supports_format_combination", &pluginDoc::supportsFormatCombination, "pos"_a, "in_out"_a, "num_inputs"_a,
+            IPluginV2DynamicExtDoc::supports_format_combination)
+        .def("enqueue", &pluginDoc::enqueue, "input_desc"_a, "output_desc"_a, "inputs"_a, "outputs"_a, "workspace"_a,
+            "stream"_a, IPluginV2DynamicExtDoc::enqueue)
+        .def("clone", &pluginDoc::clone, IPluginV2DynamicExtDoc::clone);
+
+    py::class_<IPluginV3, IVersionedInterface, PyIPluginV3Impl, std::unique_ptr<IPluginV3>>(
+        m, "IPluginV3", IPluginV3Doc::ipluginv3_descr, py::module_local())
+        .def(py::init<>())
+        .def(py::init<const IPluginV3&>())
+        // The following defs are only for documenting the API for Python-based plugins
+        .def("get_capability_interface", &pluginDoc::getCapabilityInterface, IPluginV3Doc::get_capability_interface)
+        .def("clone", &pluginDoc::cloneV3, IPluginV3Doc::clone)
+        .def("destroy", &pluginDoc::destroyV3, IPluginV3Doc::destroy);
+
+    py::class_<IPluginCapability, IVersionedInterface, std::unique_ptr<IPluginCapability>>(
+        m, "IPluginCapability", IPluginV3Doc::iplugincapability_descr, py::module_local());
+
+    py::class_<IPluginV3OneCore, IPluginCapability, IVersionedInterface, PyIPluginV3OneCoreImpl,
+        std::unique_ptr<IPluginV3OneCore>>(
+        m, "IPluginV3OneCore", IPluginV3Doc::ipluginv3onecore_descr, py::module_local())
+        .def(py::init<>())
+        .def(py::init<const IPluginV3OneCore&>())
+        .def_property("plugin_name", &IPluginV3OneCore::getPluginName,
+            py::cpp_function(&helpers::setPluginName<IPluginV3OneCore, PyIPluginV3OneCoreImpl>, py::keep_alive<1, 2>{}))
+        .def_property("plugin_version", &IPluginV3OneCore::getPluginVersion,
+            py::cpp_function(
+                &helpers::setPluginVersion<IPluginV3OneCore, PyIPluginV3OneCoreImpl>, py::keep_alive<1, 2>{}))
+        .def_property("plugin_namespace", &IPluginV3OneCore::getPluginNamespace,
+            py::cpp_function(
+                &helpers::setPluginNamespace<IPluginV3OneCore, PyIPluginV3OneCoreImpl>, py::keep_alive<1, 2>{}));
+
+    py::class_<IPluginV3OneBuild, IPluginCapability, IVersionedInterface, PyIPluginV3OneBuildImpl,
+        std::unique_ptr<IPluginV3OneBuild>>(
+        m, "IPluginV3OneBuild", IPluginV3Doc::ipluginv3onebuild_descr, py::module_local())
+        .def(py::init<>())
+        .def(py::init<const IPluginV3OneBuild&>())
+        .def_property_readonly_static("DEFAULT_FORMAT_COMBINATION_LIMIT",
+            [](py::object) { return IPluginV3OneBuild::kDEFAULT_FORMAT_COMBINATION_LIMIT; })
+        .def_property("num_outputs", &IPluginV3OneBuild::getNbOutputs, lambdas::IPluginV3_set_num_outputs)
+        .def_property("format_combination_limit", &IPluginV3OneBuild::getFormatCombinationLimit,
+            lambdas::IPluginV3_get_format_combination_limit)
+        .def_property("metadata_string", &IPluginV3OneBuild::getMetadataString,
+            py::cpp_function(lambdas::IPluginV3_get_metadata_string, py::keep_alive<1, 2>{}))
+        .def_property("timing_cache_id", &IPluginV3OneBuild::getTimingCacheID,
+            py::cpp_function(lambdas::IPluginV3_get_timing_cache_id, py::keep_alive<1, 2>{}))
+        // The following defs are only for documenting the API for Python-based plugins
+        .def("get_output_datatypes", &pluginDoc::getOutputDataTypes, "input_types"_a,
+            IPluginV3Doc::get_output_data_types)
+        .def("get_output_shapes", &pluginDoc::getOutputShapes, "inputs"_a, "shape_inputs"_a, "expr_builder"_a,
+            IPluginV3Doc::get_output_shapes)
+        .def("get_workspace_size", &pluginDoc::getWorkspaceSizeV3, "in"_a, "out"_a, IPluginV3Doc::get_workspace_size)
+        .def("configure_plugin", &pluginDoc::configurePluginV3, "in"_a, "out"_a, IPluginV3Doc::configure_plugin)
+        .def("supports_format_combination", &pluginDoc::supportsFormatCombinationV3, "pos"_a, "in_out"_a,
+            "num_inputs"_a, IPluginV3Doc::supports_format_combination)
+        .def("get_valid_tactics", &pluginDoc::getValidTactics, IPluginV3Doc::get_valid_tactics);
+
+    py::class_<IPluginV3OneRuntime, IPluginCapability, IVersionedInterface, PyIPluginV3OneRuntimeImpl,
+        std::unique_ptr<IPluginV3OneRuntime>>(
+        m, "IPluginV3OneRuntime", IPluginV3Doc::ipluginv3oneruntime_descr, py::module_local())
+        .def(py::init<>())
+        .def(py::init<const IPluginV3OneRuntime&>())
+        // The following defs are only for documenting the API for Python-based plugins
+        .def("on_shape_change", &pluginDoc::onShapeChange, "in"_a, "out"_a, IPluginV3Doc::on_shape_change)
+        .def("set_tactic", &pluginDoc::setTactic, "tactic"_a, IPluginV3Doc::set_tactic)
+        .def("get_fields_to_serialize", &pluginDoc::getFieldsToSerialize, IPluginV3Doc::get_fields_to_serialize)
+        .def("enqueue", &pluginDoc::enqueueV3, "input_desc"_a, "output_desc"_a, "inputs"_a, "outputs"_a, "workspace"_a,
+            "stream"_a, IPluginV3Doc::enqueue)
+        .def("attach_to_context", &pluginDoc::attachToContext, "resource_context"_a, IPluginV3Doc::attach_to_context);
 
     py::enum_<PluginFieldType>(m, "PluginFieldType", PluginFieldTypeDoc::descr, py::module_local())
         .value("FLOAT16", PluginFieldType::kFLOAT16)
@@ -1245,11 +2464,12 @@ void bindPlugin(py::module& m)
         m, "IPluginCreator", IPluginCreatorDoc::descr, py::module_local())
         .def(py::init<>())
         .def_property("name", &IPluginCreator::getPluginName,
-            py::cpp_function(lambdas::IPluginCreator_set_name, py::keep_alive<1, 2>{}))
+            py::cpp_function(&helpers::setPluginName<IPluginCreator, IPluginCreatorImpl>, py::keep_alive<1, 2>{}))
         .def_property("plugin_version", &IPluginCreator::getPluginVersion,
-            py::cpp_function(lambdas::IPluginCreator_set_plugin_version, py::keep_alive<1, 2>{}))
-        .def_property("field_names", lambdas::get_field_names,
-            py::cpp_function(lambdas::IPluginCreator_set_field_names, py::keep_alive<1, 2>{}),
+            py::cpp_function(&helpers::setPluginVersion<IPluginCreator, IPluginCreatorImpl>, py::keep_alive<1, 2>{}))
+        .def_property("field_names", &helpers::getFieldNames<IPluginCreator>,
+            py::cpp_function(
+                &helpers::setPluginCreatorFieldNames<IPluginCreator, IPluginCreatorImpl>, py::keep_alive<1, 2>{}),
             py::return_value_policy::reference_internal)
         .def_property("plugin_namespace", &IPluginCreator::getPluginNamespace,
             py::cpp_function(&IPluginCreator::setPluginNamespace, py::keep_alive<1, 2>{}))
@@ -1257,10 +2477,35 @@ void bindPlugin(py::module& m)
             IPluginCreatorDoc::create_plugin)
         .def("deserialize_plugin", lambdas::deserialize_plugin, "name"_a, "serialized_plugin"_a,
             IPluginCreatorDoc::deserialize_plugin)
-        .def("deserialize_plugin", &docDeserializePlugin, "name"_a, "serialized_plugin"_a,
+        .def("deserialize_plugin", &pluginDoc::deserializePlugin, "name"_a, "serialized_plugin"_a,
             IPluginCreatorDoc::deserialize_plugin_python) // Should never be used. For documenting C++ -> Python API
                                                           // only.
         ;
+
+    py::class_<IPluginCreatorV3One, IPluginCreatorV3OneImpl, IPluginCreatorInterface, IVersionedInterface>(
+        m, "IPluginCreatorV3One", IPluginCreatorV3OneDoc::descr, py::module_local())
+        .def(py::init<>())
+        .def_property("name", &IPluginCreatorV3One::getPluginName,
+            py::cpp_function(
+                &helpers::setPluginName<IPluginCreatorV3One, IPluginCreatorV3OneImpl>, py::keep_alive<1, 2>{}))
+        .def_property("plugin_version", &IPluginCreatorV3One::getPluginVersion,
+            py::cpp_function(
+                &helpers::setPluginVersion<IPluginCreatorV3One, IPluginCreatorV3OneImpl>, py::keep_alive<1, 2>{}))
+        .def_property("field_names", &helpers::getFieldNames<IPluginCreatorV3One>,
+            py::cpp_function(&helpers::setPluginCreatorFieldNames<IPluginCreatorV3One, IPluginCreatorV3OneImpl>,
+                py::keep_alive<1, 2>{}),
+            py::return_value_policy::reference_internal)
+        .def_property("plugin_namespace", &IPluginCreatorV3One::getPluginNamespace,
+            py::cpp_function(
+                &helpers::setPluginNamespace<IPluginCreatorV3One, IPluginCreatorV3OneImpl>, py::keep_alive<1, 2>{}))
+        .def("create_plugin", lambdas::creator_create_plugin_v3, "name"_a, "field_collection"_a, "phase"_a,
+            IPluginCreatorV3OneDoc::create_plugin);
+
+    py::class_<IPluginResourceContext, std::unique_ptr<IPluginResourceContext, py::nodelete>>(
+        m, "IPluginResourceContext", IPluginResourceContextDoc::descr, py::module_local())
+        // return_value_policy::reference_internal is default for the following
+        .def_property_readonly("error_recorder", &IPluginResourceContext::getErrorRecorder)
+        .def_property_readonly("gpu_allocator", &IPluginResourceContext::getGpuAllocator);
 
     py::class_<IPluginRegistry, std::unique_ptr<IPluginRegistry, py::nodelete>>(
         m, "IPluginRegistry", IPluginRegistryDoc::descr, py::module_local())
@@ -1288,7 +2533,11 @@ void bindPlugin(py::module& m)
             py::overload_cast<IPluginCreatorInterface const&>(&IPluginRegistry::deregisterCreator), "creator"_a,
             IPluginRegistryDoc::deregister_creator)
         .def("get_creator", lambdas::get_creator, "type"_a, "version"_a, "plugin_namespace"_a = "",
-            py::return_value_policy::reference_internal, IPluginRegistryDoc::get_creator);
+            py::return_value_policy::reference_internal, IPluginRegistryDoc::get_creator)
+        .def("acquire_plugin_resource", &IPluginRegistry::acquirePluginResource, "key"_a, "resource"_a,
+            py::return_value_policy::reference_internal, IPluginRegistryDoc::acquire_plugin_resource)
+        .def("release_plugin_resource", &IPluginRegistry::releasePluginResource, "key"_a,
+            IPluginRegistryDoc::release_plugin_resource);
 
     py::enum_<PluginCreatorVersion>(m, "PluginCreatorVersion", PluginCreatorVersionDoc::descr, py::module_local())
         .value("V1", PluginCreatorVersion::kV1)
@@ -1297,7 +2546,8 @@ void bindPlugin(py::module& m)
     m.def("get_plugin_registry", &getPluginRegistry, py::return_value_policy::reference,
         FreeFunctionsDoc::get_plugin_registry);
 
-    py::enum_<DimensionOperation>(m, "DimensionOperation", py::arithmetic{}, DimensionOperationDoc::descr, py::module_local())
+    py::enum_<DimensionOperation>(
+        m, "DimensionOperation", py::arithmetic{}, DimensionOperationDoc::descr, py::module_local())
         .value("SUM", DimensionOperation::kSUM)
         .value("PROD", DimensionOperation::kPROD)
         .value("MAX", DimensionOperation::kMAX)
@@ -1307,6 +2557,22 @@ void bindPlugin(py::module& m)
         .value("LESS", DimensionOperation::kLESS)
         .value("FLOOR_DIV", DimensionOperation::kFLOOR_DIV)
         .value("CEIL_DIV", DimensionOperation::kCEIL_DIV);
+
+    py::enum_<PluginCapabilityType>(
+        m, "PluginCapabilityType", py::arithmetic{}, PluginCapabilityTypeDoc::descr, py::module_local())
+        .value("CORE", PluginCapabilityType::kCORE)
+        .value("BUILD", PluginCapabilityType::kBUILD)
+        .value("RUNTIME", PluginCapabilityType::kRUNTIME);
+
+    py::enum_<TensorRTPhase>(m, "TensorRTPhase", py::arithmetic{}, TensorRTPhaseDoc::descr, py::module_local())
+        .value("BUILD", TensorRTPhase::kBUILD)
+        .value("RUNTIME", TensorRTPhase::kRUNTIME);
+
+    py::class_<IPluginResource, std::unique_ptr<IPluginResource, py::nodelete>>(
+        m, "IPluginResource", IPluginResourceDoc::descr, py::module_local())
+        // return_value_policy::reference_internal is default for the following
+        .def("release", &pluginDoc::release, IPluginResourceDoc::release)
+        .def("clone", &pluginDoc::clonePluginResource, IPluginResourceDoc::clone);
 
 #if EXPORT_ALL_BINDINGS
     m.def("get_builder_plugin_registry", &getBuilderPluginRegistry, py::return_value_policy::reference,

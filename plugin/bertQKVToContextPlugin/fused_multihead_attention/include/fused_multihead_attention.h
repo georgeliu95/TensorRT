@@ -27,6 +27,7 @@
 #include <set>
 #include <stdint.h>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace nvinfer1
@@ -398,10 +399,12 @@ public:
                     }
                 }
                 mFunctions.insert({kernelKey, funcInfo});
-                const int32_t s = static_cast<int32_t>(kernelMeta.mS);
-                if (mValidSequences.find(s) == mValidSequences.end())
+                uint64_t const s = kernelMeta.mS;
+                uint64_t const headSize = kernelMeta.mD;
+                uint64_t key = (headSize << 32 | s);
+                if (mValidSequences.find(key) == mValidSequences.end())
                 {
-                    mValidSequences.insert(s);
+                    mValidSequences.insert(key);
                 }
             }
         }
@@ -431,9 +434,10 @@ public:
         }
     }
 
-    bool isValid(int32_t s) const
+    bool isValid(int32_t headSize, int32_t s) const
     {
-        return (mValidSequences.find(s) != mValidSequences.end());
+        uint64_t key = (static_cast<uint64_t>(headSize) << 32 | static_cast<uint64_t>(s));
+        return (mValidSequences.find(key) != mValidSequences.end());
     }
 
     virtual void run(TKernelParam& params, cudaStream_t ss) const
@@ -496,7 +500,8 @@ protected:
         CUfunction mDeviceFunction;
     };
     std::unordered_map<uint64_t, FusedMultiHeadAttentionKernelInfo> mFunctions;
-    std::set<int32_t> mValidSequences;
+    // Set of valid sequence and head size combination. We use (headSize << 32 | sequence) as key here.
+    std::unordered_set<uint64_t> mValidSequences;
 };
 
 template <typename TFusedMHAKernelList>

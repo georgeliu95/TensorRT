@@ -26,6 +26,7 @@
 
 #include <cstdint>
 #include <cuda_fp16.h>
+#include <cuda_bf16.h>
 #include <utility>
 
 #define ATOMIC(NAME)                                                                                                   \
@@ -85,10 +86,10 @@
             } while (assumed != old);                                                                                  \
         }                                                                                                              \
     };                                                                                                                 \
-    template <>                                                                                                        \
-    struct Atomic##NAME##DecimalImpl<__half, 2>                                                                        \
+    template <typename TScalar>                                                                                        \
+    struct Atomic##NAME##DecimalImpl<TScalar, 2>                                                                       \
     {                                                                                                                  \
-        inline __device__ void operator()(__half* address, __half val)                                                 \
+        inline __device__ void operator()(TScalar* address, TScalar val)                                               \
         {                                                                                                              \
             uint32_t* addressAsUI = reinterpret_cast<std::uint32_t*>((char*) address - ((std::size_t) address & 2));   \
             std::uint32_t old = *addressAsUI;                                                                          \
@@ -99,7 +100,7 @@
                 assumed = old;                                                                                         \
                 std::uint16_t hsum_old;                                                                                \
                 hsum_old = reinterpret_cast<size_t>(address) & 2 ? (old >> 16) : (old & 0xffff);                       \
-                auto hsum = OP(*reinterpret_cast<__half*>(&hsum_old), val);                                            \
+                auto hsum = OP(*reinterpret_cast<TScalar*>(&hsum_old), val);                                           \
                 old = (size_t) address & 2 ? (old & 0xffff) | ((*reinterpret_cast<std::uint16_t*>(&hsum)) << 16)       \
                                            : (old & 0xffff0000) | *reinterpret_cast<std::uint16_t*>(&hsum);            \
                 old = atomicCAS(addressAsUI, assumed, old);                                                            \
@@ -115,19 +116,22 @@ static inline __device__ void atomAdd(float* address, float val)
 {
     atomicAdd(address, val);
 }
-
+static inline __device__ void atomAdd(__half* address, __half val)
+{
 #if defined(USE_ROCM) || (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ < 700 || CUDA_VERSION < 10000))
-static inline __device__ void atomAdd(__half* address, __half val)
-{
-    AtomicAddDecimalImpl<__half, sizeof(__half)>()(address, val);
-}
+  AtomicAddDecimalImpl<__half, sizeof(__half)>()(address, val);
 #else
-static inline __device__ void atomAdd(__half* address, __half val)
-{
-    atomicAdd(reinterpret_cast<__half*>(address), val);
-}
+  atomicAdd(address, val);
 #endif
-
+}
+static inline __device__ void atomAdd(__nv_bfloat16* address, __nv_bfloat16 val)
+{
+#if (defined(__CUDACC__) && (!defined(__CUDA_ARCH__) || (__CUDA_ARCH__ >= 800))) || defined(_NVHPC_CUDA)
+  atomicAdd(address, val);
+#else
+  AtomicAddDecimalImpl<__nv_bfloat16, sizeof(__nv_bfloat16)>()(address, val);
+#endif
+}
 static inline __device__ void atomAdd(std::int32_t* address, std::int32_t val)
 {
     atomicAdd(address, val);
@@ -156,6 +160,11 @@ static inline __device__ void atomMul(__half* address, __half val)
 {
     AtomicMulDecimalImpl<__half, sizeof(__half)>()(address, val);
 }
+static inline __device__ void atomMul(__nv_bfloat16* address, __nv_bfloat16 val)
+{
+    AtomicMulDecimalImpl<__nv_bfloat16, sizeof(__nv_bfloat16)>()(address, val);
+}
+
 
 #define OP(X, Y) ((X) < (Y)) ? (Y) : (X)
 ATOMIC(Max)
@@ -176,6 +185,10 @@ static inline __device__ void atomMax(__half* address, __half val)
 {
     AtomicMaxDecimalImpl<__half, sizeof(__half)>()(address, val);
 }
+static inline __device__ void atomMax(__nv_bfloat16* address, __nv_bfloat16 val)
+{
+    AtomicMaxDecimalImpl<__nv_bfloat16, sizeof(__nv_bfloat16)>()(address, val);
+}
 
 #define OP(X, Y) ((X) > (Y)) ? (Y) : (X)
 ATOMIC(Min)
@@ -192,10 +205,14 @@ static inline __device__ void atomMin(float* address, float val)
 {
     AtomicMinDecimalImpl<float, sizeof(float)>()(address, val);
 }
-
 static inline __device__ void atomMin(__half* address, __half val)
 {
     AtomicMinDecimalImpl<__half, sizeof(__half)>()(address, val);
 }
+static inline __device__ void atomMin(__nv_bfloat16* address, __nv_bfloat16 val)
+{
+    AtomicMinDecimalImpl<__nv_bfloat16, sizeof(__nv_bfloat16)>()(address, val);
+}
+
 
 #endif

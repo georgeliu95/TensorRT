@@ -1221,7 +1221,6 @@ void bindCore(py::module& m)
     py::class_<IOutputAllocator, PyOutputAllocator>(
         m, "IOutputAllocator", OutputAllocatorDoc::descr, py::module_local())
         .def(py::init<>())
-        .def_property_readonly("tensorrt_version", &IOutputAllocator::getInterfaceVersion)
         .def("reallocate_output", &IOutputAllocator::reallocateOutput, "tensor_name"_a, "memory"_a, "size"_a,
             "alignment"_a, OutputAllocatorDoc::reallocate_output)
         .def("notify_shape", &IOutputAllocator::notifyShape, "tensor_name"_a, "shape"_a,
@@ -1512,8 +1511,6 @@ void bindCore(py::module& m)
 
     py::class_<IDebugListener, PyDebugListener>(m, "IDebugListener", IDebugListenerDoc::descr, py::module_local())
         .def(py::init<>())
-        .def("get_interface_version", &IDebugListener::getInterfaceVersion, IDebugListenerDoc::get_interface_version)
-        // For documentation purpose only
         .def("process_debug_tensor", lambdas::docProcessDebugTensor, "addr"_a, "location"_a, "type"_a, "shape"_a,
             "name"_a, "stream"_a, IDebugListenerDoc::process_debug_tensor);
 }

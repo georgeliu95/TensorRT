@@ -687,10 +687,7 @@ class IPluginV3 : public IVersionedInterface
 {
 public:
     //!
-    //! \brief Return the version information associated with this interface.
-    //!
-    //! Do not override this method as it is used by the TensorRT library to maintain backwards-compatibility with
-    //! plugins.
+    //! \brief Return version information associated with this interface. Applications must not override this method.
     //!
     InterfaceInfo getInterfaceInfo() const noexcept override
     {
@@ -744,10 +741,7 @@ class IPluginV3OneCore : public IPluginCapability
 {
 public:
     //!
-    //! \brief Return the version information associated with this interface.
-    //!
-    //! Do not override this method as it is used by the TensorRT library to maintain backwards-compatibility with
-    //! plugins.
+    //! \brief Return version information associated with this interface. Applications must not override this method.
     //!
     InterfaceInfo getInterfaceInfo() const noexcept override
     {
@@ -797,10 +791,7 @@ public:
     static constexpr int32_t kDEFAULT_FORMAT_COMBINATION_LIMIT = 100;
 
     //!
-    //! \brief Return the version information associated with this interface.
-    //!
-    //! Do not override this method as it is used by the TensorRT library to maintain backwards-compatibility with
-    //! plugins.
+    //! \brief Return version information associated with this interface. Applications must not override this method.
     //!
     InterfaceInfo getInterfaceInfo() const noexcept override
     {
@@ -991,10 +982,7 @@ class IPluginV3OneRuntime : public IPluginCapability
 {
 public:
     //!
-    //! \brief Return the version information associated with this interface.
-    //!
-    //! Do not override this method as it is used by the TensorRT library to maintain backwards-compatibility with
-    //! plugins.
+    //! \brief Return version information associated with this interface. Applications must not override this method.
     //!
     InterfaceInfo getInterfaceInfo() const noexcept override
     {
@@ -1125,10 +1113,7 @@ class IPluginCreatorV3One : public IPluginCreatorInterface
 {
 public:
     //!
-    //! \brief Return the version information associated with this interface.
-    //!
-    //! Do not override this method as it is used by the TensorRT library to maintain backwards-compatibility with
-    //! plugin creators.
+    //! \brief Return version information associated with this interface. Applications must not override this method.
     //!
     InterfaceInfo getInterfaceInfo() const noexcept override
     {
@@ -2461,7 +2446,7 @@ enum class ExecutionContextAllocationStrategy : int32_t
 template <>
 constexpr inline int32_t EnumMax<ExecutionContextAllocationStrategy>() noexcept
 {
-    return 2;
+    return 3;
 }
 
 //!
@@ -3083,8 +3068,8 @@ public:
     //! in bytes.
     //!
     //! \param gpuMemoryBudget  This parameter may take on 3 types of values:
-    //!  -1: Disables weight streaming. The execution may fail if the network is too large for GPU memory.
-    //!   0: (default) Allows TensorRT to choose the budget according to the streamable weights size.
+    //!  -1: (default) Disables weight streaming. The execution may fail if the network is too large for GPU memory.
+    //!   0: Allows TensorRT to choose the budget according to the streamable weights size.
     //!      Free CUDA memory will be queried at ::createExecutionContext and accordingly:
     //!       * If streamable weights all fit: weight streaming is not required and disabled.
     //!       * Otherwise: Budget is set to getMinimumWeightStreamingBudget
@@ -3196,28 +3181,17 @@ protected:
     apiv::VCudaEngine* mImpl;
 };
 
-//!
-//! \class IOutputAllocator
-//!
-//! \brief Callback from ExecutionContext::enqueueV3()
-//!
-//! Clients should override the method reallocateOutput.
-//!
-//! \see IExecutionContext::enqueueV3()
-//!
-class IOutputAllocator
+namespace v_1_0
+{
+class IOutputAllocator : public IVersionedInterface
 {
 public:
     //!
-    //! \brief Return the API version of this IOutputAllocator.
+    //! \brief Return version information associated with this interface. Applications must not override this method.
     //!
-    //! Do not override this method as it is used by the TensorRT library to maintain
-    //! backwards-compatibility with IOutputAllocator. The value will change if Nvidia
-    //! adds additional virtual methods to this class.
-    //!
-    virtual int32_t getInterfaceVersion() const noexcept
+    InterfaceInfo getInterfaceInfo() const noexcept override
     {
-        return 1;
+        return {"IOutputAllocator", 1, 0};
     }
 
     //!
@@ -3247,24 +3221,29 @@ public:
     //! \param tensorName name of the tensor
     //!
     virtual void notifyShape(char const* tensorName, Dims const& dims) noexcept = 0;
-
-    virtual ~IOutputAllocator() = default;
 };
+} // namespace v_1_0
 
 //!
-//! \class IDebugListener
+//! \class IOutputAllocator
 //!
-//! \brief User-implemented callback for notification when value of a debug tensor is updated.
+//! \brief Callback from ExecutionContext::enqueueV3()
 //!
-//! Client should override the method processDebugTensor.
+//! \see IExecutionContext::enqueueV3()
 //!
-class IDebugListener
+using IOutputAllocator = v_1_0::IOutputAllocator;
+
+namespace v_1_0
+{
+class IDebugListener : public IVersionedInterface
 {
 public:
-    //! The version of this interface. Do not override.
-    virtual int64_t getInterfaceVersion() const final
+    //!
+    //! \brief Return version information associated with this interface. Applications must not override this method.
+    //!
+    InterfaceInfo getInterfaceInfo() const noexcept override
     {
-        return 1;
+        return {"IDebugListener", 1, 0};
     }
 
     //!
@@ -3284,8 +3263,16 @@ public:
         char const* name, cudaStream_t stream)
         = 0;
 
-    virtual ~IDebugListener() = default;
+    ~IDebugListener() override = default;
 };
+} // namespace v_1_0
+
+//!
+//! \class IDebugListener
+//!
+//! \brief User-implemented callback for notification when value of a debug tensor is updated.
+//!
+using IDebugListener = v_1_0::IDebugListener;
 
 //!
 //! \class IExecutionContext
@@ -4529,9 +4516,9 @@ public:
     }
 
     //!
-    //! \brief Get information about the Interface.
+    //! \brief Return version information associated with this interface. Applications must not override this method.
     //!
-    InterfaceInfo getInterfaceInfo() const noexcept final
+    InterfaceInfo getInterfaceInfo() const noexcept override
     {
         return {"IGpuAllocator", 1, 0};
     }

@@ -171,7 +171,7 @@ CudnnWrapper& getCudnnWrapper()
     // Initialize a global cublasWrapper instance to be used to call cublas functions.
     static CudnnWrapper sGCudnnWrapper;
     return sGCudnnWrapper;
-};
+}
 
 } // namespace pluginInternal
 } // namespace nvinfer1

@@ -1229,7 +1229,11 @@ bool networkToSerializedEngine(
 
     if (build.safe && build.consistency)
     {
-        checkSafeEngine(serializedEngine->data(), serializedEngine->size());
+        if (!checkSafeEngine(serializedEngine->data(), serializedEngine->size()))
+        {
+            sample::gLogError << "Consistency validation is not successful." << std::endl;
+            return false;
+        }
     }
 
     env.engine.setBlob(serializedEngine);
@@ -1368,7 +1372,11 @@ bool loadEngineToBuildEnv(std::string const& filepath, bool enableConsistency, B
 
     if (enableConsistency)
     {
-        checkSafeEngine(engineBlob.data(), fsize);
+        if (!checkSafeEngine(engineBlob.data(), fsize))
+        {
+            sample::gLogError << "Consistency validation is not successful." << std::endl;
+            return false;
+        }
     }
 
     env.engine.setBlob(std::move(engineBlob));
@@ -1575,6 +1583,7 @@ std::vector<std::pair<WeightsRole, Weights>> getAllRefitWeightsForLayer(const IL
     case LayerType::kPARAMETRIC_RELU:
     case LayerType::kPLUGIN:
     case LayerType::kPLUGIN_V2:
+    case LayerType::kPLUGIN_V3:
     case LayerType::kPOOLING:
     case LayerType::kQUANTIZE:
     case LayerType::kRAGGED_SOFTMAX:

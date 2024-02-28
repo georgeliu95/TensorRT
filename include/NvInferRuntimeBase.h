@@ -218,43 +218,52 @@ using Dims = Dims64;
 //!
 //! \see IPluginV2::supportsFormat(), safe::ICudaEngine::getBindingFormat()
 //!
+//! Many of the formats are **vector-major** or **vector-minor**. These formats specify
+//! a <em>vector dimension</em> and <em>scalars per vector</em>.
+//! For example, suppose that the tensor has has dimensions [M,N,C,H,W],
+//! the vector dimension is C and there are V scalars per vector.
+//!
+//! * A **vector-major** format splits the vectorized dimension into two axes in the
+//!   memory layout. The vectorized dimension is replaced by an axis of length ceil(C/V)
+//!   and a new dimension of length V is appended. For the example tensor, the memory layout
+//!   is equivalent to an array with dimensions [M][N][ceil(C/V)][H][W][V].
+//!   Tensor coordinate (m,n,c,h,w) maps to array location [m][n][c/V][h][w][c\%V].
+//!
+//! * A **vector-minor** format moves the vectorized dimension to become the last axis
+//!   in the memory layout. For the example tensor, the memory layout is equivalent to an
+//!   array with dimensions [M][N][H][W][ceil(C/V)*V]. Tensor coordinate (m,n,c,h,w) maps
+//!   array location subscript [m][n][h][w][c].
+//!
+//! In interfaces that refer to "components per element", that's the value of V above.
+//!
 //! For more information about data formats, see the topic "Data Format Description" located in the
-//! TensorRT Developer Guide.
+//! TensorRT Developer Guide. https://docs.nvidia.com/deeplearning/tensorrt/developer-guide/index.html#data-format-desc
 //!
 enum class TensorFormat : int32_t
 {
-    //! Row-major linear format.
-    //! For a tensor with dimensions {N, C, H, W} or {numbers, channels,
-    //! columns, rows}, the dimensional index corresponds to {3, 2, 1, 0}
-    //! and thus the order is W minor.
+    //! Memory layout is similar to an array in C or C++.
+    //! The stride of each dimension is the product of the dimensions after it.
+    //! The last dimension has unit stride.
     //!
     //! For DLA usage, the tensor sizes are limited to C,H,W in the range [1,8192].
-    //!
     kLINEAR = 0,
 
-    //! Two-wide channel vectorized row-major format. This format is bound to
-    //! FP16. It is only available for dimensions >= 3.
-    //! For a tensor with dimensions {N, C, H, W},
-    //! the memory layout is equivalent to a C array with dimensions
-    //! [N][(C+1)/2][H][W][2], with the tensor coordinates (n, c, h, w)
-    //! mapping to array subscript [n][c/2][h][w][c%2].
+    //! Vector-major format with two scalars per vector.
+    //! Vector dimension is third to last.
+    //!
+    //! This format requires FP16 or BF16 and at least three dimensions.
     kCHW2 = 1,
 
-    //! Eight-channel format where C is padded to a multiple of 8. This format
-    //! is bound to FP16. It is only available for dimensions >= 3.
-    //! For a tensor with dimensions {N, C, H, W},
-    //! the memory layout is equivalent to the array with dimensions
-    //! [N][H][W][(C+7)/8*8], with the tensor coordinates (n, c, h, w)
-    //! mapping to array subscript [n][h][w][c].
+    //! Vector-minor format with eight scalars per vector.
+    //! Vector dimension is third to last.
+    //! This format requires FP16 or BF16 and at least three dimensions.
     kHWC8 = 2,
 
-    //! Four-wide channel vectorized row-major format. This format is bound to
-    //! INT8 or FP16. It is only available for dimensions >= 3.
-    //! For INT8, the C dimension must be a build-time constant.
-    //! For a tensor with dimensions {N, C, H, W},
-    //! the memory layout is equivalent to a C array with dimensions
-    //! [N][(C+3)/4][H][W][4], with the tensor coordinates (n, c, h, w)
-    //! mapping to array subscript [n][c/4][h][w][c%4].
+    //! Vector-major format with four scalars per vector.
+    //! Vector dimension is third to last.
+    //!
+    //! This format requires INT8 or FP16 and at least three dimensions.
+    //! For INT8, the length of the vector dimension must be a build-time constant.
     //!
     //! Deprecated usage:
     //!
@@ -265,47 +274,39 @@ enum class TensorFormat : int32_t
     //! bytes must be a multiple of 64 on Orin.
     kCHW4 = 3,
 
-    //! Sixteen-wide channel vectorized row-major format. This format is bound
-    //! to FP16. It is only available for dimensions >= 3.
-    //! For a tensor with dimensions {N, C, H, W},
-    //! the memory layout is equivalent to a C array with dimensions
-    //! [N][(C+15)/16][H][W][16], with the tensor coordinates (n, c, h, w)
-    //! mapping to array subscript [n][c/16][h][w][c%16].
+    //! Vector-major format with 16 scalars per vector.
+    //! Vector dimension is third to last.
+    //!
+    //! This format requires INT8 or FP16 and at least three dimensions.
     //!
     //! For DLA usage, this format maps to the native feature format for FP16,
     //! and the tensor sizes are limited to C,H,W in the range [1,8192].
-    //!
     kCHW16 = 4,
 
-    //! Thirty-two wide channel vectorized row-major format. This format is
-    //! only available for dimensions >= 3.
-    //! For a tensor with dimensions {N, C, H, W},
-    //! the memory layout is equivalent to a C array with dimensions
-    //! [N][(C+31)/32][H][W][32], with the tensor coordinates (n, c, h, w)
-    //! mapping to array subscript [n][c/32][h][w][c%32].
+    //! Vector-major format with 32 scalars per vector.
+    //! Vector dimension is third to last.
+    //!
+    //! This format requires at least three dimensions.
     //!
     //! For DLA usage, this format maps to the native feature format for INT8,
     //! and the tensor sizes are limited to C,H,W in the range [1,8192].
     kCHW32 = 5,
 
-    //! Eight-channel format where C is padded to a multiple of 8. This format
-    //! is bound to FP16, and it is only available for dimensions >= 4.
-    //! For a tensor with dimensions {N, C, D, H, W},
-    //! the memory layout is equivalent to an array with dimensions
-    //! [N][D][H][W][(C+7)/8*8], with the tensor coordinates (n, c, d, h, w)
-    //! mapping to array subscript [n][d][h][w][c].
+    //! Vector-minor format with eight scalars per vector.
+    //! Vector dimension is fourth to last.
+    //!
+    //! This format requires FP16 or BF16 and at least four dimensions.
     kDHWC8 = 6,
 
-    //! Thirty-two wide channel vectorized row-major format. This format is
-    //! bound to FP16 and INT8 and is only available for dimensions >= 4.
-    //! For a tensor with dimensions {N, C, D, H, W},
-    //! the memory layout is equivalent to a C array with dimensions
-    //! [N][(C+31)/32][D][H][W][32], with the tensor coordinates (n, c, d, h, w)
-    //! mapping to array subscript [n][c/32][d][h][w][c%32].
+    //! Vector-major format with 32 scalars per vector.
+    //! Vector dimension is fourth to last.
+    //!
+    //! This format requires FP16 or INT8 and at least four dimensions.
     kCDHW32 = 7,
 
-    //! Non-vectorized channel-last format. This format is bound to either FP32 or UINT8,
-    //! and is only available for dimensions >= 3.
+    //! Vector-minor format where channel dimension is third to last and unpadded.
+    //!
+    //! This format requires either FP32 or UINT8 and at least three dimensions.
     kHWC = 8,
 
     //! DLA planar format. For a tensor with dimension {N, C, H, W}, the W axis
@@ -333,16 +334,16 @@ enum class TensorFormat : int32_t
     //! subscript [n][h][w][c].
     kDLA_HWC4 = 10,
 
-    //! Sixteen-channel format where C is padded to a multiple of 16. This format
-    //! is bound to FP16. It is only available for dimensions >= 3.
-    //! For a tensor with dimensions {N, C, H, W},
-    //! the memory layout is equivalent to the array with dimensions
-    //! [N][H][W][(C+15)/16*16], with the tensor coordinates (n, c, h, w)
-    //! mapping to array subscript [n][h][w][c].
+    //! Vector-minor format with 16 scalars per vector.
+    //! Vector dimension is third to last.
+    //!
+    //! This requires FP16 and at least three dimensions.
     kHWC16 = 11,
 
-    //! Non-vectorized channel-last format. This format is bound to FP32.
-    //! It is only available for dimensions >= 4.
+    //! Vector-minor format with one scalar per vector.
+    //! Vector dimension is fourth to last.
+    //!
+    //! This format requires FP32 and at least four dimensions.
     kDHWC = 12
 };
 
@@ -402,7 +403,7 @@ public:
     }
 
     //!
-    //! \brief Get information about the Interface.
+    //! \brief Return version information associated with this interface. Applications must not override this method.
     //!
     virtual InterfaceInfo getInterfaceInfo() const noexcept = 0;
 
@@ -619,7 +620,7 @@ public:
     }
 
     //!
-    //! \brief Get information about the Interface.
+    //! \brief Return version information associated with this interface. Applications must not override this method.
     //!
     InterfaceInfo getInterfaceInfo() const noexcept override
     {
@@ -1110,6 +1111,9 @@ public:
     ~IStreamReader() override = default;
     IStreamReader() = default;
 
+    //!
+    //! \brief Return version information associated with this interface. Applications must not override this method.
+    //!
     InterfaceInfo getInterfaceInfo() const noexcept override
     {
         return InterfaceInfo{"IStreamReader", 1, 0};
