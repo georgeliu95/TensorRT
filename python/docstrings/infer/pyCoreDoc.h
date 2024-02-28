@@ -1068,6 +1068,8 @@ namespace NetworkDefinitionCreationFlagDoc
 {
 constexpr char const* descr
     = R"trtdoc(List of immutable network properties expressed at network creation time. For example, to enable explicit batch mode, pass a value of ``1 << int(NetworkDefinitionCreationFlag.STRONGLY_TYPED)`` to :func:`create_network` )trtdoc";
+constexpr char const* EXPLICIT_BATCH
+    = R"trtdoc([DEPRECATED] Ignored because networks are always "explicit batch" in TensorRT 10.0.)trtdoc";
 constexpr char const* STRONGLY_TYPED
     = R"trtdoc(Specify that every tensor in the network has a data type defined in the network following only type inference rules and the inputs/operator annotations. Setting layer precision and layer output types is not allowed, and the network output types will be inferred based on the input types and the type inference rules)trtdoc";
 } // namespace NetworkDefinitionCreationFlagDoc
@@ -1138,16 +1140,16 @@ namespace TacticSourceDoc
 constexpr char const* descr = R"trtdoc(Tactic sources that can provide tactics for TensorRT.)trtdoc";
 
 constexpr char const* CUBLAS = R"trtdoc(
-        Enables cuBLAS tactics. Disbaled by default.
+        Enables cuBLAS tactics. Disabled by default.
         [DEPRECATED] Deprecated in TensorRT 10.0.
         **NOTE:** Disabling CUBLAS tactic source will cause the cuBLAS handle passed to plugins in attachToContext to be null.
     )trtdoc";
 constexpr char const* CUBLAS_LT = R"trtdoc(
-        Enables CUBLAS_LT tactics. Disbaled by default.
+        Enables CUBLAS_LT tactics. Disabled by default.
         [DEPRECATED] Deprecated in TensorRT 9.0.
     )trtdoc";
 constexpr char const* CUDNN = R"trtdoc(
-        Enables cuDNN tactics. Disbaled by default.
+        Enables cuDNN tactics. Disabled by default.
         [DEPRECATED] Deprecated in TensorRT 10.0.
         **NOTE:** Disabling CUDNN tactic source will cause the cuDNN handle passed to plugins in attachToContext to be null.
     )trtdoc";
@@ -1671,6 +1673,14 @@ constexpr char const* clear_inspection_source = R"trtdoc(
 )trtdoc";
 
 } // namespace RuntimeInspectorDoc
+
+namespace TensorLocationDoc
+{
+constexpr const char* descr = R"trtdoc(The physical location of the data.)trtdoc";
+
+constexpr const char* DEVICE = R"trtdoc(Data is stored on the device.)trtdoc";
+constexpr const char* HOST = R"trtdoc(Data is stored on the host.)trtdoc";
+} // namespace TensorLocationDoc
 
 namespace RefitterDoc
 {

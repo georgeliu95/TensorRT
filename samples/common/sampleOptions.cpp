@@ -36,6 +36,51 @@ namespace sample
 namespace
 {
 
+static const std::map<char, std::pair<int64_t, std::string>> kUNIT_MULTIPLIERS{
+    {'B', {1, "Bytes"}},
+    {'K', {1 << 10, "Kibibytes"}},
+    {'M', {1 << 20, "Mebibytes"}},
+    {'G', {1 << 30, "Gibibytes"}},
+};
+
+// Returns "B (Bytes), K (Kilobytes), ..."
+std::string getAvailableUnitSuffixes()
+{
+    std::stringstream ss;
+    for (auto it = kUNIT_MULTIPLIERS.begin(); it != kUNIT_MULTIPLIERS.end(); ++it)
+    {
+        if (it != kUNIT_MULTIPLIERS.begin())
+        {
+            ss << ", ";
+        }
+        ss << it->first << " (" << it->second.second << ")";
+    }
+    return ss.str();
+}
+
+// Numeric trtexec arguments can have unit specifiers in similar to polygraphy.
+// E.g. --weightStreamingBudget=20M would be 20 Mebibytes (base 2).
+int64_t getUnitMultiplier(std::string const& option)
+{
+    char lastChar = option.at(option.size() - 1);
+    if (!std::isdigit(lastChar))
+    {
+        char unit = std::toupper(lastChar);
+        auto found = kUNIT_MULTIPLIERS.find(unit);
+        if (found == kUNIT_MULTIPLIERS.end())
+        {
+            std::stringstream ss;
+            ss << "Error parsing \"" << option << "\": invalid unit specifier '" << unit << "'. Valid base-2 unit suffixes include: ";
+            ss << getAvailableUnitSuffixes() << ".";
+            throw std::invalid_argument(ss.str());
+        }
+        return found->second.first;
+    }
+
+    // Return bytes by default
+    return kUNIT_MULTIPLIERS.at('B').first;
+} 
+
 template <typename T>
 T stringToValue(const std::string& option)
 {
@@ -51,13 +96,13 @@ int32_t stringToValue<int32_t>(const std::string& option)
 template <>
 int64_t stringToValue<int64_t>(const std::string& option)
 {
-    return std::stoll(option);
+    return std::stoll(option) * getUnitMultiplier(option);
 }
 
 template <>
 size_t stringToValue<size_t>(const std::string& option)
 {
-    return std::stoi(option);
+    return std::stoi(option) * getUnitMultiplier(option);
 }
 
 template <>
@@ -1413,17 +1458,8 @@ void BuildOptions::parse(Arguments& arguments)
 
     getAndDelOption(arguments, "--leanDLLPath", leanDLLPath);
 
-    // Do not delete this option because the inference parser also requires it
-    int64_t userSetBudget{BuildOptions::kUNSET_WEIGHT_STREAMING};
-    bool enableWeightStreaming = getOption(arguments, "--weightStreamingBudget", userSetBudget);
-    if (enableWeightStreaming && userSetBudget <= BuildOptions::kUNSET_WEIGHT_STREAMING)
-    {
-        throw std::invalid_argument(std::string("The weight streaming budget must be >= -1."));
-    }
-    else if (enableWeightStreaming)
-    {
-        weightStreamingBudget = userSetBudget;
-    }
+    // Don't delete the option because the inference option parser requires it
+    getOption(arguments, "--enableWeightStreaming", enableWeightStreaming);
 }
 
 void SystemOptions::parse(Arguments& arguments)
@@ -1507,7 +1543,19 @@ void InferenceOptions::parse(Arguments& arguments)
         throw std::invalid_argument(std::string("Unknown allocationStrategy: ") + allocationStrategyString);
     }
 
-    getAndDelOption(arguments, "--weightStreamingBudget", weightStreamingBudget);
+    bool enableWs{false};
+    getAndDelOption(arguments, "--enableWeightStreaming", enableWs);
+    bool wsBudgetFound = getAndDelOption(arguments, "--weightStreamingBudget", weightStreamingBudget);
+    if (!enableWs && wsBudgetFound)
+    {
+        throw std::invalid_argument(
+            std::string("The weight streaming budget can only be set with --enableWeightStreaming specified."));
+    }
+    if (weightStreamingBudget < kUNSET_WEIGHT_STREAMING)
+    {
+        throw std::invalid_argument(std::string("The weight streaming budget must be >= -1."));
+    }
+
     getAndDelOption(arguments, "--saveDebugTensors", list);
     std::vector<std::string> fileNames{splitToStringVec(list, ',')};
     splitInsertKeyValue(fileNames, debugTensorFileNames);
@@ -1999,8 +2047,8 @@ std::ostream& operator<<(std::ostream& os, const BuildOptions& options)
           "MaxAuxStreams: "   << options.maxAuxStreams                                                                  << std::endl <<
           "BuilderOptimizationLevel: " << options.builderOptimizationLevel                                              << std::endl <<
           "Calibration Profile Index: " << options.calibProfile                                                         << std::endl <<
-          "Weight Streaming: " << (options.weightStreamingBudget >= -1 ? "Enabled" : "Disabled")                        << std::endl <<
-          "Debug Tensors: " << options.debugTensors                                                                      << std::endl;
+          "Weight Streaming: " << boolToEnabled(options.enableWeightStreaming)                                          << std::endl <<
+          "Debug Tensors: " << options.debugTensors                                                                     << std::endl;
     // clang-format on
 
     auto printIOFormats = [](std::ostream& os, const char* direction, const std::vector<IOFormat> formats) {
@@ -2081,7 +2129,7 @@ std::ostream& operator<<(std::ostream& os, const InferenceOptions& options)
                           os << "Explicit"                                << std::endl;
     }
     printShapes(os, "inference", options.shapes, options.optProfileIndex);
-    std::string wsBudget = options.weightStreamingBudget == BuildOptions::kUNSET_WEIGHT_STREAMING ? "N/A" : std::to_string(options.weightStreamingBudget);
+    std::string wsBudget = options.weightStreamingBudget == InferenceOptions::kUNSET_WEIGHT_STREAMING ? "Automatic" : (std::to_string(options.weightStreamingBudget) + " bytes");
 
     os << "Iterations: "                << options.iterations                                   << std::endl <<
           "Duration: "                  << options.duration   << "s (+ "
@@ -2364,9 +2412,9 @@ void BuildOptions::help(std::ostream& os)
           "                                     (ex: --profile=0 --minShapes=<spec> --optShapes=<spec> --maxShapes=<spec> --profile=1 ...)"         "\n"
           "  --calibProfile                     Select the optimization profile to calibrate by index. (default = "
                                                                                                                 << defaultOptProfileIndex << ")"    "\n"
-          "  --weightStreamingBudget            Set the weight streaming budget in megabytes (MiB). A value of 0 will set it to "                   "\n"
-          "                                     ::getMinimumStreamingBudget. A value of -1 will build a weight-streamable engine but disable"       "\n"
-          "                                     weight streaming at runtime."                                                                       "\n"
+          "  --enableWeightStreaming            Enable a weight streaming engine. TensorRT will automatically choose the appropriate"               "\n"
+          "                                     weight streaming budget at runtime to ensure model execution. A specific amount can be set"         "\n"
+          "                                     with --weightStreamingBudget."                                                                      "\n"
           "  --markDebug                        Specify list of names of tensors to be marked as debug tensors. Separate names with a comma"        "\n"
           ;
     // clang-format on
@@ -2443,9 +2491,13 @@ void InferenceOptions::help(std::ostream& os)
           "                                  runtime = Allocate device memory based on the actual input shapes."                     << std::endl <<
           "  --saveDebugTensors          Specify list of names of tensors to turn on the debug state"                                << std::endl <<
           "                              and filename to save raw outputs to."                                                       << std::endl <<
-          "                              These tensors must be specified as debug tensors during build time."                         << std::endl <<
+          "                              These tensors must be specified as debug tensors during build time."                        << std::endl <<
           R"(                            Input values spec ::= Ival[","spec])"                                                       << std::endl <<
-          R"(                                         Ival ::= name":"file)"                                                         << std::endl;
+          R"(                                         Ival ::= name":"file)"                                                         << std::endl <<
+          "  --weightStreamingBudget     Manually set the weight streaming budget. Base-2 unit suffixes are supported: "             << std::endl << 
+          "                              " << getAvailableUnitSuffixes() << "."                                                      << std::endl <<
+          "                              A value of 0 will choose the minimum possible budget."                                      << std::endl <<
+          "                              A value of -1 will disable weight streaming at runtime."                                    << std::endl;
     // clang-format on
 }
 

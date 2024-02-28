@@ -74,14 +74,6 @@ constexpr char const* NORMALIZATION = R"trtdoc(Normalization layer)trtdoc";
 constexpr const char* PLUGIN_V3 = R"trtdoc(PluginV3 layer)trtdoc";
 } // namespace LayerTypeDoc
 
-namespace TensorLocationDoc
-{
-constexpr const char* descr = R"trtdoc(The physical location of the data.)trtdoc";
-
-constexpr const char* DEVICE = R"trtdoc(Data is stored on the device.)trtdoc";
-constexpr const char* HOST = R"trtdoc(Data is stored on the device.)trtdoc";
-} // namespace TensorLocationDoc
-
 namespace TensorFormatDoc
 {
 constexpr const char* descr = R"trtdoc(

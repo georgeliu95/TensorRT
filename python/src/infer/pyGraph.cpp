@@ -294,12 +294,6 @@ namespace tensorrt
             .value("PLUGIN_V3", LayerType::kPLUGIN_V3, LayerTypeDoc::PLUGIN_V3)
         ; // LayerType
 
-        // Bind to a Python enum called TensorLocation.
-        py::enum_<TensorLocation>(m, "TensorLocation", TensorLocationDoc::descr, py::module_local())
-            .value("DEVICE", TensorLocation::kDEVICE, TensorLocationDoc::DEVICE)
-            .value("HOST", TensorLocation::kHOST, TensorLocationDoc::HOST)
-        ; // TensorLocation
-
         py::enum_<TensorFormat>(m, "TensorFormat", TensorFormatDoc::descr, py::arithmetic{}, py::module_local())
             .value("LINEAR", TensorFormat::kLINEAR, TensorFormatDoc::LINEAR)
             .value("CHW2", TensorFormat::kCHW2, TensorFormatDoc::CHW2)

@@ -121,7 +121,7 @@ Doing inference...
 Passed
 ```
 
-There is also an option `--version-compatible` to enable engine version compatibility.
+There is also an option `--version-compatible` to enable engine version compatibility. If installed, `tensorrt_dispatch` package will used for refitting and running version compatible engines instead of `tensorrt` package.
 To build and refit a version compatible engine, run the command `python3 build_and_refit_engine.py --version-compatible` and the output should look similar to the above cases.
 
 # Additional resources

@@ -38,6 +38,12 @@ class IAlgorithmSelector;
 }
 using IAlgorithmSelector = v_1_0::IAlgorithmSelector;
 
+namespace v_1_0
+{
+class IProfiler;
+}
+using IProfiler = v_1_0::IProfiler;
+
 class IActivationLayer;
 class IAlgorithm;
 class IAlgorithmContext;
@@ -90,10 +96,15 @@ class IPluginFactory;
 class IPluginLayer;
 class IPluginRegistry;
 class IPluginV2Layer;
+
+namespace v_1_0
+{
 class IPluginV3;
+} // namespace v_1_0
+using IPluginV3 = v_1_0::IPluginV3;
+
 class IPluginV3Layer;
 class IPoolingLayer;
-class IProfiler;
 class IQuantizeLayer;
 class IRaggedSoftMaxLayer;
 class IRecurrenceLayer;

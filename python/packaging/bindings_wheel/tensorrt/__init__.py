@@ -122,9 +122,6 @@ if "##TENSORRT_MODULE##" == "tensorrt":
     OnnxParser.__enter__ = common_enter
     OnnxParser.__exit__ = common_exit
 
-    Refitter.__enter__ = common_enter
-    Refitter.__exit__ = common_exit
-
     IBuilderConfig.__enter__ = common_enter
     IBuilderConfig.__exit__ = common_exit
 

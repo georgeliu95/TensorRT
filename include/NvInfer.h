@@ -4876,9 +4876,28 @@ protected:
 //!
 enum class FillOperation : int32_t
 {
-    kLINSPACE = 0,       //!< Generate evenly spaced numbers over a specified interval.
-    kRANDOM_UNIFORM = 1, //!< Generate a tensor with random values drawn from a uniform distribution.
-    kRANDOM_NORMAL = 2   //!< Generate a tensor with random values drawn from a normal distribution.
+    //! Compute each value via an affine function of its indices.
+    //! For example, suppose the parameters for the IFillLayer are:
+    //!
+    //! * Dimensions = [3,4]
+    //! * Alpha = 1
+    //! * Beta = [100,10]
+    //!
+    //! Element [i,j] of the output is Alpha + Beta[0]*i + Beta[1]*j.
+    //! Thus the output matrix is:
+    //!
+    //!      1  11  21  31
+    //!    101 111 121 131
+    //!    201 211 221 231
+    //!
+    //! A static beta b is implicitly a 1D tensor, i.e. Beta = [b].
+    kLINSPACE = 0,
+
+    //! Randomly draw values from a uniform distribution.
+    kRANDOM_UNIFORM = 1,
+
+    //! Randomly draw values from a normal distribution.
+    kRANDOM_NORMAL = 2
 };
 
 //!
@@ -4895,26 +4914,33 @@ constexpr inline int32_t EnumMax<FillOperation>() noexcept
 //!
 //! \class IFillLayer
 //!
-//! \brief Generate an output tensor with specified mode.
+//! \brief Generate a tensor according to a specified mode.
 //!
-//! The fill layer has two variants, static and dynamic. Static fill specifies its parameters
-//! at layer creation time via Dims and the get/set accessor functions of the IFillLayer.
-//! Dynamic fill specifies one or more of its parameters as ITensors, by using ILayer::setInput to add
-//! a corresponding input.  The corresponding static parameter is used if an input is missing or null.
+//! The fill layer generates a tensor with values that are drawn from a random distribution
+//! or an affine function of their indices, as specified by the FillMode.
 //!
-//! The shape of the output is specified by the parameter \p Dimension, or if non-null and present,
-//! the first input, which must be a 1D Int32 shape tensor. Thus an application can determine if the
-//! IFillLayer has a dynamic output shape based on whether it has a non-null first input.
+//! When an IFillLayer is initially added to a network, all of its parameters are static.
+//! Each parameter may be changed to dynamic by setting a corresponding input.
+//! A parameter is considered dynamic even if that input is the output of an IConstantLayer.
+//! The inputs for each parameter are:
 //!
-//! Alpha and Beta are treated differently based on the Fill Operation specified. See details in
-//! IFillLayer::setAlpha(), IFillLayer::setBeta(), and IFillLayer::setInput().
+//! - 0: Dimensions
+//! - 1: Alpha
+//! - 2: Beta
 //!
-//! A fill layer can produce a shape tensor if the following restrictions are met:
+//! The parameter Dimensions describes the shape of the output. If the Dimensions input is provided,
+//! it must be a 1D tensor of type Int32 or Int64 whose length is computable by constant folding.
+//!
+//! The meanings of Alpha and Beta depend on the mode, as described in IFillLayer::setAlpha(),
+//! IFillLayer::setBeta(), and IFillLayer::setInput(). Parameters Alpha and Beta must both be static
+//! or both be dynamic.
+//!
+//! An IFillLayer can produce a shape tensor if the following restrictions are met:
 //!
 //! * The FillOperation is kLINSPACE.
-//! * The output is an Int32 or Float tensor within the volume limit of a shape tensor.
-//! * There is at most one input, and if so, that input is input 0.
-//! * If input 0 exists, the length of the output tensor must be computable by constant folding.
+//! * The output has type Int32, Int64, or Float.
+//! * The volume of the output is within the volume limit imposed on shape tensors.
+//! * If input 0 exists, the values of input 0 must be computable by constant folding.
 //!
 //! \see FillOperation
 //!
@@ -4982,9 +5008,9 @@ public:
     //! kRANDOM_UNIFORM    | the minimum value, defaults to 0.0;
     //! kRANDOM_NORMAL     | the mean of the normal distribution, default is 0.0;
     //!
-    //! If a second input had been used to create this layer, that input is reset to null by this method.
+    //! If input 1 exists, it is reset to null by this method.
     //!
-    //! \see getAlpha
+    //! \see getAlpha, setAlphaInt64
     //
     void setAlpha(double alpha) noexcept
     {
@@ -5016,7 +5042,7 @@ public:
     //! kRANDOM_UNIFORM    | the maximal value, defaults to 1.0;
     //! kRANDOM_NORMAL     | the standard deviation of the normal distribution, default is 1.0;
     //!
-    //! If a third input had been used to create this layer, that input is reset to null by this method.
+    //! If input 2 exists, it is reset to null by this method.
     //!
     //! \see getBeta
     //!
@@ -5033,7 +5059,7 @@ public:
     //! If the third input is present and non-null,
     //! this function returns -1.0.
     //!
-    //! \see setBeta
+    //! \see setBeta, setBetaInt64
     //!
     double getBeta() const noexcept
     {
@@ -5041,28 +5067,36 @@ public:
     }
 
     //!
-    //! \brief replace an input of this layer with a specific tensor.
+    //! \brief Replace an input of this layer with a specific tensor.
     //!
     //! \param index the index of the input to set.
     //! \param tensor the new input tensor
     //!
-    //! Indices for kLINSPACE are described as:
+    //! The three inputs correspond to these setters of IFillLayer:
     //!
-    //! - 0: Shape tensor, represents the output tensor's dimensions.
-    //! - 1: Start, a scalar, represents the start value.
-    //! - 2: Delta, a 1D tensor, length equals to shape tensor's nbDims, represents the delta value for each dimension.
+    //! - 0: setDimensions
+    //! - 1: setAlpha
+    //! - 2: setBeta
     //!
-    //! Indices for kRANDOM_UNIFORM are described as:
+    //! The following descriptions give more intuitive names for the inputs.
     //!
-    //! - 0: Shape tensor, represents the output tensor's dimensions.
-    //! - 1: Minimum, a scalar, represents the minimum random value.
-    //! - 2: Maximum, a scalar, represents the maximal random value.
+    //! Indices for kLINSPACE are:
     //!
-    //! Indices for kRANDOM_NORMAL are described as:
+    //! - 0: Shape, a 1D shape tensor, specifies the output tensor's dimensions.
+    //! - 1: Start, a scalar, specifies the start value.
+    //! - 2: Delta, a 1D tensor, specifies the delta value for each dimension.
     //!
-    //! - 0: Shape tensor, represents the output tensor's dimensions.
-    //! - 1: Mean, a scalar, represents the mean of the normal distribution,.
-    //! - 2: Scale, a scalar, represents the standard deviation of the normal distribution.
+    //! Indices for kRANDOM_UNIFORM are:
+    //!
+    //! - 0: Shape, a 1D shape tensor, specifies the output tensor's dimensions.
+    //! - 1: Minimum, a scalar, specifies the minimum random value.
+    //! - 2: Maximum, a scalar, specifies the maximal random value.
+    //!
+    //! Indices for kRANDOM_NORMAL are:
+    //!
+    //! - 0: Shape, a 1D shape tensor, specifies the output tensor's dimensions.
+    //! - 1: Mean, a scalar, specifies the mean of the normal distribution,.
+    //! - 2: Scale, a scalar, specifies the standard deviation of the normal distribution.
     //!
     //! Using the corresponding setter resets the input to null.
     //!
@@ -5207,10 +5241,10 @@ protected:
 //! output data type. \p zeroPt must only contain zero-valued coefficients, because only symmetric quantization is
 //! supported.
 //! The \p scale value must be a scalar for per-tensor quantization, a 1-D tensor for per-channel quantization, or a
-//! 2-D tensor for blocked quantization (supported for DataType::kINT4 only). All \p scale coefficients must have
-//! positive values. The size of the 1-D \p scale tensor must match the size of the quantization axis. For blocked
-//! quantization, the size of the 2-D \p scale tensor must match the size the quantization axis and the number of
-//! blocks. The size of the \p zeroPt must match the size of the \p scale.
+//! 2-D tensor for block quantization (supported for DataType::kINT4 only). All \p scale coefficients must have
+//! positive values. The size of the 1-D \p scale tensor must match the size of the quantization axis. For block
+//! quantization, the shape of \p scale tensor must match the shape of the input, except for one dimension in which
+//! blocking occurs. The size of \p zeroPt must match the size of \p scale.
 //!
 //! The subgraph which terminates with the \p scale tensor must be a build-time constant. The same restrictions apply
 //! to the \p zeroPt.
@@ -5241,8 +5275,8 @@ protected:
 //!                 For each s in S:
 //!                     output[k,c,r,s] = clamp(round(\p input[k,c,r,s] / \p scale[k]) + \p zeroPt[k])
 //!
-//! Blocked quantization is supported only for 2-D weight inputs of DataType::kINT4. As an example of blocked
-//! operation, imagine a 2-D RS weights input, S (dimension 1) as the quantization axis and B as the block size.
+//! Block quantization is supported only for 2-D weight inputs of DataType::kINT4. As an example of blocked
+//! operation, imagine a 2-D RS weights input, R (dimension 0) as the blocking axis and B as the block size.
 //! The scale is a 2D array of coefficients, with dimensions (R//B, S).
 //!     For each r in R:
 //!         For each s in S:
@@ -5334,10 +5368,10 @@ protected:
 //! the input's data type. \p zeroPt must only contain zero-valued coefficients, because only symmetric quantization is
 //! supported.
 //! The \p scale value must be either a scalar for per-tensor quantization, a 1-D tensor for per-channel quantization,
-//! or a 2-D tensor for blocked quantization (supported for DataType::kINT4 only). All \p scale coefficients must have
-//! positive values. The size of the 1-D \p scale tensor must match the size of the quantization axis. For blocked
-//! quantization, the size of the 2-D \p scale tensor must match the size of the quantization axis and the number of
-//! blocks. The size of \p zeroPt must match the size of \p \scale.
+//! or a 2-D tensor for block quantization (supported for DataType::kINT4 only). All \p scale coefficients must have
+//! positive values. The size of the 1-D \p scale tensor must match the size of the quantization axis. For block
+//! quantization, the shape of \p scale tensor must match the shape of the input, except for one dimension in which
+//! blocking occurs. The size of \p zeroPt must match the size of \p scale.
 //!
 //! The subgraph which terminates with the \p scale tensor must be a build-time constant.  The same restrictions apply
 //! to the \p zeroPt.
@@ -5370,9 +5404,9 @@ protected:
 //!                 For each s in S:
 //!                     output[k,c,r,s] = (\p input[k,c,r,s] - \p zeroPt[k]) * \p scale[k]
 //!
-//! Blocked dequantization is supported only for 2-D input tensors with DataType::kINT4 that are rooted at an
-//! IConstantLayer (i.e. weights). As an example of blocked operation, imagine a 2-D RS weights input with S
-//! (dimension 1) as the quantization axis and B as the block size. The scale is a 2D array of coefficients, with
+//! Block dequantization is supported only for 2-D input tensors with DataType::kINT4 that are rooted at an
+//! IConstantLayer (i.e. weights). As an example of blocked operation, imagine a 2-D RS weights input with R
+//! (dimension 0) as the blocking axis and B as the block size. The scale is a 2-D array of coefficients, with
 //! dimensions (R//B, S).
 //! For each r in R:
 //!     For each s in S:
@@ -9325,6 +9359,11 @@ using NetworkDefinitionCreationFlags = uint32_t;
 //!
 enum class NetworkDefinitionCreationFlag : int32_t
 {
+    //! Ignored because networks are always "explicit batch" in TensorRT 10.0.
+    //!
+    //! \deprecated Deprecated in TensorRT 10.0.
+    kEXPLICIT_BATCH TRT_DEPRECATED_ENUM = 0,
+
     //! Mark the network to be strongly typed.
     //! Every tensor in the network has a data type defined in the network following only type inference rules and the
     //! inputs/operator annotations. Setting layer precision and layer output types is not allowed, and the network

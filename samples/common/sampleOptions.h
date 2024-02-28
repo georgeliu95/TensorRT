@@ -244,8 +244,7 @@ public:
     int32_t maxAuxStreams{defaultMaxAuxStreams};
     bool getPlanVersionOnly{false};
 
-    static constexpr int64_t kUNSET_WEIGHT_STREAMING{-2};
-    int64_t weightStreamingBudget{kUNSET_WEIGHT_STREAMING};
+    bool enableWeightStreaming{false};
 
     void parse(Arguments& arguments) override;
 
@@ -296,7 +295,8 @@ public:
     MemoryAllocationStrategy memoryAllocationStrategy{MemoryAllocationStrategy::kSTATIC};
     std::unordered_map<std::string, std::string> debugTensorFileNames;
 
-    int64_t weightStreamingBudget{BuildOptions::kUNSET_WEIGHT_STREAMING};
+    static constexpr int64_t kUNSET_WEIGHT_STREAMING{-2};
+    int64_t weightStreamingBudget{kUNSET_WEIGHT_STREAMING};
 
     void parse(Arguments& arguments) override;
 

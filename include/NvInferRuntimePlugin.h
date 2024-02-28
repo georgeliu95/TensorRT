@@ -923,13 +923,8 @@ enum class TensorRTPhase : int32_t
     kRUNTIME = 1
 };
 
-//!
-//! \class IPluginCreatorInterface
-//!
-//! \brief Base class for all plugin creator versions
-//!
-//! \see IPluginCreator and IPluginRegistry
-//!
+namespace v_1_0
+{
 class IPluginCreatorInterface : public IVersionedInterface
 {
 public:
@@ -943,14 +938,7 @@ protected:
     IPluginCreatorInterface& operator=(IPluginCreatorInterface&&) & = default;
 };
 
-//!
-//! \class IPluginCreator
-//!
-//! \brief Plugin creator class for user implemented layers.
-//!
-//! \see IPlugin and IPluginFactory
-//!
-class IPluginCreator : public nvinfer1::IPluginCreatorInterface
+class IPluginCreator : public IPluginCreatorInterface
 {
 public:
     //!
@@ -1075,6 +1063,25 @@ public:
         return InterfaceInfo{"PLUGIN CREATOR_V1", 1, 0};
     }
 };
+} // namespace v_1_0
+
+//!
+//! \class IPluginCreatorInterface
+//!
+//! \brief Base class for all plugin creator versions.
+//!
+//! \see IPluginCreator and IPluginRegistry
+//!
+using IPluginCreatorInterface = v_1_0::IPluginCreatorInterface;
+
+//!
+//! \class IPluginCreator
+//!
+//! \brief Plugin creator class for user implemented layers.
+//!
+//! \see IPlugin and IPluginFactory
+//!
+using IPluginCreator = v_1_0::IPluginCreator;
 
 } // namespace nvinfer1
 

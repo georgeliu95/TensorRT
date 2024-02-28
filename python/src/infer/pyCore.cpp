@@ -1052,6 +1052,12 @@ void bindCore(py::module& m)
         .value("USER_MANAGED", ExecutionContextAllocationStrategy::kUSER_MANAGED,
             ExecutionContextAllocationStrategyDoc::USER_MANAGED);
 
+    py::class_<ISerializationConfig>(m, "ISerializationConfig", ISerializationConfigDoc::descr, py::module_local())
+        .def_property("flags", &ISerializationConfig::getFlags, &lambdas::serialization_config_set_flags)
+        .def("clear_flag", &ISerializationConfig::clearFlag, "flag"_a, ISerializationConfigDoc::clear_flag)
+        .def("set_flag", &ISerializationConfig::setFlag, "flag"_a, ISerializationConfigDoc::set_flag)
+        .def("get_flag", &ISerializationConfig::getFlag, "flag"_a, ISerializationConfigDoc::get_flag);
+
     py::class_<ICudaEngine>(m, "ICudaEngine", ICudaEngineDoc::descr, py::module_local())
         .def("__getitem__", lambdas::engine_getitem)
         .def_property_readonly("has_implicit_batch_dimension",
@@ -1390,14 +1396,10 @@ void bindCore(py::module& m)
             py::cpp_function(&IBuilderConfig::setProgressMonitor, py::keep_alive<1, 2>{}))
                .def("__del__", &utils::doNothingDel<IBuilderConfig>);
 
-    py::class_<ISerializationConfig>(m, "ISerializationConfig", ISerializationConfigDoc::descr, py::module_local())
-        .def_property("flags", &ISerializationConfig::getFlags, &lambdas::serialization_config_set_flags)
-        .def("clear_flag", &ISerializationConfig::clearFlag, "flag"_a, ISerializationConfigDoc::clear_flag)
-        .def("set_flag", &ISerializationConfig::setFlag, "flag"_a, ISerializationConfigDoc::set_flag)
-        .def("get_flag", &ISerializationConfig::getFlag, "flag"_a, ISerializationConfigDoc::get_flag);
-
     py::enum_<NetworkDefinitionCreationFlag>(m, "NetworkDefinitionCreationFlag", py::arithmetic{},
         NetworkDefinitionCreationFlagDoc::descr, py::module_local())
+        .value("EXPLICIT_BATCH", NetworkDefinitionCreationFlag::kEXPLICIT_BATCH,
+            NetworkDefinitionCreationFlagDoc::EXPLICIT_BATCH)
         .value("STRONGLY_TYPED", NetworkDefinitionCreationFlag::kSTRONGLY_TYPED,
             NetworkDefinitionCreationFlagDoc::STRONGLY_TYPED);
 
@@ -1454,17 +1456,10 @@ void bindCore(py::module& m)
             "engine_host_code_allowed", &IRuntime::getEngineHostCodeAllowed, &IRuntime::setEngineHostCodeAllowed)
         .def("__del__", &utils::doNothingDel<IRuntime>);
 
-#if EXPORT_ALL_BINDINGS
-    // EngineInspector
-    py::class_<IEngineInspector>(m, "EngineInspector", RuntimeInspectorDoc::descr, py::module_local())
-        .def_property(
-            "execution_context", &IEngineInspector::getExecutionContext, &IEngineInspector::setExecutionContext)
-        .def("get_layer_information", &IEngineInspector::getLayerInformation, "layer_index"_a, "format"_a,
-            RuntimeInspectorDoc::get_layer_information)
-        .def("get_engine_information", &IEngineInspector::getEngineInformation, "format"_a,
-            RuntimeInspectorDoc::get_engine_information)
-        .def_property("error_recorder", &IEngineInspector::getErrorRecorder,
-            py::cpp_function(&IEngineInspector::setErrorRecorder, py::keep_alive<1, 2>{}));
+    // Bind to a Python enum called TensorLocation.
+    py::enum_<TensorLocation>(m, "TensorLocation", TensorLocationDoc::descr, py::module_local())
+        .value("DEVICE", TensorLocation::kDEVICE, TensorLocationDoc::DEVICE)
+        .value("HOST", TensorLocation::kHOST, TensorLocationDoc::HOST); // TensorLocation
 
     // Refitter
     py::class_<IRefitter>(m, "Refitter", RefitterDoc::descr, py::module_local())
@@ -1501,6 +1496,18 @@ void bindCore(py::module& m)
         .def("get_weights_prototype", &IRefitter::getWeightsPrototype, "weights_name"_a,
             RefitterDoc::get_weights_prototype)
         .def("__del__", &utils::doNothingDel<IRefitter>);
+
+#if EXPORT_ALL_BINDINGS
+    // EngineInspector
+    py::class_<IEngineInspector>(m, "EngineInspector", RuntimeInspectorDoc::descr, py::module_local())
+        .def_property(
+            "execution_context", &IEngineInspector::getExecutionContext, &IEngineInspector::setExecutionContext)
+        .def("get_layer_information", &IEngineInspector::getLayerInformation, "layer_index"_a, "format"_a,
+            RuntimeInspectorDoc::get_layer_information)
+        .def("get_engine_information", &IEngineInspector::getEngineInformation, "format"_a,
+            RuntimeInspectorDoc::get_engine_information)
+        .def_property("error_recorder", &IEngineInspector::getErrorRecorder,
+            py::cpp_function(&IEngineInspector::setErrorRecorder, py::keep_alive<1, 2>{}));
 #endif // EXPORT_ALL_BINDINGS
 
     py::class_<IDebugListener, PyDebugListener>(m, "IDebugListener", IDebugListenerDoc::descr, py::module_local())

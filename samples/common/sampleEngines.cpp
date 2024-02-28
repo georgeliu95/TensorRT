@@ -1180,7 +1180,7 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
         config.setMaxAuxStreams(build.maxAuxStreams);
     }
 
-    if (build.weightStreamingBudget != BuildOptions::kUNSET_WEIGHT_STREAMING)
+    if (build.enableWeightStreaming)
     {
         config.setFlag(BuilderFlag::kWEIGHT_STREAMING);
     }

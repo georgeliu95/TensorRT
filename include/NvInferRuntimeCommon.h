@@ -255,6 +255,35 @@ public:
     //!   - Thread-safe: Yes
     //!
     virtual bool deregisterCreator(IPluginCreatorInterface const& creator) noexcept = 0;
+
+    //!
+    //! \brief Get a plugin resource
+    //! \param key Key for identifying the resource. Cannot be null.
+    //! \param resource A plugin resource object. The object will only need to be valid until this method returns, as
+    //! only a clone of this object will be registered by TRT. Cannot be null.
+    //!
+    //! \return Registered plugin resource object
+    //!
+    //! \usage
+    //! - Allowed context for the API call
+    //!   - Thread-safe: Yes; calls to this method will be synchronized by a mutex.
+    //!
+    virtual IPluginResource* acquirePluginResource(AsciiChar const* key, IPluginResource* resource) noexcept = 0;
+
+    //!
+    //! \brief Decrement reference count for the resource with this key
+    //!        If reference count goes to zero after decrement, release() will be invoked on the resource, the key will
+    //!        be deregistered and the resource object will be deleted
+    //!
+    //! \param key Key that was used to register the resource. Cannot be null.
+    //!
+    //! \return 0 for success, else non-zero
+    //!
+    //! \usage
+    //! - Allowed context for the API call
+    //!   - Thread-safe: Yes; calls to this method will be synchronized by a mutex.
+    //!
+    virtual int32_t releasePluginResource(AsciiChar const* key) noexcept = 0;
 };
 
 } // namespace nvinfer1

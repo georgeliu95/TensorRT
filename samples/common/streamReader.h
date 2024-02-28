@@ -69,6 +69,7 @@ public:
         return mFile.is_open();
     }
 
+private:
     std::ifstream mFile;
 };
 

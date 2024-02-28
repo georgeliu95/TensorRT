@@ -659,6 +659,13 @@ protected:
     IPluginResourceContext& operator=(IPluginResourceContext&&) & = default;
 };
 
+namespace v_1_0
+{
+class IPluginCapability : public IVersionedInterface
+{
+};
+} // namespace v_1_0
+
 //!
 //! \class IPluginCapability
 //!
@@ -668,23 +675,14 @@ protected:
 //!  capabilites a plugin may have, as opposed to a single interface which defines all capabilities and behaviors of a
 //!  plugin.
 //!
+//! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
+//!
 //! \see PluginCapabilityType
 //!
-class IPluginCapability : public IVersionedInterface
-{
-};
+using IPluginCapability = v_1_0::IPluginCapability;
 
-//!
-//! \class IPluginV3
-//!
-//! \brief Plugin class for the V3 generation of user-implemented layers.
-//!
-//! IPluginV3 acts as a wrapper around the plugin capability interfaces that define the actual behavior of the plugin
-//!
-//! \see IPluginCapability
-//! \see IPluginCreatorV3One
-//! \see IPluginRegistry
-//!
+namespace v_1_0
+{
 class IPluginV3 : public IVersionedInterface
 {
 public:
@@ -696,7 +694,7 @@ public:
     //!
     InterfaceInfo getInterfaceInfo() const noexcept override
     {
-        return InterfaceInfo{"PLUGIN", 3, 0};
+        return InterfaceInfo{"PLUGIN", 1, 0};
     }
 
     //! \brief Return a pointer to plugin object implementing the specified PluginCapabilityType.
@@ -725,15 +723,23 @@ public:
     virtual IPluginV3* clone() noexcept = 0;
 };
 
+} // namespace v_1_0
+
 //!
-//! \class IPluginV3OneCore
+//! \class IPluginV3
 //!
-//! \brief A plugin capability interface that enables the core capability (PluginCapabilityType::kCORE).
+//! \brief Plugin class for the V3 generation of user-implemented layers.
+//!
+//! IPluginV3 acts as a wrapper around the plugin capability interfaces that define the actual behavior of the plugin.
 //!
 //! \see IPluginCapability
-//! \see PluginCapabilityType
-//! \see IPluginV3::getCapabilityInterface()
+//! \see IPluginCreatorV3One
+//! \see IPluginRegistry
 //!
+using IPluginV3 = v_1_0::IPluginV3;
+
+namespace v_1_0
+{
 class IPluginV3OneCore : public IPluginCapability
 {
 public:
@@ -780,16 +786,6 @@ public:
     virtual AsciiChar const* getPluginNamespace() const noexcept = 0;
 };
 
-//!
-//! \class IPluginV3OneBuild
-//!
-//! \brief A plugin capability interface that enables the build capability (PluginCapabilityType::kBUILD). Exposes
-//! methods that allow the expression of the build time properties and behavior of a plugin.
-//!
-//! \see IPluginCapability
-//! \see PluginCapabilityType
-//! \see IPluginV3::getCapabilityInterface()
-//!
 class IPluginV3OneBuild : public IPluginCapability
 {
 public:
@@ -863,7 +859,7 @@ public:
     //! \note Any size tensor outputs must be declared to be 0-D.
     //!
     //! \return 0 for success, else non-zero (which will cause engine termination). Returned code will be reported
-    //! throug the error recorder.
+    //! through the error recorder.
     //!
     virtual int32_t getOutputShapes(DimsExprs const* inputs, int32_t nbInputs, DimsExprs const* shapeInputs,
         int32_t nbShapeInputs, DimsExprs* outputs, int32_t nbOutputs, IExprBuilder& exprBuilder) noexcept = 0;
@@ -922,7 +918,7 @@ public:
     //! \return The workspace size.
     //!
     virtual size_t getWorkspaceSize(DynamicPluginTensorDesc const* inputs, int32_t nbInputs,
-        DynamicPluginTensorDesc const* outputs, int32_t nbOutputs)
+        DynamicPluginTensorDesc const* outputs, int32_t nbOutputs) const noexcept
     {
         return 0;
     }
@@ -991,16 +987,6 @@ public:
     }
 };
 
-//!
-//! \class IPluginV3OneBuild
-//!
-//! \brief A plugin capability interface that enables the build capability (PluginCapabilityType::kBUILD). Exposes
-//! methods that allow the expression of the runtime properties and behavior of a plugin.
-//!
-//! \see IPluginCapability
-//! \see PluginCapabilityType
-//! \see IPluginV3::getCapabilityInterface()
-//!
 class IPluginV3OneRuntime : public IPluginCapability
 {
 public:
@@ -1096,15 +1082,45 @@ public:
     //!
     virtual PluginFieldCollection const* getFieldsToSerialize() noexcept = 0;
 };
+} // namespace v_1_0
 
 //!
-//! \class IPluginCreatorV3One
+//! \class IPluginV3OneCore
 //!
-//! \brief A plugin creator class capable of producing IPluginV3 objects
+//! \brief A plugin capability interface that enables the core capability (PluginCapabilityType::kCORE).
 //!
-//! \see IPluginV3
-//! \see IPluginRegistry
+//! \see IPluginCapability
+//! \see PluginCapabilityType
+//! \see IPluginV3::getCapabilityInterface()
 //!
+using IPluginV3OneCore = v_1_0::IPluginV3OneCore;
+
+//!
+//! \class IPluginV3OneBuild
+//!
+//! \brief A plugin capability interface that enables the build capability (PluginCapabilityType::kBUILD). Exposes
+//! methods that allow the expression of the build time properties and behavior of a plugin.
+//!
+//! \see IPluginCapability
+//! \see PluginCapabilityType
+//! \see IPluginV3::getCapabilityInterface()
+//!
+using IPluginV3OneBuild = v_1_0::IPluginV3OneBuild;
+
+//!
+//! \class IPluginV3OneRuntime
+//!
+//! \brief A plugin capability interface that enables the runtime capability (PluginCapabilityType::kRUNTIME). Exposes
+//! methods that allow the expression of the runtime properties and behavior of a plugin.
+//!
+//! \see IPluginCapability
+//! \see PluginCapabilityType
+//! \see IPluginV3::getCapabilityInterface()
+//!
+using IPluginV3OneRuntime = v_1_0::IPluginV3OneRuntime;
+
+namespace v_1_0
+{
 class IPluginCreatorV3One : public IPluginCreatorInterface
 {
 public:
@@ -1116,7 +1132,7 @@ public:
     //!
     InterfaceInfo getInterfaceInfo() const noexcept override
     {
-        return InterfaceInfo{"PLUGIN CREATOR_V3ONE", 3, 0};
+        return InterfaceInfo{"PLUGIN CREATOR_V3ONE", 1, 0};
     }
 
     //!
@@ -1175,18 +1191,20 @@ protected:
     IPluginCreatorV3One& operator=(IPluginCreatorV3One const&) & = default;
     IPluginCreatorV3One& operator=(IPluginCreatorV3One&&) & = default;
 };
+} // namespace v_1_0
 
 //!
-//! \class IProfiler
+//! \class IPluginCreatorV3One
 //!
-//! \brief Application-implemented interface for profiling.
+//! \brief A plugin creator class capable of producing IPluginV3 objects
 //!
-//! When this class is added to an execution context, the profiler will be called once per layer for each invocation of
-//! executeV2()/enqueueV3().
+//! \see IPluginV3
+//! \see IPluginRegistry
 //!
-//! It is not recommended to run inference with profiler enabled when the inference execution time is critical since the
-//! profiler may affect execution time negatively.
-//!
+using IPluginCreatorV3One = v_1_0::IPluginCreatorV3One;
+
+namespace v_1_0
+{
 class IProfiler
 {
 public:
@@ -1201,6 +1219,20 @@ public:
 
     virtual ~IProfiler() noexcept {}
 };
+} // namespace v_1_0
+
+//!
+//! \class IProfiler
+//!
+//! \brief Application-implemented interface for profiling.
+//!
+//! When this class is added to an execution context, the profiler will be called once per layer for each invocation of
+//! executeV2()/enqueueV3().
+//!
+//! It is not recommended to run inference with profiler enabled when the inference execution time is critical since the
+//! profiler may affect execution time negatively.
+//!
+using IProfiler = v_1_0::IProfiler;
 
 //!
 //! \enum WeightsRole
@@ -3527,11 +3559,10 @@ public:
     }
 
     //!
-    //! \brief Synchronously execute inference a network.
+    //! \brief Synchronously execute a network.
     //!
-    //! This method requires an array of input and output buffers. The mapping from indices to tensor names can be
-    //! queried using ICudaEngine::getIOTensorName().
-    //! This method only works for execution contexts built with full dimension networks.
+    //! This method requires an array of input and output buffers. The mapping
+    //! from indices to tensor names can be queried using ICudaEngine::getIOTensorName().
     //!
     //! \param bindings An array of pointers to input and output buffers for the network.
     //!
@@ -4380,16 +4411,72 @@ protected:
 //! The name v_1_0 may change in future versions of TensoRT.
 namespace v_1_0
 {
-//!
-//! \class IGpuAsyncAllocator
-//!
-//! \brief Application-implemented class for controlling asynchronous (strem based) memory allocation on the GPU.
-//!
-//! \warning The lifetime of an IGpuAsyncAllocator object must exceed that of all objects that use it.
-//!
+
 class IGpuAsyncAllocator : public IGpuAllocator
 {
 public:
+    IGpuAsyncAllocator() = default;
+    ~IGpuAsyncAllocator() override = default;
+
+    //!
+    //! \brief A thread-safe callback implemented by the application to handle stream-ordered asynchronous
+    //!        acquisition of GPU memory.
+    //!
+    //! \param size The size of the memory block required (in bytes).
+    //! \param alignment The required alignment of memory. Alignment will be zero
+    //!        or a power of 2 not exceeding the alignment guaranteed by cudaMalloc.
+    //!        Thus this allocator can be safely implemented with cudaMalloc/cudaFree.
+    //!        An alignment value of zero indicates any alignment is acceptable.
+    //! \param flags Reserved for future use. In the current release, 0 will be passed.
+    //!
+    //! \param stream Specifies the cudastream for the asynchronous allocation. If nullptr or 0 is
+    //!        passed, the default stream will be used.
+    //!
+    //! \return If the allocation was successful, the start address of a device memory block of the requested size.
+    //!         If an allocation request of size 0 is made, nullptr must be returned.
+    //!         If an allocation request cannot be satisfied, nullptr must be returned.
+    //!         If a non-null address is returned, it is guaranteed to have the specified alignment.
+    //!
+    //! \note The implementation must guarantee thread safety for concurrent allocateAsync/deallocateAsync
+    //! requests.
+    //!
+    //! \note The implementation is not required to be asynchronous. It is permitted to synchronize,
+    //! albeit doing so will lose the performance advantage of asynchronous allocation.
+    //!
+    //! \usage
+    //! - Allowed context for the API call
+    //!   - Thread-safe: Yes, this method is required to be thread-safe and may be called from multiple threads.
+    //!
+    void* allocateAsync(uint64_t const size, uint64_t const alignment, AllocatorFlags const flags,
+        cudaStream_t /*stream*/) noexcept override = 0;
+
+    //!
+    //! \brief A thread-safe callback implemented by the application to handle stream-ordered asynchronous
+    //! release of GPU memory.
+    //!
+    //! TensorRT may pass a nullptr to this function if it was previously returned by allocate().
+    //!
+    //! \param memory A memory address that was previously returned by an allocate() or reallocate() call of the same
+    //! allocator object.
+    //!
+    //! \param stream Specifies the cudastream for the asynchronous deallocation. If nullptr or 0 is
+    //!        passed, the default stream will be used.
+    //!
+    //! \return True if the acquired memory is released successfully.
+    //!
+    //! \note The implementation must guarantee thread safety for concurrent allocateAsync/deallocateAsync
+    //! requests.
+    //!
+    //! \note The implementation is not required to be asynchronous. It is permitted to synchronize,
+    //! albeit doing so will lose the performance advantage of asynchronous deallocation.
+    //! Either way, it is critical that it not actually free the memory until the current
+    //! stream position is reached.
+    //!
+    //! \usage
+    //! - Allowed context for the API call
+    //!   - Thread-safe: Yes, this method is required to be thread-safe and may be called from multiple threads.
+    bool deallocateAsync(void* const memory, cudaStream_t /*stream*/) noexcept override = 0;
+
     //!
     //! \brief A thread-safe callback implemented by the application to handle acquisition of GPU memory.
     //!
@@ -4401,12 +4488,11 @@ public:
     //! \param flags Reserved for future use. In the current release, 0 will be passed.
     //!
     //! \return If the allocation was successful, the start address of a device memory block of the requested size.
-    //! If an allocation request of size 0 is made, nullptr must be returned.
-    //! If an allocation request cannot be satisfied, nullptr must be returned.
-    //! If a non-null address is returned, it is guaranteed to have the specified alignment.
+    //!         If an allocation request of size 0 is made, nullptr must be returned.
+    //!         If an allocation request cannot be satisfied, nullptr must be returned.
+    //!         If a non-null address is returned, it is guaranteed to have the specified alignment.
     //!
-    //! \note The implementation must guarantee thread safety for concurrent allocate/reallocate/deallocate
-    //! requests.
+    //! \note The implementation must guarantee thread safety for concurrent allocateAsync/deallocateAsync/reallocate requests.
     //!
     //! \usage
     //! - Allowed context for the API call
@@ -4418,8 +4504,6 @@ public:
     {
         return allocateAsync(size, alignment, flags, nullptr);
     }
-    IGpuAsyncAllocator() = default;
-    ~IGpuAsyncAllocator() override = default;
 
     //!
     //! \brief A thread-safe callback implemented by the application to handle release of GPU memory.
@@ -4445,55 +4529,6 @@ public:
     }
 
     //!
-    //! \brief A thread-safe callback implemented by the application to handle asynchronous (strem based)
-    //!        acquisition of GPU memory.
-    //!
-    //! \param size The size of the memory block required (in bytes).
-    //! \param alignment The required alignment of memory. Alignment will be zero
-    //!        or a power of 2 not exceeding the alignment guaranteed by cudaMalloc.
-    //!        Thus this allocator can be safely implemented with cudaMalloc/cudaFree.
-    //!        An alignment value of zero indicates any alignment is acceptable.
-    //! \param flags Reserved for future use. In the current release, 0 will be passed.
-    //!
-    //! \param stream Specifies the cudastream for the asynchronous allocation. If nullptr or 0 is passed will use
-    //!        the default stream.
-    //!
-    //! \return If the allocation was successful, the start address of a device memory block of the requested size.
-    //! If an allocation request of size 0 is made, nullptr must be returned.
-    //! If an allocation request cannot be satisfied, nullptr must be returned.
-    //! If a non-null address is returned, it is guaranteed to have the specified alignment.
-    //!
-    //! \note The implementation must guarantee thread safety for concurrent allocateAsync/deallocateAsync
-    //! requests.
-    //!
-    //! \usage
-    //! - Allowed context for the API call
-    //!   - Thread-safe: Yes, this method is required to be thread-safe and may be called from multiple threads.
-    //! \deprecated Deprecated in TensorRT 10.0. Superseded by allocateAsync
-    //!
-    void* allocateAsync(uint64_t const size, uint64_t const alignment, AllocatorFlags const flags,
-        cudaStream_t /*stream*/) noexcept override = 0;
-
-    //!
-    //! \brief A thread-safe callback implemented by the application to handle asynchronous release of GPU memory.
-    //!
-    //! TensorRT may pass a nullptr to this function if it was previously returned by allocate().
-    //!
-    //! \param memory A memory address that was previously returned by an allocate() or reallocate() call of the same
-    //! allocator object.
-    //!
-    //! \param stream Specifies the cudastream for the asynchronous deallocation. If nullptr or 0 is passed will use
-    //!        the default stream.
-    //! \return True if the acquired memory is released successfully.
-    //!
-    //! \note The implementation must guarantee thread safety for concurrent allocateAsync/deallocateAsync
-    //! requests.
-    //!
-    //! \usage
-    //! - Allowed context for the API call
-    //!   - Thread-safe: Yes, this method is required to be thread-safe and may be called from multiple threads.
-    bool deallocateAsync(void* const memory, cudaStream_t /*stream*/) noexcept override = 0;
-    //!
     //! \brief Get information about the Interface.
     //!
     InterfaceInfo getInterfaceInfo() const noexcept final
@@ -4503,6 +4538,19 @@ public:
 };
 } // namespace v_1_0
 
+//!
+//! \class IGpuAsyncAllocator
+//!
+//! \brief Application-implemented class for controlling asynchronous (stream ordered) memory allocation on the GPU.
+//!
+//! \warning The lifetime of an IGpuAsyncAllocator object must exceed that of all objects that use it.
+//!
+//! The advantage of deriving from IGpuAsyncAllocator instead of IGpuAllocator is that you only have
+//! to override two methods: allocateAsync() and deallocateAsync() to implement an allocator with
+//! asynchronous capability, whereas deriving from IGpuAllocator requires overriding four methods,
+//! including two deprecated methods.
+//!
+//! \see IGpuAllocator
 using IGpuAsyncAllocator = v_1_0::IGpuAsyncAllocator;
 
 } // namespace nvinfer1
