@@ -370,17 +370,17 @@ class Engine():
             self.context = self.engine.create_execution_context()
 
     def allocate_buffers(self, shape_dict=None, device='cuda'):
-        for idx in range(self.engine.num_io_tensors):
-            tensor_name = self.engine.get_tensor_name(idx)
-            if shape_dict and tensor_name in shape_dict:
-                shape = shape_dict[tensor_name]
+        for binding in range(self.engine.num_io_tensors):
+            name = self.engine.get_tensor_name(binding)
+            if shape_dict and name in shape_dict:
+                shape = shape_dict[name]
             else:
-                shape = self.engine.get_tensor_shape(tensor_name)
-            dtype = trt.nptype(self.engine.get_tensor_dtype(tensor_name))
-            if self.engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
-                self.context.set_input_shape(tensor_name, shape)
+                shape = self.engine.get_tensor_shape(name)
+            dtype = trt.nptype(self.engine.get_tensor_dtype(name))
+            if self.engine.get_tensor_mode(name) == trt.TensorIOMode.INPUT:
+                self.context.set_input_shape(name, shape)
             tensor = torch.empty(tuple(shape), dtype=numpy_to_torch_dtype_dict[dtype]).to(device=device)
-            self.tensors[tensor_name] = tensor
+            self.tensors[name] = tensor
 
     def infer(self, feed_dict, stream, use_cuda_graph=False):
         
