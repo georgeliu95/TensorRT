@@ -7,7 +7,7 @@ This demo application ("demoDiffusion") showcases the acceleration of Stable Dif
 ### Clone the TensorRT OSS repository
 
 ```bash
-git clone git@github.com:NVIDIA/TensorRT.git -b release/9.1 --single-branch
+git clone git@github.com:NVIDIA/TensorRT.git -b release/9.3 --single-branch
 cd TensorRT
 ```
 
@@ -16,7 +16,7 @@ cd TensorRT
 Install nvidia-docker using [these intructions](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html#docker).
 
 ```bash
-docker run --rm -it --gpus all -v $PWD:/workspace nvcr.io/nvidia/pytorch:23.07-py3 /bin/bash
+docker run --rm -it --gpus all -v $PWD:/workspace nvcr.io/nvidia/pytorch:24.01-py3 /bin/bash
 ```
 
 ### Install latest TensorRT release
@@ -26,7 +26,7 @@ python3 -m pip install --upgrade pip
 python3 -m pip install --pre --upgrade --extra-index-url https://pypi.nvidia.com tensorrt
 ```
 
-> NOTE: TensorRT 9.0 is only available as a pre-release
+> NOTE: TensorRT 9.x is only available as a pre-release
 
 Check your installed version using:
 `python3 -c 'import tensorrt;print(tensorrt.__version__)'`
@@ -44,16 +44,17 @@ pip3 install -r requirements.txt
 
 > NOTE: demoDiffusion has been tested on systems with NVIDIA A100, RTX3090, and RTX4090 GPUs, and the following software configuration.
 ```
-diffusers           0.19.3
-onnx                1.14.0
-onnx-graphsurgeon   0.3.26
-onnxruntime         1.15.1
-polygraphy          0.47.1
-tensorrt            9.1.0.4
-tokenizers          0.13.2
+diffusers           0.26.3
+onnx                1.15.0
+onnx-graphsurgeon   0.3.27
+onnxruntime         1.17.0
+polygraphy          0.49.7
+tensorrt            9.3.0.1
+tokenizers          0.13.3
 torch               2.1.0
 transformers        4.31.0
 controlnet-aux      0.0.6
+nvidia-smmo         0.7.0
 ```
 
 > NOTE: optionally install HuggingFace [accelerate](https://pypi.org/project/accelerate/) package for faster and less memory-intense model loading.
@@ -137,13 +138,33 @@ python3 demo_txt2img_xl.py "a photo of an astronaut riding a horse on mars" --hf
 ### Generate an image guided by a text prompt, and using specified LoRA model weight updates
 
 ```bash
-python3 demo_txt2img.py "A pokemon with green eyes and red legs." --hf-token=$HF_TOKEN --lora-weights="sayakpaul/sd-model-finetuned-lora-t4" --lora-scale=1.0
+python3 demo_txt2img_xl.py "Picture of a rustic Italian village with Olive trees and mountains" --version=xl-1.0 --lora-path "ostris/crayon_style_lora_sdxl" "ostris/watercolor_style_lora_sdxl" --lora-scale 0.3 0.7 --onnx-dir onnx-sdxl-lora --engine-dir engine-sdxl-lora --build-enable-refit
 ```
 
-### Common usage options
-- Noise scheduler can be set using `--scheduler=<scheduler>`. Note that some schedulers are not available for certain pipelines or SD versions.
-- To accelerate engine building time use `--timing-cache=<path to cache file>`. The cache file will be created if it does not already exist. Note that performance may degrade if cache files are used across multiple GPU targets. It is recommended to use timing caches only during development. To achieve the best perfromance in deployment, please build engines without timing cache.
-- To switch between versions or pipelines one needs either to clear onnx and engine dirs, or to specify `--force-onnx-export --force-onnx-optimize --force-engine-build` or to create new dirs and to specify `--onnx-dir=<new onnx dir> --engine-dir=<new engine dir>`.
+### Faster Text-to-image using SDXL & INT8 quantization using AMMO
+
+```bash
+python3 demo_txt2img_xl.py "a photo of an astronaut riding a horse on mars" --version xl-1.0 --onnx-dir onnx-sdxl --engine-dir engine-sdxl --int8 --quantization-level 3
+```
+
+Note that the calibration process can be quite time-consuming, and will be repeated if `--quantization-level`, `--denoising-steps`, or `--onnx-dir` is changed.
+
+### Faster Text-to-Image using SDXL + LCM (Latent Consistency Model) LoRA weights
+[LCM-LoRA](https://arxiv.org/abs/2311.05556) produces good quality images in 4 to 8 denoising steps instead of 30+ needed base model. Note that we use LCM scheduler and disable classifier-free-guidance by setting `--guidance-scale` to 0.
+LoRA weights are fused into the ONNX and finalized TensorRT plan files in this example.
+```bash
+python3 demo_txt2img_xl.py "Einstein" --version xl-1.0 --lora-path "latent-consistency/lcm-lora-sdxl" --lora-scale 1.0 --onnx-dir onnx-sdxl-lcm-nocfg --engine-dir engine-sdxl-lcm-nocfg --denoising-steps 4 --scheduler LCM --guidance-scale 0.0
+```
+### Faster Text-to-Image using SDXL Turbo
+Even faster image generation than LCM, producing coherent images in just 1 step. Note: SDXL Turbo works best for 512x512 resolution, EulerA scheduler and classifier-free-guidance disabled.
+```bash
+python3 demo_txt2img_xl.py "Einstein" --version xl-turbo --onnx-dir onnx-sdxl-turbo --engine-dir engine-sdxl-turbo --denoising-steps 1 --scheduler EulerA --guidance-scale 0.0 --width 512 --height 512
+```
+
+## Configuration options
+- Noise scheduler can be set using `--scheduler <scheduler>`. Note: not all schedulers are available for every version.
+- To accelerate engine building time use `--timing-cache <path to cache file>`. The cache file will be created if it does not already exist. Note that performance may degrade if cache files are used across multiple GPU targets. It is recommended to use timing caches only during development. To achieve the best perfromance in deployment, please build engines without timing cache.
+- Specify new directories for storing onnx and engine files when switching between versions, LoRAs, ControlNets, etc. This can be done using `--onnx-dir <new onnx dir>` and `--engine-dir <new engine dir>`.
 - Inference performance can be improved by enabling [CUDA graphs](https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#cuda-graphs) using `--use-cuda-graph`. Enabling CUDA graphs requires fixed input shapes, so this flag must be combined with `--build-static-batch` and cannot be combined with `--build-dynamic-shape`.
 
 

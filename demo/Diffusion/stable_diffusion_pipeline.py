@@ -15,11 +15,32 @@
 # limitations under the License.
 #
 
-import gc
-import os
-import pathlib
-import time
-
+import ammo.torch.quantization as atq
+import calibration
+from cuda import cudart
+from diffusers import (
+    DDIMScheduler,
+    DDPMScheduler,
+    EulerDiscreteScheduler,
+    EulerAncestralDiscreteScheduler,
+    LCMScheduler, LMSDiscreteScheduler,
+    PNDMScheduler,
+    UniPCMultistepScheduler,
+)
+from hashlib import md5
+import inspect
+from models import (
+    get_clip_embedding_dim,
+    get_path,
+    LoraLoader,
+    make_tokenizer,
+    CLIPModel,
+    CLIPWithProjModel,
+    UNetModel,
+    UNetXLModel,
+    VAEModel,
+    VAEEncoderModel,
+)
 import numpy as np
 import nvtx
 import onnx
@@ -42,12 +63,16 @@ from utilities import (
     DDIMScheduler,
     DPMScheduler,
     Engine,
-    EulerAncestralDiscreteScheduler,
-    LMSDiscreteScheduler,
-    PNDMScheduler,
-    UniPCMultistepScheduler,
+    filter_func,
+    get_smoothquant_config,
+    get_refit_weights,
+    load_calib_prompts,
+    merge_loras,
     prepare_mask_and_masked_image,
-    save_image
+    quantize_lvl,
+    replace_lora_layers,
+    save_image,
+    unload_model
 )
 
 
@@ -184,7 +209,6 @@ class StableDiffusionPipeline:
 
         self.config = {}
         if self.pipeline_type.is_sd_xl():
-            self.config['vae_torch_fallback'] = True
             self.config['clip_hidden_states'] = True
         self.torch_inference = torch_inference
         self.use_cuda_graph = use_cuda_graph
@@ -215,15 +239,10 @@ class StableDiffusionPipeline:
             self.events[stage] = [cudart.cudaEventCreate()[1], cudart.cudaEventCreate()[1]]
         self.stream = cudart.cudaStreamCreate()[1]
 
-        # Skip allocation TensorRT resources for torch inference
-        if self.torch_inference:
-            return
-
-        # Allocate buffers for TensorRT engine bindings
-        for model_name, obj in self.models.items():
-            if model_name == 'vae' and self.config.get('vae_torch_fallback', False):
-                continue
-            self.engine[model_name].allocate_buffers(shape_dict=obj.get_shape_dict(batch_size, image_height, image_width), device=self.device)
+        # Allocate TensorRT I/O buffers
+        if not self.torch_inference:
+            for model_name, obj in self.models.items():
+                self.engine[model_name].allocate_buffers(shape_dict=obj.get_shape_dict(batch_size, image_height, image_width), device=self.device)
 
     def teardown(self):
         for e in self.events.values():
@@ -252,6 +271,11 @@ class StableDiffusionPipeline:
     def getEnginePath(self, model_name, engine_dir, enable_refit):
         return os.path.join(engine_dir, self.cachedModelName(model_name)+('.refit' if enable_refit else '')+'.trt'+trt.__version__+'.plan')
 
+    def getStateDictPath(self, model_name, onnx_dir, suffix=''):
+        onnx_model_dir = os.path.join(onnx_dir, self.cachedModelName(model_name)+suffix)
+        os.makedirs(onnx_model_dir, exist_ok=True)
+        return os.path.join(onnx_model_dir, 'state_dict.pt')
+
     def loadEngines(
         self,
         engine_dir,
@@ -269,7 +293,12 @@ class StableDiffusionPipeline:
         enable_refit=False,
         enable_all_tactics=False,
         timing_cache=None,
-        onnx_refit_dir=None,
+        int8=False,
+        quantization_level=2.5,
+        quantization_percentile=0.4,
+        quantization_alpha=0.6,
+        calibration_steps=384,
+        denoising_steps=50,
     ):
         """
         Build and load engines for TensorRT accelerated inference.
@@ -326,12 +355,15 @@ class StableDiffusionPipeline:
             'hf_token': self.hf_token, 'device': self.device,
             'verbose': self.verbose, 'max_batch_size': self.max_batch_size}
 
-        if 'vae_encoder' in self.stages:
-            self.models['vae_encoder'] = make_VAEEncoder(**models_args)
         if 'clip' in self.stages:
-            self.models['clip'] = make_CLIP(output_hidden_states=self.config.get('clip_hidden_states', False), **models_args)
+            subfolder = 'text_encoder'
+            self.models['clip'] = CLIPModel(**models_args, fp16=True, embedding_dim=get_clip_embedding_dim(self.version, self.pipeline_type), output_hidden_states=self.config.get('clip_hidden_states', False), subfolder=subfolder)
+
         if 'clip2' in self.stages:
-            self.models['clip2'] = make_CLIPWithProj(output_hidden_states=self.config.get('clip_hidden_states', False), **models_args)
+            subfolder = 'text_encoder_2'
+            self.models['clip2'] = CLIPWithProjModel(**models_args, fp16=True, output_hidden_states=self.config.get('clip_hidden_states', False), subfolder=subfolder)
+
+        lora_dict, lora_alphas = (None, None)
         if 'unet' in self.stages:
             models_args['lora_scale'] = self.lora_scale
             models_args['lora_weights'] = self.lora_weights
@@ -339,93 +371,116 @@ class StableDiffusionPipeline:
             models_args.pop('lora_scale')
             models_args.pop('lora_weights')
         if 'unetxl' in self.stages:
-            models_args['lora_scale'] = self.lora_scale
-            models_args['lora_weights'] = self.lora_weights
-            self.models['unetxl'] = make_UNetXL(**models_args)
-            models_args.pop('lora_scale')
-            models_args.pop('lora_weights')
+            if not self.pipeline_type.is_sd_xl_refiner() and self.lora_loader:
+                lora_dict, lora_alphas = self.lora_loader.get_dicts('unet')
+                assert len(lora_dict) == len(self.lora_scales)
+            self.models['unetxl'] = UNetXLModel(**models_args, fp16=True,
+                lora_scales=self.lora_scales, lora_dict=lora_dict, lora_alphas=lora_alphas, do_classifier_free_guidance=self.do_classifier_free_guidance)
+
+        vae_fp16 = not self.pipeline_type.is_sd_xl()
+
         if 'vae' in self.stages:
-            self.models['vae'] = make_VAE(**models_args)
+            self.models['vae'] = VAEModel(**models_args, fp16=vae_fp16)
 
-        if self.torch_inference:
-            for k, v in self.models.items():
-                self.torch_models[k] = v.get_model(framework_model_dir, torch_inference=self.torch_inference)
-            return
-        elif 'vae' in self.stages and self.config.get('vae_torch_fallback', False):
-            self.torch_models['vae'] = self.models['vae'].get_model(framework_model_dir)
+        if 'vae_encoder' in self.stages:
+            self.models['vae_encoder'] = VAEEncoderModel(**models_args, fp16=vae_fp16)
 
-        # setup models to export, optimize and refit.
-        force_export_models = []
-        force_optimize_models = []
-        enable_refit_models = []
-        refit_pattern_list = []
+        # Configure pipeline models to load
+        model_names = self.models.keys()
+        lora_suffix = '-'+'-'.join([str(md5(path.encode('utf-8')).hexdigest())+'-'+('%.2f' % self.lora_scales[path]) for path in sorted(self.lora_loader.paths)]) if self.lora_loader else ''
+        # Enable refit and LoRA merging only for UNet & UNetXL for now
+        do_engine_refit = dict(zip(model_names, [not self.pipeline_type.is_sd_xl_refiner() and enable_refit and model_name.startswith('unet') for model_name in model_names]))
+        do_lora_merge = dict(zip(model_names, [not enable_refit and self.lora_loader and model_name.startswith('unet') for model_name in model_names]))
+        # Torch fallback for VAE if specified
+        torch_fallback = dict(zip(model_names, [self.torch_inference for model_name in model_names]))
+        model_suffix = dict(zip(model_names, [lora_suffix if do_lora_merge[model_name] else '' for model_name in model_names]))
+        use_int8 = dict.fromkeys(model_names, False)
+        if int8:
+            assert self.pipeline_type.is_sd_xl(), "int8 quantization only supported for SDXL pipeline"
+            use_int8['unetxl'] = True
+            model_suffix['unetxl'] += f"-int8.l{quantization_level}.bs2.s{denoising_steps}.c{calibration_steps}.p{quantization_percentile}.a{quantization_alpha}"
+        onnx_path = dict(zip(model_names, [self.getOnnxPath(model_name, onnx_dir, opt=False, suffix=model_suffix[model_name]) for model_name in model_names]))
+        onnx_opt_path = dict(zip(model_names, [self.getOnnxPath(model_name, onnx_dir, suffix=model_suffix[model_name]) for model_name in model_names]))
+        engine_path = dict(zip(model_names, [self.getEnginePath(model_name, engine_dir, do_engine_refit[model_name], suffix=model_suffix[model_name]) for model_name in model_names]))
+        weights_map_path = dict(zip(model_names, [(self.getWeightsMapPath(model_name, onnx_dir) if do_engine_refit[model_name] else None) for model_name in model_names]))
 
-        all_models = ['vae_encoder', 'clip', 'clip2', 'unet', 'unetxl', 'vae']
-        unet_models = ['unet', 'unetxl']
-
-        # when lora weights is given.
-        if self.lora_weights and self.lora_weights != "":
-            # build engine with refit enabled, and also refit the weigths.
-            onnx_refit_dir = onnx_dir
-            force_export_models = unet_models
-            force_optimize_models = unet_models
-            enable_refit_models = unet_models
-            refit_pattern_list = ['onnx::MatMul']
-
-        if force_export:
-            force_export_models = all_models 
-        if force_optimize:
-            force_optimize_models = all_models
-        if enable_refit:
-            enable_refit_models = all_models
-
-        # Export models to ONNX
         for model_name, obj in self.models.items():
             if model_name == 'vae' and self.config.get('vae_torch_fallback', False):
                 continue
-            enable_refit = model_name in enable_refit_models
-            engine_path = self.getEnginePath(model_name, engine_dir, enable_refit)
-            force_export = model_name in force_export_models
-            if force_export or force_build or not os.path.exists(engine_path):
-                onnx_path = self.getOnnxPath(model_name, onnx_dir, opt=False)
-                onnx_opt_path = self.getOnnxPath(model_name, onnx_dir)
-                if force_export or not os.path.exists(onnx_opt_path):
-                    if force_export or not os.path.exists(onnx_path):
-                        print(f"Exporting model: {onnx_path}")
-                        model = obj.get_model(framework_model_dir)
-                        with torch.inference_mode(), torch.autocast("cuda"):
-                            inputs = obj.get_sample_input(1, opt_image_height, opt_image_width)
-                            torch.onnx.export(model,
-                                    inputs,
-                                    onnx_path,
-                                    export_params=True,
-                                    opset_version=onnx_opset,
-                                    do_constant_folding=True,
-                                    input_names=obj.get_input_names(),
-                                    output_names=obj.get_output_names(),
-                                    dynamic_axes=obj.get_dynamic_axes(),
-                            )
-                        del model
-                        torch.cuda.empty_cache()
-                        gc.collect()
-                    else:
-                        print(f"Found cached model: {onnx_path}")
+            # Export models to ONNX and save weights name mapping
+            do_export_onnx = not os.path.exists(engine_path[model_name]) and not os.path.exists(onnx_opt_path[model_name])
+            do_export_weights_map = weights_map_path[model_name] and not os.path.exists(weights_map_path[model_name])
+            if do_export_onnx or do_export_weights_map:
+                # Non-quantized ONNX export
+                if not use_int8[model_name]:
+                    obj.export_onnx(onnx_path[model_name], onnx_opt_path[model_name], onnx_opset, opt_image_height, opt_image_width, enable_lora_merge=do_lora_merge[model_name])
+                else:
+                    state_dict_path = self.getStateDictPath(model_name, onnx_dir, suffix=model_suffix[model_name])
+                    if not os.path.exists(state_dict_path):
+                        print(f"[I] Calibrated weights not found, generating {state_dict_path}")
+                        pipeline = obj.get_pipeline()
+                        model = pipeline.unet
+                        replace_lora_layers(model)
+                        calibration_file = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'calibration-prompts.txt')
+                        # Use batch_size = 2 for UNet calibration
+                        calibration_prompts = load_calib_prompts(2, calibration_file)
+                        # TODO check size > calibration_steps
+                        quant_config = get_smoothquant_config(model, quantization_level)
+                        if quantization_percentile is not None:
+                            quant_config["percentile"] = quantization_percentile
+                            quant_config["base-step"] = int(denoising_steps)
 
-                    # Optimize onnx
-                    if model_name in force_optimize_models or not os.path.exists(onnx_opt_path):
-                        print(f"Generating optimizing model: {onnx_opt_path}")
-                        onnx_opt_graph = obj.optimize(onnx.load(onnx_path))
-                        if onnx_opt_graph.ByteSize() > 2147483648:
-                            onnx.save_model(
-                                onnx_opt_graph,
-                                onnx_opt_path,
-                                save_as_external_data=True, 
-                                all_tensors_to_one_file=True,
-                                convert_attribute=False)
-                        else:
-                            onnx.save(onnx_opt_graph, onnx_opt_path)
+                        atq.replace_quant_module(model)
+                        atq.set_quantizer_by_cfg(model, quant_config["quant_cfg"])
+                        if quantization_percentile is not None:
+                            calibration.precentile_calib_mode(base_unet=model, quant_config=quant_config)
+                        if quantization_alpha is not None:
+                            calibration.reg_alpha_qkv(base_unet=model, alpha=quantization_alpha)
+
+                        def do_calibrate(base, calibration_prompts, **kwargs):
+                            for i_th, prompts in enumerate(calibration_prompts):
+                                if i_th >= kwargs["calib_size"]:
+                                    return
+                                base(
+                                    prompt=prompts,
+                                    num_inference_steps=kwargs["n_steps"],
+                                    negative_prompt=[
+                                        "normal quality, low quality, worst quality, low res, blurry, nsfw, nude"
+                                    ]
+                                    * len(prompts),
+                                ).images
+
+                        def calibration_loop():
+                            do_calibrate(
+                                base=pipeline,
+                                calibration_prompts=calibration_prompts,
+                                calib_size=calibration_steps,
+                                n_steps=denoising_steps,
+                            )
+
+                        print(f"[I] Performing int8 calibration for {calibration_steps} steps. This can take a long time.")
+                        calibration.calibrate(model, quant_config["algorithm"], forward_loop=calibration_loop)
+                        torch.save(model.state_dict(), state_dict_path)
+
+                    print(f"[I] Generaing quantized ONNX model: {onnx_opt_path[model_name]}")
+                    if not os.path.exists(onnx_path[model_name]):
+                        model = obj.get_model()
+                        replace_lora_layers(model)
+                        atq.replace_quant_module(model)
+                        quant_config = atq.INT8_DEFAULT_CFG
+                        atq.set_quantizer_by_cfg(model, quant_config["quant_cfg"])
+                        model.load_state_dict(torch.load(state_dict_path), strict=True)
+                        quantize_lvl(model, quantization_level)
+                        atq.disable_quantizer(model, filter_func)
+                        model.to(torch.float32) # QDQ needs to be in FP32
                     else:
-                        print(f"Found cached optimized model: {onnx_opt_path} ")
+                        model = None
+                    obj.export_onnx(onnx_path[model_name], onnx_opt_path[model_name], onnx_opset, opt_image_height, opt_image_width, custom_model=model)
+
+            # FIXME do_export_weights_map needs ONNX graph
+            if do_export_weights_map:
+                print(f"[I] Saving weights map: {weights_map_path[model_name]}")
+                obj.export_weights_map(onnx_opt_path[model_name], weights_map_path[model_name])
 
         # Build TensorRT engines
         for model_name, obj in self.models.items():
@@ -439,8 +494,14 @@ class StableDiffusionPipeline:
 
             if force_build or not os.path.exists(engine.engine_path):
                 update_output_names = obj.get_output_names() + obj.extra_output_names if obj.extra_output_names else None
-                engine.build(onnx_opt_path,
-                    fp16=True,
+                extra_build_args = {'verbose': self.verbose}
+                if use_int8[model_name]:
+                    extra_build_args['int8'] = True
+                    extra_build_args['precision_constraints'] = 'prefer'
+                    extra_build_args['builder_optimization_level'] = 4
+                fp16amp = obj.fp16
+                engine.build(onnx_opt_path[model_name],
+                    fp16=fp16amp,
                     input_profile=obj.get_input_profile(
                         opt_batch_size, opt_image_height, opt_image_width,
                         static_batch=static_batch, static_shape=static_shape
@@ -448,7 +509,8 @@ class StableDiffusionPipeline:
                     enable_refit=enable_refit,
                     enable_all_tactics=enable_all_tactics,
                     timing_cache=timing_cache,
-                    update_output_names=update_output_names)
+                    update_output_names=update_output_names,
+                    **extra_build_args)
             self.engine[model_name] = engine
 
         # Load TensorRT engines
@@ -605,50 +667,59 @@ class StableDiffusionPipeline:
 
         controlnet_imgs = self.preprocess_controlnet_images(latents.shape[0], controlnet_imgs)
 
-        self.profile_start('denoise', color='blue')
-        if not isinstance(timesteps, torch.Tensor):
-            timesteps = self.scheduler.timesteps
-        for step_index, timestep in enumerate(timesteps):
-            # Expand the latents if we are doing classifier free guidance
-            latent_model_input = self.scheduler.scale_model_input(torch.cat([latents] * 2), step_offset + step_index, timestep)
-            if isinstance(mask, torch.Tensor):
-                latent_model_input = torch.cat([latent_model_input, mask, masked_image_latents], dim=1)
+        do_autocast = self.torch_inference != '' and self.models[denoiser].fp16
+        with torch.autocast('cuda', enabled=do_autocast):
+            self.profile_start('denoise', color='blue')
+            for step_index, timestep in enumerate(timesteps):
+                # Expand the latents if we are doing classifier free guidance
+                latent_model_input = torch.cat([latents] * 2) if self.do_classifier_free_guidance else latents
+                latent_model_input = self.scheduler.scale_model_input(latent_model_input, timestep)
+                if isinstance(mask, torch.Tensor):
+                    latent_model_input = torch.cat([latent_model_input, mask, masked_image_latents], dim=1)
 
-            # Predict the noise residual
-            if self.torch_inference:
-                params = {"sample": latent_model_input, "timestep": timestep, "encoder_hidden_states": text_embeddings}
-                if controlnet_imgs is not None:
-                    params.update({"images": controlnet_imgs, "controlnet_scales": controlnet_scales})
-                added_cond_kwargs = {}
-                if text_embeds != None:
-                    added_cond_kwargs.update({'text_embeds': text_embeds})
-                if time_ids != None:
-                    added_cond_kwargs.update({'time_ids': time_ids})
-                if text_embeds != None or time_ids != None:
-                    params.update({'added_cond_kwargs': added_cond_kwargs})
-                noise_pred = self.torch_models[denoiser](**params)["sample"]
-            else:
-                timestep_float = timestep.float() if timestep.dtype != torch.float32 else timestep
+                # Predict the noise residual
+                if self.torch_inference:
+                    params = {"sample": latent_model_input, "timestep": timestep, "encoder_hidden_states": text_embeddings}
+                    if controlnet_imgs is not None:
+                        params.update({"images": controlnet_imgs, "controlnet_scales": controlnet_scales})
+                    added_cond_kwargs = {}
+                    if text_embeds != None:
+                        added_cond_kwargs.update({'text_embeds': text_embeds})
+                    if time_ids != None:
+                        added_cond_kwargs.update({'time_ids': time_ids})
+                    if text_embeds != None or time_ids != None:
+                        params.update({'added_cond_kwargs': added_cond_kwargs})
+                    noise_pred = self.torch_models[denoiser](**params)["sample"]
+                else:
+                    timestep_float = timestep.float() if timestep.dtype != torch.float32 else timestep
 
-                params = {"sample": latent_model_input, "timestep": timestep_float, "encoder_hidden_states": text_embeddings}
-                if controlnet_imgs is not None:
-                    params.update({"images": controlnet_imgs, "controlnet_scales": controlnet_scales})
-                if text_embeds != None:
-                    params.update({'text_embeds': text_embeds})
-                if time_ids != None:
-                    params.update({'time_ids': time_ids})
-                noise_pred = self.runEngine(denoiser, params)['latent']
+                    params = {"sample": latent_model_input, "timestep": timestep_float, "encoder_hidden_states": text_embeddings}
+                    if controlnet_imgs is not None:
+                        params.update({"images": controlnet_imgs, "controlnet_scales": controlnet_scales})
+                    if text_embeds != None:
+                        params.update({'text_embeds': text_embeds})
+                    if time_ids != None:
+                        params.update({'time_ids': time_ids})
+                    noise_pred = self.runEngine(denoiser, params)['latent']
 
-            # Perform guidance
-            noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-            noise_pred = noise_pred_uncond + guidance * (noise_pred_text - noise_pred_uncond)
+                # Perform guidance
+                if self.do_classifier_free_guidance:
+                    noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                    noise_pred = noise_pred_uncond + self.guidance_scale * (noise_pred_text - noise_pred_uncond)
 
-            if type(self.scheduler) == UniPCMultistepScheduler:
-                latents = self.scheduler.step(noise_pred, timestep, latents, return_dict=False)[0]
-            else:
-                latents = self.scheduler.step(noise_pred, latents, step_offset + step_index, timestep)
+                # from diffusers (prepare_extra_step_kwargs)
+                extra_step_kwargs = {}
+                if "eta" in set(inspect.signature(self.scheduler.step).parameters.keys()):
+                    # TODO: configurable eta
+                    eta = 0.0
+                    extra_step_kwargs["eta"] = eta
+                if "generator" in set(inspect.signature(self.scheduler.step).parameters.keys()):
+                    extra_step_kwargs["generator"] = self.generator
 
-        latents = 1. / self.vae_scaling_factor * latents
+                latents = self.scheduler.step(noise_pred, timestep, latents, **extra_step_kwargs, return_dict=False)[0]
+
+            latents = 1. / self.vae_scaling_factor * latents
+            latents = latents.to(dtype=torch.float32)
 
         self.profile_stop('denoise')
         return latents
@@ -666,10 +737,6 @@ class StableDiffusionPipeline:
     def decode_latent(self, latents):
         self.profile_start('vae', color='red')
         if self.torch_inference:
-            images = self.torch_models['vae'](latents)['sample']
-        elif self.config.get('vae_torch_fallback', False):
-            latents = latents.to(dtype=torch.float32)
-            self.torch_models["vae"] = self.torch_models["vae"].to(dtype=torch.float32)
             images = self.torch_models['vae'](latents)['sample']
         else:
             images = self.runEngine('vae', {'latent': latents})['images']
@@ -690,9 +757,9 @@ class StableDiffusionPipeline:
         print('|-----------------|--------------|')
         print('Throughput: {:.2f} image/s'.format(batch_size*1000./walltime_ms))
 
-    def save_image(self, images, pipeline, prompt):
+    def save_image(self, images, pipeline, prompt, seed):
         # Save image
-        image_name_prefix = pipeline+'-fp16'+''.join(set(['-'+prompt[i].replace(' ','_')[:10] for i in range(len(prompt))]))+'-'
+        image_name_prefix = pipeline+''.join(set(['-'+prompt[i].replace(' ','_')[:10] for i in range(len(prompt))]))+'-'+str(seed)+'-'
         save_image(images, self.output_dir, image_name_prefix)
 
     def infer(
@@ -746,9 +813,7 @@ class StableDiffusionPipeline:
         latent_height = image_height // 8
         latent_width = image_width // 8
 
-        with torch.inference_mode(), torch.autocast("cuda"), trt.Runtime(TRT_LOGGER):
-            denoise_kwargs = {}
-
+        with torch.inference_mode(), trt.Runtime(TRT_LOGGER):
             torch.cuda.synchronize()
             e2e_tic = time.perf_counter()
 
@@ -831,7 +896,6 @@ class StableDiffusionPipeline:
             denoiser = 'unetxl' if self.pipeline_type.is_sd_xl() else 'unet'
             latents = self.denoise_latent(latents, text_embeddings, denoiser=denoiser, guidance=self.guidance_scale, **denoise_kwargs)
 
-        with torch.inference_mode(), trt.Runtime(TRT_LOGGER):
             # VAE decode latent (if applicable)
             if self.return_latents:
                 latents = latents * self.vae_scaling_factor
@@ -845,7 +909,7 @@ class StableDiffusionPipeline:
         if not warmup:
             self.print_summary(self.denoising_steps, walltime_ms, batch_size)
             if not self.return_latents and save_image:
-                self.save_image(images, self.pipeline_type.name.lower(), prompt)
+                self.save_image(images, self.pipeline_type.name.lower(), prompt, self.seed)
 
         return (latents, walltime_ms) if self.return_latents else (images, walltime_ms)
 

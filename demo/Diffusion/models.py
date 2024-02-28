@@ -15,13 +15,8 @@
 # limitations under the License.
 #
 
-import os
-import tempfile
-
-import onnx
-import onnx_graphsurgeon as gs
-import torch
-import torch.nn.functional as F
+from diffusers import DiffusionPipeline
+from diffusers.loaders import LoraLoaderMixin
 from diffusers.models import (
     AutoencoderKL,
     ControlNetModel,
@@ -29,6 +24,10 @@ from diffusers.models import (
 )
 from onnx import shape_inference
 from polygraphy.backend.onnx.loader import fold_constants
+import re
+import tempfile
+import torch
+import torch.nn.functional as F
 from transformers import (
     CLIPTextModel,
     CLIPTextModelWithProjection,
@@ -51,8 +50,7 @@ class Optimizer():
 
     def cleanup(self, return_onnx=False):
         self.graph.cleanup().toposort()
-        if return_onnx:
-            return gs.export_onnx(self.graph)
+        return gs.export_onnx(self.graph) if return_onnx else self.graph
 
     def select_outputs(self, keep, names=None):
         self.graph.outputs = [self.graph.outputs[o] for o in keep]
@@ -105,18 +103,62 @@ class Optimizer():
         if return_onnx:
             return onnx_graph
 
-def get_controlnets_path(controlnet_list):
-    '''
-    Currently ControlNet 1.0 is supported.
-    '''
-    if controlnet_list is None:
-        return None
-    return ["lllyasviel/sd-controlnet-" + controlnet for controlnet in controlnet_list]
+    def fuse_mha_qkv_int8_sq(self):
+        tensors = self.graph.tensors()
+        keys = tensors.keys()
 
-def get_path(version, pipeline, controlnet=None):
+        # mha  : fuse QKV QDQ nodes
+        # mhca : fuse KV QDQ nodes
+        q_pat = (
+            "/down_blocks.\\d+/attentions.\\d+/transformer_blocks"
+            ".\\d+/attn\\d+/to_q/input_quantizer/DequantizeLinear_output_0"
+        )
+        k_pat = (
+            "/down_blocks.\\d+/attentions.\\d+/transformer_blocks"
+            ".\\d+/attn\\d+/to_k/input_quantizer/DequantizeLinear_output_0"
+        )
+        v_pat = (
+            "/down_blocks.\\d+/attentions.\\d+/transformer_blocks"
+            ".\\d+/attn\\d+/to_v/input_quantizer/DequantizeLinear_output_0"
+        )
 
-    if controlnet is not None:
-        return ["lllyasviel/sd-controlnet-" + modality for modality in controlnet]
+        qs = list(sorted(map(
+            lambda x: x.group(0),  # type: ignore
+            filter(lambda x: x is not None, [re.match(q_pat, key) for key in keys]),
+            )))
+        ks = list(sorted(map(
+            lambda x: x.group(0),  # type: ignore
+            filter(lambda x: x is not None, [re.match(k_pat, key) for key in keys]),
+            )))
+        vs = list(sorted(map(
+            lambda x: x.group(0),  # type: ignore
+            filter(lambda x: x is not None, [re.match(v_pat, key) for key in keys]),
+            )))
+
+        removed = 0
+        assert len(qs) == len(ks) == len(vs), "Failed to collect tensors"
+        for q, k, v in zip(qs, ks, vs):
+            is_mha = all(["attn1" in tensor for tensor in [q, k, v]])
+            is_mhca = all(["attn2" in tensor for tensor in [q, k, v]])
+            assert (is_mha or is_mhca) and (not (is_mha and is_mhca))
+
+            if is_mha:
+                tensors[k].outputs[0].inputs[0] = tensors[q]
+                tensors[v].outputs[0].inputs[0] = tensors[q]
+                del tensors[k]
+                del tensors[v]
+                removed += 2
+            else:  # is_mhca
+                tensors[k].outputs[0].inputs[0] = tensors[v]
+                del tensors[k]
+                removed += 1
+        print(f"Removed {removed} QDQ nodes")
+        return removed
+
+
+def get_path(version, pipeline, controlnets=None):
+    if controlnets is not None:
+        return ["lllyasviel/sd-controlnet-" + modality for modality in controlnets]
     
     if version == "1.4":
         if pipeline.is_inpaint():
@@ -244,6 +286,53 @@ def optimize_checkpoint(model, torch_inference):
     assert torch_inference in torch_inference_modes
     return torch.compile(model, mode=torch_inference, dynamic=False, fullgraph=False)
 
+class LoraLoader(LoraLoaderMixin):
+    def __init__(self,
+        paths,
+    ):
+        self.paths = paths
+        self.state_dict = dict()
+        self.network_alphas = dict()
+
+        for path in paths:
+            state_dict, network_alphas = self.lora_state_dict(path)
+            is_correct_format = all("lora" in key for key in state_dict.keys())
+            if not is_correct_format:
+                raise ValueError("Invalid LoRA checkpoint.")
+
+            self.state_dict[path] = state_dict
+            self.network_alphas[path] = network_alphas
+
+    def get_dicts(self,
+        prefix='unet',
+        convert_to_diffusers=False,
+    ):
+        state_dict = dict()
+        network_alphas = dict()
+
+        for path in self.paths:
+            keys = list(self.state_dict[path].keys())
+            if all(key.startswith(('unet', 'text_encoder')) for key in keys):
+                keys = [k for k in keys if k.startswith(prefix)]
+                if keys:
+                    print(f"Processing {prefix} LoRA: {path}")
+                state_dict[path] = {k.replace(f"{prefix}.", ""): v for k, v in self.state_dict[path].items() if k in keys}
+
+                network_alphas[path] = None
+                if path in self.network_alphas and self.network_alphas[path] is not None:
+                    alpha_keys = [k for k in self.network_alphas[path].keys() if k.startswith(prefix)]
+                    network_alphas[path] = {
+                        k.replace(f"{prefix}.", ""): v for k, v in self.network_alphas[path].items() if k in alpha_keys
+                    }
+
+            else:
+                # Otherwise, we're dealing with the old format.
+                warn_message = "You have saved the LoRA weights using the old format. To convert LoRA weights to the new format, first load them in a dictionary and then create a new dictionary as follows: `new_state_dict = {f'unet.{module_name}': params for module_name, params in old_state_dict.items()}`."
+                print(warn_message)
+
+        return state_dict, network_alphas
+
+
 class BaseModel():
     def __init__(self,
         version='1.5',
@@ -252,6 +341,7 @@ class BaseModel():
         device='cuda',
         verbose=True,
         fp16=False,
+        int8=False,
         max_batch_size=16,
         text_maxlen=77,
         embedding_dim=768,
@@ -268,6 +358,7 @@ class BaseModel():
         self.path = get_path(version, pipeline, controlnet)
 
         self.fp16 = fp16
+        self.int8 = int8
 
         self.min_batch = 1
         self.max_batch = max_batch_size
@@ -280,7 +371,18 @@ class BaseModel():
         self.embedding_dim = embedding_dim
         self.extra_output_names = []
 
-    def get_model(self, framework_model_dir, torch_inference=''):
+        self.lora_dict = None
+
+    def get_pipeline(self):
+        model_opts = {'variant': 'fp16', 'torch_dtype': torch.float16} if self.fp16 else {}
+        return DiffusionPipeline.from_pretrained(
+            self.path,
+            use_safetensors=self.hf_safetensor,
+            use_auth_token=self.hf_token,
+            **model_opts,
+        ).to(self.device)
+
+    def get_model(self, torch_inference=''):
         pass
 
     def get_input_names(self):
@@ -301,7 +403,107 @@ class BaseModel():
     def get_shape_dict(self, batch_size, image_height, image_width):
         return None
 
-    def optimize(self, onnx_graph):
+    # Helper utility for ONNX export
+    def export_onnx(
+        self,
+        onnx_path,
+        onnx_opt_path,
+        onnx_opset,
+        opt_image_height,
+        opt_image_width,
+        custom_model=None,
+        enable_lora_merge=False
+    ):
+        onnx_opt_graph = None
+        # Export optimized ONNX model (if missing)
+        if not os.path.exists(onnx_opt_path):
+            if not os.path.exists(onnx_path):
+                print(f"[I] Exporting ONNX model: {onnx_path}")
+                def export_onnx(model):
+                    if enable_lora_merge:
+                        model = merge_loras(model, self.lora_dict, self.lora_alphas, self.lora_scales)
+                    inputs = self.get_sample_input(1, opt_image_height, opt_image_width)
+                    torch.onnx.export(model,
+                            inputs,
+                            onnx_path,
+                            export_params=True,
+                            opset_version=onnx_opset,
+                            do_constant_folding=True,
+                            input_names=self.get_input_names(),
+                            output_names=self.get_output_names(),
+                            dynamic_axes=self.get_dynamic_axes(),
+                    )
+                if custom_model:
+                    with torch.inference_mode():
+                        export_onnx(custom_model)
+                else:
+                    with torch.inference_mode(), torch.autocast("cuda"):
+                        export_onnx(self.get_model())
+            else:
+                print(f"[I] Found cached ONNX model: {onnx_path}")
+
+            print(f"[I] Optimizing ONNX model: {onnx_opt_path}")
+            onnx_opt_graph = self.optimize(onnx.load(onnx_path))
+            if onnx_opt_graph.ByteSize() > 2147483648:
+                onnx.save_model(
+                    onnx_opt_graph,
+                    onnx_opt_path,
+                    save_as_external_data=True,
+                    all_tensors_to_one_file=True,
+                    convert_attribute=False)
+            else:
+                onnx.save(onnx_opt_graph, onnx_opt_path)
+        else:
+            print(f"[I] Found cached optimized ONNX model: {onnx_opt_path} ")
+
+    # Helper utility for weights map
+    def export_weights_map(self, onnx_opt_path, weights_map_path):
+        if not os.path.exists(weights_map_path):
+            onnx_opt_dir = os.path.dirname(onnx_opt_path)
+            onnx_opt_model = onnx.load(onnx_opt_path)
+            state_dict = self.get_model().state_dict()
+            # Create initializer data hashes
+            initializer_hash_mapping = {}
+            for initializer in onnx_opt_model.graph.initializer:
+                initializer_data = numpy_helper.to_array(initializer, base_dir=onnx_opt_dir).astype(np.float16)
+                initializer_hash = hash(initializer_data.data.tobytes())
+                initializer_hash_mapping[initializer.name] = (initializer_hash, initializer_data.shape)
+
+            weights_name_mapping = {}
+            weights_shape_mapping = {}
+            # set to keep track of initializers already added to the name_mapping dict
+            initializers_mapped = set()
+            for wt_name, wt in state_dict.items():
+                # get weight hash
+                wt = wt.cpu().detach().numpy().astype(np.float16)
+                wt_hash = hash(wt.data.tobytes())
+                wt_t_hash = hash(np.transpose(wt).data.tobytes())
+
+                for initializer_name, (initializer_hash, initializer_shape) in initializer_hash_mapping.items():
+                    # Due to constant folding, some weights are transposed during export
+                    # To account for the transpose op, we compare the initializer hash to the
+                    # hash for the weight and its transpose
+                    if wt_hash == initializer_hash or wt_t_hash == initializer_hash:
+                        # The assert below ensures there is a 1:1 mapping between
+                        # PyTorch and ONNX weight names. It can be removed in cases where 1:many
+                        # mapping is found and name_mapping[wt_name] = list()
+                        assert initializer_name not in initializers_mapped
+                        weights_name_mapping[wt_name] = initializer_name
+                        initializers_mapped.add(initializer_name)
+                        is_transpose = False if wt_hash == initializer_hash else True
+                        weights_shape_mapping[wt_name] = (initializer_shape, is_transpose)
+
+                # Sanity check: Were any weights not matched
+                if wt_name not in weights_name_mapping:
+                    print(f'[I] PyTorch weight {wt_name} not matched with any ONNX initializer')
+            print(f'[I] {len(weights_name_mapping.keys())} PyTorch weights were matched with ONNX initializers')
+            assert weights_name_mapping.keys() == weights_shape_mapping.keys()
+            with open(weights_map_path, 'w') as fp:
+                json.dump([weights_name_mapping, weights_shape_mapping], fp)
+        else:
+            print(f"[I] Found cached weights map: {weights_map_path} ")
+
+    def optimize(self, onnx_graph, return_onnx=True, **kwargs):
         opt = Optimizer(onnx_graph, verbose=self.verbose)
         opt.info(self.name + ': original')
         opt.cleanup()
@@ -310,7 +512,10 @@ class BaseModel():
         opt.info(self.name + ': fold constants')
         opt.infer_shapes()
         opt.info(self.name + ': shape inference')
-        onnx_opt_graph = opt.cleanup(return_onnx=True)
+        if kwargs.get('fuse_mha_qkv_int8', False):
+            opt.fuse_mha_qkv_int8_sq()
+            opt.info(self.name + ': fuse QKV nodes')
+        onnx_opt_graph = opt.cleanup(return_onnx=return_onnx)
         opt.info(self.name + ': finished')
         return onnx_opt_graph
 
@@ -347,10 +552,11 @@ class CLIP(BaseModel):
         verbose,
         max_batch_size,
         embedding_dim,
+        fp16=False,
         output_hidden_states=False,
         subfolder="text_encoder"
     ):
-        super(CLIP, self).__init__(version, pipeline, hf_token, device=device, verbose=verbose, max_batch_size=max_batch_size, embedding_dim=embedding_dim)
+        super(CLIPModel, self).__init__(version, pipeline, device=device, hf_token=hf_token, verbose=verbose, framework_model_dir=framework_model_dir, fp16=fp16, max_batch_size=max_batch_size, embedding_dim=embedding_dim)
         self.subfolder = subfolder
 
         # Output the final hidden state
@@ -432,13 +638,14 @@ class CLIPWithProj(CLIP):
         version,
         pipeline,
         hf_token,
-        device='cuda',
-        verbose=True,
+        verbose,
+        framework_model_dir,
+        fp16=False,
         max_batch_size=16,
         output_hidden_states=False,
         subfolder="text_encoder_2"):
 
-        super(CLIPWithProj, self).__init__(version, pipeline, hf_token, device=device, verbose=verbose, max_batch_size=max_batch_size, embedding_dim=get_clipwithproj_embedding_dim(version, pipeline), output_hidden_states=output_hidden_states)
+        super(CLIPWithProjModel, self).__init__(version, pipeline, device=device, hf_token=hf_token, verbose=verbose, framework_model_dir=framework_model_dir, fp16=fp16, max_batch_size=max_batch_size, embedding_dim=get_clipwithproj_embedding_dim(version, pipeline), output_hidden_states=output_hidden_states)
         self.subfolder = subfolder
 
     def get_model(self, framework_model_dir, torch_inference=''):
@@ -515,15 +722,17 @@ class UNet(BaseModel):
         version,
         pipeline,
         hf_token,
-        device='cuda',
-        verbose=True,
-        fp16=False,
-        max_batch_size=16,
-        text_maxlen=77,
-        unet_dim=4,
-        controlnet=None,
-        lora_weights=None,
-        lora_scale=1,
+        verbose,
+        framework_model_dir,
+        fp16 = False,
+        int8 = False,
+        max_batch_size = 16,
+        text_maxlen = 77,
+        controlnets = None,
+        lora_scales = None,
+        lora_dict = None,
+        lora_alphas = None,
+        do_classifier_free_guidance = False,
     ):
 
         super(UNet, self).__init__(version, pipeline, hf_token, fp16=fp16, device=device, verbose=verbose, max_batch_size=max_batch_size, text_maxlen=text_maxlen, embedding_dim=get_unet_embedding_dim(version, pipeline))
@@ -660,15 +869,16 @@ class UNetXL(BaseModel):
         version,
         pipeline,
         hf_token,
-        fp16=False,
-        device='cuda',
-        verbose=True,
-        max_batch_size=16,
-        text_maxlen=77,
-        unet_dim=4,
-        time_dim=6,
-        lora_weights=None,
-        lora_scale=1,
+        verbose,
+        framework_model_dir,
+        fp16 = False,
+        int8 = False,
+        max_batch_size = 16,
+        text_maxlen = 77,
+        lora_scales = None,
+        lora_dict = None,
+        lora_alphas = None,
+        do_classifier_free_guidance = False,
     ):
         super(UNetXL, self).__init__(version, pipeline, hf_token, fp16=fp16, device=device, verbose=verbose, max_batch_size=max_batch_size, text_maxlen=text_maxlen, embedding_dim=get_unet_embedding_dim(version, pipeline))
         self.subfolder = 'unet'
@@ -748,10 +958,8 @@ class UNetXL(BaseModel):
             }
         )
 
-def make_UNetXL(version, pipeline, hf_token, device, verbose, max_batch_size, lora_weights=None, lora_scale=1):
-    return UNetXL(version, pipeline, hf_token, fp16=True,  device=device, verbose=verbose,
-                max_batch_size=max_batch_size, unet_dim=4, time_dim=(5 if pipeline.is_sd_xl_refiner() else 6),
-                lora_weights=lora_weights, lora_scale=lora_scale)
+    def optimize(self, onnx_graph):
+        return super().optimize(onnx_graph, fuse_mha_qkv_int8=True)
 
 class VAE(BaseModel):
     def __init__(self,
@@ -760,9 +968,11 @@ class VAE(BaseModel):
         hf_token,
         device,
         verbose,
-        max_batch_size,
+        framework_model_dir,
+        fp16=False,
+        max_batch_size=16,
     ):
-        super(VAE, self).__init__(version, pipeline, hf_token, device=device, verbose=verbose, max_batch_size=max_batch_size)
+        super(VAEModel, self).__init__(version, pipeline, device=device, hf_token=hf_token, verbose=verbose, framework_model_dir=framework_model_dir, fp16=fp16, max_batch_size=max_batch_size)
         self.subfolder = 'vae'
 
     def get_model(self, framework_model_dir, torch_inference=''):
@@ -840,9 +1050,11 @@ class VAEEncoder(BaseModel):
         hf_token,
         device,
         verbose,
-        max_batch_size,
+        framework_model_dir,
+        fp16=False,
+        max_batch_size=16,
     ):
-        super(VAEEncoder, self).__init__(version, pipeline, hf_token, device=device, verbose=verbose, max_batch_size=max_batch_size)
+        super(VAEEncoderModel, self).__init__(version, pipeline, device=device, hf_token=hf_token, verbose=verbose, framework_model_dir=framework_model_dir, fp16=fp16, max_batch_size=max_batch_size)
 
     def get_model(self, framework_model_dir, torch_inference=''):
         vae_encoder = TorchVAEEncoder(self.version, self.pipeline, self.hf_token, self.device, self.path, framework_model_dir, hf_safetensor=self.hf_safetensor)

@@ -1,5 +1,28 @@
 # TensorRT OSS Release Changelog
 
+## 9.3.0 GA - 2024-02-09
+
+Key Features and Updates:
+
+ - Demo changes
+   - Faster Text-to-image using SDXL & INT8 quantization using AMMO
+ - Updated tooling
+   - Polygraphy v0.49.7
+
+## 9.2.0 GA - 2023-11-27
+
+Key Features and Updates:
+
+ - `trtexec` enhancement: Added `--weightless` flag to mark the engine as weightless.
+ - Parser changes
+   - Added support for Hardmax operator.
+   - Changes to a few operator importers to ensure that TensorRT preserves the precision of operations when using strongly typed mode.
+ - Plugin changes
+   - Explicit INT8 support added to `bertQKVToContextPlugin`.
+   - Various bug fixes.
+ - Updated HuggingFace demo to use transformers v4.31.0 and PyTorch v2.1.0.
+
+
 ## 9.1.0 GA - 2023-10-18
 
 Key Features and Updates:
