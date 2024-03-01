@@ -143,6 +143,10 @@ else()
     set_target_properties(${SHARED_TARGET} PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL -Wl,-Bsymbolic -Wl,--version-script=${PLUGIN_EXPORT_MAP} -Wl,--no-undefined")
 endif()
 
+if (ADDITIONAL_PLATFORM_LIB_FLAGS)
+    set_target_properties(${SHARED_TARGET} PROPERTIES LINK_FLAGS ${ADDITIONAL_PLATFORM_LIB_FLAGS})
+endif()
+
 set_target_properties(${SHARED_TARGET} PROPERTIES DEBUG_POSTFIX ${TRT_DEBUG_POSTFIX})
 
 set_target_properties(${SHARED_TARGET} PROPERTIES VERSION ${TRT_VERSION} SOVERSION ${TRT_SOVERSION} )
@@ -185,6 +189,10 @@ set_target_properties(${STATIC_TARGET} PROPERTIES
 
 set_target_properties(${STATIC_TARGET} PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL")
 
+if (ADDITIONAL_PLATFORM_LIB_FLAGS)
+    set_target_properties(${STATIC_TARGET} PROPERTIES LINK_FLAGS ${ADDITIONAL_PLATFORM_LIB_FLAGS})
+endif()
+
 set_target_properties(${STATIC_TARGET} PROPERTIES DEBUG_POSTFIX ${TRT_DEBUG_POSTFIX})
 
 set_target_properties(${STATIC_TARGET} PROPERTIES VERSION ${TRT_VERSION} SOVERSION ${TRT_SOVERSION} )
@@ -220,6 +228,10 @@ if (MSVC)
     set_target_properties(${VFC_SHARED_TARGET} PROPERTIES LINK_FLAGS "/DEF:${VFC_PLUGIN_EXPORT_DEF}")
 else()
     set_target_properties(${VFC_SHARED_TARGET} PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL -Wl,-Bsymbolic -Wl,--version-script=${VFC_PLUGIN_EXPORT_MAP} -Wl,--no-undefined")
+endif()
+
+if (ADDITIONAL_PLATFORM_LIB_FLAGS)
+    set_target_properties(${VFC_SHARED_TARGET} PROPERTIES LINK_FLAGS ${ADDITIONAL_PLATFORM_LIB_FLAGS})
 endif()
 
 set_target_properties(${VFC_SHARED_TARGET} PROPERTIES DEBUG_POSTFIX ${TRT_DEBUG_POSTFIX})
