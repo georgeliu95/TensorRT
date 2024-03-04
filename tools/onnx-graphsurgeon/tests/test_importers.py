@@ -23,7 +23,7 @@ import onnx.numpy_helper
 import onnx.shape_inference
 import pytest
 from onnx_graphsurgeon.importers.onnx_importer import OnnxImporter
-from onnx_graphsurgeon.ir.tensor import Constant, Tensor, Variable
+from onnx_graphsurgeon.ir.tensor import Constant, Tensor, Variable, SparseValues
 from onnx_graphsurgeon.ir.function import Function
 from onnx_graphsurgeon.ir.node import Node
 from onnx_graphsurgeon.logger import G_LOGGER
@@ -36,6 +36,8 @@ from onnx_models import (
     lstm_model,
     nested_dup_names,
     scan_model,
+    sparse_nnz_model,
+    sparse_nnz_rank_model,
 )
 
 G_LOGGER.severity = G_LOGGER.ULTRA_VERBOSE
@@ -247,3 +249,29 @@ class TestOnnxImporter(object):
         model = dim_param_model()
         graph = OnnxImporter.import_graph(model.load().graph)
         model.assert_equal(graph)
+
+    def test_import_graph_with_sparse_nnz_rank(self):
+        model = sparse_nnz_rank_model()
+        graph = OnnxImporter.import_graph(model.load().graph)
+        tensors = graph.tensors()
+
+        assert 'w_sparse' in tensors
+        sparse_tensor = tensors['w_sparse']
+
+        ref_value = np.array([1., 2., 3., 4., 5., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]).reshape(sparse_tensor._values.shape)
+        assert type(sparse_tensor) == Constant and type(sparse_tensor._values) == SparseValues
+        assert (tensors['w_sparse']._values.load() == ref_value).all()
+
+    def test_import_graph_with_sparse_nnz(self):
+        model = sparse_nnz_model()
+        graph = OnnxImporter.import_graph(model.load().graph)
+        tensors = graph.tensors()
+
+        assert 'w_sparse' in tensors
+        sparse_tensor = tensors['w_sparse']
+
+        ref_value = np.array([0., 1., 0., 0., 2., 0., 0., 3., 0., 0., 0., 0., 4., 0., 0., 0., 0., 0., 0., 0., 5., 0., 0., 0., 0., 0., 0.]).reshape(sparse_tensor._values.shape)
+        assert type(sparse_tensor) == Constant and type(sparse_tensor._values) == SparseValues
+        assert (tensors['w_sparse']._values.load() == ref_value).all()
+
+

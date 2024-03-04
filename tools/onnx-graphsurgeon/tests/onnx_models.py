@@ -269,3 +269,12 @@ def const_foldable():
 def shape_cast_elision():
     path = os.path.join(TEST_ROOT, "models", "shape_cast_elision.onnx")
     return Model(path, inputs=None, outputs=None, nodes=None, opset=None)  # Only used for path.
+
+def sparse_nnz_model():
+    path = os.path.join(TEST_ROOT, "models", "sparse_nnz.onnx")
+    return Model(path, inputs=None, outputs=None, nodes=None, opset=None)  # Only used for path.
+
+def sparse_nnz_rank_model():
+    path = os.path.join(TEST_ROOT, "models", "sparse_nnz_rank.onnx")
+    return Model(path, inputs=None, outputs=None, nodes=None, opset=None)  # Only used for path.
+

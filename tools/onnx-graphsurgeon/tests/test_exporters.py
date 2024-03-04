@@ -35,6 +35,8 @@ from onnx_models import (
     lstm_model,
     nested_dup_names,
     scan_model,
+    sparse_nnz_model,
+    sparse_nnz_rank_model,
 )
 
 
@@ -253,6 +255,8 @@ class TestOnnxExporter(object):
             initializer_is_output_model(),
             nested_dup_names(),
             ext_weights(),
+            sparse_nnz_model(),
+            sparse_nnz_rank_model(),
         ],
         ids=lambda model: str(model),
     )

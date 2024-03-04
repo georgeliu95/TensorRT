@@ -24,7 +24,7 @@ from onnx_graphsurgeon.exporters.base_exporter import BaseExporter
 from onnx_graphsurgeon.ir.function import Function
 from onnx_graphsurgeon.ir.graph import Graph
 from onnx_graphsurgeon.ir.node import Node
-from onnx_graphsurgeon.ir.tensor import Constant, LazyValues, Tensor, Variable
+from onnx_graphsurgeon.ir.tensor import Constant, SparseValues, LazyValues, Tensor, Variable
 from onnx_graphsurgeon.logger import G_LOGGER
 from onnx_graphsurgeon.util import misc
 
@@ -96,6 +96,10 @@ class OnnxExporter(BaseExporter):
                 onnx_tensor.data_location = tensor.data_location
         onnx_tensor.name = tensor.name
         return onnx_tensor
+
+    @staticmethod
+    def export_sparse_tensor_proto(tensor: Constant) -> onnx.SparseTensorProto:
+        return tensor._values.tensor
 
     @staticmethod
     def export_value_info_proto(
@@ -249,7 +253,12 @@ class OnnxExporter(BaseExporter):
         initializer = [
             OnnxExporter.export_tensor_proto(tensor)
             for tensor in tensor_map.values()
-            if isinstance(tensor, Constant)
+            if isinstance(tensor, Constant) and not isinstance(tensor._values, SparseValues)
+        ]
+        sparse_initializer = [
+            OnnxExporter.export_sparse_tensor_proto(tensor)
+            for tensor in tensor_map.values()
+            if isinstance(tensor, Constant) and isinstance(tensor._values, SparseValues)
         ]
 
         # Remove inputs and outputs to export ValueInfoProtos
@@ -275,6 +284,7 @@ class OnnxExporter(BaseExporter):
             inputs=inputs,
             outputs=outputs,
             initializer=initializer,
+            sparse_initializer=sparse_initializer,
             doc_string=graph.doc_string,
             value_info=value_info,
         )
