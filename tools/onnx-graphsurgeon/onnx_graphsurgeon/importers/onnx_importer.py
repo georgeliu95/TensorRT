@@ -26,7 +26,7 @@ from onnx_graphsurgeon.importers.base_importer import BaseImporter
 from onnx_graphsurgeon.ir.function import Function
 from onnx_graphsurgeon.ir.graph import Graph
 from onnx_graphsurgeon.ir.node import Node
-from onnx_graphsurgeon.ir.tensor import Constant, LazyValues, Tensor, Variable
+from onnx_graphsurgeon.ir.tensor import Constant, SparseValues, LazyValues, Tensor, Variable
 from onnx_graphsurgeon.logger import G_LOGGER, LogMode
 from onnx_graphsurgeon.util import misc
 
@@ -48,7 +48,7 @@ ONNX_PYTHON_ATTR_MAPPING = {
 
 def get_onnx_tensor_shape(onnx_tensor: Union[onnx.ValueInfoProto, onnx.TensorProto]) -> List[int]:
     shape = None
-    if isinstance(onnx_tensor, onnx.TensorProto):
+    if isinstance(onnx_tensor, onnx.TensorProto) or isinstance(onnx_tensor, onnx.SparseTensorProto):
         shape = onnx_tensor.dims
     else:
         if onnx_tensor.type.tensor_type.HasField("shape"):
@@ -110,6 +110,8 @@ def get_onnx_tensor_dtype(
 ) -> Union[np.dtype, "onnx.TensorProto.DataType"]:
     if isinstance(onnx_tensor, onnx.TensorProto):
         onnx_dtype = onnx_tensor.data_type
+    elif isinstance(onnx_tensor, onnx.SparseTensorProto):
+        onnx_dtype = onnx_tensor.values.data_type
     else:
         if onnx_tensor.type.HasField("tensor_type"):
             onnx_dtype = onnx_tensor.type.tensor_type.elem_type
@@ -203,8 +205,10 @@ class OnnxImporter(BaseImporter):
         return model_or_func.opset_import
 
     @staticmethod
-    def import_tensor(onnx_tensor: Union[onnx.ValueInfoProto, onnx.TensorProto]) -> Tensor:
-        if isinstance(onnx_tensor, onnx.TensorProto):
+    def import_tensor(onnx_tensor: Union[onnx.ValueInfoProto, onnx.TensorProto, onnx.SparseTensorProto]) -> Tensor:
+        if isinstance(onnx_tensor, onnx.SparseTensorProto):
+            return Constant(name=onnx_tensor.values.name, values=SparseValues(onnx_tensor), data_location=onnx_tensor.values.data_location)
+        elif isinstance(onnx_tensor, onnx.TensorProto):
             data_location = int(onnx_tensor.data_location) if onnx_tensor.HasField("data_location") else None
             return Constant(name=onnx_tensor.name, values=LazyValues(onnx_tensor), data_location=data_location)
         else:
@@ -395,30 +399,36 @@ class OnnxImporter(BaseImporter):
         # If overwrite=True, this function will overwrite previously imported tensors
         # if the new tensor has more information available.
         def get_tensor(
-            onnx_tensor: Union[onnx.ValueInfoProto, onnx.TensorProto], overwrite=False, check_outer_graph=True
+            onnx_tensor: Union[onnx.ValueInfoProto, onnx.TensorProto, onnx.SparseTensorProto], overwrite=False, check_outer_graph=True
         ) -> Tensor:
+            if isinstance(onnx_tensor, onnx.SparseTensorProto):
+                name = onnx_tensor.values.name
+            else:
+                name = onnx_tensor.name
             # Prioritize the subgraph even if check_outer_graph is set
-            if onnx_tensor.name in subgraph_tensor_map:
+            if name in subgraph_tensor_map:
                 if overwrite:
                     tensor = OnnxImporter.import_tensor(onnx_tensor)
-                    if isinstance(subgraph_tensor_map[onnx_tensor.name], Variable):
-                        subgraph_tensor_map[onnx_tensor.name].dtype = (
-                            subgraph_tensor_map[onnx_tensor.name].dtype or tensor.dtype
+                    if isinstance(subgraph_tensor_map[name], Variable):
+                        subgraph_tensor_map[name].dtype = (
+                            subgraph_tensor_map[name].dtype or tensor.dtype
                         )
-                        subgraph_tensor_map[onnx_tensor.name].shape = (
-                            subgraph_tensor_map[onnx_tensor.name].shape or tensor.shape
+                        subgraph_tensor_map[name].shape = (
+                            subgraph_tensor_map[name].shape or tensor.shape
                         )
-                return subgraph_tensor_map[onnx_tensor.name]
+                return subgraph_tensor_map[name]
 
-            if check_outer_graph and onnx_tensor.name in tensor_map:
-                return tensor_map[onnx_tensor.name]
+            if check_outer_graph and name in tensor_map:
+                return tensor_map[name]
 
-            subgraph_tensor_map[onnx_tensor.name] = OnnxImporter.import_tensor(onnx_tensor)
-            return subgraph_tensor_map[onnx_tensor.name]
+            subgraph_tensor_map[name] = OnnxImporter.import_tensor(onnx_tensor)
+            return subgraph_tensor_map[name]
 
         # Import initializers contents into Constants.
         G_LOGGER.verbose("Importing initializers")
         for initializer in onnx_graph.initializer:
+            get_tensor(initializer)
+        for initializer in onnx_graph.sparse_initializer:
             get_tensor(initializer)
 
         # Import all tensors whose shapes are known. Tensors may be repeated, and some of these
@@ -430,7 +440,7 @@ class OnnxImporter(BaseImporter):
 
         # Import graph inputs and outputs. Initializers are not considered to be inputs.
         # Graph inputs and outputs can never come from the outer graph!
-        initializer_names = set([tensor.name for tensor in onnx_graph.initializer])
+        initializer_names = set([tensor.name for tensor in onnx_graph.initializer] + [tensor.values.name for tensor in onnx_graph.sparse_initializer])
         G_LOGGER.verbose("Importing graph inputs")
         graph_inputs = []  # List[Tensor]
         for inp in onnx_graph.input:
