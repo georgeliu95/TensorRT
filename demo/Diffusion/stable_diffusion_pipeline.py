@@ -43,25 +43,17 @@ from models import (
 )
 import numpy as np
 import nvtx
+import json
 import onnx
+import os
+import pathlib
 import tensorrt as trt
+import time
 import torch
-from cuda import cudart
-
-from models import (
-    make_CLIP,
-    make_CLIPWithProj,
-    make_tokenizer,
-    make_UNet,
-    make_UNetXL,
-    make_VAE,
-    make_VAEEncoder
-)
+from typing import Optional, List
 from utilities import (
     PIPELINE_TYPE,
     TRT_LOGGER,
-    DDIMScheduler,
-    DPMScheduler,
     Engine,
     filter_func,
     get_smoothquant_config,
@@ -75,7 +67,6 @@ from utilities import (
     unload_model
 )
 
-
 class StableDiffusionPipeline:
     """
     Application showcasing the acceleration of Stable Diffusion pipelines using NVidia TensorRT.
@@ -86,7 +77,7 @@ class StableDiffusionPipeline:
         pipeline_type=PIPELINE_TYPE.TXT2IMG,
         max_batch_size=16,
         denoising_steps=50,
-        scheduler="DDIM",
+        scheduler=None,
         guidance_scale=7.5,
         device='cuda',
         output_dir='.',
@@ -96,9 +87,9 @@ class StableDiffusionPipeline:
         use_cuda_graph=False,
         vae_scaling_factor=0.18215,
         framework_model_dir='pytorch_model',
-        controlnet=None,
-        lora_scale=1,
-        lora_weights=None,
+        controlnets=None,
+        lora_scale: Optional[List[int]] = None,
+        lora_path: Optional[List[str]] = None,
         return_latents=False,
         torch_inference='',
     ):
@@ -116,7 +107,7 @@ class StableDiffusionPipeline:
                 The number of denoising steps.
                 More denoising steps usually lead to a higher quality image at the expense of slower inference.
             scheduler (str):
-                The scheduler to guide the denoising process. Must be one of [DDIM, DPM, EulerA, LMSD, PNDM].
+                The scheduler to guide the denoising process. Must be one of [DDIM, DPM, EulerA, Euler, LCM, LMSD, PNDM].
             guidance_scale (float):
                 Guidance scale is enabled by setting as > 1.
                 Higher guidance scale encourages to generate images that are closely linked to the text prompt, usually at the expense of lower image quality.
@@ -136,8 +127,8 @@ class StableDiffusionPipeline:
                 VAE scaling factor
             framework_model_dir (str):
                 cache directory for framework checkpoints
-            controlnet (str):
-                Which ControlNet/ControlNets to use. 
+            controlnets (str):
+                Which ControlNet/ControlNets to use.
             return_latents (bool):
                 Skip decoding the image and return latents instead.
             torch_inference (str):
@@ -145,8 +136,8 @@ class StableDiffusionPipeline:
         """
 
         self.denoising_steps = denoising_steps
-        assert guidance_scale > 1.0
         self.guidance_scale = guidance_scale
+        self.do_classifier_free_guidance = (guidance_scale > 1.0)
         self.vae_scaling_factor = vae_scaling_factor
 
         self.max_batch_size = max_batch_size
@@ -164,34 +155,9 @@ class StableDiffusionPipeline:
         self.nvtx_profile = nvtx_profile
 
         self.version = version
-        self.controlnet = controlnet
+        self.controlnets = controlnets
 
-        # Schedule options
-        sched_opts = {'num_train_timesteps': 1000, 'beta_start': 0.00085, 'beta_end': 0.012}
-        if self.version in ("2.0", "2.1"):
-            sched_opts['prediction_type'] = 'v_prediction'
-        else:
-            sched_opts['prediction_type'] = 'epsilon'
-
-        if pipeline_type.is_inpaint() and scheduler != "PNDM":
-            raise ValueError(f"Inpainting only supports PNDM scheduler. Specified {scheduler}.")
-
-        if scheduler == "DDIM":
-            self.scheduler = DDIMScheduler(device=self.device, **sched_opts)
-        elif scheduler == "DPM":
-            self.scheduler = DPMScheduler(device=self.device, **sched_opts)
-        elif scheduler == "EulerA":
-            self.scheduler = EulerAncestralDiscreteScheduler(device=self.device, **sched_opts)
-        elif scheduler == "LMSD":
-            self.scheduler = LMSDiscreteScheduler(device=self.device, **sched_opts)
-        elif scheduler == "PNDM":
-            sched_opts["steps_offset"] = 1
-            self.scheduler = PNDMScheduler(device=self.device, **sched_opts)
-        elif scheduler == "UniPCMultistepScheduler":
-            self.scheduler = UniPCMultistepScheduler(device=self.device)
-        else:
-            raise ValueError(f"Unsupported scheduler {scheduler}. Should be either DDIM, DPM, EulerA, LMSD, PNDM, or UniPCMultistepScheduler.")
-
+        # Pipeline type
         self.pipeline_type = pipeline_type
         if self.pipeline_type.is_txt2img() or self.pipeline_type.is_controlnet():
             self.stages = ['clip','unet','vae']
@@ -207,34 +173,81 @@ class StableDiffusionPipeline:
             raise ValueError(f"Unsupported pipeline {self.pipeline_type.name}.")
         self.return_latents = return_latents
 
+        # Schedulers
+        map_version_scheduler = {
+            '1.4': 'PNDM',
+            '1.5': 'PNDM',
+            'dreamshaper-7': 'PNDM',
+            '2.0-base': 'DDIM',
+            '2.0': 'DDIM',
+            '2.1-base': 'PNDM',
+            '2.1': 'DDIM',
+            'xl-1.0' : 'Euler',
+            'xl-turbo': 'EulerA'
+        }
+
+        if not scheduler:
+            scheduler = 'UniPC' if self.pipeline_type.is_controlnet() else map_version_scheduler.get(version, 'DDIM')
+            print(f"[I] Autoselected scheduler: {scheduler}")
+
+        def makeScheduler(cls, subfolder="scheduler", **kwargs):
+            return cls.from_pretrained(get_path(self.version, self.pipeline_type), subfolder=subfolder)
+
+        if scheduler == "DDIM":
+            self.scheduler = makeScheduler(DDIMScheduler)
+        elif scheduler == "DDPM":
+            self.scheduler = makeScheduler(DDPMScheduler)
+        elif scheduler == "EulerA":
+            self.scheduler = makeScheduler(EulerAncestralDiscreteScheduler)
+        elif scheduler == "Euler":
+            self.scheduler = makeScheduler(EulerDiscreteScheduler)
+        elif scheduler == "LCM":
+            self.scheduler = makeScheduler(LCMScheduler)
+        elif scheduler == "LMSD":
+            self.scheduler = makeScheduler(LMSDiscreteScheduler)
+        elif scheduler == "PNDM":
+            self.scheduler = makeScheduler(PNDMScheduler)
+        elif scheduler == "UniPC":
+            self.scheduler = makeScheduler(UniPCMultistepScheduler)
+        else:
+            raise ValueError(f"Unsupported scheduler {scheduler}. Should be either DDIM, DDPM, EulerA, Euler, LCM, LMSD, PNDM, or UniPC.")
+
         self.config = {}
         if self.pipeline_type.is_sd_xl():
             self.config['clip_hidden_states'] = True
         self.torch_inference = torch_inference
         self.use_cuda_graph = use_cuda_graph
 
-        # initialized in loadResources()
-        self.stream = None
-        self.tokenizer = None
         # initialized in loadEngines()
         self.models = {}
         self.torch_models = {}
         self.engine = {}
         self.shared_device_memory = None
-        self.lora_scale=lora_scale
-        self.lora_weights=lora_weights
+
+        # initialize lora loader and scales
+        self.lora_loader = None
+        self.lora_scales = dict()
+        if lora_path:
+            self.lora_loader = LoraLoader(lora_path)
+            assert len(lora_path) == len(lora_scale)
+            for i, path in enumerate(lora_path):
+                self.lora_scales[path] = lora_scale[i]
+
+        # initialized in loadResources()
+        self.events = {}
+        self.generator = None
+        self.markers = {}
+        self.seed = None
+        self.stream = None
+        self.tokenizer = None
 
     def loadResources(self, image_height, image_width, batch_size, seed):
         # Initialize noise generator
-        self.generator = torch.Generator(device="cuda").manual_seed(seed) if seed else None
-
-        # Pre-compute latent input scales and linear multistep coefficients
-        self.scheduler.set_timesteps(self.denoising_steps)
-        self.scheduler.configure()
+        if seed:
+            self.seed = seed
+            self.generator = torch.Generator(device="cuda").manual_seed(seed)
 
         # Create CUDA events and stream
-        self.events = {}
-        self.markers = {}
         for stage in ['clip', 'denoise', 'vae', 'vae_encoder']:
             self.events[stage] = [cudart.cudaEventCreate()[1], cudart.cudaEventCreate()[1]]
         self.stream = cudart.cudaStreamCreate()[1]
@@ -263,13 +276,23 @@ class StableDiffusionPipeline:
             model_name += '_inpaint'
         return model_name
 
-    def getOnnxPath(self, model_name, onnx_dir, opt=True):
-        onnx_model_dir = os.path.join(onnx_dir, self.cachedModelName(model_name)+('.opt' if opt else ''))
+    def getOnnxPath(self, model_name, onnx_dir, opt=True, suffix=''):
+        onnx_model_dir = os.path.join(onnx_dir, self.cachedModelName(model_name)+suffix+('.opt' if opt else ''))
         os.makedirs(onnx_model_dir, exist_ok=True)
         return os.path.join(onnx_model_dir, 'model.onnx')
 
-    def getEnginePath(self, model_name, engine_dir, enable_refit):
-        return os.path.join(engine_dir, self.cachedModelName(model_name)+('.refit' if enable_refit else '')+'.trt'+trt.__version__+'.plan')
+    def getEnginePath(self, model_name, engine_dir, enable_refit=False, suffix=''):
+        return os.path.join(engine_dir, self.cachedModelName(model_name)+suffix+('.refit' if enable_refit else '')+'.trt'+trt.__version__+'.plan')
+
+    def getWeightsMapPath(self, model_name, onnx_dir):
+        onnx_model_dir = os.path.join(onnx_dir, self.cachedModelName(model_name)+'.opt')
+        os.makedirs(onnx_model_dir, exist_ok=True)
+        return os.path.join(onnx_model_dir, 'weights_map.json')
+
+    def getRefitNodesPath(self, model_name, onnx_dir, suffix=''):
+        onnx_model_dir = os.path.join(onnx_dir, self.cachedModelName(model_name)+'.opt')
+        os.makedirs(onnx_model_dir, exist_ok=True)
+        return os.path.join(onnx_model_dir, 'refit'+suffix+'.json')
 
     def getStateDictPath(self, model_name, onnx_dir, suffix=''):
         onnx_model_dir = os.path.join(onnx_dir, self.cachedModelName(model_name)+suffix)
@@ -285,9 +308,6 @@ class StableDiffusionPipeline:
         opt_batch_size,
         opt_image_height,
         opt_image_width,
-        force_export=False,
-        force_optimize=False,
-        force_build=False,
         static_batch=False,
         static_shape=True,
         enable_refit=False,
@@ -306,11 +326,11 @@ class StableDiffusionPipeline:
 
         Args:
             engine_dir (str):
-                Directory to write the TensorRT engines.
+                Directory to store the TensorRT engines.
             framework_model_dir (str):
-                Directory to write the framework model ckpt.
+                Directory to store the framework model ckpt.
             onnx_dir (str):
-                Directory to write the ONNX models.
+                Directory to store the ONNX models.
             onnx_opset (int):
                 ONNX opset version to export the models.
             opt_batch_size (int):
@@ -319,12 +339,6 @@ class StableDiffusionPipeline:
                 Image height to optimize for during engine building. Must be a multiple of 8.
             opt_image_width (int):
                 Image width to optimize for during engine building. Must be a multiple of 8.
-            force_export (bool):
-                Force re-exporting the ONNX models.
-            force_optimize (bool):
-                Force re-optimizing the ONNX models.
-            force_build (bool):
-                Force re-building the TensorRT engine.
             static_batch (bool):
                 Build engine only for specified opt_batch_size.
             static_shape (bool):
@@ -334,11 +348,9 @@ class StableDiffusionPipeline:
             enable_all_tactics (bool):
                 Enable all tactic sources during TensorRT engine builds.
             timing_cache (str):
-                Path to the timing cache to accelerate build or None
-            onnx_refit_dir (str):
-                Directory containing refit ONNX models.
+                Path to the timing cache to speed up TensorRT build.
         """
-        # Create directory
+        # Create directories if missing
         for directory in [engine_dir, onnx_dir]:
             if not os.path.exists(directory):
                 print(f"[I] Create directory: {directory}")
@@ -351,9 +363,9 @@ class StableDiffusionPipeline:
             self.tokenizer2 = make_tokenizer(self.version, self.pipeline_type, self.hf_token, framework_model_dir, subfolder='tokenizer_2')
 
         # Load pipeline models
-        models_args = {'version': self.version, 'pipeline': self.pipeline_type,
-            'hf_token': self.hf_token, 'device': self.device,
-            'verbose': self.verbose, 'max_batch_size': self.max_batch_size}
+        models_args = {'version': self.version, 'pipeline': self.pipeline_type, 'device': self.device,
+            'hf_token': self.hf_token, 'verbose': self.verbose, 'framework_model_dir': framework_model_dir,
+            'max_batch_size': self.max_batch_size}
 
         if 'clip' in self.stages:
             subfolder = 'text_encoder'
@@ -365,11 +377,12 @@ class StableDiffusionPipeline:
 
         lora_dict, lora_alphas = (None, None)
         if 'unet' in self.stages:
-            models_args['lora_scale'] = self.lora_scale
-            models_args['lora_weights'] = self.lora_weights
-            self.models['unet'] = make_UNet(controlnet=self.controlnet, **models_args)
-            models_args.pop('lora_scale')
-            models_args.pop('lora_weights')
+            if self.lora_loader:
+                lora_dict, lora_alphas = self.lora_loader.get_dicts('unet')
+                assert len(lora_dict) == len(self.lora_scales)
+            self.models['unet'] = UNetModel(**models_args, fp16=True, controlnets=self.controlnets,
+                lora_scales=self.lora_scales, lora_dict=lora_dict, lora_alphas=lora_alphas, do_classifier_free_guidance=self.do_classifier_free_guidance)
+
         if 'unetxl' in self.stages:
             if not self.pipeline_type.is_sd_xl_refiner() and self.lora_loader:
                 lora_dict, lora_alphas = self.lora_loader.get_dicts('unet')
@@ -405,7 +418,7 @@ class StableDiffusionPipeline:
         weights_map_path = dict(zip(model_names, [(self.getWeightsMapPath(model_name, onnx_dir) if do_engine_refit[model_name] else None) for model_name in model_names]))
 
         for model_name, obj in self.models.items():
-            if model_name == 'vae' and self.config.get('vae_torch_fallback', False):
+            if torch_fallback[model_name]:
                 continue
             # Export models to ONNX and save weights name mapping
             do_export_onnx = not os.path.exists(engine_path[model_name]) and not os.path.exists(onnx_opt_path[model_name])
@@ -484,15 +497,10 @@ class StableDiffusionPipeline:
 
         # Build TensorRT engines
         for model_name, obj in self.models.items():
-            if model_name == 'vae' and self.config.get('vae_torch_fallback', False):
+            if torch_fallback[model_name]:
                 continue
-            enable_refit = model_name in enable_refit_models
-            engine_path = self.getEnginePath(model_name, engine_dir, enable_refit)
-            engine = Engine(engine_path)
-            onnx_path = self.getOnnxPath(model_name, onnx_dir, opt=False)
-            onnx_opt_path = self.getOnnxPath(model_name, onnx_dir)
-
-            if force_build or not os.path.exists(engine.engine_path):
+            engine = Engine(engine_path[model_name])
+            if not os.path.exists(engine_path[model_name]):
                 update_output_names = obj.get_output_names() + obj.extra_output_names if obj.extra_output_names else None
                 extra_build_args = {'verbose': self.verbose}
                 if use_int8[model_name]:
@@ -506,7 +514,7 @@ class StableDiffusionPipeline:
                         opt_batch_size, opt_image_height, opt_image_width,
                         static_batch=static_batch, static_shape=static_shape
                     ),
-                    enable_refit=enable_refit,
+                    enable_refit=do_engine_refit[model_name],
                     enable_all_tactics=enable_all_tactics,
                     timing_cache=timing_cache,
                     update_output_names=update_output_names,
@@ -515,14 +523,30 @@ class StableDiffusionPipeline:
 
         # Load TensorRT engines
         for model_name, obj in self.models.items():
-            if model_name == 'vae' and self.config.get('vae_torch_fallback', False):
+            if torch_fallback[model_name]:
                 continue
             self.engine[model_name].load()
-            if onnx_refit_dir and model_name in enable_refit_models:
-                onnx_refit_path = self.getOnnxPath(model_name, onnx_refit_dir)
-                if os.path.exists(onnx_refit_path):
-                    onnx_opt_path = self.getOnnxPath(model_name, onnx_dir)
-                    self.engine[model_name].refit(onnx_opt_path, onnx_refit_path, refit_pattern_list)
+            if do_engine_refit[model_name] and obj.lora_dict:
+                assert weights_map_path[model_name]
+                with open(weights_map_path[model_name], 'r') as fp_wts:
+                    print(f"[I] Loading weights map: {weights_map_path[model_name]} ")
+                    [weights_name_mapping, weights_shape_mapping] = json.load(fp_wts)
+                    refit_weights_path = self.getRefitNodesPath(model_name, engine_dir, suffix=lora_suffix)
+                    if not os.path.exists(refit_weights_path):
+                            print(f"[I] Saving refit weights: {refit_weights_path}")
+                            model = merge_loras(obj.get_model(), obj.lora_dict, obj.lora_alphas, obj.lora_scales)
+                            refit_weights = get_refit_weights(model.state_dict(), onnx_opt_path[model_name], weights_name_mapping, weights_shape_mapping)
+                            torch.save(refit_weights, refit_weights_path)
+                            unload_model(model)
+                    else:
+                        print(f"[I] Loading refit weights: {refit_weights_path}")
+                        refit_weights = torch.load(refit_weights_path)
+                    self.engine[model_name].refit(refit_weights, obj.fp16)
+
+        # Load torch models
+        for model_name, obj in self.models.items():
+            if torch_fallback[model_name]:
+                self.torch_models[model_name] = obj.get_model(torch_inference=self.torch_inference)
 
     def calculateMaxDeviceMemory(self):
         max_device_memory = 0
@@ -550,15 +574,6 @@ class StableDiffusionPipeline:
         # Scale the initial noise by the standard deviation required by the scheduler
         latents = latents * self.scheduler.init_noise_sigma
         return latents
-
-    def initialize_timesteps(self, timesteps, strength):
-        self.scheduler.set_timesteps(timesteps)
-        offset = self.scheduler.steps_offset if hasattr(self.scheduler, "steps_offset") else 0
-        init_timestep = int(timesteps * strength) + offset
-        init_timestep = min(init_timestep, timesteps)
-        t_start = max(timesteps - init_timestep + offset, 0)
-        timesteps = self.scheduler.timesteps[t_start:].to(self.device)
-        return timesteps, t_start
 
     def profile_start(self, name, color='blue'):
         if self.nvtx_profile:
@@ -604,7 +619,7 @@ class StableDiffusionPipeline:
 
         tokenizer = self.tokenizer2 if encoder == 'clip2' else self.tokenizer
 
-        def tokenize(prompt):
+        def tokenize(prompt, output_hidden_states):
             text_input_ids = tokenizer(
                 prompt,
                 padding="max_length",
@@ -615,10 +630,10 @@ class StableDiffusionPipeline:
 
             text_hidden_states = None
             if self.torch_inference:
-                outputs = self.torch_models[encoder](text_input_ids)
+                outputs = self.torch_models[encoder](text_input_ids, output_hidden_states=output_hidden_states)
                 text_embeddings = outputs[0].clone()
                 if output_hidden_states:
-                    text_hidden_states = outputs['last_hidden_state'].clone()
+                    text_hidden_states = outputs['hidden_states'][-2].clone()
             else:
                 # NOTE: output tensor for CLIP must be cloned because it will be overwritten when called again for negative prompt
                 outputs = self.runEngine(encoder, {'input_ids': text_input_ids})
@@ -628,24 +643,62 @@ class StableDiffusionPipeline:
             return text_embeddings, text_hidden_states
 
         # Tokenize prompt
-        text_embeddings, text_hidden_states = tokenize(prompt)
+        text_embeddings, text_hidden_states = tokenize(prompt, output_hidden_states)
 
-        # Tokenize negative prompt
-        uncond_embeddings, uncond_hidden_states = tokenize(negative_prompt)
+        if self.do_classifier_free_guidance:
+            # Tokenize negative prompt
+            uncond_embeddings, uncond_hidden_states = tokenize(negative_prompt, output_hidden_states)
 
-        # Concatenate the unconditional and text embeddings into a single batch to avoid doing two forward passes for classifier free guidance
-        text_embeddings = torch.cat([uncond_embeddings, text_embeddings]).to(dtype=torch.float16)
+            # Concatenate the unconditional and text embeddings into a single batch to avoid doing two forward passes for classifier free guidance
+            text_embeddings = torch.cat([uncond_embeddings, text_embeddings]).to(dtype=torch.float16)
 
         if pooled_outputs:
             pooled_output = text_embeddings
 
         if output_hidden_states:
-            text_embeddings = torch.cat([uncond_hidden_states, text_hidden_states]).to(dtype=torch.float16)
+            text_embeddings = torch.cat([uncond_hidden_states, text_hidden_states]).to(dtype=torch.float16) if self.do_classifier_free_guidance else text_hidden_states
 
         self.profile_stop('clip')
         if pooled_outputs:
             return text_embeddings, pooled_output
         return text_embeddings
+
+    # from diffusers (get_timesteps)
+    def get_timesteps(self, num_inference_steps, strength, denoising_start=None):
+        # get the original timestep using init_timestep
+        if denoising_start is None:
+            init_timestep = min(int(num_inference_steps * strength), num_inference_steps)
+            t_start = max(num_inference_steps - init_timestep, 0)
+        else:
+            t_start = 0
+
+        timesteps = self.scheduler.timesteps[t_start * self.scheduler.order :]
+
+        # Strength is irrelevant if we directly request a timestep to start at;
+        # that is, strength is determined by the denoising_start instead.
+        if denoising_start is not None:
+            discrete_timestep_cutoff = int(
+                round(
+                    self.scheduler.config.num_train_timesteps
+                    - (denoising_start * self.scheduler.config.num_train_timesteps)
+                )
+            )
+
+            num_inference_steps = (timesteps < discrete_timestep_cutoff).sum().item()
+            if self.scheduler.order == 2 and num_inference_steps % 2 == 0:
+                # if the scheduler is a 2nd order scheduler we might have to do +1
+                # because `num_inference_steps` might be even given that every timestep
+                # (except the highest one) is duplicated. If `num_inference_steps` is even it would
+                # mean that we cut the timesteps in the middle of the denoising step
+                # (between 1st and 2nd devirative) which leads to incorrect results. By adding 1
+                # we ensure that the denoising process always ends after the 2nd derivate step of the scheduler
+                num_inference_steps = num_inference_steps + 1
+
+            # because t_n+1 >= t_n, we slice the timesteps starting from the end
+            timesteps = timesteps[-num_inference_steps:]
+            return timesteps, num_inference_steps
+
+        return timesteps, num_inference_steps - t_start
 
     def denoise_latent(self,
         latents,
@@ -655,14 +708,12 @@ class StableDiffusionPipeline:
         step_offset=0,
         mask=None,
         masked_image_latents=None,
-        guidance=7.5,
         image_guidance=1.5,
         controlnet_imgs=None,
         controlnet_scales=None,
         text_embeds=None,
         time_ids=None):
 
-        assert guidance > 1.0, "Guidance has to be > 1.0"
         assert image_guidance > 1.0, "Image guidance has to be > 1.0"
 
         controlnet_imgs = self.preprocess_controlnet_images(latents.shape[0], controlnet_imgs)
@@ -797,8 +848,8 @@ class StableDiffusionPipeline:
             mask_image (image):
                 Mask image containg the region to be inpainted.
             controlnet_scales (torch.Tensor)
-                A tensor which containes ControlNet scales, essential for multi ControlNet. 
-                Must be equal to number of Controlnets. 
+                A tensor which containes ControlNet scales, essential for multi ControlNet.
+                Must be equal to number of Controlnets.
             warmup (bool):
                 Indicate if this is a warmup run.
             verbose (bool):
@@ -813,10 +864,30 @@ class StableDiffusionPipeline:
         latent_height = image_height // 8
         latent_width = image_width // 8
 
+        if self.generator and self.seed:
+            self.generator.manual_seed(self.seed)
+
+        num_inference_steps = self.denoising_steps
+
         with torch.inference_mode(), trt.Runtime(TRT_LOGGER):
             torch.cuda.synchronize()
             e2e_tic = time.perf_counter()
 
+            # TODO: support custom timesteps
+            timesteps = None
+            if timesteps is not None:
+                if not ("timesteps" in set(inspect.signature(self.scheduler.set_timesteps).parameters.keys())):
+                    raise ValueError(
+                        f"The current scheduler class {self.scheduler.__class__}'s `set_timesteps` does not support custom"
+                        f" timestep schedules. Please check whether you are using the correct scheduler."
+                    )
+                self.scheduler.set_timesteps(timesteps=timesteps, device=self.device)
+                assert self.denoising_steps == len(self.scheduler.timesteps)
+            else:
+                self.scheduler.set_timesteps(self.denoising_steps, device=self.device)
+            timesteps = self.scheduler.timesteps.to(self.device)
+
+            denoise_kwargs = {}
             if not (self.pipeline_type.is_img2img() or self.pipeline_type.is_sd_xl_refiner()):
                 # Initialize latents
                 latents = self.initialize_latents(batch_size=batch_size,
@@ -830,8 +901,8 @@ class StableDiffusionPipeline:
             if self.pipeline_type.is_img2img() or self.pipeline_type.is_inpaint() or self.pipeline_type.is_sd_xl_refiner():
                 assert input_image != None
                 # Initialize timesteps and pre-process input image
-                timesteps, t_start = self.initialize_timesteps(self.denoising_steps, image_strength)
-                denoise_kwargs.update({'timesteps': timesteps, 'step_offset': t_start})
+                timesteps, num_inference_steps = self.get_timesteps(self.denoising_steps, image_strength)
+            denoise_kwargs.update({'timesteps': timesteps})
             if self.pipeline_type.is_img2img() or self.pipeline_type.is_sd_xl_refiner():
                 latent_timestep = timesteps[:1].repeat(batch_size)
                 input_image = self.preprocess_images(batch_size, (input_image,))[0]
@@ -839,10 +910,7 @@ class StableDiffusionPipeline:
                 image_latents = input_image if input_image.shape[1] == 4 else self.encode_image(input_image)
                 # Add noise to latents using timesteps
                 noise = torch.randn(image_latents.shape, generator=self.generator, device=self.device, dtype=torch.float32)
-                if type(self.scheduler) == UniPCMultistepScheduler:
-                    latents = self.scheduler.add_noise(image_latents, noise, latent_timestep)
-                else:
-                    latents = self.scheduler.add_noise(image_latents, noise, t_start, latent_timestep)
+                latents = self.scheduler.add_noise(image_latents, noise, latent_timestep)
             elif self.pipeline_type.is_inpaint():
                 mask, mask_image = self.preprocess_images(batch_size, prepare_mask_and_masked_image(input_image, mask_image))
                 mask = torch.nn.functional.interpolate(mask, size=(latent_height, latent_width))
@@ -867,15 +935,18 @@ class StableDiffusionPipeline:
                 def _get_add_time_ids(original_size, crops_coords_top_left, target_size, dtype, aesthetic_score=None, negative_aesthetic_score=None):
                     if self.pipeline_type.is_sd_xl_refiner(): #self.requires_aesthetics_score:
                         add_time_ids = list(original_size + crops_coords_top_left + (aesthetic_score,))
-                        add_neg_time_ids = list(original_size + crops_coords_top_left + (negative_aesthetic_score,))
+                        if self.do_classifier_free_guidance:
+                            add_neg_time_ids = list(original_size + crops_coords_top_left + (negative_aesthetic_score,))
                     else:
                         add_time_ids = list(original_size + crops_coords_top_left + target_size)
-                        add_neg_time_ids = list(original_size + crops_coords_top_left + target_size)
-                    add_time_ids = torch.tensor([add_time_ids], dtype=dtype)
-                    add_neg_time_ids = torch.tensor([add_neg_time_ids], dtype=dtype)
-                    add_time_ids = torch.cat([add_neg_time_ids, add_time_ids], dim=0).to(device=self.device)
+                        if self.do_classifier_free_guidance:
+                            add_neg_time_ids = list(original_size + crops_coords_top_left + target_size)
+                    add_time_ids = torch.tensor([add_time_ids], dtype=dtype, device=self.device)
+                    if self.do_classifier_free_guidance:
+                        add_neg_time_ids = torch.tensor([add_neg_time_ids], dtype=dtype, device=self.device)
+                        add_time_ids = torch.cat([add_neg_time_ids, add_time_ids], dim=0)
                     return add_time_ids
-  
+
                 original_size = (image_height, image_width)
                 crops_coords_top_left = (0, 0)
                 target_size = (image_height, image_width)
@@ -894,7 +965,7 @@ class StableDiffusionPipeline:
 
             # UNet denoiser + (optional) ControlNet(s)
             denoiser = 'unetxl' if self.pipeline_type.is_sd_xl() else 'unet'
-            latents = self.denoise_latent(latents, text_embeddings, denoiser=denoiser, guidance=self.guidance_scale, **denoise_kwargs)
+            latents = self.denoise_latent(latents, text_embeddings, denoiser=denoiser, **denoise_kwargs)
 
             # VAE decode latent (if applicable)
             if self.return_latents:
@@ -907,7 +978,7 @@ class StableDiffusionPipeline:
 
         walltime_ms = (e2e_toc - e2e_tic) * 1000.
         if not warmup:
-            self.print_summary(self.denoising_steps, walltime_ms, batch_size)
+            self.print_summary(num_inference_steps, walltime_ms, batch_size)
             if not self.return_latents and save_image:
                 self.save_image(images, self.pipeline_type.name.lower(), prompt, self.seed)
 
@@ -937,5 +1008,3 @@ class StableDiffusionPipeline:
             self.infer(prompt, negative_prompt, height, width, warmup=False, **kwargs)
             if self.nvtx_profile:
                 cudart.cudaProfilerStop()
-
-
