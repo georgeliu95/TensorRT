@@ -44,6 +44,18 @@ class IProfiler;
 }
 using IProfiler = v_1_0::IProfiler;
 
+namespace v_1_0
+{
+class IOutputAllocator;
+}
+using IOutputAllocator = v_1_0::IOutputAllocator;
+
+namespace v_1_0
+{
+class IDebugListener;
+}
+using IDebugListener = v_1_0::IDebugListener;
+
 class IActivationLayer;
 class IAlgorithm;
 class IAlgorithmContext;
@@ -57,7 +69,6 @@ class IConditionLayer;
 class IConstantLayer;
 class IConvolutionLayer;
 class ICudaEngine;
-class IDebugListener;
 class IDeconvolutionLayer;
 class IDequantizeLayer;
 class IDimensionExpr;
@@ -87,7 +98,6 @@ class INMSLayer;
 class INonZeroLayer;
 class IOneHotLayer;
 class IOptimizationProfile;
-class IOutputAllocator;
 class IPaddingLayer;
 class IParametricReLULayer;
 class IPlugin;

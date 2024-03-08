@@ -220,7 +220,7 @@ CublasWrapper& getCublasWrapper()
     // Initialize a global cublasWrapper instance to be used to call cublas functions.
     static CublasWrapper sGCublasWrapper;
     return sGCublasWrapper;
-};
+}
 
 } // namespace pluginInternal
 } // namespace nvinfer1

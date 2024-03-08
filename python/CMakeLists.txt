@@ -45,7 +45,7 @@ endif()
 
 # -------- PATHS --------
 message(STATUS "EXT_PATH: ${EXT_PATH}")
-message(STATUS "TENSORRT_LIBPATH: ${TENSORRT_LIBPATH}")
+message(STATUS "TENSORRT_BUILD: ${TENSORRT_BUILD}")
 message(STATUS "CMAKE_BINARY_DIR: ${CMAKE_BINARY_DIR}")
 message(STATUS "CUDA_ROOT: ${CUDA_ROOT}")
 message(STATUS "CUDA_INCLUDE_DIRS: ${CUDA_INCLUDE_DIRS}")
@@ -111,7 +111,7 @@ message(STATUS "PY_CONFIG_INCLUDE: ${PY_CONFIG_INCLUDE}")
 # -------- GLOBAL COMPILE OPTIONS --------
 
 include_directories(${TENSORRT_ROOT}/include ${PROJECT_SOURCE_DIR}/include ${CUDA_INCLUDE_DIRS} ${PROJECT_SOURCE_DIR}/docstrings ${ONNX_INC_DIR} ${PYBIND11_DIR})
-link_directories(${TENSORRT_LIBPATH})
+link_directories(${TENSORRT_BUILD})
 
 if (MSVC)
     message(STATUS "include_dirs: ${MSVC_COMPILER_DIR}/include ${MSVC_COMPILER_DIR}/../ucrt/include ${NV_WDKSDK_INC}/um ${NV_WDKSDK_INC}/shared")
@@ -130,7 +130,7 @@ if (MSVC)
         set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "${CMAKE_SHARED_LINKER_FLAGS_RELEASE} /DEBUG /OPT:REF /OPT:ICF")
     endif()
 else()
-    set(CMAKE_CXX_FLAGS "${GLIBCXX_USE_CXX11_ABI_FLAG} -fvisibility=hidden -std=c++${CPP_STANDARD} -Wno-deprecated-declarations")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${GLIBCXX_USE_CXX11_ABI_FLAG} -fvisibility=hidden -std=c++${CPP_STANDARD} -Wno-deprecated-declarations")
 endif()
 
 # remove md

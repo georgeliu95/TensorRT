@@ -108,6 +108,11 @@ namespace tensorrt
             return self.addPluginV2(inputs.data(), inputs.size(), plugin);
         };
 
+        static const auto add_plugin_v3 = [] (INetworkDefinition& self, std::vector<ITensor*> const& inputs, std::vector<ITensor*> const& shapeInputs, IPluginV3& plugin)
+        {
+            return self.addPluginV3(inputs.data(), inputs.size(), shapeInputs.data(), shapeInputs.size(), plugin);
+        };
+
         static const auto add_convolution_nd = [](INetworkDefinition& self, ITensor& input, int32_t numOutputMaps, Dims kernelSize, Weights kernel, Weights* bias)
         {
             return self.addConvolutionNd(input, numOutputMaps, kernelSize, kernel, optionalWeights(bias));
@@ -515,6 +520,10 @@ namespace tensorrt
             .def_property_readonly("plugin", &IPluginV2Layer::getPlugin)
         ;
 
+        py::class_<IPluginV3Layer, ILayer, std::unique_ptr<IPluginV3Layer, py::nodelete>>(m, "IPluginV3Layer", IPluginV3LayerDoc::descr, py::module_local())
+            .def_property_readonly("plugin", &IPluginV3Layer::getPlugin)
+        ;
+
         py::enum_<UnaryOperation>(m, "UnaryOperation", UnaryOperationDoc::descr, py::module_local())
             .value("EXP", UnaryOperation::kEXP, UnaryOperationDoc::EXP)
             .value("LOG", UnaryOperation::kLOG, UnaryOperationDoc::LOG)
@@ -877,6 +886,8 @@ namespace tensorrt
                 INetworkDefinitionDoc::add_cast, py::return_value_policy::reference_internal)
             .def("add_plugin_v2",  lambdas::add_plugin_v2, "inputs"_a, "plugin"_a,
                 INetworkDefinitionDoc::add_plugin_v2, py::return_value_policy::reference_internal)
+            .def("add_plugin_v3",  lambdas::add_plugin_v3, "inputs"_a, "shape_inputs"_a, "plugin"_a,
+                INetworkDefinitionDoc::add_plugin_v3, py::return_value_policy::reference_internal)
             .def("add_parametric_relu", &INetworkDefinition::addParametricReLU, "input"_a,
                 "slopes"_a, INetworkDefinitionDoc::add_parametric_relu, py::return_value_policy::reference_internal)
             .def("add_resize", &INetworkDefinition::addResize, "input"_a, INetworkDefinitionDoc::add_resize,

@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,22 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+SET(SAMPLE_SOURCES
+    sampleNonZeroPlugin.cpp
+    nonZeroKernel.cu
+)
 
-add_custom_target(samples)
+set(SAMPLE_PARSERS "onnx")
 
-set(OPENSOURCE_SAMPLES_LIST
-    sampleAlgorithmSelector
-    sampleCharRNN
-    sampleDynamicReshape
-    sampleINT8API
-    sampleNonZeroPlugin
-    sampleOnnxMNIST
-    sampleIOFormats
-    sampleOnnxMnistCoordConvAC
-    sampleNamedDimensions
-    sampleProgressMonitor
-    trtexec)
-
-foreach(SAMPLE_ITER ${OPENSOURCE_SAMPLES_LIST})
-    add_subdirectory(${SAMPLE_ITER})
-endforeach(SAMPLE_ITER)
+include(../CMakeSamplesTemplate.txt)

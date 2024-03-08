@@ -177,7 +177,8 @@ def nptype(trt_type):
 # Add a numpy-like itemsize property to the datatype.
 def _itemsize(trt_type):
     """
-    Returns the size in bytes of this :class:`DataType` .
+    Returns the size in bytes of this :class:`DataType`.
+    The returned size is a rational number, possibly a `Real` denoting a fraction of a byte.
 
     :arg trt_type: The TensorRT data type.
 
@@ -193,6 +194,7 @@ def _itemsize(trt_type):
         bool: 1,
         uint8: 1,
         fp8: 1,
+        int4: 0.5,
     }
     if trt_type in mapping:
         return mapping[trt_type]

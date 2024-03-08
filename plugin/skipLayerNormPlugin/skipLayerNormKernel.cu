@@ -26,6 +26,7 @@
 
 #include <cassert>
 #include <cstring>
+#include <limits>
 #include <vector>
 
 using namespace nvinfer1;
@@ -84,7 +85,7 @@ __global__ void skiplnDQQ(int32_t const ld, int8_t const* input, int8_t const* s
     if (threadIdx.x == 0)
     {
         mu = __low2half(sum2);
-        rsigma = rsqrt(__high2half(sum2) - mu * mu);
+        rsigma = rsqrt(__high2half(sum2) - mu * mu + std::numeric_limits<half>::epsilon());
     }
     __syncthreads();
 
@@ -144,7 +145,7 @@ __global__ void skipln_vec(
     if (threadIdx.x == 0)
     {
         mu = sumKV.key;
-        rsigma = rsqrt(sumKV.value - mu * mu);
+        rsigma = rsqrt(sumKV.value - mu * mu + std::numeric_limits<T>::epsilon());
     }
     __syncthreads();
     ///*

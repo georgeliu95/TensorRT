@@ -8161,7 +8161,6 @@ enum class BuilderFlag : int32_t
     //! Restrict to lean runtime operators to provide version forward compatibility
     //! for the plan.
     //!
-    //! Using this flag with ICudaEngine::serialize() and BuilderFlag::kREFIT would result in error.
     //! This flag is only supported by NVIDIA Volta and later GPUs.
     //! This flag is not supported in NVIDIA Drive(R) products.
     kVERSION_COMPATIBLE = 13,

@@ -227,7 +227,7 @@ CublasLtWrapper& getCublasLtWrapper()
     // Initialize a global cublasLtWrapper instance to be used to call cublasLt functions.
     static CublasLtWrapper sGCublasLtWrapper;
     return sGCublasLtWrapper;
-};
+}
 
 } // namespace pluginInternal
 } // namespace nvinfer1

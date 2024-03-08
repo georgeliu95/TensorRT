@@ -13,7 +13,7 @@
 ## Description
 
 Adds a residual tensor, applies layer normalization, i.e., transforms the mean and standard deviation to beta and gamma respectively.
-Optionally can adds a bias vector before layer-normalization.
+Optionally, adds a bias vector before layer-normalization.
 
 
 ### Structure
@@ -21,7 +21,7 @@ Optionally can adds a bias vector before layer-normalization.
 The `skipLayerNormPlugin` takes two inputs; `input` and `skip`.
 
 `input`
-input is a tensor with shape `[S, B, E]` where `B` is the batch size and `E` is the hidden size.
+input is a tensor with shape `[S, B, E, 1, 1]` where `B` is the batch size, `E` is the hidden size, and the last two dimensions are of size 1.
 
 `skip`
 skip is a tensor with shape `[S, B, E]` where `B` is the batch size and `E` is the hidden size.
@@ -62,11 +62,14 @@ documentation.
 
 ## Changelog
 
-October  2020  
-Add V2 plugin that supports variable sequence length.  
+February  2024
+Add epsilon to avoid divide by zero.
+
+October  2020
+Add V2 plugin that supports variable sequence length.
 Add v3 plugin that supports int8 interleaved variable sequence length.
 
-November 2019  
+November 2019
 This is the first release of this `README.md` file.
 
 ## Known issues

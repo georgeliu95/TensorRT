@@ -58,6 +58,15 @@ __global__ void scatterElements_kernel(const TScalar* updatesData, const TensorI
     }
 }
 
+bool hasBfloat16AtomicAdd()
+{
+  int deviceId;
+  cudaGetDevice(&deviceId);
+  cudaDeviceProp deviceProp;
+  cudaGetDeviceProperties(&deviceProp, deviceId);
+  return deviceProp.major >= 8;
+}
+  
 inline uint32_t getElementSize(nvinfer1::DataType t) noexcept
 {
     switch (t)
@@ -130,12 +139,16 @@ void runScatterElementsKernel(void* outDataPtr, void const* dataDataPtr, void co
     case nvinfer1::DataType::kHALF: DISPATCH_RUN_KERNEL(__half); break;
     case nvinfer1::DataType::kINT32: DISPATCH_RUN_KERNEL(int32_t); break;
     case nvinfer1::DataType::kINT64: DISPATCH_RUN_KERNEL(int64_t); break;
-    case nvinfer1::DataType::kBF16:
+    case nvinfer1::DataType::kBF16:  DISPATCH_RUN_KERNEL(__nv_bfloat16); break;
     case nvinfer1::DataType::kBOOL:
     case nvinfer1::DataType::kUINT8:
     case nvinfer1::DataType::kINT8:
     case nvinfer1::DataType::kINT4:
-    case nvinfer1::DataType::kFP8: PLUGIN_FAIL("Unsupported data type"); break;
+    case nvinfer1::DataType::kFP8:
+      std::ostringstream stream;
+      stream << "Unsupported data type:" << (int)outDesc.type << std::endl;
+      PLUGIN_FAIL(stream.str().c_str());
+      break;
     }
 }
 

@@ -367,8 +367,274 @@ constexpr const char* serialize = R"trtdoc(
 
 )trtdoc";
 
-
 } // namespace IPluginV2DynamicExtDoc
+
+namespace IPluginV3Doc
+{
+constexpr const char* ipluginv3_descr = R"trtdoc(
+    Plugin class for the V3 generation of user-implemented layers.
+
+    IPluginV3 acts as a wrapper around the plugin capability interfaces that define the actual behavior of the plugin.
+
+    This class is made available for the purpose of implementing `IPluginV3` plugins with Python.
+
+    .. note::
+        Every attribute must be explicitly initialized on Python-based plugins.
+        These attributes will be read-only when accessed through a C++-based plugin.
+
+    :ivar num_outputs: :class:`int` The number of outputs from the plugin. This is used by the implementations of :class:`INetworkDefinition` and :class:`Builder`. In particular, it is called prior to any call to :func:`initialize`.
+    :ivar tensorrt_version: :class:`int` [READ ONLY] The API version with which this plugin was built.
+    :ivar plugin_type: :class:`str` The plugin type. Should match the plugin name returned by the corresponding plugin creator.
+    :ivar plugin_version: :class:`str` The plugin version. Should match the plugin version returned by the corresponding plugin creator.
+    :ivar plugin_namespace: :class:`str` The namespace that this plugin object belongs to. Ideally, all plugin objects from the same plugin library should have the same namespace.
+    :ivar serialization_size: :class:`int` [READ ONLY] The size of the serialization buffer required.
+)trtdoc";
+
+constexpr const char* iplugincapability_descr = R"trtdoc(
+    Base class for plugin capability interfaces
+    
+    IPluginCapability represents a split in TensorRT V3 plugins to sub-objects that expose different types of capabilites a plugin may have,
+    as opposed to a single interface which defines all capabilities and behaviors of a plugin.
+)trtdoc";
+
+constexpr const char* ipluginv3onecore_descr = R"trtdoc(
+    A plugin capability interface that enables the core capability (PluginCapabilityType.CORE).
+
+    .. note::
+        Every attribute must be explicitly initialized on Python-based plugins.
+        These attributes will be read-only when accessed through a C++-based plugin.
+
+    :ivar plugin_type: :class:`str` The plugin type. Should match the plugin name returned by the corresponding plugin creator.
+    :ivar plugin_version: :class:`str` The plugin version. Should match the plugin version returned by the corresponding plugin creator.
+    :ivar plugin_namespace: :class:`str` The namespace that this plugin object belongs to. Ideally, all plugin objects from the same plugin library should have the same namespace.
+)trtdoc";
+
+constexpr const char* ipluginv3onebuild_descr = R"trtdoc(
+    A plugin capability interface that enables the build capability (PluginCapabilityType.BUILD).
+    
+    Exposes methods that allow the expression of the build time properties and behavior of a plugin.
+
+    .. note::
+        Every attribute must be explicitly initialized on Python-based plugins.
+        These attributes will be read-only when accessed through a C++-based plugin.
+
+    :ivar num_outputs: :class:`int` The number of outputs from the plugin. This is used by the implementations of :class:`INetworkDefinition` and :class:`Builder`.
+)trtdoc";
+
+constexpr const char* ipluginv3oneruntime_descr = R"trtdoc(
+    A plugin capability interface that enables the runtime capability (PluginCapabilityType.RUNTIME).
+    
+    Exposes methods that allow the expression of the runtime properties and behavior of a plugin.
+)trtdoc";
+
+constexpr const char* get_output_shapes = R"trtdoc(
+
+    Get expressions for computing shapes of an output tensor from shapes of the input tensors.
+
+    This function is called by the implementations of `IBuilder` during analysis of the network.
+
+    .. warning::
+        This `get_output_shapes()` method is not available to be called from Python on C++-based plugins 
+
+    :arg inputs:	Expressions for shapes of the input tensors
+    :arg shape_inputs:	Expressions for shapes of the shape inputs
+    :arg expr_builder:	Object for generating new expressions
+
+    :returns: Expressions for the output shapes.
+)trtdoc";
+
+constexpr const char* get_output_data_types = R"trtdoc(
+
+    Return `DataType`s of the plugin outputs.
+
+    Provide `DataType.FLOAT`s if the layer has no inputs. The data type for any size tensor outputs must be
+    `DataType.INT32`. The returned data types must each have a format that is supported by the plugin.
+
+    :arg input_types: Data types of the inputs.
+
+    :returns: `DataType` of the plugin output at the requested `index`.
+)trtdoc";
+
+constexpr const char* configure_plugin = R"trtdoc(
+    Configure the plugin.
+
+    This function can be called multiple times in the build phase during creation of an engine by IBuilder. 
+
+    Build phase: `configure_plugin()` is called when a plugin is being prepared for profiling but not for any specific input size. This provides an opportunity for the plugin to make algorithmic choices on the basis of input and output formats, along with the bound of possible dimensions. The min, opt and max value of the
+    `DynamicPluginTensorDesc` correspond to the `MIN`, `OPT` and `MAX` value of the current profile that the plugin is
+    being profiled for, with the desc.dims field corresponding to the dimensions of plugin specified at network
+    creation. Wildcard dimensions may exist during this phase in the desc.dims field.
+
+    .. warning::
+        In contrast to the C++ API for `configurePlugin()`, this method must not return an error code. The expected behavior is to throw an appropriate exception
+        if an error occurs. 
+
+    .. warning::
+        This `configure_plugin()` method is not available to be called from Python on C++-based plugins 
+
+    :arg in: The input tensors attributes that are used for configuration.
+    :arg out: The output tensors attributes that are used for configuration.
+)trtdoc";
+
+constexpr const char* on_shape_change = R"trtdoc(
+    Called when a plugin is being prepared for execution for specific dimensions. This could happen multiple times in the execution phase, both during creation of an engine by IBuilder and execution of an 
+    engine by IExecutionContext. 
+
+   * IBuilder will call this function once per profile, with `in` resolved to the values specified by the
+    kOPT field of the current profile.
+   * IExecutionContext will call this during the next subsequent instance of enqueue_v2() or execute_v3() if:
+     - The optimization profile is changed.
+     - An input binding is changed.
+
+    .. warning::
+        In contrast to the C++ API for `onShapeChange()`, this method must not return an error code. The expected behavior is to throw an appropriate exception
+        if an error occurs. 
+
+    .. warning::
+        This `on_shape_change()` method is not available to be called from Python on C++-based plugins 
+
+    :arg in: The input tensors attributes that are used for configuration.
+    :arg out: The output tensors attributes that are used for configuration.
+)trtdoc";
+
+constexpr const char* supports_format_combination = R"trtdoc(
+    Return true if plugin supports the format and datatype for the input/output indexed by pos.
+
+    For this method, inputs are indexed from `[0, num_inputs-1]` and outputs are indexed from `[num_inputs, (num_inputs + num_outputs - 1)]`. `pos` is an index into `in_ou`t, where `0 <= pos < (num_inputs + num_outputs - 1)`.
+
+    TensorRT invokes this method to query if the input/output tensor indexed by `pos` supports the format and datatype specified by `in_out[pos].format` and `in_out[pos].type`. The override shall return true if that format and datatype at `in_out[pos]` are supported by the plugin. It is undefined behavior to examine the format or datatype or any tensor that is indexed by a number greater than `pos`.
+
+    .. warning::
+        This `supports_format_combination()` method is not available to be called from Python on C++-based plugins
+
+    :arg pos: The input or output tensor index being queried.
+    :arg in_out: The combined input and output tensor descriptions.
+    :arg num_inputs: The number of inputs.
+
+    :returns: boolean indicating whether the format combination is supported or not.
+
+)trtdoc";
+
+constexpr const char* get_workspace_size = R"trtdoc(
+    Return the workspace size (in bytes) required by the plugin.
+
+    This function is called after the plugin is configured, and possibly during execution. The result should be a sufficient workspace size to deal with inputs and outputs of the given size or any smaller problem.
+
+    .. note::
+        When implementing a Python-based plugin, implementing this method is optional. The default behavior is equivalent to `return 0`. 
+
+    .. warning::
+        This `get_workspace_size()` method is not available to be called from Python on C++-based plugins 
+
+    :arg input_desc: How to interpret the memory for the input tensors.
+    :arg output_desc: How to interpret the memory for the output tensors.
+
+    :returns: The workspace size (in bytes).
+)trtdoc";
+
+constexpr const char* destroy = R"trtdoc(
+    Perform any cleanup or resource release(s) needed before plugin object is destroyed. This will be called when the :class:`INetworkDefinition` , :class:`Builder` or :class:`ICudaEngine` is destroyed.
+
+    .. note::
+        There is no direct equivalent to this method in the C++ API.
+
+    .. note::
+        Implementing this method is optional. The default behavior is a `pass`. 
+
+)trtdoc";
+
+constexpr const char* enqueue = R"trtdoc(
+    Execute the layer.
+
+    `inputs` and `outputs` contains pointers to the corresponding input and output device buffers as their `intptr_t` casts. `stream` also represents an `intptr_t` cast of the CUDA stream in which enqueue should be executed.
+    
+    .. warning::
+        Since input, output, and workspace buffers are created and owned by TRT, care must be taken when writing to them from the Python side.
+
+    .. warning::
+        In contrast to the C++ API for `enqueue()`, this method must not return an error code. The expected behavior is to throw an appropriate exception.
+        if an error occurs. 
+
+    .. warning::
+        This `enqueue()` method is not available to be called from Python on C++-based plugins.
+
+    :arg input_desc:	how to interpret the memory for the input tensors.
+    :arg output_desc:	how to interpret the memory for the output tensors.
+    :arg inputs:	The memory for the input tensors.
+    :arg outputs:   The memory for the output tensors.
+    :arg workspace: Workspace for execution.
+    :arg stream:	The stream in which to execute the kernels.
+
+)trtdoc";
+
+constexpr const char* get_capability_interface = R"trtdoc(
+    Return a plugin object implementing the specified PluginCapabilityType.
+
+    .. note::
+        IPluginV3 objects added for the build phase (through add_plugin_v3()) must return valid objects for PluginCapabilityType.CORE, PluginCapabilityType.BUILD and PluginCapabilityType.RUNTIME.
+
+    .. note::
+        IPluginV3 objects added for the runtime phase must return valid objects for PluginCapabilityType.CORE and PluginCapabilityType.RUNTIME.
+)trtdoc";
+
+constexpr const char* clone = R"trtdoc(
+    Clone the plugin object. This copies over internal plugin parameters as well and returns a new plugin object with these parameters.
+
+    If the source plugin is pre-configured with `configure_plugin()`, the returned object should also be pre-configured. 
+    Cloned plugin objects can share the same per-engine immutable resource (e.g. weights) with the source object to avoid duplication.
+)trtdoc";
+
+constexpr const char* get_fields_to_serialize = R"trtdoc(
+    Return the plugin fields which should be serialized.
+
+    .. note::
+        The set of plugin fields returned does not necessarily need to match that advertised through get_field_names() of the corresponding plugin creator.
+
+    .. warning::
+        This `get_fields_to_serialize()` method is not available to be called from Python on C++-based plugins.
+
+)trtdoc";
+
+constexpr const char* set_tactic = R"trtdoc(
+    Set the tactic to be used in the subsequent call to enqueue().
+
+    If no custom tactics were advertised, this will have a value of 0, which is designated as the default tactic.
+
+    .. warning::
+        In contrast to the C++ API for `setTactic()`, this method must not return an error code. The expected behavior is to throw an appropriate exception
+        if an error occurs. 
+
+    .. warning::
+        This `set_tactic()` method is not available to be called from Python on C++-based plugins.
+
+)trtdoc";
+
+constexpr const char* get_valid_tactics = R"trtdoc(
+    Return any custom tactics that the plugin intends to use.
+    
+    .. note::
+        The provided tactic values must be unique and positive
+
+    .. warning::
+        This `get_valid_tactics()` method is not available to be called from Python on C++-based plugins.
+
+)trtdoc";
+
+constexpr const char* attach_to_context = R"trtdoc(
+    Clone the plugin, attach the cloned plugin object to a execution context and grant the cloned plugin access to some context resources.
+
+    This function is called automatically for each plugin when a new execution context is created.
+
+    The plugin may use resources provided by the resource_context until the plugin is deleted by TensorRT.
+    
+    :arg resource_context: A resource context that exposes methods to get access to execution context specific resources. A different resource context is guaranteed for each different execution context to which the plugin is attached.
+    
+    .. note::
+        This method should clone the entire IPluginV3 object, not just the runtime interface
+
+)trtdoc";
+
+} // namespace IPluginV3Doc
 
 namespace PluginFieldTypeDoc
 {
@@ -376,6 +642,28 @@ constexpr const char* descr = R"trtdoc(
     The possible field types for custom layer.
 )trtdoc";
 } // namespace PluginFieldTypeDoc
+
+namespace IPluginResourceDoc
+{
+constexpr const char* descr = R"trtdoc(
+    Interface for plugins to define custom resources that could be shared through the plugin registry
+)trtdoc";
+
+constexpr const char* release = R"trtdoc(
+    This will only be called for IPluginResource objects that were produced from IPluginResource::clone().
+
+    The IPluginResource object on which release() is called must still be in a clone-able state
+    after release() returns.
+
+)trtdoc";
+
+constexpr const char* clone = R"trtdoc(
+    Resource initialization (if any) may be skipped for non-cloned objects since only clones will be
+    registered by TensorRT.
+    
+)trtdoc";
+
+} // namespace IPluginResourceDoc
 
 namespace PluginTensorDescDoc
 {
@@ -439,6 +727,29 @@ constexpr const char* descr = R"trtdoc(
     For example, given two IDimensionExprs x and y and an IExprBuilder eb, eb.operation(DimensionOperation.SUM, x, y) creates a representation of x + y.
 )trtdoc";
 } // namespace DimensionOperationDoc
+
+namespace PluginCapabilityTypeDoc
+{
+constexpr const char* descr = R"trtdoc(
+    Enumerates the different capability types a IPluginV3 object may have.
+)trtdoc";
+} // namespace PluginCapabilityTypeDoc
+
+namespace TensorRTPhaseDoc
+{
+constexpr const char* descr = R"trtdoc(
+    Indicates a phase of operation of TensorRT
+)trtdoc";
+} // namespace TensorRTPhaseDoc
+
+namespace IPluginResourceContextDoc
+{
+constexpr const char* descr = R"trtdoc(
+    Interface for plugins to access per context resources provided by TensorRT
+    
+    There is no public way to construct an IPluginResourceContext. It appears as an argument to trt.IPluginV3OneRuntime.attach_to_context().
+)trtdoc";
+} // namespace IPluginResourceContextDoc
 
 namespace PluginFieldDoc
 {
@@ -520,6 +831,28 @@ constexpr const char* deserialize_plugin_python = R"trtdoc(
     :returns: A new :class:`IPluginV2`
 )trtdoc";
 } // namespace IPluginCreatorDoc
+
+namespace IPluginCreatorV3OneDoc
+{
+constexpr const char* descr = R"trtdoc(
+    Plugin creator class for user implemented layers
+
+    :ivar tensorrt_version: :class:`int`  Number of :class:`PluginField` entries.
+    :ivar name: :class:`str` Plugin name.
+    :ivar plugin_version: :class:`str` Plugin version.
+    :ivar field_names: :class:`list` List of fields that needs to be passed to :func:`create_plugin` .
+    :ivar plugin_namespace: :class:`str` The namespace of the plugin creator based on the plugin library it belongs to. This can be set while registering the plugin creator.
+)trtdoc";
+
+constexpr const char* create_plugin = R"trtdoc(
+    Creates a new plugin.
+
+    :arg name: The name of the plugin.
+    :arg field_collection: The :class:`PluginFieldCollection` for this plugin.
+
+    :returns: :class:`IPluginV2` or :class:`None` on failure.
+)trtdoc";
+} // namespace IPluginCreatorV3OneDoc
 
 namespace IPluginRegistryDoc
 {
@@ -619,6 +952,20 @@ constexpr const char* deregister_library = R"trtdoc(
     Deregister plugins associated with a library. Any resources acquired when the library was loaded will be released.
 
     :arg: handle: the plugin library handle to deregister.
+)trtdoc";
+
+constexpr const char* acquire_plugin_resource = R"trtdoc(
+    Get a handle to a plugin resource registered against the provided key.
+
+    :arg: key: Key for identifying the resource. 
+    :arg: resource: A plugin resource object. The object will only need to be valid until this method returns, as only a clone of this object will be registered by TRT. Cannot be null.
+)trtdoc";
+
+constexpr const char* release_plugin_resource = R"trtdoc(
+    Decrement reference count for the resource with this key. If reference count goes to zero after decrement, release() will be invoked on the resource, 
+    and the key will be deregistered.
+
+    :arg: key: Key that was used to register the resource.
 )trtdoc";
 } // namespace IPluginRegistryDoc
 

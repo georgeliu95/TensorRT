@@ -455,24 +455,26 @@ template int computeMaskedScaledSoftmax<half>(cudaStream_t stream, const int ld,
 
 size_t MHARunner::getSerializationSize() const noexcept
 {
-    return sizeof(mS) + sizeof(mB);
+    return sizeof(mS) + sizeof(mB) + sizeof(mHeadSize);
 }
 
 void MHARunner::serialize(void* buffer) const noexcept
 {
     serialize_value(&buffer, mS);
     serialize_value(&buffer, mB);
+    serialize_value(&buffer, mHeadSize);
 }
 
 void MHARunner::deserialize(const void* data, size_t length)
 {
     deserialize_value(&data, &length, &mS);
     deserialize_value(&data, &length, &mB);
-    setup(mS, mB);
+    deserialize_value(&data, &length, &mHeadSize);
+    setup(mS, mB, mHeadSize);
 }
 
-UnfusedMHARunner::UnfusedMHARunner(const nvinfer1::DataType type, const int numHeads, const int headSize, const int sm)
-    : MHARunner(type, numHeads, headSize)
+UnfusedMHARunner::UnfusedMHARunner(const nvinfer1::DataType type, const int numHeads, const int sm)
+    : MHARunner(type, numHeads)
     , mIsBestAlgoFound(false)
     , mAlgoBatchedEx1(CUBLAS_GEMM_DEFAULT_TENSOR_OP)
     , mAlgoBatchedEx2(CUBLAS_GEMM_DEFAULT_TENSOR_OP)
@@ -504,9 +506,9 @@ void UnfusedMHARunner::deserialize(const void* data, size_t length)
     MHARunner::deserialize(data, length);
 }
 
-void UnfusedMHARunner::setup(const int S, const int B)
+void UnfusedMHARunner::setup(int32_t S, int32_t B, int32_t headSize)
 {
-    MHARunner::setup(S, B);
+    MHARunner::setup(S, B, headSize);
     if (mType == DataType::kHALF && !mIsBestAlgoFound)
     {
         std::tie(mAlgoBatchedEx1, mAlgoBatchedEx2) = tuneBatchedGemm(B, S, mNumHeads, mHeadSize, mSm);
@@ -598,7 +600,7 @@ void UnfusedMHARunner::run(const PluginTensorDesc& inputDesc, const PluginTensor
     }
 }
 
-bool UnfusedMHARunner::isValid(int s) const
+bool UnfusedMHARunner::isValid(int32_t headSize, int32_t s) const
 {
     return mType != DataType::kINT8;
 }
@@ -649,7 +651,7 @@ public:
         return interface->mB * xmmas_m * threads_per_cta * sizeof(uint32_t);
     }
 
-    void setup(const int S, const int B)
+    void setup(int32_t S, int32_t B, int32_t headSize)
     {
         // TODO these implementation details might be better centralized into the XMMA code, since they are needed in
         // several places (also outside of this plugin)
@@ -710,9 +712,9 @@ public:
         PLUGIN_CHECK(cudaPeekAtLastError());
     }
 
-    bool isValid(int s) const
+    bool isValid(int32_t headSize, int32_t s) const
     {
-        return xmmaKernel->isValid(s);
+        return xmmaKernel->isValid(headSize, s);
     }
 
 private:
@@ -725,17 +727,17 @@ private:
     size_t threads_per_cta;
 };
 
-FusedMHARunnerFP16::FusedMHARunnerFP16(const int numHeads, const int headSize, const int sm)
-    : MHARunner(DataType::kHALF, numHeads, headSize)
+FusedMHARunnerFP16::FusedMHARunnerFP16(const int numHeads, const int sm)
+    : MHARunner(DataType::kHALF, numHeads)
     , mSm(sm)
     , pimpl(new mhaImpl(this))
 {
 }
 
-void FusedMHARunnerFP16::setup(const int S, const int B)
+void FusedMHARunnerFP16::setup(int32_t S, int32_t B, int32_t headSize)
 {
-    MHARunner::setup(S, B);
-    pimpl->setup(S, B);
+    MHARunner::setup(S, B, headSize);
+    pimpl->setup(S, B, headSize);
 }
 
 size_t FusedMHARunnerFP16::getWorkspaceSize() const
@@ -746,7 +748,7 @@ size_t FusedMHARunnerFP16::getWorkspaceSize() const
 void FusedMHARunnerFP16::deserialize(const void* data, size_t length)
 {
     MHARunner::deserialize(data, length);
-    setup(mS, mB);
+    setup(mS, mB, mHeadSize);
 }
 
 void FusedMHARunnerFP16::run(const PluginTensorDesc& inputDesc, const PluginTensorDesc& outputDesc, const void* qkvPtr,
@@ -761,9 +763,9 @@ void FusedMHARunnerFP16::run(const nvinfer1::PluginTensorDesc* inputDesc, const 
     assert(false && "not implemented");
 }
 
-bool FusedMHARunnerFP16::isValid(int s) const
+bool FusedMHARunnerFP16::isValid(int32_t headSize, int32_t s) const
 {
-    return pimpl->isValid(s);
+    return pimpl->isValid(headSize, s);
 }
 
 // Int8 starts here: TODO refactor the duplicate stuff
@@ -793,7 +795,7 @@ public:
         return interface->mB * xmmas_m * threads_per_cta * sizeof(uint32_t);
     }
 
-    void setup(const int S, const int B)
+    void setup(int32_t S, int32_t B, int32_t headSize)
     {
         size_t warps_m{1U};
         size_t warps_n{1U};
@@ -857,9 +859,9 @@ public:
         PLUGIN_CHECK(cudaPeekAtLastError());
     }
 
-    bool isValid(int s) const
+    bool isValid(int32_t headSize, int32_t s) const
     {
-        return xmmaKernel->isValid(s);
+        return xmmaKernel->isValid(headSize, s);
     }
 
 private:
@@ -873,18 +875,18 @@ private:
     size_t threads_per_cta;
 };
 
-FusedMHARunnerInt8::FusedMHARunnerInt8(const int numHeads, const int headSize, const int sm, const float dqProbs)
-    : MHARunner(DataType::kINT8, numHeads, headSize)
+FusedMHARunnerInt8::FusedMHARunnerInt8(const int numHeads, const int sm, const float dqProbs)
+    : MHARunner(DataType::kINT8, numHeads)
     , mSm(sm)
     , pimpl(new mhaImpl(this))
     , mDqProbs(dqProbs)
 {
 }
 
-void FusedMHARunnerInt8::setup(const int S, const int B)
+void FusedMHARunnerInt8::setup(int32_t S, int32_t B, int32_t headSize)
 {
-    MHARunner::setup(S, B);
-    pimpl->setup(S, B);
+    MHARunner::setup(S, B, headSize);
+    pimpl->setup(S, B, headSize);
 }
 
 size_t FusedMHARunnerInt8::getWorkspaceSize() const
@@ -895,7 +897,7 @@ size_t FusedMHARunnerInt8::getWorkspaceSize() const
 void FusedMHARunnerInt8::deserialize(const void* data, size_t length)
 {
     MHARunner::deserialize(data, length);
-    setup(mS, mB);
+    setup(mS, mB, mHeadSize);
 }
 
 void FusedMHARunnerInt8::run(const PluginTensorDesc& inputDesc, const PluginTensorDesc& outputDesc, const void* qkvPtr,
@@ -910,9 +912,9 @@ void FusedMHARunnerInt8::run(const nvinfer1::PluginTensorDesc* inputDesc, const 
     assert(false && "not implemented");
 }
 
-bool FusedMHARunnerInt8::isValid(int s) const
+bool FusedMHARunnerInt8::isValid(int32_t headSize, int32_t s) const
 {
-    return pimpl->isValid(s);
+    return pimpl->isValid(headSize, s);
 }
 
 class FusedMHARunnerFP16v2::mhaImpl
@@ -939,7 +941,7 @@ public:
         return interface->mB * xmmas_m * threads_per_cta * sizeof(uint32_t);
     }
 
-    void setup(const int S, const int B)
+    void setup(int32_t S, int32_t B, int32_t headSize)
     {
         // TODO these implementation details might be better centralized into the XMMA code, since they are needed in
         // several places (also outside of this plugin)
@@ -1022,9 +1024,9 @@ public:
         PLUGIN_CHECK(cudaPeekAtLastError());
     }
 
-    bool isValid(int s) const
+    bool isValid(int32_t headSize, int32_t s) const
     {
-        return xmmaKernel->isValid(s);
+        return xmmaKernel->isValid(headSize, s);
     }
 
 private:
@@ -1037,17 +1039,17 @@ private:
     size_t threads_per_cta;
 };
 
-FusedMHARunnerFP16v2::FusedMHARunnerFP16v2(const int numHeads, const int headSize, const int sm)
-    : MHARunner(DataType::kHALF, numHeads, headSize)
+FusedMHARunnerFP16v2::FusedMHARunnerFP16v2(const int numHeads, const int sm)
+    : MHARunner(DataType::kHALF, numHeads)
     , mSm(sm)
     , pimpl(new mhaImpl(this))
 {
 }
 
-void FusedMHARunnerFP16v2::setup(const int S, const int B)
+void FusedMHARunnerFP16v2::setup(int32_t S, int32_t B, int32_t headSize)
 {
-    MHARunner::setup(S, B);
-    pimpl->setup(S, B);
+    MHARunner::setup(S, B, headSize);
+    pimpl->setup(S, B, headSize);
 }
 
 size_t FusedMHARunnerFP16v2::getWorkspaceSize() const
@@ -1058,7 +1060,7 @@ size_t FusedMHARunnerFP16v2::getWorkspaceSize() const
 void FusedMHARunnerFP16v2::deserialize(const void* data, size_t length)
 {
     MHARunner::deserialize(data, length);
-    setup(mS, mB);
+    setup(mS, mB, mHeadSize);
 }
 
 void FusedMHARunnerFP16v2::run(const PluginTensorDesc& inputDesc, const PluginTensorDesc& outputDesc,
@@ -1074,9 +1076,9 @@ void FusedMHARunnerFP16v2::run(const nvinfer1::PluginTensorDesc* inputDesc,
     pimpl->run(inputDesc[0], outputDesc[0], inputs[0], inputs[1], inputs[2], outputs[0], workspace, stream, cublas);
 }
 
-bool FusedMHARunnerFP16v2::isValid(int s) const
+bool FusedMHARunnerFP16v2::isValid(int32_t headSize, int32_t s) const
 {
-    return pimpl->isValid(s);
+    return pimpl->isValid(headSize, s);
 }
 
 // Int8 starts here: TODO refactor the duplicate stuff
@@ -1109,7 +1111,7 @@ public:
         return interface->mB * xmmas_m * threads_per_cta * sizeof(uint32_t);
     }
 
-    void setup(const int S, const int B)
+    void setup(int32_t S, int32_t B, int32_t headSize)
     {
         size_t warps_m{1U};
         size_t warps_n{1U};
@@ -1202,9 +1204,9 @@ public:
         PLUGIN_CHECK(cudaPeekAtLastError());
     }
 
-    bool isValid(int s) const
+    bool isValid(int32_t headSize, int32_t s) const
     {
-        return xmmaKernel->isValid(s);
+        return xmmaKernel->isValid(headSize, s);
     }
 
 private:
@@ -1218,8 +1220,8 @@ private:
     size_t threads_per_cta;
 };
 
-FusedMHARunnerInt8v2::FusedMHARunnerInt8v2(const int numHeads, const int headSize, const int sm, const float dqProbs, bool const useInt8ScaleMax)
-    : MHARunner(DataType::kINT8, numHeads, headSize)
+FusedMHARunnerInt8v2::FusedMHARunnerInt8v2(const int numHeads, const int sm, const float dqProbs, bool const useInt8ScaleMax)
+    : MHARunner(DataType::kINT8, numHeads)
     , mSm(sm)
     , pimpl(new mhaImpl(this))
     , mDqProbs(dqProbs)
@@ -1227,10 +1229,10 @@ FusedMHARunnerInt8v2::FusedMHARunnerInt8v2(const int numHeads, const int headSiz
 {
 }
 
-void FusedMHARunnerInt8v2::setup(const int S, const int B)
+void FusedMHARunnerInt8v2::setup(int32_t S, int32_t B, int32_t headSize)
 {
-    MHARunner::setup(S, B);
-    pimpl->setup(S, B);
+    MHARunner::setup(S, B, headSize);
+    pimpl->setup(S, B, headSize);
 }
 
 size_t FusedMHARunnerInt8v2::getWorkspaceSize() const
@@ -1241,7 +1243,7 @@ size_t FusedMHARunnerInt8v2::getWorkspaceSize() const
 void FusedMHARunnerInt8v2::deserialize(const void* data, size_t length)
 {
     MHARunner::deserialize(data, length);
-    setup(mS, mB);
+    setup(mS, mB, mHeadSize);
 }
 
 void FusedMHARunnerInt8v2::run(const PluginTensorDesc& inputDesc, const PluginTensorDesc& outputDesc,
@@ -1257,9 +1259,9 @@ void FusedMHARunnerInt8v2::run(const nvinfer1::PluginTensorDesc* inputDesc,
     pimpl->run(inputDesc[0], outputDesc[0], inputs[0], inputs[1], inputs[2], outputs[0], workspace, stream, cublas);
 }
 
-bool FusedMHARunnerInt8v2::isValid(int s) const
+bool FusedMHARunnerInt8v2::isValid(int32_t headSize, int32_t s) const
 {
-    return pimpl->isValid(s);
+    return pimpl->isValid(headSize, s);
 }
 
 } // namespace bert

@@ -31,6 +31,8 @@ namespace nvinfer1
 namespace plugin
 {
 
+bool hasBfloat16AtomicAdd();
+
 void runScatterElementsKernel(void* outDataPtr, void const* dataDataPtr, void const* updatesDataPtr,
     void const* indicesDataPtr, PluginTensorDesc const& outDesc, PluginTensorDesc const& dataDesc,
     PluginTensorDesc const& updatesDesc, PluginTensorDesc const& indicesDesc, int64_t axis, ReductionType reduction,

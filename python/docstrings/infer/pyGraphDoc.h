@@ -624,6 +624,15 @@ constexpr const char* descr = R"trtdoc(
 )trtdoc";
 } // namespace IPluginV2LayerDoc
 
+namespace IPluginV3LayerDoc
+{
+constexpr const char* descr = R"trtdoc(
+        A plugin layer in an :class:`INetworkDefinition` .
+
+        :ivar plugin: :class:`IPluginV3` The plugin for the layer.
+)trtdoc";
+} // namespace IPluginV3LayerDoc
+
 namespace UnaryOperationDoc
 {
 constexpr const char* descr = R"trtdoc(The unary operations that may be performed by a Unary layer.)trtdoc";
@@ -2316,6 +2325,17 @@ constexpr const char* add_plugin_v2 = R"trtdoc(
     See :class:`IPluginV2` for more information.
 
     :arg inputs: The input tensors to the layer.
+    :arg plugin: The layer plugin.
+
+    :returns: The new plugin layer, or :class:`None` if it could not be created.
+)trtdoc";
+
+constexpr const char* add_plugin_v3 = R"trtdoc(
+    Add a plugin layer to the network using an :class:`IPluginV3` interface.
+    See :class:`IPluginV3` for more information.
+
+    :arg inputs: The input tensors to the layer.
+    :arg shape_inputs: The shape input tensors to the layer.
     :arg plugin: The layer plugin.
 
     :returns: The new plugin layer, or :class:`None` if it could not be created.

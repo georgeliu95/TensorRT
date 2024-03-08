@@ -87,7 +87,10 @@ target_include_directories(${TARGET_NAME}
     PRIVATE ${TARGET_DIR}
 )
 
-target_compile_options(${TARGET_NAME} PUBLIC "-fno-rtti")
+target_compile_options(${TARGET_NAME} PUBLIC
+             "$<$<COMPILE_LANGUAGE:CUDA>:SHELL:-Xcompiler -fno-rtti>"
+             "$<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>")
+
 
 set(SAMPLE_DEP_LIBS
     ${CUDART_LIB}

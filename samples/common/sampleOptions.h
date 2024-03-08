@@ -295,8 +295,8 @@ public:
     MemoryAllocationStrategy memoryAllocationStrategy{MemoryAllocationStrategy::kSTATIC};
     std::unordered_map<std::string, std::string> debugTensorFileNames;
 
-    static constexpr int64_t kUNSET_WEIGHT_STREAMING{-2};
-    int64_t weightStreamingBudget{kUNSET_WEIGHT_STREAMING};
+    static constexpr int64_t kDISABLE_WEIGHT_STREAMING{-1};
+    int64_t weightStreamingBudget{kDISABLE_WEIGHT_STREAMING};
 
     void parse(Arguments& arguments) override;
 

@@ -79,7 +79,7 @@ int64_t getUnitMultiplier(std::string const& option)
 
     // Return bytes by default
     return kUNIT_MULTIPLIERS.at('B').first;
-} 
+}
 
 template <typename T>
 T stringToValue(const std::string& option)
@@ -1039,9 +1039,20 @@ void BuildOptions::parse(Arguments& arguments)
     if (!getOptimizationProfiles(arguments, optProfiles, "--profile"))
     {
         ShapeProfile shapes;
-        bool minShapes = getShapesBuild(arguments, shapes, "--minShapes", nvinfer1::OptProfileSelector::kMIN);
-        bool optShapes = getShapesBuild(arguments, shapes, "--optShapes", nvinfer1::OptProfileSelector::kOPT);
-        bool maxShapes = getShapesBuild(arguments, shapes, "--maxShapes", nvinfer1::OptProfileSelector::kMAX);
+        bool minShapes{false}, optShapes{false}, maxShapes{false};
+        try
+        {
+            minShapes = getShapesBuild(arguments, shapes, "--minShapes", nvinfer1::OptProfileSelector::kMIN);
+            optShapes = getShapesBuild(arguments, shapes, "--optShapes", nvinfer1::OptProfileSelector::kOPT);
+            maxShapes = getShapesBuild(arguments, shapes, "--maxShapes", nvinfer1::OptProfileSelector::kMAX);
+        }
+        catch (std::invalid_argument const& arg)
+        {
+            throw std::invalid_argument(arg.what()
+                + std::string(" conversion failure: failed to parse minShapes/optShapes/maxShapes. Please double check "
+                              "your input string."));
+        }
+
         processShapes(shapes, minShapes, optShapes, maxShapes, false);
         optProfiles.emplace_back(shapes);
     }
@@ -1062,12 +1073,20 @@ void BuildOptions::parse(Arguments& arguments)
         throw std::invalid_argument("Multiple --minShapes/--optShapes/--maxShapes without --profile are not allowed. ");
     }
 
-    bool minShapesCalib
-        = getShapesBuild(arguments, shapesCalib, "--minShapesCalib", nvinfer1::OptProfileSelector::kMIN);
-    bool optShapesCalib
-        = getShapesBuild(arguments, shapesCalib, "--optShapesCalib", nvinfer1::OptProfileSelector::kOPT);
-    bool maxShapesCalib
-        = getShapesBuild(arguments, shapesCalib, "--maxShapesCalib", nvinfer1::OptProfileSelector::kMAX);
+    bool minShapesCalib{false}, optShapesCalib{false}, maxShapesCalib{false};
+    try
+    {
+        minShapesCalib = getShapesBuild(arguments, shapesCalib, "--minShapesCalib", nvinfer1::OptProfileSelector::kMIN);
+        optShapesCalib = getShapesBuild(arguments, shapesCalib, "--optShapesCalib", nvinfer1::OptProfileSelector::kOPT);
+        maxShapesCalib = getShapesBuild(arguments, shapesCalib, "--maxShapesCalib", nvinfer1::OptProfileSelector::kMAX);
+    }
+    catch (std::invalid_argument const& arg)
+    {
+        throw std::invalid_argument(arg.what()
+            + std::string(" conversion failure: failed to parse minShapesCalib/optShapesCalib/maxShapesCalib. Please "
+                          "double check your input string."));
+    }
+
     processShapes(shapesCalib, minShapesCalib, optShapesCalib, maxShapesCalib, true);
 
     std::string memPoolSizes;
@@ -1077,7 +1096,17 @@ void BuildOptions::parse(Arguments& arguments)
     {
         std::string memPoolName;
         double memPoolSize;
-        std::tie(memPoolName, memPoolSize) = splitNameAndValue<double>(memPoolSpec);
+        try
+        {
+            std::tie(memPoolName, memPoolSize) = splitNameAndValue<double>(memPoolSpec);
+        }
+        catch (std::invalid_argument const& arg)
+        {
+            throw std::invalid_argument(arg.what()
+                + std::string(
+                      " conversion failure: failed to parse --memPoolSize. Please double check your input string."));
+        }
+
         if (memPoolSize < 0)
         {
             throw std::invalid_argument(std::string("Negative memory pool size: ") + std::to_string(memPoolSize));
@@ -1549,11 +1578,12 @@ void InferenceOptions::parse(Arguments& arguments)
     if (!enableWs && wsBudgetFound)
     {
         throw std::invalid_argument(
-            std::string("The weight streaming budget can only be set with --enableWeightStreaming specified."));
+            "The weight streaming budget can only be set with --enableWeightStreaming specified.");
     }
-    if (weightStreamingBudget < kUNSET_WEIGHT_STREAMING)
+    if (weightStreamingBudget < kDISABLE_WEIGHT_STREAMING)
     {
-        throw std::invalid_argument(std::string("The weight streaming budget must be >= -1."));
+        throw std::invalid_argument(
+            "The weight streaming budget must be >= " + std::to_string(kDISABLE_WEIGHT_STREAMING));
     }
 
     getAndDelOption(arguments, "--saveDebugTensors", list);
@@ -1616,6 +1646,10 @@ void AllOptions::parse(Arguments& arguments)
     if (build.useRuntime != RuntimeMode::kFULL && inference.timeRefit)
     {
         throw std::invalid_argument("--timeRefit requires --useRuntime=full.");
+    }
+    if (build.refittable && build.weightless)
+    {
+        throw std::invalid_argument("--refit cannot used with --weightless.");
     }
 
     if (inference.optProfileIndex < static_cast<int32_t>(build.optProfiles.size()))
@@ -1691,6 +1725,12 @@ void AllOptions::parse(Arguments& arguments)
             {
                 throw std::invalid_argument("GPU fallback (--allowGPUFallback) not allowed for DLA standalone mode");
             }
+        }
+        if (build.refittable && build.weightless)
+        {
+            throw std::invalid_argument(
+                "Both --refit and --weightless flags are present. Please use --weightless only if "
+                "building a weightless engine. ");
         }
     }
 }
@@ -2129,8 +2169,18 @@ std::ostream& operator<<(std::ostream& os, const InferenceOptions& options)
                           os << "Explicit"                                << std::endl;
     }
     printShapes(os, "inference", options.shapes, options.optProfileIndex);
-    std::string wsBudget = options.weightStreamingBudget == InferenceOptions::kUNSET_WEIGHT_STREAMING ? "Automatic" : (std::to_string(options.weightStreamingBudget) + " bytes");
-
+    
+    ASSERT(options.weightStreamingBudget >= InferenceOptions::kDISABLE_WEIGHT_STREAMING);
+    std::string wsBudget{"Disabled"};
+    if (options.weightStreamingBudget == 0)
+    {
+        wsBudget = "Automatic";
+    } 
+    else 
+    {
+        wsBudget = std::to_string(options.weightStreamingBudget) + " bytes";
+    }
+    
     os << "Iterations: "                << options.iterations                                   << std::endl <<
           "Duration: "                  << options.duration   << "s (+ "
                                         << options.warmup     << "ms warm up)"                  << std::endl <<
@@ -2293,12 +2343,13 @@ void BuildOptions::help(std::ostream& os)
           R"(                                   Pool constraint: poolspec ::= poolfmt[","poolspec])"                                                "\n"
           "                                                      poolfmt ::= pool:sizeInMiB"                                                        "\n"
           R"(                                                    pool ::= "workspace"|"dlaSRAM"|"dlaLocalDRAM"|"dlaGlobalDRAM"|"tacticSharedMem")"  "\n"
-          "  --profilingVerbosity=mode          Specify profiling verbosity. mode ::= layer_names_only|detailed|none (default = layer_names_only)"  "\n"
+          "  --profilingVerbosity=mode          Specify profiling verbosity. mode ::= layer_names_only|detailed|none (default = layer_names_only)." "\n"
+          "                                     Please only assign once."                                                                           "\n"
           "  --avgTiming=M                      Set the number of times averaged in each iteration for kernel selection (default = "
                                                                                                                   << defaultAvgTiming << ")"        "\n"
           "  --refit                            Mark the engine as refittable. This will allow the inspection of refittable layers "                "\n"
           "                                     and weights within the engine."                                                                     "\n"
-          "  --weightless                       Strip weights from plan and label them as refittable with idential weights."                        "\n"
+          "  --weightless                       Strip weights from plan and label them as refittable with identical weights."                       "\n"
           "  --versionCompatible, --vc          Mark the engine as version compatible. This allows the engine to be used with newer versions"       "\n"
           "                                     of TensorRT on the same host OS, as well as TensorRT's dispatch and lean runtimes."                 "\n"
           "  --pluginInstanceNorm, --pi         Set `kNATIVE_INSTANCENORM` to false in the ONNX parser. This will cause the ONNX parser to use"     "\n"
@@ -2494,7 +2545,7 @@ void InferenceOptions::help(std::ostream& os)
           "                              These tensors must be specified as debug tensors during build time."                        << std::endl <<
           R"(                            Input values spec ::= Ival[","spec])"                                                       << std::endl <<
           R"(                                         Ival ::= name":"file)"                                                         << std::endl <<
-          "  --weightStreamingBudget     Manually set the weight streaming budget. Base-2 unit suffixes are supported: "             << std::endl << 
+          "  --weightStreamingBudget     Manually set the weight streaming budget. Base-2 unit suffixes are supported: "             << std::endl <<
           "                              " << getAvailableUnitSuffixes() << "."                                                      << std::endl <<
           "                              A value of 0 will choose the minimum possible budget."                                      << std::endl <<
           "                              A value of -1 will disable weight streaming at runtime."                                    << std::endl;

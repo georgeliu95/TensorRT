@@ -24,6 +24,10 @@ versions:
           data: float16
           indices: int64
           updates: float16
+      - combination5:
+          data: bfloat16
+          indices: int64
+          updates: bfloat16
     configs:
       config1:
         input_types:
@@ -75,6 +79,21 @@ versions:
           data: int64
           indices: int64
           updates: int64
+        attribute_options:
+          axis:
+            - -1
+            - 0
+            - 1
+          reduction:
+            - "add"
+            - "mul"
+            - "min"
+            - "max"     
+      config5:
+        input_types:
+          data: bfloat16
+          indices: int64
+          updates: bfloat16
         attribute_options:
           axis:
             - -1
