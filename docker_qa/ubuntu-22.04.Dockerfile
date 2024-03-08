@@ -20,13 +20,13 @@ ARG CUDA_VERSION=12.2.0
 FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV NV_CUDNN_VERSION 8.9.5.29
+ENV NV_CUDNN_VERSION 8.9.6.50
 ENV NV_CUDNN_PACKAGE_NAME "libcudnn8"
 
 ENV NV_CUDNN_PACKAGE "libcudnn8=$NV_CUDNN_VERSION-1+cuda12.2"
 ENV NV_CUDNN_PACKAGE_DEV "libcudnn8-dev=$NV_CUDNN_VERSION-1+cuda12.2"
 
-ENV TRT_VERSION 9.1.0.4
+ENV TRT_VERSION 9.2.0.5
 SHELL ["/bin/bash", "-c"]
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
