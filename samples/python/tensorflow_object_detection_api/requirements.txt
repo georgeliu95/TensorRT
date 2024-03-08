@@ -1,6 +1,6 @@
 onnx==1.14.0
 onnxruntime==1.15.1
-Pillow>=9.2.0,<=9.5.0
+Pillow>=10.0.0
 tf2onnx==1.15.0
 pycocotools; platform_system != "Windows"
 pycocotools-windows; platform_system == "Windows"

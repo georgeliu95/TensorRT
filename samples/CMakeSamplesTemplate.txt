@@ -91,7 +91,6 @@ target_compile_options(${TARGET_NAME} PUBLIC
              "$<$<COMPILE_LANGUAGE:CUDA>:SHELL:-Xcompiler -fno-rtti>"
              "$<$<COMPILE_LANGUAGE:CXX>:-fno-rtti>")
 
-
 set(SAMPLE_DEP_LIBS
     ${CUDART_LIB}
     ${nvinfer_LIB_PATH}

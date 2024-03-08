@@ -2122,18 +2122,19 @@ public:
     //! \brief Set the minimum / optimum / maximum values for an input shape tensor.
     //!
     //! This function must be called three times for every input tensor t that is a shape tensor (t.isShape() == true).
-    //! This implies that the datatype of t is DataType::kINT32, the rank is either 0 or 1, and the dimensions of t
-    //! are fixed at network definition time. This function must not be called for any input tensor that is not a
-    //! shape tensor.
+    //! This implies that the dimensions of t are fixed at network definition time and the volume does not exceed 64.
+    //! This function must not be called for any input tensor that is not a shape tensor.
     //!
     //! Each time this function is called for the same input tensor, the same nbValues must be supplied (either 1
     //! if the tensor rank is 0, or dims.d[0] if the rank is 1). Furthermore, if minVals, optVals, maxVals are the
     //! minimum, optimum, and maximum values, it must be true that minVals[i] <= optVals[i] <= maxVals[i] for
     //! i = 0, ..., nbValues - 1. Execution of the network must be valid for the optVals.
     //!
-    //! Shape tensors are tensors that contribute to shape calculations in some way, and can contain
-    //! any int32_t values appropriate for the network. Shape tensors of other data types (e.g. float) are not
-    //! supported. Examples:
+    //! Shape tensors are tensors that contribute to shape calculations in some way. While input shape tensors can be
+    //! type kBOOL, kINT32, or kINT64, the values used to set the minimum, optimium, and maximum values must fit in int32_t.
+    //! Boolean values are represented as 0 for false and 1 for true.
+    //!
+    //! Examples:
     //!
     //! * A shape tensor used as the second input to IShuffleLayer can contain a -1 wildcard.
     //!   The corresponding minVal[i] should be -1.
@@ -2149,6 +2150,7 @@ public:
     //! \param inputName The input tensor name
     //! \param select Whether to set the minimum, optimum, or maximum input values.
     //! \param values An array of length nbValues containing the minimum, optimum, or maximum shape tensor elements.
+    //!               For multidimensional tensors, the array is in row-major order.
     //! \param nbValues The length of the value array, which must equal the number of shape tensor elements (>= 1)
     //!
     //! \return false if an inconsistency was detected (e.g. nbValues does not match a previous call for the same
@@ -3206,7 +3208,6 @@ public:
     //!
     //! \return A pointer to memory to use for the output tensor or nullptr.
     //!
-    //!
     //! To preallocate memory and have the engine fail if the preallocation is not big enough,
     //! use IExecutionContext::setTensorAddress to set a pointer to the preallocated memory,
     //! and have reallocateOutput return nullptr if that memory is not big enough.
@@ -3214,7 +3215,10 @@ public:
     //! \deprecated Deprecated in TensorRT 10.0. Superseded by reallocateOutputAsync with cudaStream_t argument
     //!
     TRT_DEPRECATED virtual void* reallocateOutput(
-        char const* tensorName, void* currentMemory, uint64_t size, uint64_t alignment) noexcept = 0;
+        char const* tensorName, void* currentMemory, uint64_t size, uint64_t alignment) noexcept
+    {
+        return nullptr;
+    }
 
     //!
     //! \brief Return a pointer to memory for an output tensor, or nullptr if memory cannot be allocated.
@@ -3229,10 +3233,14 @@ public:
     //!
     //! \return A pointer to memory to use for the output tensor or nullptr.
     //!
-    //!
     //! To preallocate memory and have the engine fail if the preallocation is not big enough,
     //! use IExecutionContext::setTensorAddress to set a pointer to the preallocated memory,
     //! and have reallocateOutput return nullptr if that memory is not big enough.
+    //!
+    //! The default definition exists for sake of backward compatibility with earlier versions of TensorRT.
+    //! Eventually this method will become a pure virtual method that requires an override, and method
+    //! reallocateOutput() will disappear. Code moving away from TensorRT 9.x should override method
+    //! reallocateOutputAsync() and NOT override method reallocateOutput().
     //!
     virtual void* reallocateOutputAsync(
         char const* tensorName, void* currentMemory, uint64_t size, uint64_t alignment, cudaStream_t /*stream*/)
