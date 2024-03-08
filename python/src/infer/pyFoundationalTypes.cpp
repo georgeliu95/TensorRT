@@ -232,8 +232,9 @@ void bindFoundationalTypes(py::module& m)
         // Allows for construction from python lists and tuples.
         .def(py::init(lambdas::dims_vector_constructor), "shape"_a)
         // static_cast is required here, or MAX_DIMS does not get pulled in until LOAD time.
-        .def_property_readonly(
-            "MAX_DIMS", [](Dims const& self) { return static_cast<int32_t const>(self.MAX_DIMS); }, DimsDoc::MAX_DIMS)
+        .def_property_readonly_static(
+            "MAX_DIMS", [](py::object /*self*/) { return static_cast<int32_t const>(Dims::MAX_DIMS); },
+            DimsDoc::MAX_DIMS)
         // Allow for string representations (displays like a python tuple).
         .def("__str__", lambdas::dims_to_str)
         .def("__repr__", lambdas::dims_to_str)

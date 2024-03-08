@@ -880,6 +880,9 @@ To implement a custom output allocator, ensure that you explicitly instantiate t
         def reallocate_output(self, tensor_name, memory, size, alignment):
             ... # Your implementation here
 
+        def reallocate_output_async(self, tensor_name, memory, size, alignment, stream):
+            ... # Your implementation here
+                
         def notify_shape(self, tensor_name, shape):
             ... # Your implementation here
 
@@ -894,6 +897,20 @@ constexpr char const* reallocate_output = R"trtdoc(
     :arg memory: The output tensor memory address.
     :arg size: The number of bytes required.
     :arg alignment: The required alignment of memory.
+
+    :returns: The address of the output tensor memory.
+)trtdoc";
+
+constexpr char const* reallocate_output_async = R"trtdoc(
+    A callback implemented by the application to handle acquisition of output tensor memory.
+
+    If an allocation request cannot be satisfied, ``None`` should be returned.
+
+    :arg tensor_name: The output tensor name.
+    :arg memory: The output tensor memory address.
+    :arg size: The number of bytes required.
+    :arg alignment: The required alignment of memory.
+    :arg stream: CUDA stream
 
     :returns: The address of the output tensor memory.
 )trtdoc";

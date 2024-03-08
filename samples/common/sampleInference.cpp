@@ -1736,6 +1736,7 @@ bool DebugTensorWriter::processDebugTensor(void const* addr, nvinfer1::TensorLoc
 
     std::ofstream f(fileName, std::ios::out | std::ios::binary);
     ASSERT(f && "Cannot open file for write");
+    sample::gLogInfo << "Writing to file " << fileName << " for debug tensor " << name << std::endl;
     f.write(hostDataOut.data(), size);
     f.close();
 

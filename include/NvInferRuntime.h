@@ -3196,6 +3196,8 @@ public:
 
     //!
     //! \brief Return a pointer to memory for an output tensor, or nullptr if memory cannot be allocated.
+    //!        If the requested memory size exceeds the currentMemory size, the currentMemory can be freed as well.
+    //!        If currentMemory is known to be big enough, one option is to return currentMemory.
     //!
     //! \param tensorName name of the output tensor.
     //! \param currentMemory points to the address set by IExectionContext::setTensorAddress.
@@ -3204,13 +3206,39 @@ public:
     //!
     //! \return A pointer to memory to use for the output tensor or nullptr.
     //!
-    //! If currentMemory is known to be big enough, one option is to return currentMemory.
     //!
     //! To preallocate memory and have the engine fail if the preallocation is not big enough,
     //! use IExecutionContext::setTensorAddress to set a pointer to the preallocated memory,
     //! and have reallocateOutput return nullptr if that memory is not big enough.
     //!
-    virtual void* reallocateOutput(char const* tensorName, void* currentMemory, uint64_t size, uint64_t alignment) noexcept = 0;
+    //! \deprecated Deprecated in TensorRT 10.0. Superseded by reallocateOutputAsync with cudaStream_t argument
+    //!
+    TRT_DEPRECATED virtual void* reallocateOutput(
+        char const* tensorName, void* currentMemory, uint64_t size, uint64_t alignment) noexcept = 0;
+
+    //!
+    //! \brief Return a pointer to memory for an output tensor, or nullptr if memory cannot be allocated.
+    //!        If the requested memory size exceeds the currentMemory size, the currentMemory can be freed as well.
+    //!        If currentMemory is known to be big enough, one option is to return currentMemory.
+    //!
+    //! \param tensorName name of the output tensor.
+    //! \param currentMemory points to the address set by IExectionContext::setTensorAddress.
+    //! \param size number of bytes required. Always positive, even for an empty tensor.
+    //! \param alignment required alignment of the allocation.
+    //! \param stream The stream in which to execute the kernels.
+    //!
+    //! \return A pointer to memory to use for the output tensor or nullptr.
+    //!
+    //!
+    //! To preallocate memory and have the engine fail if the preallocation is not big enough,
+    //! use IExecutionContext::setTensorAddress to set a pointer to the preallocated memory,
+    //! and have reallocateOutput return nullptr if that memory is not big enough.
+    //!
+    virtual void* reallocateOutputAsync(
+        char const* tensorName, void* currentMemory, uint64_t size, uint64_t alignment, cudaStream_t /*stream*/)
+    {
+        return reallocateOutput(tensorName, currentMemory, size, alignment);
+    }
 
     //!
     //! \brief Called by TensorRT when the shape of the output tensor is known.
@@ -3682,8 +3710,7 @@ public:
     //! Before calling enqueueV3(), each input must have a non-null address and
     //! each output must have a non-null address or an IOutputAllocator to set it later.
     //!
-    //! If the TensorLocation of the tensor is kHOST, the pointer must point to a host buffer of sufficient size. For
-    //! shape tensors, the only supported data type is int32_t.
+    //! If the TensorLocation of the tensor is kHOST, the pointer must point to a host buffer of sufficient size.
     //! If the TensorLocation of the tensor is kDEVICE, the pointer must point to a device buffer of sufficient size and
     //! alignment, or be nullptr if the tensor is an output tensor that will be allocated by IOutputAllocator.
     //!

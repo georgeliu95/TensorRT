@@ -234,6 +234,14 @@ bool deallocate_async(IGpuAllocator& self, void* const memory, size_t streamHand
     return self.deallocateAsync(memory, reinterpret_cast<cudaStream_t>(streamHandle));
 }
 
+// For IOutputAllocator
+void* reallocate_output_async(IOutputAllocator& self, char const* tensorName, void* currentMemory, uint64_t size,
+    uint64_t alignment, size_t streamHandle)
+{
+    return self.reallocateOutputAsync(
+        tensorName, currentMemory, size, alignment, reinterpret_cast<cudaStream_t>(streamHandle));
+}
+
 // For IBuilderConfig
 static const auto netconfig_get_profile_stream
     = [](IBuilderConfig& self) -> size_t { return reinterpret_cast<size_t>(self.getProfileStream()); };
@@ -492,10 +500,9 @@ public:
         return false;
     }
 
-}; // PyGpuAllocator
+}; // PyGpuAsyncAllocator
 
 /////////////////////////////
-
 class PyOutputAllocator : public IOutputAllocator
 {
 public:
@@ -530,6 +537,48 @@ public:
         catch (...)
         {
             std::cerr << "[ERROR] Exception caught in reallocateOutput()" << std::endl;
+            return nullptr;
+        }
+
+        return nullptr;
+    }
+
+    void* reallocateOutputAsync(char const* tensorName, void* currentMemory, uint64_t size, uint64_t alignment,
+        cudaStream_t stream) noexcept override
+    {
+        try
+        {
+            py::gil_scoped_acquire gil{};
+            py::function pyFunc
+                = utils::getOverride(static_cast<IOutputAllocator*>(this), "reallocate_output_async", false);
+
+            if (!pyFunc)
+            {
+                //! For legacy implementation, the user might not have implemented this method, so we go for the default
+                //! method.
+                return reallocateOutput(tensorName, currentMemory, size, alignment);
+            }
+
+            intptr_t cudaStreamPtr = reinterpret_cast<intptr_t>(stream);
+            py::object ptr
+                = pyFunc(tensorName, reinterpret_cast<size_t>(currentMemory), size, alignment, cudaStreamPtr);
+            try
+            {
+                return reinterpret_cast<void*>(ptr.cast<size_t>());
+            }
+            catch (const py::cast_error& e)
+            {
+                std::cerr << "[ERROR] Return value of reallocateOutputAsync() could not be interpreted as an int"
+                          << std::endl;
+            }
+        }
+        catch (std::exception const& e)
+        {
+            std::cerr << "[ERROR] Exception caught in reallocateOutputAsync(): " << e.what() << std::endl;
+        }
+        catch (...)
+        {
+            std::cerr << "[ERROR] Exception caught in reallocateOutputAsync()" << std::endl;
             return nullptr;
         }
 
@@ -639,7 +688,6 @@ void bindCore(py::module& m)
     };
 
     py::class_<ILogger, PyLogger> baseLoggerBinding{m, "ILogger", ILoggerDoc::descr, py::module_local()};
-    baseLoggerBinding.def(py::init<>()).def("log", &ILogger::log, "severity"_a, "msg"_a, ILoggerDoc::log);
 
     py::enum_<ILogger::Severity>(
         baseLoggerBinding, "Severity", py::arithmetic(), SeverityDoc::descr, py::module_local())
@@ -650,6 +698,8 @@ void bindCore(py::module& m)
         .value("VERBOSE", ILogger::Severity::kVERBOSE, SeverityDoc::verbose)
         // We export into the outer scope, so we can access with trt.ILogger.X.
         .export_values();
+
+    baseLoggerBinding.def(py::init<>()).def("log", &ILogger::log, "severity"_a, "msg"_a, ILoggerDoc::log);
 
     class DefaultLogger : public ILogger
     {
@@ -966,6 +1016,15 @@ void bindCore(py::module& m)
         }
     };
 
+    py::class_<IDebugListener, PyDebugListener>(m, "IDebugListener", IDebugListenerDoc::descr, py::module_local())
+        .def(py::init<>())
+        .def("process_debug_tensor", lambdas::docProcessDebugTensor, "addr"_a, "location"_a, "type"_a, "shape"_a,
+            "name"_a, "stream"_a, IDebugListenerDoc::process_debug_tensor);
+
+    py::class_<IOutputAllocator, PyOutputAllocator>(
+        m, "IOutputAllocator", OutputAllocatorDoc::descr, py::module_local())
+        .def(py::init<>());
+
     py::class_<IProgressMonitor, PyProgressMonitor>(
         m, "IProgressMonitor", IProgressMonitorDoc::descr, py::module_local())
         .def(py::init<>())
@@ -1052,11 +1111,49 @@ void bindCore(py::module& m)
         .value("USER_MANAGED", ExecutionContextAllocationStrategy::kUSER_MANAGED,
             ExecutionContextAllocationStrategyDoc::USER_MANAGED);
 
+    py::enum_<SerializationFlag>(
+        m, "SerializationFlag", py::arithmetic{}, SerializationFlagDoc::descr, py::module_local())
+        .value("EXCLUDE_WEIGHTS", SerializationFlag::kEXCLUDE_WEIGHTS, SerializationFlagDoc::EXCLUDE_WEIGHTS)
+        .value("EXCLUDE_LEAN_RUNTIME", SerializationFlag::kEXCLUDE_LEAN_RUNTIME,
+            SerializationFlagDoc::EXCLUDE_LEAN_RUNTIME);
+
     py::class_<ISerializationConfig>(m, "ISerializationConfig", ISerializationConfigDoc::descr, py::module_local())
         .def_property("flags", &ISerializationConfig::getFlags, &lambdas::serialization_config_set_flags)
         .def("clear_flag", &ISerializationConfig::clearFlag, "flag"_a, ISerializationConfigDoc::clear_flag)
         .def("set_flag", &ISerializationConfig::setFlag, "flag"_a, ISerializationConfigDoc::set_flag)
         .def("get_flag", &ISerializationConfig::getFlag, "flag"_a, ISerializationConfigDoc::get_flag);
+
+    py::enum_<LayerInformationFormat>(m, "LayerInformationFormat", LayerInformationFormatDoc::descr, py::module_local())
+        .value("ONELINE", LayerInformationFormat::kONELINE, LayerInformationFormatDoc::ONELINE)
+        .value("JSON", LayerInformationFormat::kJSON, LayerInformationFormatDoc::JSON);
+
+#if EXPORT_ALL_BINDINGS
+    // EngineInspector
+    py::class_<IEngineInspector>(m, "EngineInspector", RuntimeInspectorDoc::descr, py::module_local())
+        .def_property(
+            "execution_context", &IEngineInspector::getExecutionContext, &IEngineInspector::setExecutionContext)
+        .def("get_layer_information", &IEngineInspector::getLayerInformation, "layer_index"_a, "format"_a,
+            RuntimeInspectorDoc::get_layer_information)
+        .def("get_engine_information", &IEngineInspector::getEngineInformation, "format"_a,
+            RuntimeInspectorDoc::get_engine_information)
+        .def_property("error_recorder", &IEngineInspector::getErrorRecorder,
+            py::cpp_function(&IEngineInspector::setErrorRecorder, py::keep_alive<1, 2>{}));
+#endif // EXPORT_ALL_BINDINGS
+
+    py::enum_<EngineCapability>(m, "EngineCapability", py::arithmetic{}, EngineCapabilityDoc::descr, py::module_local())
+        .value("STANDARD", EngineCapability::kSTANDARD, EngineCapabilityDoc::STANDARD)
+        .value("SAFETY", EngineCapability::kSAFETY, EngineCapabilityDoc::SAFETY)
+        .value("DLA_STANDALONE", EngineCapability::kDLA_STANDALONE, EngineCapabilityDoc::DLA_STANDALONE);
+
+    // Bind to a Python enum called TensorLocation.
+    py::enum_<TensorLocation>(m, "TensorLocation", TensorLocationDoc::descr, py::module_local())
+        .value("DEVICE", TensorLocation::kDEVICE, TensorLocationDoc::DEVICE)
+        .value("HOST", TensorLocation::kHOST, TensorLocationDoc::HOST); // TensorLocation
+
+    py::enum_<TensorIOMode>(m, "TensorIOMode", TensorIOModeDoc::descr, py::module_local())
+        .value("NONE", TensorIOMode::kNONE, TensorIOModeDoc::NONE)
+        .value("INPUT", TensorIOMode::kINPUT, TensorIOModeDoc::INPUT)
+        .value("OUTPUT", TensorIOMode::kOUTPUT, TensorIOModeDoc::OUTPUT);
 
     py::class_<ICudaEngine>(m, "ICudaEngine", ICudaEngineDoc::descr, py::module_local())
         .def("__getitem__", lambdas::engine_getitem)
@@ -1218,14 +1315,6 @@ void bindCore(py::module& m)
         .def("deallocate_async", &lambdas::deallocate_async, "memory"_a, "stream"_a,
             GpuAsyncAllocatorDoc::deallocate_async);
 
-    py::class_<IOutputAllocator, PyOutputAllocator>(
-        m, "IOutputAllocator", OutputAllocatorDoc::descr, py::module_local())
-        .def(py::init<>())
-        .def("reallocate_output", &IOutputAllocator::reallocateOutput, "tensor_name"_a, "memory"_a, "size"_a,
-            "alignment"_a, OutputAllocatorDoc::reallocate_output)
-        .def("notify_shape", &IOutputAllocator::notifyShape, "tensor_name"_a, "shape"_a,
-            OutputAllocatorDoc::notify_shape);
-
     py::class_<IStreamReader, PyStreamReader>(m, "IStreamReader", StreamReaderDoc::descr, py::module_local())
         .def(py::init<>())
         .def("read", &IStreamReader::read, "destination"_a, "size"_a, StreamReaderDoc::read);
@@ -1259,12 +1348,6 @@ void bindCore(py::module& m)
         .value("STRIP_PLAN", BuilderFlag::kSTRIP_PLAN, BuilderFlagDoc::STRIP_PLAN)
         .value("REFIT_IDENTICAL", BuilderFlag::kREFIT_IDENTICAL, BuilderFlagDoc::REFIT_IDENTICAL)
         .value("WEIGHT_STREAMING", BuilderFlag::kWEIGHT_STREAMING, BuilderFlagDoc::WEIGHT_STREAMING);
-
-    py::enum_<SerializationFlag>(
-        m, "SerializationFlag", py::arithmetic{}, SerializationFlagDoc::descr, py::module_local())
-        .value("EXCLUDE_WEIGHTS", SerializationFlag::kEXCLUDE_WEIGHTS, SerializationFlagDoc::EXCLUDE_WEIGHTS)
-        .value("EXCLUDE_LEAN_RUNTIME", SerializationFlag::kEXCLUDE_LEAN_RUNTIME,
-            SerializationFlagDoc::EXCLUDE_LEAN_RUNTIME);
 
     py::enum_<MemoryPoolType>(m, "MemoryPoolType", MemoryPoolTypeDoc::descr, py::module_local())
         .value("WORKSPACE", MemoryPoolType::kWORKSPACE, MemoryPoolTypeDoc::WORKSPACE)
@@ -1302,26 +1385,12 @@ void bindCore(py::module& m)
         .value("DETAILED", ProfilingVerbosity::kDETAILED, ProfilingVerbosityDoc::DETAILED)
         .value("NONE", ProfilingVerbosity::kNONE, ProfilingVerbosityDoc::NONE);
 
-    py::enum_<TensorIOMode>(m, "TensorIOMode", TensorIOModeDoc::descr, py::module_local())
-        .value("NONE", TensorIOMode::kNONE, TensorIOModeDoc::NONE)
-        .value("INPUT", TensorIOMode::kINPUT, TensorIOModeDoc::INPUT)
-        .value("OUTPUT", TensorIOMode::kOUTPUT, TensorIOModeDoc::OUTPUT);
-
     py::enum_<TacticSource>(m, "TacticSource", py::arithmetic{}, TacticSourceDoc::descr, py::module_local())
         .value("CUBLAS", TacticSource::kCUBLAS, TacticSourceDoc::CUBLAS)
         .value("CUBLAS_LT", TacticSource::kCUBLAS_LT, TacticSourceDoc::CUBLAS_LT)
         .value("CUDNN", TacticSource::kCUDNN, TacticSourceDoc::CUDNN)
         .value("EDGE_MASK_CONVOLUTIONS", TacticSource::kEDGE_MASK_CONVOLUTIONS, TacticSourceDoc::EDGE_MASK_CONVOLUTIONS)
         .value("JIT_CONVOLUTIONS", TacticSource::kJIT_CONVOLUTIONS, TacticSourceDoc::JIT_CONVOLUTIONS);
-
-    py::enum_<EngineCapability>(m, "EngineCapability", py::arithmetic{}, EngineCapabilityDoc::descr, py::module_local())
-        .value("STANDARD", EngineCapability::kSTANDARD, EngineCapabilityDoc::STANDARD)
-        .value("SAFETY", EngineCapability::kSAFETY, EngineCapabilityDoc::SAFETY)
-        .value("DLA_STANDALONE", EngineCapability::kDLA_STANDALONE, EngineCapabilityDoc::DLA_STANDALONE);
-
-    py::enum_<LayerInformationFormat>(m, "LayerInformationFormat", LayerInformationFormatDoc::descr, py::module_local())
-        .value("ONELINE", LayerInformationFormat::kONELINE, LayerInformationFormatDoc::ONELINE)
-        .value("JSON", LayerInformationFormat::kJSON, LayerInformationFormatDoc::JSON);
 
     py::class_<ITimingCache>(m, "ITimingCache", ITimingCacheDoc::descr, py::module_local())
         .def("serialize", &ITimingCache::serialize, ITimingCacheDoc::serialize)
@@ -1455,11 +1524,6 @@ void bindCore(py::module& m)
             "engine_host_code_allowed", &IRuntime::getEngineHostCodeAllowed, &IRuntime::setEngineHostCodeAllowed)
         .def("__del__", &utils::doNothingDel<IRuntime>);
 
-    // Bind to a Python enum called TensorLocation.
-    py::enum_<TensorLocation>(m, "TensorLocation", TensorLocationDoc::descr, py::module_local())
-        .value("DEVICE", TensorLocation::kDEVICE, TensorLocationDoc::DEVICE)
-        .value("HOST", TensorLocation::kHOST, TensorLocationDoc::HOST); // TensorLocation
-
     // Refitter
     py::class_<IRefitter>(m, "Refitter", RefitterDoc::descr, py::module_local())
         .def(py::init(&nvinfer1::createInferRefitter), "engine"_a, "logger"_a, py::keep_alive<1, 2>{},
@@ -1495,24 +1559,6 @@ void bindCore(py::module& m)
         .def("get_weights_prototype", &IRefitter::getWeightsPrototype, "weights_name"_a,
             RefitterDoc::get_weights_prototype)
         .def("__del__", &utils::doNothingDel<IRefitter>);
-
-#if EXPORT_ALL_BINDINGS
-    // EngineInspector
-    py::class_<IEngineInspector>(m, "EngineInspector", RuntimeInspectorDoc::descr, py::module_local())
-        .def_property(
-            "execution_context", &IEngineInspector::getExecutionContext, &IEngineInspector::setExecutionContext)
-        .def("get_layer_information", &IEngineInspector::getLayerInformation, "layer_index"_a, "format"_a,
-            RuntimeInspectorDoc::get_layer_information)
-        .def("get_engine_information", &IEngineInspector::getEngineInformation, "format"_a,
-            RuntimeInspectorDoc::get_engine_information)
-        .def_property("error_recorder", &IEngineInspector::getErrorRecorder,
-            py::cpp_function(&IEngineInspector::setErrorRecorder, py::keep_alive<1, 2>{}));
-#endif // EXPORT_ALL_BINDINGS
-
-    py::class_<IDebugListener, PyDebugListener>(m, "IDebugListener", IDebugListenerDoc::descr, py::module_local())
-        .def(py::init<>())
-        .def("process_debug_tensor", lambdas::docProcessDebugTensor, "addr"_a, "location"_a, "type"_a, "shape"_a,
-            "name"_a, "stream"_a, IDebugListenerDoc::process_debug_tensor);
 }
 
 } // namespace tensorrt

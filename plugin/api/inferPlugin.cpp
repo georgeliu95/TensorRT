@@ -212,7 +212,8 @@ extern "C"
         initializePlugin<nvinfer1::plugin::ProposalPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::PyramidROIAlignPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::RegionPluginCreator>(logger, libNamespace);
-        initializePlugin<nvinfer1::plugin::ReorgPluginCreator>(logger, libNamespace);
+        initializePlugin<nvinfer1::plugin::ReorgDynamicPluginCreator>(logger, libNamespace);
+        initializePlugin<nvinfer1::plugin::ReorgStaticPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::ResizeNearestPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::ROIAlignPluginCreator>(logger, libNamespace);
         initializePlugin<nvinfer1::plugin::RPROIPluginCreator>(logger, libNamespace);

@@ -706,6 +706,21 @@ constexpr const char* descr = R"trtdoc(
     
     These expressions are can be used in overrides of `IPluginV2DynamicExt::get_output_dimensions()` to define output dimensions in terms of input dimensions.
 )trtdoc";
+
+constexpr const char* is_constant = R"trtdoc(
+    Return true if expression is a build-time constant.
+)trtdoc";
+
+constexpr const char* get_constant_value = R"trtdoc(
+    Get the value of the constant.
+
+    If is_constant(), returns value of the constant.
+    Else, return int64 minimum.
+)trtdoc";
+
+constexpr const char* is_size_tensor = R"trtdoc(
+    Return true if this denotes the value of a size tensor.
+)trtdoc";
 } // namespace IDimensionExprDoc
 
 namespace IExprBuilderDoc
@@ -716,6 +731,32 @@ constexpr const char* descr = R"trtdoc(
     There is no public way to construct an `IExprBuilder`. It appears as an argument to method `IPluginV2DynamicExt::get_output_dimensions()`. Overrides of that method can use that `IExprBuilder` argument to construct expressions that define output dimensions in terms of input dimensions.
 
     Clients should assume that any values constructed by the `IExprBuilder` are destroyed after `IPluginV2DynamicExt::get_output_dimensions()` returns.
+)trtdoc";
+
+constexpr const char* constant = R"trtdoc(
+    Return a IDimensionExpr for the given value.
+)trtdoc";
+
+constexpr const char* operation = R"trtdoc(
+    Return a IDimensionExpr that represents the given operation applied to first and second.
+    Returns None if op is not a valid DimensionOperation.
+)trtdoc";
+
+constexpr const char* declare_size_tensor = R"trtdoc(
+    Declare a size tensor at the given output index, with the specified auto-tuning formula and upper bound.
+
+    A size tensor allows a plugin to have output dimensions that cannot be computed solely from input dimensions.
+    For example, suppose a plugin implements the equivalent of INonZeroLayer for 2D input. The plugin can
+    have one output for the indices of non-zero elements, and a second output containing the number of non-zero
+    elements. Suppose the input has size [M,N] and has K non-zero elements. The plugin can write K to the second
+    output. When telling TensorRT that the first output has shape [2,K], plugin uses IExprBuilder.constant() and
+    IExprBuilder.declare_size_tensor(1,...) to create the IDimensionExpr that respectively denote 2 and K.
+
+    TensorRT also needs to know the value of K to use for auto-tuning and an upper bound on K so that it can
+    allocate memory for the output tensor. In the example, suppose typically half of the plugin's input elements
+    are non-zero, and all the elements might be nonzero. then using M*N/2 might be a good expression for the opt
+    parameter, and M*N for the upper bound. IDimensionsExpr for these expressions can be constructed from
+    IDimensionsExpr for the input dimensions.
 )trtdoc";
 } // namespace IExprBuilderDoc
 
