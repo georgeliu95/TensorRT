@@ -21,17 +21,18 @@ Optionally, adds a bias vector before layer-normalization.
 The `skipLayerNormPlugin` takes two inputs; `input` and `skip`.
 
 `input`
-input is a tensor with shape `[S, B, E, 1, 1]` where `B` is the batch size, `E` is the hidden size, and the last two dimensions are of size 1.
+For V1 and V2, input is a tensor with shape `[S, B, E, 1, 1]` where `S` is the sequence length, `B` is the batch size, `E` is the hidden size, and the last two dimensions are of size 1.
+For V3 and V4, input is a tensor with shape `[1, E, S', 1]` where `S'` is the accumulated sequence length, `E` is the hidden size, and the first and last dimensions are of size 1.
 
 `skip`
-skip is a tensor with shape `[S, B, E]` where `B` is the batch size and `E` is the hidden size.
+skip has the same input dimensions as the input.
 The purpose of this input is to introduce skip (aka. residual) connections to previously computed tensors.
 
 
 The `skipLayerNormPlugin` generates the following output:
 
 `output`
-output is a tensor with shape `[S, B, E]` where `B` is the batch size.
+output is a tensor with the same shape as the input.
 
 
 ## Parameters
@@ -44,8 +45,8 @@ The parameters are defined below and consists of the following attributes:
 |----------|-----------------------------------------|------------|-------------------------------------------------------------------
 |`int`     |`type_id`                                |  1, 2      |Integer encoding the DataType (0: FP32, 1: FP16, 2: INT8)
 |`int`     |`ld`                                     |  1         |The leading dimension of the input tensor, corresponding to the hidden size, denoted by `E` above.
-|`Weights` |`beta`                                   |  1, 2, 3   |The mean to normalize to. Shape: `[1, 1, E]`
-|`Weights` |`gamma`                                  |  1, 2, 3   |The standard deviation to normalize to. Shape: `[1, 1, E]`
+|`Weights` |`beta`                                   |  1, 2, 3, 4|The mean to normalize to. Shape: `[1, 1, E]`
+|`Weights` |`gamma`                                  |  1, 2, 3, 4|The standard deviation to normalize to. Shape: `[1, 1, E]`
 |`Weights` |`bias`                                   |  1, 2      |An optional bias vector to add before normalization. Shape: `[1, 1, E]`
 
 

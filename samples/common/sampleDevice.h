@@ -491,6 +491,13 @@ public:
         return mBuffer->getDeviceBuffer();
     }
 
+    //! IMirroredBuffer does not implement Async allocation, hence this is just a wrap around
+    void* reallocateOutputAsync(char const* tensorName, void* currentMemory, uint64_t size, uint64_t alignment,
+        cudaStream_t /*stream*/) noexcept override
+    {
+        return reallocateOutput(tensorName, currentMemory, size, alignment);
+    }
+
     void notifyShape(char const* tensorName, nvinfer1::Dims const& dims) noexcept override {}
 
     IMirroredBuffer* getBuffer()

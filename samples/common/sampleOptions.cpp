@@ -127,6 +127,10 @@ template <>
 std::vector<int32_t> stringToValue<std::vector<int32_t>>(const std::string& option)
 {
     std::vector<int32_t> shape;
+    if (option == "scalar")
+    {
+        return shape;
+    }
     std::vector<std::string> dimsStrings = splitToStringVec(option, 'x');
     for (const auto& d : dimsStrings)
     {
@@ -533,17 +537,6 @@ bool getShapesInference(Arguments& arguments, InferenceOptions::ShapeProfile& sh
         auto nameDimsPair = splitNameAndValue<std::vector<int32_t>>(s);
         auto tensorName = removeSingleQuotationMarks(nameDimsPair.first);
         auto dims = nameDimsPair.second;
-
-        // TRT-20513 WAR: Currently don't have a way to assign scalar input.
-        // As a result, similar to how the engine parses kBOOL scalars,
-        // we allow for input:0 as a valid input option where 0 denotes a scalar.
-        if (dims.size() == 1 && all_of(dims.begin(), dims.end(), [](int32_t i) { return i == 0; }))
-        {
-            // See how scalars are parsed on engine-side in sampleEngines.cpp.
-            // We force the parsing of inference as 0.
-            dims = {};
-        }
-
         insertShapesInference(shapes, tensorName, dims);
     }
     return retVal;
@@ -1155,7 +1148,8 @@ void BuildOptions::parse(Arguments& arguments)
 
     getAndDelOption(arguments, "--refit", refittable);
 
-    getAndDelOption(arguments, "--weightless", weightless);
+    getAndDelOption(arguments, "--weightless", stripWeights);
+    getAndDelOption(arguments, "--stripWeights", stripWeights);
 
     // --vc and --versionCompatible are synonyms
     getAndDelOption(arguments, "--vc", versionCompatible);
@@ -1586,8 +1580,9 @@ void InferenceOptions::parse(Arguments& arguments)
             "The weight streaming budget must be >= " + std::to_string(kDISABLE_WEIGHT_STREAMING));
     }
 
-    getAndDelOption(arguments, "--saveDebugTensors", list);
-    std::vector<std::string> fileNames{splitToStringVec(list, ',')};
+    std::string debugTensorList;
+    getAndDelOption(arguments, "--saveDebugTensors", debugTensorList);
+    std::vector<std::string> fileNames{splitToStringVec(debugTensorList, ',')};
     splitInsertKeyValue(fileNames, debugTensorFileNames);
 }
 
@@ -1646,10 +1641,6 @@ void AllOptions::parse(Arguments& arguments)
     if (build.useRuntime != RuntimeMode::kFULL && inference.timeRefit)
     {
         throw std::invalid_argument("--timeRefit requires --useRuntime=full.");
-    }
-    if (build.refittable && build.weightless)
-    {
-        throw std::invalid_argument("--refit cannot used with --weightless.");
     }
 
     if (inference.optProfileIndex < static_cast<int32_t>(build.optProfiles.size()))
@@ -1725,12 +1716,6 @@ void AllOptions::parse(Arguments& arguments)
             {
                 throw std::invalid_argument("GPU fallback (--allowGPUFallback) not allowed for DLA standalone mode");
             }
-        }
-        if (build.refittable && build.weightless)
-        {
-            throw std::invalid_argument(
-                "Both --refit and --weightless flags are present. Please use --weightless only if "
-                "building a weightless engine. ");
         }
     }
 }
@@ -2061,7 +2046,7 @@ std::ostream& operator<<(std::ostream& os, const BuildOptions& options)
           "Layer Device Types: " << options.layerDeviceTypes                                                            << std::endl <<
           "Calibration: "    << (options.int8 && options.calibration.empty() ? "Dynamic" : options.calibration.c_str()) << std::endl <<
           "Refit: "          << boolToEnabled(options.refittable)                                                       << std::endl <<
-          "Weightless: "     << boolToEnabled(options.weightless)                                                       << std::endl <<
+          "Strip weights: "     << boolToEnabled(options.stripWeights)                                                  << std::endl <<
           "Version Compatible: " << boolToEnabled(options.versionCompatible)                                            << std::endl <<
           "ONNX Plugin InstanceNorm: " << boolToEnabled(options.pluginInstanceNorm)                                     << std::endl <<
           "TensorRT runtime: " << options.useRuntime                                                                    << std::endl <<
@@ -2169,18 +2154,18 @@ std::ostream& operator<<(std::ostream& os, const InferenceOptions& options)
                           os << "Explicit"                                << std::endl;
     }
     printShapes(os, "inference", options.shapes, options.optProfileIndex);
-    
+
     ASSERT(options.weightStreamingBudget >= InferenceOptions::kDISABLE_WEIGHT_STREAMING);
     std::string wsBudget{"Disabled"};
     if (options.weightStreamingBudget == 0)
     {
         wsBudget = "Automatic";
-    } 
-    else 
+    }
+    else
     {
         wsBudget = std::to_string(options.weightStreamingBudget) + " bytes";
     }
-    
+
     os << "Iterations: "                << options.iterations                                   << std::endl <<
           "Duration: "                  << options.duration   << "s (+ "
                                         << options.warmup     << "ms warm up)"                  << std::endl <<
@@ -2318,6 +2303,7 @@ void BuildOptions::help(std::ostream& os)
           "                                           that min shapes and max shapes are set to the same values as opt shapes."                     "\n"
           "                                           Input names can be wrapped with escaped single quotes (ex: 'Input:0')."                       "\n"
           "                                     Example input shapes spec: input0:1x3x256x256,input1:1x3x128x128"                                   "\n"
+          "                                     For scalars (0-D shapes), use input0:scalar or simply input0: with nothing after the colon."        "\n"
           "                                     Each input shape is supplied as a key-value pair where key is the input name and"                   "\n"
           "                                     value is the dimensions (including the batch dimension) to be used for that input."                 "\n"
           "                                     Each key-value pair has the key and value separated using a colon (:)."                             "\n"
@@ -2349,7 +2335,10 @@ void BuildOptions::help(std::ostream& os)
                                                                                                                   << defaultAvgTiming << ")"        "\n"
           "  --refit                            Mark the engine as refittable. This will allow the inspection of refittable layers "                "\n"
           "                                     and weights within the engine."                                                                     "\n"
-          "  --weightless                       Strip weights from plan and label them as refittable with identical weights."                       "\n"
+          "  --stripWeights                     Strip weights from plan. This flag works with either refit or refit with identical weights. Default""\n"
+          "                                     to latter, but you can switch to the former by enabling both --stripWeights and --refit at the same""\n"
+          "                                     time."                                                                                              "\n"
+          "  --weightless                       [Deprecated] this knob has been deprecated. Please use --stripWeights"                              "\n"
           "  --versionCompatible, --vc          Mark the engine as version compatible. This allows the engine to be used with newer versions"       "\n"
           "                                     of TensorRT on the same host OS, as well as TensorRT's dispatch and lean runtimes."                 "\n"
           "  --pluginInstanceNorm, --pi         Set `kNATIVE_INSTANCENORM` to false in the ONNX parser. This will cause the ONNX parser to use"     "\n"
@@ -2494,6 +2483,7 @@ void InferenceOptions::help(std::ostream& os)
           "  --shapes=spec               Set input shapes for dynamic shapes inference inputs."                                      << std::endl <<
           R"(                              Note: Input names can be wrapped with escaped single quotes (ex: 'Input:0').)"            << std::endl <<
           "                              Example input shapes spec: input0:1x3x256x256, input1:1x3x128x128"                          << std::endl <<
+          "                              For scalars (0-D shapes), use input0:scalar or simply input0: with nothing after the colon."<< std::endl <<
           "                              Each input shape is supplied as a key-value pair where key is the input name and"           << std::endl <<
           "                              value is the dimensions (including the batch dimension) to be used for that input."         << std::endl <<
           "                              Each key-value pair has the key and value separated using a colon (:)."                     << std::endl <<

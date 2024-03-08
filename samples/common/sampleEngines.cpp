@@ -921,8 +921,9 @@ bool setupNetworkAndConfig(BuildOptions const& build, SystemOptions const& sys, 
         config.setFlag(BuilderFlag::kREFIT);
     }
 
-    if (build.weightless)
+    if (build.stripWeights)
     {
+        // The kREFIT_IDENTICAL is enabled by default when kSTRIP_PLAN is on.
         config.setFlag(BuilderFlag::kSTRIP_PLAN);
     }
 

@@ -109,7 +109,7 @@ public:
         try
         {
             py::gil_scoped_acquire gil{};
-            
+
             py::function pySupportsFormatCombination
                 = utils::getOverride(static_cast<PyIPluginV2DynamicExt*>(this), "supports_format_combination");
             if (!pySupportsFormatCombination)
@@ -143,7 +143,7 @@ public:
         {
             py::gil_scoped_acquire gil{};
 
-            py::function pyInitialize = py::get_override(static_cast<PyIPluginV2DynamicExt*>(this), "initialize");            
+            py::function pyInitialize = py::get_override(static_cast<PyIPluginV2DynamicExt*>(this), "initialize");
 
             if (!pyInitialize)
             {
@@ -186,9 +186,8 @@ public:
         try
         {
             py::gil_scoped_acquire gil{};
-            
-            py::function pyEnqueue
-                = utils::getOverride(static_cast<PyIPluginV2DynamicExt*>(this), "enqueue");
+
+            py::function pyEnqueue = utils::getOverride(static_cast<PyIPluginV2DynamicExt*>(this), "enqueue");
             if (!pyEnqueue)
             {
                 utils::throwPyError(PyExc_RuntimeError, "no implementation provided for enqueue()");
@@ -206,16 +205,14 @@ public:
             }
 
             std::vector<intptr_t> inPtrs;
-            for(int32_t idx = 0; idx < mNbInputs; ++idx)
+            for (int32_t idx = 0; idx < mNbInputs; ++idx)
             {
                 inPtrs.push_back(reinterpret_cast<intptr_t>(inputs[idx]));
-                
             }
             std::vector<intptr_t> outPtrs;
-            for(int32_t idx = 0; idx < mNbOutputs; ++idx)
+            for (int32_t idx = 0; idx < mNbOutputs; ++idx)
             {
                 outPtrs.push_back(reinterpret_cast<intptr_t>(outputs[idx]));
-                
             }
 
             intptr_t workspacePtr = reinterpret_cast<intptr_t>(workspace);
@@ -241,8 +238,9 @@ public:
         {
             py::gil_scoped_acquire gil{};
 
-            py::function pyGetSerializationSize = py::get_override(static_cast<PyIPluginV2DynamicExt const*>(this), "get_serialization_size");
-            
+            py::function pyGetSerializationSize
+                = py::get_override(static_cast<PyIPluginV2DynamicExt const*>(this), "get_serialization_size");
+
             if (!pyGetSerializationSize)
             {
                 // if no implementation is provided for get_serialization_size(), default to len(serialize())
@@ -339,9 +337,8 @@ public:
         try
         {
             py::gil_scoped_acquire gil{};
-            
-            py::function pyClone
-                = utils::getOverride(static_cast<const PyIPluginV2DynamicExt*>(this), "clone");
+
+            py::function pyClone = utils::getOverride(static_cast<const PyIPluginV2DynamicExt*>(this), "clone");
             if (!pyClone)
             {
                 utils::throwPyError(PyExc_RuntimeError, "no implementation provided for clone()");
@@ -411,7 +408,7 @@ public:
         try
         {
             py::gil_scoped_acquire gil{};
-            
+
             py::function pyGetOutputDataType
                 = utils::getOverride(static_cast<PyIPluginV2DynamicExt const*>(this), "get_output_datatype");
             if (!pyGetOutputDataType)
@@ -445,7 +442,7 @@ public:
         try
         {
             py::gil_scoped_acquire gil{};
-            
+
             py::function pyGetOutputDimensions
                 = utils::getOverride(static_cast<PyIPluginV2DynamicExt*>(this), "get_output_dimensions");
             if (!pyGetOutputDimensions)
@@ -480,7 +477,7 @@ public:
             mNbInputs = nbInputs;
 
             py::gil_scoped_acquire gil{};
-            
+
             py::function pyConfigurePlugin
                 = utils::getOverride(static_cast<PyIPluginV2DynamicExt*>(this), "configure_plugin");
             if (!pyConfigurePlugin)
@@ -641,9 +638,8 @@ public:
         try
         {
             py::gil_scoped_acquire gil{};
-            
-            py::function pyCreatePlugin
-                = utils::getOverride(static_cast<IPluginCreator*>(this), "create_plugin");
+
+            py::function pyCreatePlugin = utils::getOverride(static_cast<IPluginCreator*>(this), "create_plugin");
             if (!pyCreatePlugin)
             {
                 utils::throwPyError(PyExc_RuntimeError, "no implementation provided for create_plugin()");
@@ -671,7 +667,7 @@ public:
         try
         {
             py::gil_scoped_acquire gil{};
-            
+
             py::function pyDeserializePlugin
                 = utils::getOverride(static_cast<IPluginCreator*>(this), "deserialize_plugin");
             if (!pyDeserializePlugin)
@@ -956,11 +952,13 @@ public:
             try
             {
                 py::function pyGetValidTactics
-                    = utils::getOverride(static_cast<IPluginV3OneBuild const*>(this), "get_valid_tactics");
+                    = py::get_override(static_cast<IPluginV3OneBuild const*>(this), "get_valid_tactics");
 
                 if (!pyGetValidTactics)
                 {
-                    utils::throwPyError(PyExc_RuntimeError, "no implementation provided for get_valid_tactics()");
+                    // if no implementation is provided for get_valid_tactics(), communicate that no custom tactics are
+                    // used by the plugin
+                    return 0;
                 }
 
                 py::object pyResult = pyGetValidTactics();
@@ -986,11 +984,12 @@ public:
             try
             {
                 py::function pyGetValidTactics
-                    = utils::getOverride(static_cast<IPluginV3OneBuild const*>(this), "get_valid_tactics");
+                    = py::get_override(static_cast<IPluginV3OneBuild const*>(this), "get_valid_tactics");
 
                 if (!pyGetValidTactics)
                 {
-                    utils::throwPyError(PyExc_RuntimeError, "no implementation provided for get_valid_tactics()");
+                    // if no implementation is provided for get_valid_tactics() nothing further to do
+                    return 0;
                 }
 
                 py::object pyResult = pyGetValidTactics();
@@ -1876,8 +1875,11 @@ static const auto get_all_creators = [](IPluginRegistry& self) -> std::vector<py
         std::generate(vec->begin(), vec->end(), [&ptr, i = 0]() mutable -> py::object {
             if (std::strcmp(ptr[i]->getInterfaceInfo().kind, "PLUGIN CREATOR_V1") == 0)
             {
-                auto v1Creator = static_cast<IPluginCreator const*>(ptr[i]);
                 return py::cast(static_cast<IPluginCreator const*>(ptr[i++]));
+            }
+            if (std::strcmp(ptr[i]->getInterfaceInfo().kind, "PLUGIN CREATOR_V3ONE") == 0)
+            {
+                return py::cast(static_cast<IPluginCreatorV3One const*>(ptr[i++]));
             }
             utils::throwPyError(PyExc_RuntimeError, "Unknown plugin creator type");
             return py::none{};
@@ -1906,8 +1908,11 @@ static const auto get_creator = [](IPluginRegistry& self, char const* pluginType
     {
         if (std::strcmp(creator->getInterfaceInfo().kind, "PLUGIN CREATOR_V1") == 0)
         {
-            auto v1Creator = static_cast<IPluginCreator*>(creator);
-            return py::cast(static_cast<IPluginCreator*>(v1Creator));
+            return py::cast(static_cast<IPluginCreator*>(creator));
+        }
+        if (std::strcmp(creator->getInterfaceInfo().kind, "PLUGIN CREATOR_V3ONE") == 0)
+        {
+            return py::cast(static_cast<IPluginCreatorV3One*>(creator));
         }
         utils::throwPyError(PyExc_RuntimeError, "Unknown plugin creator type");
         return py::none{};
@@ -1973,6 +1978,18 @@ static const auto dimsexprs_vector_constructor = [](std::vector<IDimensionExpr c
     self->nbDims = in.size();
     for (int32_t i = 0; i < in.size(); ++i)
         self->d[i] = in[i];
+    return self;
+};
+
+static const auto dimsexprs_len_constructor = [](int32_t const size) {
+    // This is required, because otherwise MAX_DIMS will not be resolved at compile time.
+    int32_t const maxDims{static_cast<int32_t>(Dims::MAX_DIMS)};
+    PY_ASSERT_VALUE_ERROR(size <= maxDims,
+        "Input length " + std::to_string(size) + ". Max expected length is " + std::to_string(maxDims));
+
+    // Create the Dims object.
+    DimsExprs* self = new DimsExprs{};
+    self->nbDims = size;
     return self;
 };
 
@@ -2218,22 +2235,42 @@ void bindPlugin(py::module& m)
 {
     py::class_<IDimensionExpr, PyIDimensionExprImpl, std::unique_ptr<IDimensionExpr, py::nodelete>>(
         m, "IDimensionExpr", IDimensionExprDoc::descr, py::module_local())
-        .def("isConstant", &IDimensionExpr::isConstant)
-        .def("getConstantValue", &IDimensionExpr::getConstantValue);
+        .def("is_constant", &IDimensionExpr::isConstant, IDimensionExprDoc::is_constant)
+        .def("get_constant_value", &IDimensionExpr::getConstantValue, IDimensionExprDoc::get_constant_value)
+        .def("is_size_tensor", &IDimensionExpr::isSizeTensor, IDimensionExprDoc::is_size_tensor);
 
     py::class_<DimsExprs>(m, "DimsExprs", DimsExprsDoc::descr, py::module_local())
         .def(py::init<>())
         // Allows for construction from python lists and tuples.
         .def(py::init(lambdas::dimsexprs_vector_constructor))
+        // Allows for construction with a specified number of dims.
+        .def(py::init(lambdas::dimsexprs_len_constructor))
         // These functions allow us to use DimsExprs like an iterable.
         .def("__len__", lambdas::dimsexprs_len)
         .def("__getitem__", lambdas::dimsexprs_getter)
         .def("__setitem__", lambdas::dimsexprs_setter);
 
-    py::class_<IExprBuilder, PyIExprBuilderImpl, std::unique_ptr<IExprBuilder, py::nodelete>>(m, "IExprBuilder", IExprBuilderDoc::descr, py::module_local())
+    py::enum_<DimensionOperation>(
+        m, "DimensionOperation", py::arithmetic{}, DimensionOperationDoc::descr, py::module_local())
+        .value("SUM", DimensionOperation::kSUM)
+        .value("PROD", DimensionOperation::kPROD)
+        .value("MAX", DimensionOperation::kMAX)
+        .value("MIN", DimensionOperation::kMIN)
+        .value("SUB", DimensionOperation::kSUB)
+        .value("EQUAL", DimensionOperation::kEQUAL)
+        .value("LESS", DimensionOperation::kLESS)
+        .value("FLOOR_DIV", DimensionOperation::kFLOOR_DIV)
+        .value("CEIL_DIV", DimensionOperation::kCEIL_DIV);
+
+    py::class_<IExprBuilder, PyIExprBuilderImpl, std::unique_ptr<IExprBuilder, py::nodelete>>(
+        m, "IExprBuilder", IExprBuilderDoc::descr, py::module_local())
         .def(py::init<>())
-        .def("constant", &IExprBuilder::constant, py::return_value_policy::reference_internal)
-        .def("operation", &IExprBuilder::operation, py::return_value_policy::reference_internal);
+        .def(
+            "constant", &IExprBuilder::constant, py::return_value_policy::reference_internal, IExprBuilderDoc::constant)
+        .def("operation", &IExprBuilder::operation, py::return_value_policy::reference_internal,
+            IExprBuilderDoc::operation)
+        .def("declare_size_tensor", &IExprBuilder::declareSizeTensor, py::return_value_policy::reference_internal,
+            IExprBuilderDoc::declare_size_tensor);
 
     py::class_<PluginTensorDesc>(m, "PluginTensorDesc", PluginTensorDescDoc::descr, py::module_local())
         .def(py::init<>())
@@ -2403,34 +2440,31 @@ void bindPlugin(py::module& m)
             py::cpp_function(
                 [](PluginField& self, FallbackString& name) { self.name = name.c_str(); }, py::keep_alive<1, 2>{}))
         .def_property(
-            "data", [](PluginField& self) {
+            "data",
+            [](PluginField& self) {
                 switch (self.type)
                 {
                 case PluginFieldType::kINT32:
-                    return py::array(self.length, static_cast<int32_t const*>(self.data)); 
+                    return py::array(self.length, static_cast<int32_t const*>(self.data));
                     break;
                 case PluginFieldType::kINT8:
-                    return py::array(self.length, static_cast<int8_t const*>(self.data)); 
+                    return py::array(self.length, static_cast<int8_t const*>(self.data));
                     break;
                 case PluginFieldType::kINT16:
-                    return py::array(self.length, static_cast<int16_t const*>(self.data)); 
+                    return py::array(self.length, static_cast<int16_t const*>(self.data));
                     break;
                 case PluginFieldType::kFLOAT16:
                     // TODO: Figure out how to handle float16 correctly here
-                    return py::array(self.length, static_cast<float const*>(self.data)); 
+                    return py::array(self.length, static_cast<float const*>(self.data));
                     break;
                 case PluginFieldType::kFLOAT32:
-                    return py::array(self.length, static_cast<float const*>(self.data)); 
+                    return py::array(self.length, static_cast<float const*>(self.data));
                     break;
                 case PluginFieldType::kFLOAT64:
-                    return py::array(self.length, static_cast<double const*>(self.data)); 
+                    return py::array(self.length, static_cast<double const*>(self.data));
                     break;
-                case PluginFieldType::kCHAR:
-                    return py::array(self.length, static_cast<char const*>(self.data)); 
-                    break;
-                default:
-                    assert(false && "No known conversion for returning data from PluginField");
-                    break;
+                case PluginFieldType::kCHAR: return py::array(self.length, static_cast<char const*>(self.data)); break;
+                default: assert(false && "No known conversion for returning data from PluginField"); break;
                 }
                 // should not reach this line
                 return py::array();
@@ -2507,6 +2541,12 @@ void bindPlugin(py::module& m)
         .def_property_readonly("error_recorder", &IPluginResourceContext::getErrorRecorder)
         .def_property_readonly("gpu_allocator", &IPluginResourceContext::getGpuAllocator);
 
+    py::class_<IPluginResource, std::unique_ptr<IPluginResource, py::nodelete>>(
+        m, "IPluginResource", IPluginResourceDoc::descr, py::module_local())
+        // return_value_policy::reference_internal is default for the following
+        .def("release", &pluginDoc::release, IPluginResourceDoc::release)
+        .def("clone", &pluginDoc::clonePluginResource, IPluginResourceDoc::clone);
+
     py::class_<IPluginRegistry, std::unique_ptr<IPluginRegistry, py::nodelete>>(
         m, "IPluginRegistry", IPluginRegistryDoc::descr, py::module_local())
         .def_property_readonly("plugin_creator_list", lambdas::get_plugin_creator_list)
@@ -2546,18 +2586,6 @@ void bindPlugin(py::module& m)
     m.def("get_plugin_registry", &getPluginRegistry, py::return_value_policy::reference,
         FreeFunctionsDoc::get_plugin_registry);
 
-    py::enum_<DimensionOperation>(
-        m, "DimensionOperation", py::arithmetic{}, DimensionOperationDoc::descr, py::module_local())
-        .value("SUM", DimensionOperation::kSUM)
-        .value("PROD", DimensionOperation::kPROD)
-        .value("MAX", DimensionOperation::kMAX)
-        .value("MIN", DimensionOperation::kMIN)
-        .value("SUB", DimensionOperation::kSUB)
-        .value("EQUAL", DimensionOperation::kEQUAL)
-        .value("LESS", DimensionOperation::kLESS)
-        .value("FLOOR_DIV", DimensionOperation::kFLOOR_DIV)
-        .value("CEIL_DIV", DimensionOperation::kCEIL_DIV);
-
     py::enum_<PluginCapabilityType>(
         m, "PluginCapabilityType", py::arithmetic{}, PluginCapabilityTypeDoc::descr, py::module_local())
         .value("CORE", PluginCapabilityType::kCORE)
@@ -2567,12 +2595,6 @@ void bindPlugin(py::module& m)
     py::enum_<TensorRTPhase>(m, "TensorRTPhase", py::arithmetic{}, TensorRTPhaseDoc::descr, py::module_local())
         .value("BUILD", TensorRTPhase::kBUILD)
         .value("RUNTIME", TensorRTPhase::kRUNTIME);
-
-    py::class_<IPluginResource, std::unique_ptr<IPluginResource, py::nodelete>>(
-        m, "IPluginResource", IPluginResourceDoc::descr, py::module_local())
-        // return_value_policy::reference_internal is default for the following
-        .def("release", &pluginDoc::release, IPluginResourceDoc::release)
-        .def("clone", &pluginDoc::clonePluginResource, IPluginResourceDoc::clone);
 
 #if EXPORT_ALL_BINDINGS
     m.def("get_builder_plugin_registry", &getBuilderPluginRegistry, py::return_value_policy::reference,

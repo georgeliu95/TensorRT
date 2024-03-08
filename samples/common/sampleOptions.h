@@ -213,7 +213,7 @@ public:
     bool save{false};
     bool load{false};
     bool refittable{false};
-    bool weightless{false};
+    bool stripWeights{false};
     bool versionCompatible{false};
     bool pluginInstanceNorm{false};
     bool excludeLeanRuntime{false};

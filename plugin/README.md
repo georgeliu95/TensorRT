@@ -42,7 +42,7 @@
 | [proposalPlugin](proposalPlugin) | ProposalDynamic | 1 |
 | [pyramidROIAlignPlugin](pyramidROIAlignPlugin) | PyramidROIAlign_TRT | 1 |
 | [regionPlugin](regionPlugin) | Region_TRT | 1 |
-| [reorgPlugin](reorgPlugin) | Reorg_TRT | 1 |
+| [reorgPlugin](reorgPlugin) | Reorg_TRT | 2 |
 | [roiAlignPlugin](roiAlignPlugin) | ROIAlign_TRT | 1 |
 | [resizeNearestPlugin](resizeNearestPlugin) | ResizeNearest_TRT | 1 |
 | [scatterElementsPlugin](scatterElementsPlugin) | ScatterElements | 1 |
