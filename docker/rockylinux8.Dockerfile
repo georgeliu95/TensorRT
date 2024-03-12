@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,25 +13,27 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+#
 
-ARG CUDA_VERSION=12.2.0
+ARG CUDA_VERSION=12.3.2
 
-# TODO: Update - unused in 22.09
-FROM nvidia/cuda:${CUDA_VERSION}-devel-centos7
+FROM nvidia/cuda:${CUDA_VERSION}-devel-rockylinux8
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV NV_CUDNN_VERSION 8.9.6.50-1
-ENV NV_CUDNN_PACKAGE libcudnn8-${NV_CUDNN_VERSION}.cuda12.2
-ENV NV_CUDNN_PACKAGE_DEV libcudnn8-devel-${NV_CUDNN_VERSION}.cuda12.2
+ENV NV_CUDNN_VERSION 9.0.0.312
+ARG CUDA_VERSION_MAJOR=12
 
-ENV TRT_VERSION 9.2.0.5
+ENV NV_CUDNN_PACKAGE "libcudnn9-cuda-${CUDA_VERSION_MAJOR}-$NV_CUDNN_VERSION-1"
+ENV NV_CUDNN_PACKAGE_DEV "libcudnn9-devel-cuda-${CUDA_VERSION_MAJOR}-$NV_CUDNN_VERSION-1"
+
+ENV TRT_VERSION 10.0.0.4
 SHELL ["/bin/bash", "-c"]
 
-RUN yum install -y \
+RUN dnf install -y \
     ${NV_CUDNN_PACKAGE} \
     ${NV_CUDNN_PACKAGE_DEV} \
-    && yum clean all \
-    && rm -rf /var/cache/yum/*
+    && dnf clean all \
+    && rm -rf /var/cache/dnf/*
 
 # Setup user account
 ARG uid=1000
@@ -42,8 +44,8 @@ RUN echo 'trtuser:nvidia' | chpasswd
 RUN mkdir -p /workspace && chown trtuser /workspace
 
 # Install requried packages
-RUN yum -y groupinstall "Development Tools"
-RUN yum -y install \
+RUN dnf -y groupinstall "Development Tools"
+RUN dnf -y install \
     openssl-devel \
     bzip2-devel \
     libffi-devel \
@@ -55,22 +57,31 @@ RUN yum -y install \
     sudo
 
 # Install python3
-RUN yum install -y python36 python3-devel
+RUN dnf install -y python38 python38-devel &&\
+    cd /usr/bin && ln -s /usr/bin/pip3.8 pip;
+
 
 # Install TensorRT
-COPY docker_qa/downloadInternal.py /tmp/downloadInternal.py
-RUN python3 /tmp/downloadInternal.py --cuda ${CUDA_VERSION} --os 7
-
-# Install dev-toolset-8 for g++ version that supports c++14
-RUN yum -y install centos-release-scl
-RUN yum-config-manager --enable rhel-server-rhscl-7-rpms
-RUN yum -y install devtoolset-8
+RUN if [ "${CUDA_VERSION_MAJOR}" = "11" ]; then \
+    wget http://cuda-repo/release-candidates/Libraries/TensorRT/v10.0/10.0.0.4-25768cbc/11.8-r520/Linux-x64-manylinux_2_28/tar/TensorRT-10.0.0.4.Linux.x86_64-gnu.cuda-11.8.tar.gz \
+        && tar -xf TensorRT-10.0.0.4.Linux.x86_64-gnu.cuda-11.8.tar.gz \
+        && cp -a TensorRT-10.0.0.4/lib/*.so* /usr/lib64 \
+        && pip install TensorRT-10.0.0.4/python/tensorrt-10.0.0b4-cp38-none-linux_x86_64.whl ;\
+elif [ "${CUDA_VERSION_MAJOR}" = "12" ]; then \
+    wget http://cuda-repo/release-candidates/Libraries/TensorRT/v10.0/10.0.0.4-25768cbc/12.4-r550/Linux-x64-manylinux_2_28/tar/TensorRT-10.0.0.4.Linux.x86_64-gnu.cuda-12.4.tar.gz \
+        && tar -xf TensorRT-10.0.0.4.Linux.x86_64-gnu.cuda-12.4.tar.gz \
+        && cp -a TensorRT-10.0.0.4/lib/*.so* /usr/lib64 \
+        && pip install TensorRT-10.0.0.4/python/tensorrt-10.0.0b4-cp38-none-linux_x86_64.whl ;\
+else \
+    echo "Invalid CUDA_VERSION"; \
+    exit 1; \
+fi
 
 # Install PyPI packages
-RUN pip3 install --upgrade pip
-RUN pip3 install setuptools>=41.0.0
-RUN pip3 install numpy
-RUN pip3 install jupyter jupyterlab
+RUN pip install --upgrade pip
+RUN pip install setuptools>=41.0.0
+RUN pip install numpy
+RUN pip install jupyter jupyterlab
 
 # Install Cmake
 RUN cd /tmp && \
@@ -82,15 +93,13 @@ RUN cd /tmp && \
 # Download NGC client
 RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.zip && unzip ngccli_cat_linux.zip && chmod u+x ngc-cli/ngc && rm ngccli_cat_linux.zip ngc-cli.md5 && echo "no-apikey\nascii\n" | ngc-cli/ngc config set
 
-RUN rm /usr/bin/python && ln -s /usr/bin/python3 /usr/bin/python
+RUN ln -s /usr/bin/python3 /usr/bin/python
 
 # Set environment and working directory
 ENV TRT_LIBPATH /usr/lib64
 ENV TRT_OSSPATH /workspace/TensorRT
 ENV PATH="${PATH}:/usr/local/bin/ngc-cli"
 ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${TRT_OSSPATH}/build/out:${TRT_LIBPATH}"
-# Use devtoolset-8 as default compiler
-ENV PATH="/opt/rh/devtoolset-8/root/bin:${PATH}"
 WORKDIR /workspace
 
 USER trtuser
