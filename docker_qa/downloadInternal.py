@@ -55,7 +55,7 @@ def get_cuda_props(cuda_ver):
         exit(-1)
 
 def get_arch_props(os):
-    if os == "22.04" or os == "20.04" or os == "18.04":
+    if os == "22.04" or os == "20.04":
         return "amd64", "Ubuntu{ver}-x64-agnostic".format(ver=os.replace(".", "_")), "deb", "+", "_", False
     elif os == "7":
         return "x86_64", "RHEL7_9-x64-agnostic", "rpm", ".", ".", True

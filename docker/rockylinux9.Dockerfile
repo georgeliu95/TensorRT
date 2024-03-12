@@ -17,95 +17,70 @@
 
 ARG CUDA_VERSION=12.3.2
 
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04
+FROM nvidia/cuda:${CUDA_VERSION}-devel-rockylinux9
 LABEL maintainer="NVIDIA CORPORATION"
 
-# Install as per https://gitlab.com/nvidia/container-images/cuda/-/blob/master/dist/12.3.2/ubuntu2204/devel/cudnn9/Dockerfile
 ENV NV_CUDNN_VERSION 9.0.0.312
 ARG CUDA_VERSION_MAJOR=12
 
-ENV NV_CUDNN_PACKAGE_NAME "libcudnn9-cuda-${CUDA_VERSION_MAJOR}"
-ENV NV_CUDNN_PACKAGE "libcudnn9-cuda-${CUDA_VERSION_MAJOR}=$NV_CUDNN_VERSION-1"
-ENV NV_CUDNN_PACKAGE_DEV "libcudnn9-dev-cuda-${CUDA_VERSION_MAJOR}=$NV_CUDNN_VERSION-1"
+ENV NV_CUDNN_PACKAGE "libcudnn9-cuda-${CUDA_VERSION_MAJOR}-$NV_CUDNN_VERSION-1"
+ENV NV_CUDNN_PACKAGE_DEV "libcudnn9-devel-cuda-${CUDA_VERSION_MAJOR}-$NV_CUDNN_VERSION-1"
 
 ENV TRT_VERSION 10.0.0.4
 SHELL ["/bin/bash", "-c"]
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN dnf install -y \
     ${NV_CUDNN_PACKAGE} \
     ${NV_CUDNN_PACKAGE_DEV} \
-    && apt-mark hold ${NV_CUDNN_PACKAGE_NAME} \
-    && rm -rf /var/lib/apt/lists/*
+    && dnf clean all \
+    && rm -rf /var/cache/dnf/*
 
 # Setup user account
 ARG uid=1000
 ARG gid=1000
 RUN groupadd -r -f -g ${gid} trtuser && useradd -o -r -l -u ${uid} -g ${gid} -ms /bin/bash trtuser
-RUN usermod -aG sudo trtuser
+RUN usermod -aG wheel trtuser
 RUN echo 'trtuser:nvidia' | chpasswd
 RUN mkdir -p /workspace && chown trtuser /workspace
 
-# Required to build Ubuntu 20.04 without user prompts with DLFW container
-ENV DEBIAN_FRONTEND=noninteractive
+# Install python3
+RUN dnf install -y python39 python3-devel && \
+    cd /usr/bin && rm pip && ln -s /usr/bin/pip3.9 pip;
 
-# Update CUDA signing key
-RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/3bf863cc.pub
+# Install PyPI packages
+RUN pip install --upgrade pip
+RUN pip install setuptools>=41.0.0
+RUN pip install numpy
+RUN pip install jupyter jupyterlab
 
-# Install requried libraries
-RUN apt-get update && apt-get install -y software-properties-common
-RUN add-apt-repository ppa:ubuntu-toolchain-r/test
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libcurl4-openssl-dev \
+# Install requried packages
+RUN dnf -y groupinstall "Development Tools"
+RUN dnf -y install \
+    openssl-devel \
+    bzip2-devel \
+    libffi-devel \
     wget \
+    perl-core \
     git \
     pkg-config \
-    sudo \
-    ssh \
-    libssl-dev \
-    pbzip2 \
-    pv \
-    bzip2 \
     unzip \
-    devscripts \
-    lintian \
-    fakeroot \
-    dh-make \
-    build-essential
-
-# Install python3
-RUN apt-get install -y --no-install-recommends \
-      python3 \
-      python3-pip \
-      python3-dev \
-      python3-wheel &&\
-    cd /usr/local/bin &&\
-    ln -s /usr/bin/python3 python &&\
-    ln -s /usr/bin/pip3 pip;
+    sudo
 
 # Install TensorRT
 RUN if [ "${CUDA_VERSION_MAJOR}" = "11" ]; then \
     wget http://cuda-repo/release-candidates/Libraries/TensorRT/v10.0/10.0.0.4-25768cbc/11.8-r520/Linux-x64-manylinux_2_28/tar/TensorRT-10.0.0.4.Linux.x86_64-gnu.cuda-11.8.tar.gz \
         && tar -xf TensorRT-10.0.0.4.Linux.x86_64-gnu.cuda-11.8.tar.gz \
-        && cp -a TensorRT-10.0.0.4/lib/*.so* /usr/lib/x86_64-linux-gnu \
-        && pip install TensorRT-10.0.0.4/python/tensorrt-10.0.0b4-cp310-none-linux_x86_64.whl ;\
+        && cp -a TensorRT-10.0.0.4/lib/*.so* /usr/lib64 \
+        && pip install TensorRT-10.0.0.4/python/tensorrt-10.0.0b4-cp39-none-linux_x86_64.whl ;\
 elif [ "${CUDA_VERSION_MAJOR}" = "12" ]; then \
     wget http://cuda-repo/release-candidates/Libraries/TensorRT/v10.0/10.0.0.4-25768cbc/12.4-r550/Linux-x64-manylinux_2_28/tar/TensorRT-10.0.0.4.Linux.x86_64-gnu.cuda-12.4.tar.gz \
         && tar -xf TensorRT-10.0.0.4.Linux.x86_64-gnu.cuda-12.4.tar.gz \
-        && cp -a TensorRT-10.0.0.4/lib/*.so* /usr/lib/x86_64-linux-gnu \
-        && pip install TensorRT-10.0.0.4/python/tensorrt-10.0.0b4-cp310-none-linux_x86_64.whl ;\
+        && cp -a TensorRT-10.0.0.4/lib/*.so* /usr/lib64 \
+        && pip install TensorRT-10.0.0.4/python/tensorrt-10.0.0b4-cp39-none-linux_x86_64.whl ;\
 else \
     echo "Invalid CUDA_VERSION"; \
     exit 1; \
 fi
-
-# Install PyPI packages
-RUN pip3 install --upgrade pip
-RUN pip3 install setuptools>=41.0.0
-COPY requirements.txt /tmp/requirements.txt
-RUN pip3 install -r /tmp/requirements.txt
-RUN pip3 install jupyter jupyterlab
-# Workaround to remove numpy installed with tensorflow
-RUN pip3 install --upgrade numpy
 
 # Install Cmake
 RUN cd /tmp && \
@@ -117,8 +92,10 @@ RUN cd /tmp && \
 # Download NGC client
 RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.zip && unzip ngccli_cat_linux.zip && chmod u+x ngc-cli/ngc && rm ngccli_cat_linux.zip ngc-cli.md5 && echo "no-apikey\nascii\n" | ngc-cli/ngc config set
 
+RUN ln -s /usr/bin/python3 /usr/bin/python
+
 # Set environment and working directory
-ENV TRT_LIBPATH /usr/lib/x86_64-linux-gnu
+ENV TRT_LIBPATH /usr/lib64
 ENV TRT_OSSPATH /workspace/TensorRT
 ENV PATH="${PATH}:/usr/local/bin/ngc-cli"
 ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${TRT_OSSPATH}/build/out:${TRT_LIBPATH}"
