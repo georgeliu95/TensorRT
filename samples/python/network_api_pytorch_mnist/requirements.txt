@@ -1,4 +1,4 @@
-Pillow>=9.2.0,<=9.5.0
+Pillow>=10.0.0
 -f https://download.pytorch.org/whl/torch_stable.html
 torch==1.11.0; python_version>="3.8" and python_version<"3.11" and (platform_machine=="aarch64" and sys.platform=="linux")
 torch==1.11.0+cpu; python_version>="3.8" and python_version<"3.11" and ((platform_machine=="x86_64" and sys.platform=="linux") or sys.platform=="win32")
