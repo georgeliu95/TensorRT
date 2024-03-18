@@ -116,7 +116,7 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
 
     def initialize(self):
         err, self.cuDevice = cuda.cuDeviceGet(0)
-        CudaCtxManager.refer(self.cuDevice)
+        trt.get_plugin_registry().acquire_plugin_resource("cuda_ctx", CudaCtxManager(self.cuDevice))
         self.all_pads_d = checkCudaErrors(cuda.cuMemAlloc(np.int32().itemsize * self.N * 2))
         self.orig_dims_d = checkCudaErrors(cuda.cuMemAlloc(np.int32().itemsize * self.N))
         self.Y_shape_d = checkCudaErrors(cuda.cuMemAlloc(np.int32().itemsize * self.N))
@@ -237,7 +237,7 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
         if self.Y_shape_d:
             checkCudaErrors(cuda.cuMemFree(self.Y_shape_d))
 
-        CudaCtxManager.derefer()
+        trt.get_plugin_registry().release_plugin_resource("cuda_ctx")
 
     # 
     # The following defaults take effect since the respective methods are not overriden
@@ -283,8 +283,10 @@ if __name__ == "__main__":
     # Retrieve handle for device 0
     err, cuDevice = cuda.cuDeviceGet(0)
 
+    plg_registry = trt.get_plugin_registry()
+
     # Create context
-    CudaCtxManager.refer(cuDevice)
+    plg_registry.acquire_plugin_resource("cuda_ctx", CudaCtxManager(cuDevice))
 
     precision = np.float32 if args.precision == "fp32" else np.float16
 
@@ -298,7 +300,6 @@ if __name__ == "__main__":
     trt.init_libnvinfer_plugins(TRT_LOGGER, namespace="")
 
     # Register plugin creator
-    plg_registry = trt.get_plugin_registry()
     my_plugin_creator = CircPadPluginCreator()
     plg_registry.register_creator(my_plugin_creator, "")
 
@@ -332,4 +333,4 @@ if __name__ == "__main__":
         else:
             print("Inference result incorrect!")
 
-    CudaCtxManager.derefer()
+    plg_registry.release_plugin_resource("cuda_ctx")

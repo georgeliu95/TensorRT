@@ -21,6 +21,8 @@ import os
 import argparse
 import threading
 
+import tensorrt as trt
+
 def parseArgs():
     parser = argparse.ArgumentParser(description="Options for Circular Padding plugin C++ example")
     parser.add_argument('--precision', type=str, default="fp32", choices=["fp32", "fp16"], help="Precision to use for plugin")
@@ -98,33 +100,19 @@ class KernelHelper:
     def getFunction(self, name):
         return checkCudaErrors(cuda.cuModuleGetFunction(self.module, name))
 
-class AtomicInt():
-    def __init__(self, val = 0):
-        assert type(val) is int
-        self.val = val
-        self._lock = threading.Lock()
+class CudaCtxManager(trt.IPluginResource):
+    def __init__(self, device = None):
+        trt.IPluginResource.__init__(self)
+        self.device = device
+        self.cuda_ctx = None
 
-    def increment(self):
-        with self._lock:
-            self.val += 1
+    def clone(self):
+        cloned = CudaCtxManager()
+        cloned.__dict__.update(self.__dict__)
+        # Delay the CUDA ctx creation until clone()
+        # since only a cloned resource is registered by TRT
+        _, cloned.cuda_ctx = cuda.cuCtxCreate(0, self.device)
+        return cloned
 
-    def decrement(self):
-        with self._lock:
-            self.val -= 1
-
-class CudaCtxManager:
-    cuda_ctx = None
-    ref_count = AtomicInt()
-
-    @classmethod
-    def refer(cls, device):
-        if cls.ref_count.val == 0:
-            _, cls.cuda_ctx = cuda.cuCtxCreate(0, device)
-        cls.ref_count.increment()
-
-    @classmethod
-    def derefer(cls):
-        assert cls.ref_count.val >= 1
-        cls.ref_count.decrement()
-        if cls.ref_count.val == 0:
-           checkCudaErrors(cuda.cuCtxDestroy(cls.cuda_ctx))
+    def release(self):
+        checkCudaErrors(cuda.cuCtxDestroy(self.cuda_ctx))

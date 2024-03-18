@@ -20,6 +20,7 @@
 #include <cstring>
 #include <functional>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -46,7 +47,7 @@ static const std::map<char, std::pair<int64_t, std::string>> kUNIT_MULTIPLIERS{
 // Returns "B (Bytes), K (Kilobytes), ..."
 std::string getAvailableUnitSuffixes()
 {
-    std::stringstream ss;
+    std::ostringstream ss;
     for (auto it = kUNIT_MULTIPLIERS.begin(); it != kUNIT_MULTIPLIERS.end(); ++it)
     {
         if (it != kUNIT_MULTIPLIERS.begin())
@@ -69,8 +70,9 @@ int64_t getUnitMultiplier(std::string const& option)
         auto found = kUNIT_MULTIPLIERS.find(unit);
         if (found == kUNIT_MULTIPLIERS.end())
         {
-            std::stringstream ss;
-            ss << "Error parsing \"" << option << "\": invalid unit specifier '" << unit << "'. Valid base-2 unit suffixes include: ";
+            std::ostringstream ss;
+            ss << "Error parsing \"" << option << "\": invalid unit specifier '" << unit
+               << "'. Valid base-2 unit suffixes include: ";
             ss << getAvailableUnitSuffixes() << ".";
             throw std::invalid_argument(ss.str());
         }
@@ -94,12 +96,6 @@ int32_t stringToValue<int32_t>(const std::string& option)
 }
 
 template <>
-int64_t stringToValue<int64_t>(const std::string& option)
-{
-    return std::stoll(option) * getUnitMultiplier(option);
-}
-
-template <>
 size_t stringToValue<size_t>(const std::string& option)
 {
     return std::stoi(option) * getUnitMultiplier(option);
@@ -114,7 +110,7 @@ float stringToValue<float>(const std::string& option)
 template <>
 double stringToValue<double>(const std::string& option)
 {
-    return std::stod(option);
+    return std::stod(option) * getUnitMultiplier(option);
 }
 
 template <>
@@ -229,6 +225,36 @@ SparsityFlag stringToValue<SparsityFlag>(std::string const& option)
     }
 
     return search->second;
+}
+
+template <>
+WeightStreamingBudget stringToValue<WeightStreamingBudget>(std::string const& option)
+{
+    WeightStreamingBudget budget;
+    if (option.find('%') != std::string::npos)
+    {
+        double percent = std::stod(option);
+        if (!(percent >= 0 && percent <= 100.0))
+        {
+            std::ostringstream err;
+            err << "The weight streaming percent must be between 0 and 100.";
+            throw std::invalid_argument(err.str());
+        }
+        budget.percent = percent;
+    }
+    else
+    {
+        double bytes = stringToValue<double>(option);
+        if (!(bytes == WeightStreamingBudget::kAUTOMATIC || bytes >= WeightStreamingBudget::kDISABLE))
+        {
+            std::ostringstream err;
+            err << "The weight streaming budget must be " << WeightStreamingBudget::kAUTOMATIC << " or at least "
+                << WeightStreamingBudget::kDISABLE << ".";
+            throw std::invalid_argument(err.str());
+        }
+        budget.bytes = static_cast<int64_t>(bytes);
+    }
+    return budget;
 }
 
 template <typename T>
@@ -1482,7 +1508,7 @@ void BuildOptions::parse(Arguments& arguments)
     getAndDelOption(arguments, "--leanDLLPath", leanDLLPath);
 
     // Don't delete the option because the inference option parser requires it
-    getOption(arguments, "--enableWeightStreaming", enableWeightStreaming);
+    getOption(arguments, "--allowWeightStreaming", allowWeightStreaming);
 }
 
 void SystemOptions::parse(Arguments& arguments)
@@ -1509,6 +1535,9 @@ void SystemOptions::parse(Arguments& arguments)
     }
     getAndDelOption(arguments, "--ignoreParsedPluginLibs", ignoreParsedPluginLibs);
 }
+
+constexpr int64_t WeightStreamingBudget::kDISABLE;
+constexpr int64_t WeightStreamingBudget::kAUTOMATIC;
 
 void InferenceOptions::parse(Arguments& arguments)
 {
@@ -1566,18 +1595,19 @@ void InferenceOptions::parse(Arguments& arguments)
         throw std::invalid_argument(std::string("Unknown allocationStrategy: ") + allocationStrategyString);
     }
 
-    bool enableWs{false};
-    getAndDelOption(arguments, "--enableWeightStreaming", enableWs);
+    bool allowWs{false};
+    getAndDelOption(arguments, "--allowWeightStreaming", allowWs);
     bool wsBudgetFound = getAndDelOption(arguments, "--weightStreamingBudget", weightStreamingBudget);
-    if (!enableWs && wsBudgetFound)
+    if (wsBudgetFound && !allowWs)
     {
         throw std::invalid_argument(
-            "The weight streaming budget can only be set with --enableWeightStreaming specified.");
+            "The weight streaming budget can only be set with --allowWeightStreaming specified.");
     }
-    if (weightStreamingBudget < kDISABLE_WEIGHT_STREAMING)
+    if (allowWs && weightStreamingBudget.isDisabled())
     {
-        throw std::invalid_argument(
-            "The weight streaming budget must be >= " + std::to_string(kDISABLE_WEIGHT_STREAMING));
+        sample::gLogWarning << "The engine can stream its weights but it will not at runtime because "
+                               "--weightStreamingBudget unset or set to "
+                            << WeightStreamingBudget::kDISABLE << "." << std::endl;
     }
 
     std::string debugTensorList;
@@ -2072,7 +2102,7 @@ std::ostream& operator<<(std::ostream& os, const BuildOptions& options)
           "MaxAuxStreams: "   << options.maxAuxStreams                                                                  << std::endl <<
           "BuilderOptimizationLevel: " << options.builderOptimizationLevel                                              << std::endl <<
           "Calibration Profile Index: " << options.calibProfile                                                         << std::endl <<
-          "Weight Streaming: " << boolToEnabled(options.enableWeightStreaming)                                          << std::endl <<
+          "Weight Streaming: " << boolToEnabled(options.allowWeightStreaming)                                           << std::endl <<
           "Debug Tensors: " << options.debugTensors                                                                     << std::endl;
     // clang-format on
 
@@ -2155,15 +2185,18 @@ std::ostream& operator<<(std::ostream& os, const InferenceOptions& options)
     }
     printShapes(os, "inference", options.shapes, options.optProfileIndex);
 
-    ASSERT(options.weightStreamingBudget >= InferenceOptions::kDISABLE_WEIGHT_STREAMING);
     std::string wsBudget{"Disabled"};
-    if (options.weightStreamingBudget == 0)
+    if (options.weightStreamingBudget.bytes == WeightStreamingBudget::kAUTOMATIC)
     {
         wsBudget = "Automatic";
     }
-    else
+    else if (options.weightStreamingBudget.bytes != WeightStreamingBudget::kDISABLE)
     {
-        wsBudget = std::to_string(options.weightStreamingBudget) + " bytes";
+        wsBudget = std::to_string(options.weightStreamingBudget.bytes) + " bytes";
+    }
+    else if (options.weightStreamingBudget.percent != WeightStreamingBudget::kDISABLE)
+    {
+        wsBudget = std::to_string(options.weightStreamingBudget.percent) + "%";
     }
 
     os << "Iterations: "                << options.iterations                                   << std::endl <<
@@ -2452,9 +2485,8 @@ void BuildOptions::help(std::ostream& os)
           "                                     (ex: --profile=0 --minShapes=<spec> --optShapes=<spec> --maxShapes=<spec> --profile=1 ...)"         "\n"
           "  --calibProfile                     Select the optimization profile to calibrate by index. (default = "
                                                                                                                 << defaultOptProfileIndex << ")"    "\n"
-          "  --enableWeightStreaming            Enable a weight streaming engine. TensorRT will automatically choose the appropriate"               "\n"
-          "                                     weight streaming budget at runtime to ensure model execution. A specific amount can be set"         "\n"
-          "                                     with --weightStreamingBudget."                                                                      "\n"
+          "  --allowWeightStreaming             Enable a weight streaming engine. Must be specified with --stronglyTyped. TensorRT will disable"    "\n"
+          "                                     weight streaming at runtime unless --weightStreamingBudget is specified."                           "\n"
           "  --markDebug                        Specify list of names of tensors to be marked as debug tensors. Separate names with a comma"        "\n"
           ;
     // clang-format on
@@ -2535,10 +2567,15 @@ void InferenceOptions::help(std::ostream& os)
           "                              These tensors must be specified as debug tensors during build time."                        << std::endl <<
           R"(                            Input values spec ::= Ival[","spec])"                                                       << std::endl <<
           R"(                                         Ival ::= name":"file)"                                                         << std::endl <<
-          "  --weightStreamingBudget     Manually set the weight streaming budget. Base-2 unit suffixes are supported: "             << std::endl <<
-          "                              " << getAvailableUnitSuffixes() << "."                                                      << std::endl <<
-          "                              A value of 0 will choose the minimum possible budget."                                      << std::endl <<
-          "                              A value of -1 will disable weight streaming at runtime."                                    << std::endl;
+          "  --weightStreamingBudget     Set the maximum amount of GPU memory TensorRT is allowed to use for weights."               << std::endl <<
+          "                              It can take on the following values:"                                                       << std::endl <<
+          "                                -1: TensorRT will automatically decide the budget."                                       << std::endl <<
+          "                                 0: (default) Disable weight streaming at runtime."                                       << std::endl <<
+          "                                 0-100%: Percentage of streamable weights that should be streamed."                       << std::endl <<
+          "                                         100% saves the most memory but will have the worst performance."                 << std::endl <<
+          "                                         Requires the % character."                                                       << std::endl <<
+          "                                >0B: The exact amount of streambale weights that reside on the GPU. Supports the "        << std::endl <<
+          "                                     following base-2 suffixes: " << getAvailableUnitSuffixes() << "."                    << std::endl;
     // clang-format on
 }
 
