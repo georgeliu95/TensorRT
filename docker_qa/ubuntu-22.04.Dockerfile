@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,10 +15,13 @@
 # limitations under the License.
 #
 
-ARG CUDA_VERSION=12.2.0
+ARG CUDA_CONTAINER_VERSION=12.3.2
 
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04
+FROM nvidia/cuda:${CUDA_CONTAINER_VERSION}-devel-ubuntu22.04
 LABEL maintainer="NVIDIA CORPORATION"
+
+# FIXME: Align CUDA_VERSION and CUDA_CONTAINER_VERSION when CUDA 12.4 container is available on NGC
+ARG CUDA_VERSION=12.4
 
 ENV NV_CUDNN_VERSION 8.9.6.50
 ENV NV_CUDNN_PACKAGE_NAME "libcudnn8"
@@ -26,7 +29,7 @@ ENV NV_CUDNN_PACKAGE_NAME "libcudnn8"
 ENV NV_CUDNN_PACKAGE "libcudnn8=$NV_CUDNN_VERSION-1+cuda12.2"
 ENV NV_CUDNN_PACKAGE_DEV "libcudnn8-dev=$NV_CUDNN_VERSION-1+cuda12.2"
 
-ENV TRT_VERSION 9.2.0.5
+ENV TRT_VERSION 10.0.0.5
 SHELL ["/bin/bash", "-c"]
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
