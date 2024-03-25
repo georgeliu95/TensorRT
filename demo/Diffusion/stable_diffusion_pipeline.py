@@ -426,7 +426,7 @@ class StableDiffusionPipeline:
             if do_export_onnx or do_export_weights_map:
                 # Non-quantized ONNX export
                 if not use_int8[model_name]:
-                    obj.export_onnx(onnx_path[model_name], onnx_opt_path[model_name], onnx_opset, opt_image_height, opt_image_width, enable_lora_merge=do_lora_merge[model_name])
+                    obj.export_onnx(onnx_path[model_name], onnx_opt_path[model_name], onnx_opset, opt_image_height, opt_image_width, enable_lora_merge=do_lora_merge[model_name], static_shape=static_shape)
                 else:
                     state_dict_path = self.getStateDictPath(model_name, onnx_dir, suffix=model_suffix[model_name])
                     if not os.path.exists(state_dict_path):
