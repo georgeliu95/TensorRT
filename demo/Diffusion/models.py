@@ -356,7 +356,7 @@ class BaseModel():
     def get_dynamic_axes(self):
         return None
 
-    def get_sample_input(self, batch_size, image_height, image_width):
+    def get_sample_input(self, batch_size, image_height, image_width, static_shape):
         pass
 
     def get_input_profile(self, batch_size, image_height, image_width, static_batch, static_shape):
@@ -374,7 +374,8 @@ class BaseModel():
         opt_image_height,
         opt_image_width,
         custom_model=None,
-        enable_lora_merge=False
+        enable_lora_merge=False,
+        static_shape=False,
     ):
         onnx_opt_graph = None
         # Export optimized ONNX model (if missing)
@@ -384,7 +385,7 @@ class BaseModel():
                 def export_onnx(model):
                     if enable_lora_merge:
                         model = merge_loras(model, self.lora_dict, self.lora_alphas, self.lora_scales)
-                    inputs = self.get_sample_input(1, opt_image_height, opt_image_width)
+                    inputs = self.get_sample_input(1, opt_image_height, opt_image_width, static_shape)
                     torch.onnx.export(model,
                             inputs,
                             onnx_path,
@@ -572,7 +573,7 @@ class CLIPModel(BaseModel):
             output["hidden_states"] = (batch_size, self.text_maxlen, self.embedding_dim)
         return output
 
-    def get_sample_input(self, batch_size, image_height, image_width):
+    def get_sample_input(self, batch_size, image_height, image_width, static_shape):
         self.check_dims(batch_size, image_height, image_width)
         return torch.zeros(batch_size, self.text_maxlen, dtype=torch.int32, device=self.device)
 
@@ -766,6 +767,11 @@ class UNetModel(BaseModel):
             }
 
     def get_input_profile(self, batch_size, image_height, image_width, static_batch, static_shape):
+        # WAR to enable inference for H/W that are not multiples of 16
+        # If building with Dynamic Shapes: ensure image height and width are not multiples of 16 for ONNX export and TensorRT engine build
+        if not static_shape:
+            image_height = image_height - 8 if image_height % 16 == 0 else image_height
+            image_width = image_width - 8 if image_width % 16 == 0 else image_width
         latent_height, latent_width = self.check_dims(batch_size, image_height, image_width)
         min_batch, max_batch, min_image_height, max_image_height, min_image_width, max_image_width, min_latent_height, max_latent_height, min_latent_width, max_latent_width = \
             self.get_minmax_dims(batch_size, image_height, image_width, static_batch, static_shape)
@@ -804,7 +810,12 @@ class UNetModel(BaseModel):
                 'latent': (self.xB*batch_size, 4, latent_height, latent_width)
                 }
 
-    def get_sample_input(self, batch_size, image_height, image_width):
+    def get_sample_input(self, batch_size, image_height, image_width, static_shape):
+        # WAR to enable inference for H/W that are not multiples of 16
+        # If building with Dynamic Shapes: ensure image height and width are not multiples of 16 for ONNX export and TensorRT engine build
+        if not static_shape:
+            image_height = image_height - 8 if image_height % 16 == 0 else image_height
+            image_width = image_width - 8 if image_width % 16 == 0 else image_width
         latent_height, latent_width = self.check_dims(batch_size, image_height, image_width)
         dtype = torch.float16 if self.fp16 else torch.float32
         if self.controlnets is None:
@@ -886,6 +897,11 @@ class UNetXLModel(BaseModel):
         }
 
     def get_input_profile(self, batch_size, image_height, image_width, static_batch, static_shape):
+        # WAR to enable inference for H/W that are not multiples of 16
+        # If building with Dynamic Shapes: ensure image height and width are not multiples of 16 for ONNX export and TensorRT engine build
+        if not static_shape:
+            image_height = image_height - 8 if image_height % 16 == 0 else image_height
+            image_width = image_width - 8 if image_width % 16 == 0 else image_width
         latent_height, latent_width = self.check_dims(batch_size, image_height, image_width)
         min_batch, max_batch, _, _, _, _, min_latent_height, max_latent_height, min_latent_width, max_latent_width = \
             self.get_minmax_dims(batch_size, image_height, image_width, static_batch, static_shape)
@@ -906,7 +922,12 @@ class UNetXLModel(BaseModel):
             'time_ids': (self.xB*batch_size, self.time_dim)
         }
 
-    def get_sample_input(self, batch_size, image_height, image_width):
+    def get_sample_input(self, batch_size, image_height, image_width, static_shape):
+        # WAR to enable inference for H/W that are not multiples of 16
+        # If building with Dynamic Shapes: ensure image height and width are not multiples of 16 for ONNX export and TensorRT engine build
+        if not static_shape:
+            image_height = image_height - 8 if image_height % 16 == 0 else image_height
+            image_width = image_width - 8 if image_width % 16 == 0 else image_width
         latent_height, latent_width = self.check_dims(batch_size, image_height, image_width)
         dtype = torch.float16 if self.fp16 else torch.float32
         return (
@@ -980,7 +1001,7 @@ class VAEModel(BaseModel):
             'images': (batch_size, 3, image_height, image_width)
         }
 
-    def get_sample_input(self, batch_size, image_height, image_width):
+    def get_sample_input(self, batch_size, image_height, image_width, static_shape):
         latent_height, latent_width = self.check_dims(batch_size, image_height, image_width)
         return torch.randn(batch_size, 4, latent_height, latent_width, dtype=torch.float32, device=self.device)
 
@@ -1051,7 +1072,7 @@ class VAEEncoderModel(BaseModel):
             'latent': (batch_size, 4, latent_height, latent_width)
         }
 
-    def get_sample_input(self, batch_size, image_height, image_width):
+    def get_sample_input(self, batch_size, image_height, image_width, static_shape):
         self.check_dims(batch_size, image_height, image_width)
         return torch.randn(batch_size, 3, image_height, image_width, dtype=torch.float32, device=self.device)
 
