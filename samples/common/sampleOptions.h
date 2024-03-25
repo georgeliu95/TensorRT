@@ -144,6 +144,20 @@ using LayerDeviceTypes = std::unordered_map<std::string, nvinfer1::DeviceType>;
 
 using StringSet = std::unordered_set<std::string>;
 
+class WeightStreamingBudget
+{
+public:
+    static constexpr int64_t kDISABLE{0};
+    static constexpr int64_t kAUTOMATIC{-1};
+    int64_t bytes{kDISABLE};
+    double percent{static_cast<double>(kDISABLE)};
+
+    bool isDisabled()
+    {
+        return bytes == kDISABLE && percent == kDISABLE;
+    }
+};
+
 class Options
 {
 public:
@@ -244,7 +258,7 @@ public:
     int32_t maxAuxStreams{defaultMaxAuxStreams};
     bool getPlanVersionOnly{false};
 
-    bool enableWeightStreaming{false};
+    bool allowWeightStreaming{false};
 
     void parse(Arguments& arguments) override;
 
@@ -295,8 +309,7 @@ public:
     MemoryAllocationStrategy memoryAllocationStrategy{MemoryAllocationStrategy::kSTATIC};
     std::unordered_map<std::string, std::string> debugTensorFileNames;
 
-    static constexpr int64_t kDISABLE_WEIGHT_STREAMING{-1};
-    int64_t weightStreamingBudget{kDISABLE_WEIGHT_STREAMING};
+    WeightStreamingBudget weightStreamingBudget;
 
     void parse(Arguments& arguments) override;
 

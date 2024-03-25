@@ -298,18 +298,40 @@ bool setUpInference(InferenceEnvironment& iEnv, InferenceOptions const& inferenc
     iEnv.engine.releaseBlob();
 
     // Setup weight streaming if enabled
-    if (inference.weightStreamingBudget > InferenceOptions::kDISABLE_WEIGHT_STREAMING)
+    if (engine->getStreamableWeightsSize() > 0)
     {
-        int64_t const limit = inference.weightStreamingBudget;
-        int64_t budget{limit};
-        if (limit == 0)
+        auto const& budget = inference.weightStreamingBudget;
+        int64_t wsBudget = budget.bytes;
+        if (budget.percent != WeightStreamingBudget::kDISABLE)
         {
-            budget = engine->getMinimumWeightStreamingBudget();
+            double const percent = budget.percent;
+            ASSERT(percent > 0.0);
+            auto const min = engine->getMinimumWeightStreamingBudget();
+            auto const max = engine->getStreamableWeightsSize();
+            wsBudget = (max >= min) ? (1 - percent / 100) * (max - min) + min : WeightStreamingBudget::kDISABLE;
         }
-        bool success = engine->setWeightStreamingBudget(budget);
+        bool success = engine->setWeightStreamingBudget(wsBudget);
         SMP_RETVAL_IF_FALSE(success, "Failed to set weight streaming limit!", false, sample::gLogError);
-        sample::gLogInfo << "Weight streaming is enabled with a weights device memory limit of " << budget << " bytes."
-                         << std::endl;
+        switch (wsBudget)
+        {
+        case WeightStreamingBudget::kDISABLE:
+        {
+            sample::gLogInfo << "Weight streaming has been disabled at runtime." << std::endl;
+            break;
+        }
+
+        case WeightStreamingBudget::kAUTOMATIC:
+        {
+            sample::gLogInfo << "The weight streaming budget will automatically be chosen by TensorRT." << std::endl;
+            break;
+        }
+        default:
+        {
+            sample::gLogInfo << "Weight streaming is enabled with a device memory limit of " << wsBudget << " bytes."
+                             << std::endl;
+            break;
+        }
+        }
     }
 
     int32_t const nbOptProfiles = engine->getNbOptimizationProfiles();

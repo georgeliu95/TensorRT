@@ -842,12 +842,17 @@ public:
     //!
     //! \param inputs Expressions for dimensions of the input tensors
     //! \param nbInputs The number of input tensors
-    //! \param shapeInputs Expressions for dimensions of the shape tensor inputs
+    //! \param shapeInputs Expressions for values of the shape tensor inputs
     //! \param nbShapeInputs The number of shape tensor inputs
     //! \param outputs Pre-allocated array to which the output dimensions must be written
     //! \param exprBuilder Object for generating new dimension expressions
     //!
     //! \note Any size tensor outputs must be declared to be 0-D.
+    //!
+    //! \note The declaration of shapeInputs as DimsExprs is slightly abusive, because the "dimensions"
+    //!       are actually the values of the shape tensor. For example, if the input shape tensor
+    //!       is a 2x3 matrix, the DimsExprs will have six "dimensions": the three values from the first
+    //!       row of the matrix followed by the three values from the second row of the matrix.
     //!
     //! \return 0 for success, else non-zero (which will cause engine termination). Returned code will be reported
     //! through the error recorder.
@@ -3070,13 +3075,13 @@ public:
     //! in bytes.
     //!
     //! \param gpuMemoryBudget  This parameter may take on 3 types of values:
-    //!  -1: (default) Disables weight streaming. The execution may fail if the network is too large for GPU memory.
-    //!   0: Allows TensorRT to choose the budget according to the streamable weights size.
+    //!  -1: Allows TensorRT to choose the budget according to the streamable weights size.
     //!      Free CUDA memory will be queried at ::createExecutionContext and accordingly:
     //!       * If streamable weights all fit: weight streaming is not required and disabled.
     //!       * Otherwise: Budget is set to getMinimumWeightStreamingBudget
+    //!   0: (default) Disables weight streaming. The execution may fail if the network is too large for GPU memory.
     //!  >0: The maximum bytes of GPU memory that weights can occupy. It must be bounded by
-    //!      [getMinimumWeightStreamingBudget, min(getStreamableWeightsSize, free GPU memory)].
+    //!      [getMinimumWeightStreamingBudget, min(getStreamableWeightsSize - 1, free GPU memory)].
     //!
     //! By setting a weight limit, users can expect a GPU memory usage reduction
     //! of |network weights| - gpuMemoryBudget bytes. Maximum memory savings occur
@@ -3154,7 +3159,8 @@ public:
     //! The set of streamable weights is a subset of all network weights. The
     //! total size may exceed free GPU memory.
     //!
-    //! \warning BuilderFlag::kWEIGHT_STREAMING must be set during engine building.
+    //! Returns 0 if BuilderFlag::kWEIGHT_STREAMING is unset during engine building.
+    //!
     //!
     //! \returns The total size in bytes of all streamable weights.
     //!
@@ -3235,7 +3241,7 @@ public:
     //!
     //! To preallocate memory and have the engine fail if the preallocation is not big enough,
     //! use IExecutionContext::setTensorAddress to set a pointer to the preallocated memory,
-    //! and have reallocateOutput return nullptr if that memory is not big enough.
+    //! and have reallocateOutputAsync return nullptr if that memory is not big enough.
     //!
     //! The default definition exists for sake of backward compatibility with earlier versions of TensorRT.
     //! Eventually this method will become a pure virtual method that requires an override, and method

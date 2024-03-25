@@ -705,7 +705,9 @@ protected:
 //!
 //! \see IPluginV2Ext
 //!
-class IPluginV2IOExt : public IPluginV2Ext
+//! \deprecated Deprecated in TensorRT 10.0.
+//!
+class TRT_DEPRECATED IPluginV2IOExt : public IPluginV2Ext
 {
 public:
     //!
@@ -938,7 +940,7 @@ protected:
     IPluginCreatorInterface& operator=(IPluginCreatorInterface&&) & = default;
 };
 
-class IPluginCreator : public IPluginCreatorInterface
+class TRT_DEPRECATED IPluginCreator : public IPluginCreatorInterface
 {
 public:
     //!
@@ -1080,6 +1082,9 @@ using IPluginCreatorInterface = v_1_0::IPluginCreatorInterface;
 //! \brief Plugin creator class for user implemented layers.
 //!
 //! \see IPlugin and IPluginFactory
+//!
+//! \deprecated Deprecated in TensorRT 10.0. Please implement IPluginCreatorV3One instead along with IPluginV3 plugins
+//! instead.
 //!
 using IPluginCreator = v_1_0::IPluginCreator;
 

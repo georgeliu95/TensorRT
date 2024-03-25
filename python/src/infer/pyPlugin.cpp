@@ -846,6 +846,11 @@ public:
     PyIPluginResourceImpl() = default;
     PyIPluginResourceImpl(const IPluginResource& a){};
 
+    APILanguage getAPILanguage() const noexcept final
+    {
+        return APILanguage::kPYTHON;
+    }
+
     int32_t release() noexcept override
     {
         try
@@ -908,9 +913,17 @@ public:
         try
         {
             py::gil_scoped_acquire gil{};
-
-            // Remove reference to the Python IPluginResource object so that it could be garbage-collected
-            py::cast(this).dec_ref();
+            auto obj = py::cast(this);
+            // The cloned resource (which is registered by TRT) may have many references on the Python
+            // side, including at call sites of IPluginRegistry.acquire_plugin_resource().
+            // But even though IPluginRegistry.release_plugin_resource() internally decrements the ref count,
+            // this is not reflected on the Python side. Therefore, when the registered resource is manually
+            // deleted by TRT, set the ref count to zero so the object may be properly garbage collected by
+            // Python.
+            while (obj.ref_count())
+            {
+                obj.dec_ref();
+            }
         }
         PLUGIN_API_CATCH("IPluginResource destruction")
     }
@@ -2541,8 +2554,10 @@ void bindPlugin(py::module& m)
         .def_property_readonly("error_recorder", &IPluginResourceContext::getErrorRecorder)
         .def_property_readonly("gpu_allocator", &IPluginResourceContext::getGpuAllocator);
 
-    py::class_<IPluginResource, std::unique_ptr<IPluginResource, py::nodelete>>(
+    py::class_<IPluginResource, IVersionedInterface, PyIPluginResourceImpl,
+        std::unique_ptr<IPluginResource, py::nodelete>>(
         m, "IPluginResource", IPluginResourceDoc::descr, py::module_local())
+        .def(py::init<>())
         // return_value_policy::reference_internal is default for the following
         .def("release", &pluginDoc::release, IPluginResourceDoc::release)
         .def("clone", &pluginDoc::clonePluginResource, IPluginResourceDoc::clone);

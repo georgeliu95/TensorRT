@@ -69,7 +69,11 @@ public:
     //! - Allowed context for the API call
     //!   - Thread-safe: Yes; calls to this method will be synchronized by a mutex.
     //!
-    virtual bool registerCreator(IPluginCreator& creator, AsciiChar const* const pluginNamespace) noexcept = 0;
+    //! \deprecated Deprecated in TensorRT 10.0. Superseded by
+    //! IPluginRegistry::registerCreator(IPluginCreatorInterface&, AsciiChar const* const).
+    //!
+    TRT_DEPRECATED virtual bool registerCreator(
+        IPluginCreator& creator, AsciiChar const* const pluginNamespace) noexcept = 0;
 
     //!
     //! \brief Return all the registered plugin creators and the number of
@@ -82,7 +86,9 @@ public:
     //! - Allowed context for the API call
     //!   - Thread-safe: No
     //!
-    virtual IPluginCreator* const* getPluginCreatorList(int32_t* const numCreators) const noexcept = 0;
+    //! \deprecated Deprecated in TensorRT 10.0. Superseded by IPluginRegistry::getAllCreators(int32_t* const).
+    //!
+    TRT_DEPRECATED virtual IPluginCreator* const* getPluginCreatorList(int32_t* const numCreators) const noexcept = 0;
 
     //!
     //! \brief Return plugin creator based on plugin name, version, and
@@ -98,8 +104,11 @@ public:
     //! - Allowed context for the API call
     //!   - Thread-safe: Yes
     //!
-    virtual IPluginCreator* getPluginCreator(AsciiChar const* const pluginName, AsciiChar const* const pluginVersion,
-        AsciiChar const* const pluginNamespace = "") noexcept = 0;
+    //! \deprecated Deprecated in TensorRT 10.0. Superseded by IPluginRegistry::getCreator(AsciiChar const* const,
+    //! AsciiChar const* const, AsciiChar const* const).
+    //!
+    TRT_DEPRECATED virtual IPluginCreator* getPluginCreator(AsciiChar const* const pluginName,
+        AsciiChar const* const pluginVersion, AsciiChar const* const pluginNamespace = "") noexcept = 0;
 
     // @cond SuppressDoxyWarnings
     IPluginRegistry() = default;
@@ -162,7 +171,10 @@ public:
     //! - Allowed context for the API call
     //!   - Thread-safe: Yes
     //!
-    virtual bool deregisterCreator(IPluginCreator const& creator) noexcept = 0;
+    //! \deprecated Deprecated in TensorRT 10.0. Superseded by
+    //! IPluginRegistry::deregisterCreator(IPluginCreatorInterface const&).
+    //!
+    TRT_DEPRECATED virtual bool deregisterCreator(IPluginCreator const& creator) noexcept = 0;
 
     //!
     //! \brief Return whether the parent registry will be searched if a plugin is not found in this registry
