@@ -54,7 +54,7 @@ tokenizers          0.13.3
 torch               2.1.0
 transformers        4.31.0
 controlnet-aux      0.0.6
-nvidia-smmo         0.7.0
+nvidia-ammo         0.7.0
 ```
 
 > NOTE: optionally install HuggingFace [accelerate](https://pypi.org/project/accelerate/) package for faster and less memory-intense model loading.
