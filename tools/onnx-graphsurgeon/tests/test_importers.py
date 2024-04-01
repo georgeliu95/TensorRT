@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -84,7 +84,9 @@ class TestOnnxImporter(object):
     # An empty string in `dim_param` should be treated like a dynamic dimension
     def test_import_empty_dim_param_tensor(self):
         shape = (1, 2, "non-empty", "")
-        onnx_tensor = onnx.helper.make_tensor_value_info("test0", onnx.TensorProto.FLOAT, shape)
+        onnx_tensor = onnx.helper.make_tensor_value_info(
+            "test0", onnx.TensorProto.FLOAT, shape
+        )
         tensor = OnnxImporter.import_tensor(onnx_tensor)
         assert type(tensor) == Variable
         assert tuple(tensor.shape) == shape
@@ -92,7 +94,9 @@ class TestOnnxImporter(object):
     # Sometimes, tensor shape is not known, in which case we shouldn't import it
     def test_import_unknown_shape_tensor(self):
         shape = None
-        onnx_tensor = onnx.helper.make_tensor_value_info("test0", onnx.TensorProto.FLOAT, shape)
+        onnx_tensor = onnx.helper.make_tensor_value_info(
+            "test0", onnx.TensorProto.FLOAT, shape
+        )
         tensor = OnnxImporter.import_tensor(onnx_tensor)
         assert type(tensor) == Variable
         assert tensor.shape is None
@@ -100,7 +104,9 @@ class TestOnnxImporter(object):
     # Scalars can be represented in ONNX with a dim that includes neither a dim_param nor dim_value
     def test_import_empty_dim_tensor(self):
         shape = (None,)
-        onnx_tensor = onnx.helper.make_tensor_value_info("test0", onnx.TensorProto.FLOAT, shape)
+        onnx_tensor = onnx.helper.make_tensor_value_info(
+            "test0", onnx.TensorProto.FLOAT, shape
+        )
         onnx_tensor.type.tensor_type.shape.dim[0].ClearField("dim_value")
         onnx_tensor.type.tensor_type.shape.dim[0].ClearField("dim_param")
 
@@ -134,7 +140,9 @@ class TestOnnxImporter(object):
             ints_attr=ints_attr,
             strings_attr=strings_attr,
         )
-        node = OnnxImporter.import_node(onnx_node, OrderedDict(), OrderedDict(), opset=11, import_domains=None)
+        node = OnnxImporter.import_node(
+            onnx_node, OrderedDict(), OrderedDict(), opset=11, import_domains=None
+        )
         assert node.op == op
         assert node.attrs["float_attr"] == float_attr
         assert node.attrs["int_attr"] == int_attr
@@ -153,16 +161,15 @@ class TestOnnxImporter(object):
         referencing_attr = "attr3"
         referenced_attr = "attr4"
 
-        onnx_node = onnx.helper.make_node(
-            op,
-            inputs,
-            outputs,
-            **attrs
+        onnx_node = onnx.helper.make_node(op, inputs, outputs, **attrs)
+        onnx_attr_ref = onnx.helper.make_attribute_ref(
+            referencing_attr, onnx.AttributeProto.FLOAT
         )
-        onnx_attr_ref = onnx.helper.make_attribute_ref(referencing_attr, onnx.AttributeProto.FLOAT)
         onnx_attr_ref.ref_attr_name = referenced_attr
         onnx_node.attribute.append(onnx_attr_ref)
-        node = OnnxImporter.import_node(onnx_node, OrderedDict(), OrderedDict(), opset=11, import_domains=None)
+        node = OnnxImporter.import_node(
+            onnx_node, OrderedDict(), OrderedDict(), opset=11, import_domains=None
+        )
         assert node.op == op
         assert node.attrs["attr1"] == 1
         assert node.attrs["attr2"] == 2.0
@@ -192,7 +199,7 @@ class TestOnnxImporter(object):
             opset_imports,
             attributes=attributes,
             attribute_protos=attribute_protos,
-            doc_string=doc_string
+            doc_string=doc_string,
         )
         func = OnnxImporter.import_function(onnx_function)
         assert type(func) == Function
@@ -200,7 +207,9 @@ class TestOnnxImporter(object):
         assert func.domain == domain
         assert func.doc_string == doc_string
         assert list(func.import_domains) == list(opset_imports)
-        assert set(func.attrs.keys()) == set(attributes) | {a.name for a in attribute_protos}
+        assert set(func.attrs.keys()) == set(attributes) | {
+            a.name for a in attribute_protos
+        }
         assert func.opset == opset
         assert all([isinstance(t, Tensor) for t in func.inputs + func.outputs])
         assert sorted(inputs) == sorted([t.name for t in func.inputs])
@@ -230,7 +239,10 @@ class TestOnnxImporter(object):
         graph = OnnxImporter.import_graph(model.graph)
         tensors = graph.tensors()
         assert all(
-            [type(tensor) == Variable and tensor.dtype is not None and tensor.shape for tensor in tensors.values()]
+            [
+                type(tensor) == Variable and tensor.dtype is not None and tensor.shape
+                for tensor in tensors.values()
+            ]
         )
 
     def test_import_graph_tensor_map_preserved(self):
@@ -255,23 +267,87 @@ class TestOnnxImporter(object):
         graph = OnnxImporter.import_graph(model.load().graph)
         tensors = graph.tensors()
 
-        assert 'w_sparse' in tensors
-        sparse_tensor = tensors['w_sparse']
+        assert "w_sparse" in tensors
+        sparse_tensor = tensors["w_sparse"]
 
-        ref_value = np.array([1., 2., 3., 4., 5., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0., 0.]).reshape(sparse_tensor._values.shape)
-        assert type(sparse_tensor) == Constant and type(sparse_tensor._values) == SparseValues
-        assert (tensors['w_sparse']._values.load() == ref_value).all()
+        ref_value = np.array(
+            [
+                1.0,
+                2.0,
+                3.0,
+                4.0,
+                5.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ]
+        ).reshape(sparse_tensor._values.shape)
+        assert (
+            type(sparse_tensor) == Constant
+            and type(sparse_tensor._values) == SparseValues
+        )
+        assert (tensors["w_sparse"]._values.load() == ref_value).all()
 
     def test_import_graph_with_sparse_nnz(self):
         model = sparse_nnz_model()
         graph = OnnxImporter.import_graph(model.load().graph)
         tensors = graph.tensors()
 
-        assert 'w_sparse' in tensors
-        sparse_tensor = tensors['w_sparse']
+        assert "w_sparse" in tensors
+        sparse_tensor = tensors["w_sparse"]
 
-        ref_value = np.array([0., 1., 0., 0., 2., 0., 0., 3., 0., 0., 0., 0., 4., 0., 0., 0., 0., 0., 0., 0., 5., 0., 0., 0., 0., 0., 0.]).reshape(sparse_tensor._values.shape)
-        assert type(sparse_tensor) == Constant and type(sparse_tensor._values) == SparseValues
-        assert (tensors['w_sparse']._values.load() == ref_value).all()
-
-
+        ref_value = np.array(
+            [
+                0.0,
+                1.0,
+                0.0,
+                0.0,
+                2.0,
+                0.0,
+                0.0,
+                3.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                4.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                5.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ]
+        ).reshape(sparse_tensor._values.shape)
+        assert (
+            type(sparse_tensor) == Constant
+            and type(sparse_tensor._values) == SparseValues
+        )
+        assert (tensors["w_sparse"]._values.load() == ref_value).all()

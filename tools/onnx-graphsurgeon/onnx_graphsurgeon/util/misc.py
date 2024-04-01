@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,6 +21,7 @@ from typing import List, Sequence
 import numpy as np
 from onnx import AttributeProto
 from onnx_graphsurgeon.logger import G_LOGGER
+
 
 # default_value exists to solve issues that might result from Python's normal default argument behavior.
 # Specifically, consider the following class:
@@ -82,6 +83,7 @@ def volume(obj):
 _ONNX_ATTR_TYPE_TO_GS_TYPE = {}
 _GS_TYPE_TO_ONNX_ATTR_TYPE = {}
 
+
 # This method prevents circular import of Tensor and Graph
 def _init_dicts():
     global _ONNX_ATTR_TYPE_TO_GS_TYPE
@@ -111,9 +113,11 @@ def _init_dicts():
     }
     _GS_TYPE_TO_ONNX_ATTR_TYPE = {v: k for k, v in _ONNX_ATTR_TYPE_TO_GS_TYPE.items()}
 
+
 def convert_from_onnx_attr_type(onnx_attr_type):
     _init_dicts()
     return _ONNX_ATTR_TYPE_TO_GS_TYPE[onnx_attr_type]
+
 
 def convert_to_onnx_attr_type(any_type):
     _init_dicts()

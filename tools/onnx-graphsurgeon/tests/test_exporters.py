@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -112,7 +112,9 @@ class TestOnnxExporter(object):
 
         onnx_shape = []
         for dim in onnx_tensor.type.tensor_type.shape.dim:
-            onnx_shape.append(dim.dim_value if dim.HasField("dim_value") else dim.dim_param)
+            onnx_shape.append(
+                dim.dim_value if dim.HasField("dim_value") else dim.dim_param
+            )
         assert tuple(onnx_shape) == shape
 
     # When a tensor shape is unknown, we should leave the shape field empty.
@@ -142,7 +144,9 @@ class TestOnnxExporter(object):
         attrs["float_attr"] = 4.0
         attrs["int_attr"] = 10
         attrs["str_attr"] = "constant"
-        attrs["tensor_attr"] = Constant("testTensor", np.ones(shape=(1, 2, 3, 4), dtype=np.float32))
+        attrs["tensor_attr"] = Constant(
+            "testTensor", np.ones(shape=(1, 2, 3, 4), dtype=np.float32)
+        )
         attrs["floats_attr"] = [1.0, 2.0, 3.0, 4.0]
         attrs["ints_attr"] = [4, 3, 2, 1]
         attrs["strings_attr"] = ["constant", "and", "variable"]
@@ -163,7 +167,10 @@ class TestOnnxExporter(object):
             elif isinstance(attr, str):
                 assert onnx_attr.s.decode() == attr
             elif isinstance(attr, Tensor):
-                assert onnx_attr.t.SerializeToString() == OnnxExporter.export_tensor_proto(attr).SerializeToString()
+                assert (
+                    onnx_attr.t.SerializeToString()
+                    == OnnxExporter.export_tensor_proto(attr).SerializeToString()
+                )
             elif isinstance(attr, list):
                 if isinstance(attr[0], float):
                     assert onnx_attr.floats == attr
@@ -173,22 +180,32 @@ class TestOnnxExporter(object):
                     assert [s.decode() for s in onnx_attr.strings] == attr
                 else:
                     raise AssertionError(
-                        "Unrecognized list attribute: ({:}: {:}) of type: {:}".format(name, attr, type(attr))
+                        "Unrecognized list attribute: ({:}: {:}) of type: {:}".format(
+                            name, attr, type(attr)
+                        )
                     )
             elif isinstance(attr, type):
-                assert onnx_attr.i == onnx.helper.np_dtype_to_tensor_dtype(np.dtype(attr))
+                assert onnx_attr.i == onnx.helper.np_dtype_to_tensor_dtype(
+                    np.dtype(attr)
+                )
             else:
-                raise AssertionError("Unrecognized attribute: ({:}: {:}) of type: {:}".format(name, attr, type(attr)))
+                raise AssertionError(
+                    "Unrecognized attribute: ({:}: {:}) of type: {:}".format(
+                        name, attr, type(attr)
+                    )
+                )
 
     def test_export_node_ref_attrs(self):
         op = "Test"
         inputs = [Variable(name="input")]
         outputs = [Variable(name="output")]
-        attrs = OrderedDict({
-            "attr1": 1,
-            "attr2": 2.0,
-            "attr3": Node.AttributeRef("attr4", int),
-        })
+        attrs = OrderedDict(
+            {
+                "attr1": 1,
+                "attr2": 2.0,
+                "attr3": Node.AttributeRef("attr4", int),
+            }
+        )
         node = Node(op=op, inputs=inputs, outputs=outputs, attrs=attrs)
 
         onnx_node = OnnxExporter.export_node(node)
@@ -210,7 +227,7 @@ class TestOnnxExporter(object):
         Z = Variable("Z", dtype=np.float32)
         nodes = [
             Node("Add", inputs=[W, X], outputs=[Y]),
-            Node("Mul", inputs=[X, Y], outputs=[Z])
+            Node("Mul", inputs=[X, Y], outputs=[Z]),
         ]
         inputs = [W, X]
         outputs = [Z]
@@ -233,13 +250,17 @@ class TestOnnxExporter(object):
         assert onnx_func.name == name
         assert onnx_func.domain == domain
         assert onnx_func.doc_string == doc_string
-        assert sorted(onnx_func.attribute) == sorted([name for name, val in attributes.items() if val is None])
+        assert sorted(onnx_func.attribute) == sorted(
+            [name for name, val in attributes.items() if val is None]
+        )
         assert len(onnx_func.attribute_proto) == 1
         assert onnx_func.attribute_proto[0].name == "attr2"
         assert onnx_func.attribute_proto[0].f == 2.0
         assert sorted(onnx_func.input) == sorted([t.name for t in inputs])
         assert sorted(onnx_func.output) == sorted([t.name for t in outputs])
-        assert sorted([n.op_type for n in onnx_func.node]) == sorted([n.op for n in nodes])
+        assert sorted([n.op_type for n in onnx_func.node]) == sorted(
+            [n.op for n in nodes]
+        )
         assert onnx_func.opset_import[0].version == opset
 
     # See test_importers for import correctness checks

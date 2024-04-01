@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,6 +36,7 @@ class Node(object):
             name (str): The name of the referenced attribute in the parent Function.
             type (type): The attribute's type.
         """
+
         name: str
         type: type
 
@@ -63,8 +64,12 @@ class Node(object):
         self.op = op
         self.name = misc.default_value(name, "")
         self.attrs = misc.default_value(attrs, OrderedDict())
-        self.inputs = misc.SynchronizedList(self, field_name="outputs", initial=misc.default_value(inputs, []))
-        self.outputs = misc.SynchronizedList(self, field_name="inputs", initial=misc.default_value(outputs, []))
+        self.inputs = misc.SynchronizedList(
+            self, field_name="outputs", initial=misc.default_value(inputs, [])
+        )
+        self.outputs = misc.SynchronizedList(
+            self, field_name="inputs", initial=misc.default_value(outputs, [])
+        )
         self.domain = domain
 
     def i(self, tensor_idx=0, producer_idx=0):
@@ -149,7 +154,12 @@ class Node(object):
         else:
             super().__setattr__(name, value)
 
-    def copy(self, inputs: List["Tensor"] = None, outputs: List["Tensor"] = None, tensor_map=None):
+    def copy(
+        self,
+        inputs: List["Tensor"] = None,
+        outputs: List["Tensor"] = None,
+        tensor_map=None,
+    ):
         """
         Makes a shallow copy of this node, overriding input and output information.
 
@@ -164,7 +174,14 @@ class Node(object):
             else:
                 new_attrs[name] = attr
 
-        return Node(self.op, self.name, new_attrs, inputs=inputs, outputs=outputs, domain=self.domain)
+        return Node(
+            self.op,
+            self.name,
+            new_attrs,
+            inputs=inputs,
+            outputs=outputs,
+            domain=self.domain,
+        )
 
     def __str__(self):
         ret = "{:} ({:})".format(self.name, self.op)
@@ -195,7 +212,11 @@ class Node(object):
         Check whether two nodes are equal by comparing name, attributes, op, inputs, and outputs.
         """
         G_LOGGER.verbose("Comparing node: {:} with {:}".format(self.name, other.name))
-        attrs_match = self.name == other.name and self.op == other.op and self.attrs == other.attrs
+        attrs_match = (
+            self.name == other.name
+            and self.op == other.op
+            and self.attrs == other.attrs
+        )
         inputs_match = len(self.inputs) == len(other.inputs) and all(
             [inp == other_inp for inp, other_inp in zip(self.inputs, other.inputs)]
         )

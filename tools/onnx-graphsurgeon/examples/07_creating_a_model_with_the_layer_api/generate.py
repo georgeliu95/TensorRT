@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,6 +21,7 @@ import numpy as np
 import onnx
 
 print("Graph.layer Help:\n{}".format(gs.Graph.layer.__doc__))
+
 
 # We can use `Graph.register()` to add a function to the Graph class. Later, we can invoke the function
 # directly on instances of the graph, e.g., `graph.add(...)`
