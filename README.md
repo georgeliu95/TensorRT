@@ -26,7 +26,7 @@ You can skip the **Build** section to enjoy TensorRT with Python.
 To build the TensorRT-OSS components, you will first need the following software packages.
 
 **TensorRT GA build**
-* TensorRT v9.3.0.1
+* TensorRT v10.0.0.6
   * Available from direct download links listed below
 
 **System Packages**
@@ -73,16 +73,16 @@ To build the TensorRT-OSS components, you will first need the following software
     If using the TensorRT OSS build container, TensorRT libraries are preinstalled under `/usr/lib/x86_64-linux-gnu` and you may skip this step.
 
     Else download and extract the TensorRT GA build from [NVIDIA Developer Zone](https://developer.nvidia.com) with the direct links below:
-      - [TensorRT 9.3.0.1 for CUDA 11.8, Linux x86_64](https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/9.3.0/tensorrt-9.3.0.1.linux.x86_64-gnu.cuda-11.8.tar.gz)
-      - [TensorRT 9.3.0.1 for CUDA 12.2, Linux x86_64](https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/9.3.0/tensorrt-9.3.0.1.linux.x86_64-gnu.cuda-12.2.tar.gz)
+      - [TensorRT 10.0.0.6 for CUDA 11.8, Linux x86_64](https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.0.0/tars/TensorRT-10.0.0.6.Linux.x86_64-gnu.cuda-11.8.tar.gz)
+      - [TensorRT 10.0.0.6 for CUDA 12.4, Linux x86_64](https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.0.0/tars/TensorRT-10.0.0.6.Linux.x86_64-gnu.cuda-12.4.tar.gz)
 
 
     **Example: Ubuntu 20.04 on x86-64 with cuda-12.2**
 
     ```bash
     cd ~/Downloads
-    tar -xvzf tensorrt-9.3.0.1.linux.x86_64-gnu.cuda-12.2.tar.gz
-    export TRT_LIBPATH=`pwd`/TensorRT-9.3.0.1
+    tar -xvzf TensorRT-10.0.0.6.Linux.x86_64-gnu.cuda-12.4.tar.gz
+    export TRT_LIBPATH=`pwd`/TensorRT-10.0.0.6
     ```
 
 ## Setting Up The Build Environment
@@ -92,19 +92,19 @@ For Linux platforms, we recommend that you generate a docker container for build
 1. #### Generate the TensorRT-OSS build container.
     The TensorRT-OSS build container can be generated using the supplied Dockerfiles and build scripts. The build containers are configured for building TensorRT OSS out-of-the-box.
 
-    **Example: Ubuntu 20.04 on x86-64 with cuda-12.2 (default)**
+    **Example: Ubuntu 20.04 on x86-64 with cuda-12.3.2 (default)**
     ```bash
-    ./docker/build.sh --file docker/ubuntu-20.04.Dockerfile --tag tensorrt-ubuntu20.04-cuda12.2
+    ./docker/build.sh --file docker/ubuntu-20.04.Dockerfile --tag tensorrt-ubuntu20.04-cuda12.3.2
     ```
-    **Example: CentOS/RedHat 7 on x86-64 with cuda-12.2**
+    **Example: Rockylinux8 on x86-64 with cuda-12.3.2**
     ```bash
-    ./docker/build.sh --file docker/centos-7.Dockerfile --tag tensorrt-centos7-cuda12.2 --cuda 12.2.0
+    ./docker/build.sh --file docker/rockylinux8.Dockerfile --tag tensorrt-rockylinux8-cuda12.3.2 --cuda 12.3.2
     ```
 
 2. #### Launch the TensorRT-OSS build container.
     **Example: Ubuntu 20.04 build container**
 	```bash
-	./docker/launch.sh --tag tensorrt-ubuntu20.04-cuda12.2 --gpus all
+	./docker/launch.sh --tag tensorrt-ubuntu20.04-cuda12.3.2 --gpus all
 	```
 	> NOTE:
   <br> 1. Use the `--tag` corresponding to build container generated in Step 1.
@@ -115,7 +115,7 @@ For Linux platforms, we recommend that you generate a docker container for build
 ## Building TensorRT-OSS
 * Generate Makefiles and build.
 
-    **Example: Linux (x86-64) build with default cuda-12.2**
+    **Example: Linux (x86-64) build with default cuda-12.3.2**
 	```bash
 	cd $TRT_OSSPATH
 	mkdir -p build && cd build
@@ -133,7 +133,6 @@ For Linux platforms, we recommend that you generate a docker container for build
 
 	> NOTE:
 	<br> 1. The default CUDA version used by CMake is 12.2.0. To override this, for example to 11.8, append `-DCUDA_VERSION=11.8` to the cmake command.
-	<br> 2. If samples fail to link on CentOS7, create this symbolic link: `ln -s $TRT_OUT_DIR/libnvinfer_plugin.so $TRT_OUT_DIR/libnvinfer_plugin.so.8`
 * Required CMake build arguments are:
 	- `TRT_LIB_DIR`: Path to the TensorRT installation directory containing libraries.
 	- `TRT_OUT_DIR`: Output directory where generated build artifacts will be copied.

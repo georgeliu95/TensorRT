@@ -7,7 +7,7 @@ This demo application ("demoDiffusion") showcases the acceleration of Stable Dif
 ### Clone the TensorRT OSS repository
 
 ```bash
-git clone git@github.com:NVIDIA/TensorRT.git -b release/9.3 --single-branch
+git clone git@github.com:NVIDIA/TensorRT.git -b release/10.0 --single-branch
 cd TensorRT
 ```
 
@@ -26,7 +26,7 @@ python3 -m pip install --upgrade pip
 python3 -m pip install --pre --upgrade --extra-index-url https://pypi.nvidia.com tensorrt
 ```
 
-> NOTE: TensorRT 9.x is only available as a pre-release
+> NOTE: TensorRT 10.x is only available as a pre-release
 
 Check your installed version using:
 `python3 -c 'import tensorrt;print(tensorrt.__version__)'`
@@ -49,7 +49,7 @@ onnx                1.15.0
 onnx-graphsurgeon   0.3.27
 onnxruntime         1.17.0
 polygraphy          0.49.7
-tensorrt            9.3.0.1
+tensorrt            10.0.0.6
 tokenizers          0.13.3
 torch               2.1.0
 transformers        4.31.0
