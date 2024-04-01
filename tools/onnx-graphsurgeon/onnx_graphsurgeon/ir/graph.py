@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -182,7 +182,11 @@ class Graph(object):
                     )
                 return lambda *args, **kwargs: methods[0](self, *args, **kwargs)
 
-            found_in_other_opsets = {opset for opset, opset_map in Graph.OPSET_FUNC_MAP.items() if name in opset_map}
+            found_in_other_opsets = {
+                opset
+                for opset, opset_map in Graph.OPSET_FUNC_MAP.items()
+                if name in opset_map
+            }
 
             G_LOGGER.error(
                 f"Function: '{name}' was not registered for opset {self.opset}. "

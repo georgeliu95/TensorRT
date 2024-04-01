@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,7 +24,13 @@ from onnx_graphsurgeon.exporters.base_exporter import BaseExporter
 from onnx_graphsurgeon.ir.function import Function
 from onnx_graphsurgeon.ir.graph import Graph
 from onnx_graphsurgeon.ir.node import Node
-from onnx_graphsurgeon.ir.tensor import Constant, SparseValues, LazyValues, Tensor, Variable
+from onnx_graphsurgeon.ir.tensor import (
+    Constant,
+    SparseValues,
+    LazyValues,
+    Tensor,
+    Variable,
+)
 from onnx_graphsurgeon.logger import G_LOGGER
 from onnx_graphsurgeon.util import misc
 
@@ -253,7 +259,8 @@ class OnnxExporter(BaseExporter):
         initializer = [
             OnnxExporter.export_tensor_proto(tensor)
             for tensor in tensor_map.values()
-            if isinstance(tensor, Constant) and not isinstance(tensor._values, SparseValues)
+            if isinstance(tensor, Constant)
+            and not isinstance(tensor._values, SparseValues)
         ]
         sparse_initializer = [
             OnnxExporter.export_sparse_tensor_proto(tensor)

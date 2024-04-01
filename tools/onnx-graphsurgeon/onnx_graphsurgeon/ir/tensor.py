@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -81,7 +81,9 @@ class Tensor(object):
         return self
 
     def to_variable(
-        self, dtype: Union[np.dtype, "onnx.TensorProto.DataType"] = None, shape: Sequence[Union[int, str]] = []
+        self,
+        dtype: Union[np.dtype, "onnx.TensorProto.DataType"] = None,
+        shape: Sequence[Union[int, str]] = [],
     ):
         """
         Modifies this tensor in-place to convert it to a Variable. This means that all consumers/producers of the tensor will see the update.
@@ -138,7 +140,9 @@ class Tensor(object):
         return self.outputs[consumer_idx].outputs[tensor_idx]
 
     def __str__(self):
-        return "{:} ({:}): (shape={:}, dtype={:})".format(type(self).__name__, self.name, self.shape, self.dtype)
+        return "{:} ({:}): (shape={:}, dtype={:})".format(
+            type(self).__name__, self.name, self.shape, self.dtype
+        )
 
     def __repr__(self):  # Hack to make logging output pretty.
         return self.__str__()
@@ -204,7 +208,11 @@ class LazyValues(object):
         Args:
             tensor (onnx.TensorProto, onnx.SparseTensorProto): The ONNX tensor that this instance should lazily load.
         """
-        from onnx_graphsurgeon.importers.onnx_importer import get_onnx_tensor_shape, get_onnx_tensor_dtype, get_itemsize
+        from onnx_graphsurgeon.importers.onnx_importer import (
+            get_onnx_tensor_shape,
+            get_onnx_tensor_dtype,
+            get_itemsize,
+        )
 
         self.tensor = tensor
         self.shape = get_onnx_tensor_shape(self.tensor)
@@ -220,7 +228,10 @@ class LazyValues(object):
         """
         import onnx
         import onnx.numpy_helper
-        from onnx_graphsurgeon.importers.onnx_importer import get_dtype_name, get_numpy_type
+        from onnx_graphsurgeon.importers.onnx_importer import (
+            get_dtype_name,
+            get_numpy_type,
+        )
 
         if get_numpy_type(self.dtype) is None:
             G_LOGGER.warning(
@@ -238,10 +249,12 @@ class LazyValues(object):
     def __repr__(self):  # Hack to make logging output pretty.
         return self.__str__()
 
+
 class SparseValues(LazyValues):
     """
     A special object that represents constant tensor values that is sparse
     """
+
     def load(self):
         """
         Load a numpy array from the sparse structure.
@@ -251,14 +264,21 @@ class SparseValues(LazyValues):
         """
         import onnx
         import onnx.numpy_helper
-        from onnx_graphsurgeon.importers.onnx_importer import get_dtype_name, get_numpy_type
+        from onnx_graphsurgeon.importers.onnx_importer import (
+            get_dtype_name,
+            get_numpy_type,
+        )
 
         supported_index_type = [onnx.TensorProto.INT64]
         if self.tensor.indices.data_type not in supported_index_type:
-            G_LOGGER.critical(f"Unsupported index data type {self.tensor.indices.data_type} in {self.tensor.values.name}")
+            G_LOGGER.critical(
+                f"Unsupported index data type {self.tensor.indices.data_type} in {self.tensor.values.name}"
+            )
 
         if self.tensor.values.data_type == onnx.TensorProto.FLOAT16:
-            values_data = np.asarray(self.tensor.values.int32_data, dtype=np.uint16).view(np.float16)
+            values_data = np.asarray(
+                self.tensor.values.int32_data, dtype=np.uint16
+            ).view(np.float16)
         else:
             field_name = onnx.helper.tensor_dtype_to_field(self.tensor.values.data_type)
             values = getattr(self.tensor.values, field_name)
@@ -275,12 +295,14 @@ class SparseValues(LazyValues):
             # [NNZ, rank] with the [i,j]-th value corresponding to the j-th index of the i-th value
             values = np.zeros(self.tensor.dims)
             indices_data = np.asarray(indices_data).reshape(self.tensor.indices.dims)
-            
+
             for i in range(len(values_data)):
                 values[tuple(indices_data[i])] = values_data[i]
         else:
-            G_LOGGER.critical(f"Unsupported index data dims {self.tensor.indices.dims} in {self.tensor.values.name}")
- 
+            G_LOGGER.critical(
+                f"Unsupported index data dims {self.tensor.indices.dims} in {self.tensor.values.name}"
+            )
+
         return values
 
     def __str__(self):
@@ -288,7 +310,12 @@ class SparseValues(LazyValues):
 
 
 class Constant(Tensor):
-    def __init__(self, name: str, values: Union[np.ndarray, LazyValues], data_location: int = None):
+    def __init__(
+        self,
+        name: str,
+        values: Union[np.ndarray, LazyValues],
+        data_location: int = None,
+    ):
         """
         Represents a Tensor whose value is known.
 
@@ -303,16 +330,24 @@ class Constant(Tensor):
         self.name = name
         self.inputs = misc.SynchronizedList(self, field_name="outputs", initial=[])
         self.outputs = misc.SynchronizedList(self, field_name="inputs", initial=[])
-        if not isinstance(values, np.ndarray) and not isinstance(values, LazyValues) and not isinstance(values, SparseValues):
+        if (
+            not isinstance(values, np.ndarray)
+            and not isinstance(values, LazyValues)
+            and not isinstance(values, SparseValues)
+        ):
             G_LOGGER.critical(
                 "Provided `values` argument is not a NumPy array, a LazyValues instance or a"
                 "SparseValues instance. Please provide a NumPy array or LazyValues instance "
-                "to construct a Constant. Note: Provided `values` parameter was: {:}".format(values)
+                "to construct a Constant. Note: Provided `values` parameter was: {:}".format(
+                    values
+                )
             )
         self._values = values
         self.data_location = data_location
 
-    def to_variable(self, dtype: np.dtype = None, shape: Sequence[Union[int, str]] = []):
+    def to_variable(
+        self, dtype: np.dtype = None, shape: Sequence[Union[int, str]] = []
+    ):
         del self._values
         return super().to_variable(dtype, shape)
 

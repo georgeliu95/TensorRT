@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -23,6 +23,7 @@ from onnx_graphsurgeon.ir.node import Node
 from onnx_graphsurgeon.ir.tensor import Tensor, Variable
 from onnx_graphsurgeon.logger import G_LOGGER
 from onnx_graphsurgeon.util import misc
+
 
 class Function(Graph):
     """
@@ -80,7 +81,7 @@ class Function(Graph):
             doc_string=doc_string,
             opset=opset,
             import_domains=import_domains,
-            functions=functions
+            functions=functions,
         )
 
         # Properties of Graph that Function doesn't have.
@@ -106,25 +107,25 @@ class Function(Graph):
         The only difference is that 'recurse_functions' defaults to False, so that only this Function is cleaned up.
         """
         if recurse_functions:
-            G_LOGGER.warning("Function.cleanup() called with recurse_functions=True, meaning that other functions will also be cleaned up.")
+            G_LOGGER.warning(
+                "Function.cleanup() called with recurse_functions=True, meaning that other functions will also be cleaned up."
+            )
         return super().cleanup(
             remove_unused_node_outputs=remove_unused_node_outputs,
             recurse_subgraphs=recurse_subgraphs,
             remove_unused_graph_inputs=remove_unused_graph_inputs,
-            recurse_functions=recurse_functions
+            recurse_functions=recurse_functions,
         )
 
-    def fold_constants(
-        self,
-        recurse_functions=False,
-        **kwargs
-    ):
+    def fold_constants(self, recurse_functions=False, **kwargs):
         """
         See Graph.fold_constants()
         The only difference is that 'recurse_functions' defaults to False, so that only this Function's constants are folded.
         """
         if recurse_functions:
-            G_LOGGER.warning("Function.fold_constants() called with recurse_functions=True, meaning that other functions will also be const-folded.")
+            G_LOGGER.warning(
+                "Function.fold_constants() called with recurse_functions=True, meaning that other functions will also be const-folded."
+            )
         return super().fold_constants(recurse_functions=recurse_functions, **kwargs)
 
     def toposort(
@@ -139,19 +140,17 @@ class Function(Graph):
         so that by default only this function's nodes will be sorted.
         """
         if recurse_functions:
-            G_LOGGER.warning("Function.toposort() called with recurse_functions=True, meaning that other functions will be sorted.")
+            G_LOGGER.warning(
+                "Function.toposort() called with recurse_functions=True, meaning that other functions will be sorted."
+            )
         return super().toposort(
             recurse_subgraphs=recurse_subgraphs,
             recurse_functions=recurse_functions,
-            mode=mode
+            mode=mode,
         )
 
     def __call__(
-        self,
-        graph,
-        inputs=None,
-        outputs=None,
-        *args, **kwargs
+        self, graph, inputs=None, outputs=None, *args, **kwargs
     ) -> List[Tensor]:
         """
         Creates a Node which is an instance of this function.
@@ -172,8 +171,12 @@ class Function(Graph):
             List[Tensor]: The output tensors of the node.
         """
         if inputs is not None and len(inputs) != len(self.inputs):
-            msg_template = "Function {} expects {} inputs, but was called with {} inputs."
-            G_LOGGER.warning(msg_template.format(self.name, len(self.inputs), len(inputs)))
+            msg_template = (
+                "Function {} expects {} inputs, but was called with {} inputs."
+            )
+            G_LOGGER.warning(
+                msg_template.format(self.name, len(self.inputs), len(inputs))
+            )
 
         new_output_indices = []
         if outputs is None:
@@ -181,10 +184,16 @@ class Function(Graph):
             outputs = [out.name for out in self.outputs]
             new_output_indices = list(range(len(outputs)))
         elif len(outputs) != len(self.outputs):
-            msg_template = "Function {} expects {} outputs, but was called with {} outputs."
-            G_LOGGER.warning(msg_template.format(self.name, len(self.outputs), len(outputs)))
+            msg_template = (
+                "Function {} expects {} outputs, but was called with {} outputs."
+            )
+            G_LOGGER.warning(
+                msg_template.format(self.name, len(self.outputs), len(outputs))
+            )
         else:
-            new_output_indices = [i for i in range(len(outputs)) if not isinstance(outputs[i], Tensor)]
+            new_output_indices = [
+                i for i in range(len(outputs)) if not isinstance(outputs[i], Tensor)
+            ]
 
         attrs = kwargs.get("attrs", None)
         if attrs is not None:
@@ -195,7 +204,14 @@ class Function(Graph):
 
         inputs = misc.default_value(inputs, [])
         outputs = misc.default_value(outputs, [])
-        outputs = graph.layer(*args, **kwargs, op=self.name, domain=self.domain, inputs=inputs, outputs=outputs)
+        outputs = graph.layer(
+            *args,
+            **kwargs,
+            op=self.name,
+            domain=self.domain,
+            inputs=inputs,
+            outputs=outputs,
+        )
 
         # For newly created output tensors, set their shape and dtype to match the Function defintion.
         for i in new_output_indices:
@@ -217,6 +233,7 @@ class Function(Graph):
         """
 
         local_tensor_copies = {n: t.copy() for n, t in self.tensors().items()}
+
         def get_tensor(name):
             if not name:
                 return Variable.empty()
@@ -254,13 +271,14 @@ class Function(Graph):
             return len(seq1) == len(seq2) and all(
                 [elem1 == elem2 for elem1, elem2 in zip(seq1, seq2)]
             )
+
         return (
-            self.unique_id == other.unique_id and
-            self.opset == other.opset and
-            self.import_domains == other.import_domains and
-            sequences_equal(self.inputs, other.inputs) and
-            sequences_equal(self.outputs, other.outputs) and
-            sequences_equal(self.nodes, other.nodes)
+            self.unique_id == other.unique_id
+            and self.opset == other.opset
+            and self.import_domains == other.import_domains
+            and sequences_equal(self.inputs, other.inputs)
+            and sequences_equal(self.outputs, other.outputs)
+            and sequences_equal(self.nodes, other.nodes)
         )
 
     def __str__(self):

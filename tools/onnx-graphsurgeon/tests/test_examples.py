@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -42,13 +42,17 @@ EXAMPLES = [
     ("03_isolating_a_subgraph", [Artifact("model.onnx"), Artifact("subgraph.onnx")]),
     ("04_modifying_a_model", [Artifact("model.onnx"), Artifact("modified.onnx")]),
     ("05_folding_constants", [Artifact("model.onnx"), Artifact("folded.onnx")]),
-    ("06_removing_nodes", [Artifact("model.onnx", infer=False), Artifact("removed.onnx")]),
+    (
+        "06_removing_nodes",
+        [Artifact("model.onnx", infer=False), Artifact("removed.onnx")],
+    ),
     ("07_creating_a_model_with_the_layer_api", [Artifact("model.onnx")]),
     ("08_replacing_a_subgraph", [Artifact("model.onnx"), Artifact("replaced.onnx")]),
     ("09_shape_operations_with_the_layer_api", [Artifact("model.onnx")]),
     ("10_dynamic_batch_size", [Artifact("model.onnx"), Artifact("dynamic.onnx")]),
     ("11_creating_a_local_function", [Artifact("model.onnx")]),
 ]
+
 
 # Extract any ``` blocks from the README
 def load_commands_from_readme(readme):
@@ -77,12 +81,18 @@ def infer_model(path):
 
     feed_dict = {}
     for tensor in graph.inputs:
-        shape = tuple(dim if not misc.is_dynamic_dimension(dim) else 1 for dim in tensor.shape)
-        feed_dict[tensor.name] = np.random.random_sample(size=shape).astype(tensor.dtype)
+        shape = tuple(
+            dim if not misc.is_dynamic_dimension(dim) else 1 for dim in tensor.shape
+        )
+        feed_dict[tensor.name] = np.random.random_sample(size=shape).astype(
+            tensor.dtype
+        )
 
     output_names = [out.name for out in graph.outputs]
 
-    sess = onnxruntime.InferenceSession(model.SerializeToString(), providers=["CPUExecutionProvider"])
+    sess = onnxruntime.InferenceSession(
+        model.SerializeToString(), providers=["CPUExecutionProvider"]
+    )
     outputs = sess.run(output_names, feed_dict)
     G_LOGGER.info("Inference outputs: {:}".format(outputs))
     return outputs
@@ -95,7 +105,12 @@ def test_examples(example_dir, artifacts):
     commands = load_commands_from_readme(readme)
     for command in commands:
         G_LOGGER.info(command)
-        assert sp.run(["bash", "-c", command], cwd=example_dir, env={"PYTHONPATH": ROOT_DIR}).returncode == 0
+        assert (
+            sp.run(
+                ["bash", "-c", command], cwd=example_dir, env={"PYTHONPATH": ROOT_DIR}
+            ).returncode
+            == 0
+        )
 
     for artifact in artifacts:
         artifact_path = os.path.join(example_dir, artifact.name)
