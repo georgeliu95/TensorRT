@@ -1,5 +1,34 @@
 # TensorRT OSS Release Changelog
 
+## 10.0.0 EA - 2024-03-27
+
+Key Features and Updates:
+
+ - Samples changes
+   - Added a [sample](samples/python/sample_weight_stripping) showcasing weight-stripped engines.
+   - Added a [sample](samples/python/python_plugin/circ_pad_plugin_multi_tactic.py) demonstrating the use of custom tactics with IPluginV3.
+   - Added a [sample](samples/sampleNonZeroPlugin) to showcase plugins with data-dependent output shapes, using IPluginV3.
+ - Parser changes
+   - Added a new class `IParserRefitter` that can be used to refit a TensorRT engine with the weights of an ONNX model.
+   - `kNATIVE_INSTANCENORM` is now set to ON by default.
+   - Added support for `IPluginV3` interfaces from TensorRT.
+   - Added support for `INT4` quantization.
+   - Added support for the `reduction` attribute in `ScatterElements`.
+   - Added support for `wrap` padding mode in `Pad`
+ - Plugin changes
+   - A [new plugin](plugin/scatterElementsPlugin) has been added in compliance with [ONNX ScatterElements](https://github.com/onnx/onnx/blob/main/docs/Operators.md#ScatterElements).
+   - The TensorRT plugin library no longer has a load-time link dependency on cuBLAS or cuDNN libraries.
+   - All plugins which relied on cuBLAS/cuDNN handles passed through `IPluginV2Ext::attachToContext()` have moved to use cuBLAS/cuDNN resources initialized by the plugin library itself. This works by dynamically loading the required cuBLAS/cuDNN library. Additionally, plugins which independently initialized their cuBLAS/cuDNN resources have also moved to dynamically loading the required library. If the respective library is not discoverable through the library path(s), these plugins will not work.
+   - bertQKVToContextPlugin: Version 2 of this plugin now supports head sizes less than or equal to 32.
+   - reorgPlugin: Added a version 2 which implements IPluginV2DynamicExt.
+   - disentangledAttentionPlugin: Fixed a kernel bug.
+ - Demo changes
+   - HuggingFace demos have been removed. For all users using TensorRT to accelerate Large Language Model inference, please use [TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM/).
+ - Updated tooling
+   - Polygraphy v0.49.9
+   - ONNX-GraphSurgeon v0.5.1
+   - TensorRT Engine Explorer v0.1.8
+
 ## 9.3.0 GA - 2024-02-09
 
 Key Features and Updates:
