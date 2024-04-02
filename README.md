@@ -77,7 +77,7 @@ To build the TensorRT-OSS components, you will first need the following software
       - [TensorRT 10.0.0.6 for CUDA 12.4, Linux x86_64](https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/10.0.0/tars/TensorRT-10.0.0.6.Linux.x86_64-gnu.cuda-12.4.tar.gz)
 
 
-    **Example: Ubuntu 20.04 on x86-64 with cuda-12.2**
+    **Example: Ubuntu 20.04 on x86-64 with cuda-12.4**
 
     ```bash
     cd ~/Downloads
@@ -122,14 +122,6 @@ For Linux platforms, we recommend that you generate a docker container for build
 	cmake .. -DTRT_LIB_DIR=$TRT_LIBPATH -DTRT_OUT_DIR=`pwd`/out
 	make -j$(nproc)
 	```
-
-    > NOTE: On CentOS7, the default g++ version does not support C++14. For native builds (not using the CentOS7 build container), first install devtoolset-8 to obtain the updated g++ toolchain as follows:
-    ```bash
-    yum -y install centos-release-scl
-    yum-config-manager --enable rhel-server-rhscl-7-rpms
-    yum -y install devtoolset-8
-    export PATH="/opt/rh/devtoolset-8/root/bin:${PATH}"
-    ```
 
 	> NOTE:
 	<br> 1. The default CUDA version used by CMake is 12.2.0. To override this, for example to 11.8, append `-DCUDA_VERSION=11.8` to the cmake command.
