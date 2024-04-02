@@ -28,6 +28,8 @@ Key Features and Updates:
    - Polygraphy v0.49.9
    - ONNX-GraphSurgeon v0.5.1
    - TensorRT Engine Explorer v0.1.8
+ - Build Containers
+   - RedHat/CentOS 7.x are no longer officially supported starting with TensorRT 10.0. The corresponding container has been removed from TensorRT-OSS.
 
 ## 9.3.0 GA - 2024-02-09
 
