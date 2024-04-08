@@ -87,8 +87,13 @@ def download(data_dir, yaml_path, overwrite=False):
     def _downloadFile(path, url):
         logger.info("Downloading %s from %s", path, url)
         import requests
+        from requests.adapters import HTTPAdapter, Retry
 
-        r = requests.get(url, stream=True, timeout=5)
+        session = requests.Session()
+        retries = Retry(total=5, backoff_factor=0.5)
+        session.mount('http://', HTTPAdapter(max_retries=retries))
+        r = session.get(url, stream=True, timeout=10)
+
         size = int(r.headers.get("content-length", 0))
         from tqdm import tqdm
 

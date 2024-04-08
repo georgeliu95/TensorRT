@@ -1282,7 +1282,7 @@ public:
     //!
     //! If executing this layer on DLA, only support 2D padding, both height and width must be in the range [1,32].
     //!
-    //! \see getDilation()
+    //! \see getDilationNd()
     //!
     void setDilationNd(Dims const& dilation) noexcept
     {
@@ -1292,7 +1292,7 @@ public:
     //!
     //! \brief Get the multi-dimension dilation of the convolution.
     //!
-    //! \see setDilation()
+    //! \see setDilationNd()
     //!
     Dims getDilationNd() const noexcept
     {
@@ -4343,6 +4343,14 @@ class ILoop;
 //!
 //! \brief This is a base class for Loop boundary layers.
 //!
+//! The loop boundary layers are used to define loops within a network, enabling the implementation
+//! of recurrences. The boundary layers for a loop are created by class ILoop.
+//!
+//! There are four kinds of boundary layers. 
+//! * ITripLimitLayer: controls the number of loop iterations.
+//! * IIterationLayer: iterates over an input tensor.
+//! * IRecurrenceLayer: returns an initial value or value from the previous loop iteration.
+//! * ILoopOutputLayer: generates an output tensor from the loop iterations.
 class ILoopBoundaryLayer : public ILayer
 {
 public:
@@ -4526,6 +4534,8 @@ protected:
 //!
 //! \brief A recurrence layer in a network definition.
 //!
+//! The recurrence layer allows a loop iteration to compute a result from a value computed in the previous iteration.
+//!
 class IRecurrenceLayer : public ILoopBoundaryLayer
 {
 public:
@@ -4641,6 +4651,12 @@ protected:
 //!
 //! \brief A layer that represents a trip-count limiter.
 //!
+//! The trip limit layer sets the execution condition for loops, using kCOUNT to define the number of iterations or
+//! kWHILE for a conditional loop. A loop can have one of each kind of limit, in which case the loop exits when
+//! the trip count is reached or the condition becomes false.
+//!
+//! See INetworkDefinition::addTripLimit().
+//!
 class ITripLimitLayer : public ILoopBoundaryLayer
 {
 public:
@@ -4661,6 +4677,11 @@ protected:
 //! \class IIteratorLayer
 //!
 //! \brief A layer to do iterations.
+//!
+//! The iterator layer iterates over a tensor along the given axis and in the given direction.
+//! It enables each loop iteration to inspect a different slice of the tensor.
+//!
+//! \see ILoop::addIterator()
 //!
 class IIteratorLayer : public ILoopBoundaryLayer
 {
@@ -4714,6 +4735,10 @@ protected:
 //! \class ILoop
 //!
 //! \brief Helper for creating a recurrent subgraph.
+//!
+//! An ILoop defines a loop within a network. It supports the implementation of recurrences,
+//! which are crucial for iterative computations, such as RNNs for natural language processing and
+//! time-series analysis.
 //!
 class ILoop : public INoCopy
 {
@@ -4809,7 +4834,12 @@ protected:
 //!
 //! \class ISelectLayer
 //!
-//! \brief A select layer in a network definition.
+//! \brief Select elements from two data tensors based on a condition tensor.
+//!
+//! The select layer makes elementwise selections from two data tensors based on a condition tensor,
+//! behaving similarly to the numpy.where function with three parameters.
+//! The three input tensors must share the same rank. Multidirectional broadcasting is supported.
+//! The output tensor has the dimensions of the inputs AFTER applying the broadcast rule.
 //!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!

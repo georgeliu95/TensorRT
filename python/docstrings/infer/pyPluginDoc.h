@@ -434,7 +434,7 @@ constexpr const char* get_output_shapes = R"trtdoc(
     This function is called by the implementations of `IBuilder` during analysis of the network.
 
     .. warning::
-        This `get_output_shapes()` method is not available to be called from Python on C++-based plugins 
+        This get_output_shapes() method is not available to be called from Python on C++-based plugins
 
     :arg inputs:	Expressions for shapes of the input tensors
     :arg shape_inputs:	Expressions for shapes of the shape inputs
@@ -445,9 +445,9 @@ constexpr const char* get_output_shapes = R"trtdoc(
 
 constexpr const char* get_output_data_types = R"trtdoc(
 
-    Return `DataType`s of the plugin outputs.
+    Return `DataType` s of the plugin outputs.
 
-    Provide `DataType.FLOAT`s if the layer has no inputs. The data type for any size tensor outputs must be
+    Provide `DataType.FLOAT` s if the layer has no inputs. The data type for any size tensor outputs must be
     `DataType.INT32`. The returned data types must each have a format that is supported by the plugin.
 
     :arg input_types: Data types of the inputs.
@@ -480,11 +480,8 @@ constexpr const char* on_shape_change = R"trtdoc(
     Called when a plugin is being prepared for execution for specific dimensions. This could happen multiple times in the execution phase, both during creation of an engine by IBuilder and execution of an 
     engine by IExecutionContext. 
 
-   * IBuilder will call this function once per profile, with `in` resolved to the values specified by the
-    kOPT field of the current profile.
-   * IExecutionContext will call this during the next subsequent instance of enqueue_v2() or execute_v3() if:
-     - The optimization profile is changed.
-     - An input binding is changed.
+     * IBuilder will call this function once per profile, with `in` resolved to the values specified by the kOPT field of the current profile.
+     * IExecutionContext will call this during the next subsequent instance of enqueue_v2() or execute_v3() if: (1) The optimization profile is changed (2). An input binding is changed.
 
     .. warning::
         In contrast to the C++ API for `onShapeChange()`, this method must not return an error code. The expected behavior is to throw an appropriate exception
