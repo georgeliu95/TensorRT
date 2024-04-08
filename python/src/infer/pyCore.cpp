@@ -182,21 +182,6 @@ std::vector<Dims> get_tensor_profile_shape(ICudaEngine& self, std::string const&
     return shapes;
 };
 
-std::vector<Dims> engine_get_profile_shape(ICudaEngine& self, int32_t profileIndex, int32_t bindingIndex)
-{
-    std::vector<Dims> shapes{};
-    auto const tensorName = self.getIOTensorName(bindingIndex);
-    shapes.emplace_back(self.getProfileShape(tensorName, profileIndex, OptProfileSelector::kMIN));
-    shapes.emplace_back(self.getProfileShape(tensorName, profileIndex, OptProfileSelector::kOPT));
-    shapes.emplace_back(self.getProfileShape(tensorName, profileIndex, OptProfileSelector::kMAX));
-    return shapes;
-};
-// Overload to allow using binding names instead of indices.
-std::vector<Dims> engine_get_profile_shape_str(ICudaEngine& self, int32_t profileIndex, std::string const& bindingName)
-{
-    return get_tensor_profile_shape(self, bindingName, profileIndex);
-};
-
 std::vector<std::vector<int32_t>> get_tensor_profile_values(
     ICudaEngine& self, int32_t profileIndex, std::string const& tensorName)
 {
@@ -1180,10 +1165,6 @@ void bindCore(py::module& m)
         .def_property_readonly("name", &ICudaEngine::getName)
         .def_property_readonly("num_optimization_profiles", &ICudaEngine::getNbOptimizationProfiles)
         .def_property_readonly("engine_capability", &ICudaEngine::getEngineCapability)
-        .def("get_profile_shape", utils::deprecate(lambdas::engine_get_profile_shape, "get_tensor_profile_shape"),
-            "profile_index"_a, "binding"_a, ICudaEngineDoc::get_profile_shape)
-        .def("get_profile_shape", utils::deprecate(lambdas::engine_get_profile_shape_str, "get_tensor_profile_shape"),
-            "profile_index"_a, "binding"_a, ICudaEngineDoc::get_profile_shape)
         // Start of enqueueV3 related APIs.
         .def_property_readonly("num_io_tensors", &ICudaEngine::getNbIOTensors)
         .def("get_tensor_name", &ICudaEngine::getIOTensorName, "index"_a, ICudaEngineDoc::get_tensor_name)

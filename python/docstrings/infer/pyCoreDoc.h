@@ -731,15 +731,6 @@ constexpr char const* create_execution_context_without_device_memory = R"trtdoc(
     :returns: An :class:`IExecutionContext` without device memory allocated.
 )trtdoc";
 
-constexpr char const* get_profile_shape = R"trtdoc(
-    Get the minimum/optimum/maximum dimensions for a particular binding under an optimization profile.
-
-    :arg profile_index: The index of the profile.
-    :arg binding: The binding index or name.
-
-    :returns: A ``List[Dims]`` of length 3, containing the minimum, optimum, and maximum shapes, in that order.
-)trtdoc";
-
 constexpr char const* get_tensor_profile_values = R"trtdoc(
     Get minimum/optimum/maximum values for an input shape binding under an optimization profile. If the specified binding is not an input shape binding, an exception is raised.
 

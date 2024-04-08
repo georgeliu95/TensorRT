@@ -62,7 +62,7 @@ class TensorRTInfer:
             shape = self.context.get_tensor_shape(name)
             if is_input and shape[0] < 0:
                 assert self.engine.num_optimization_profiles > 0
-                profile_shape = self.engine.get_profile_shape(0, name)
+                profile_shape = self.engine.get_tensor_profile_shape(name, 0)
                 assert len(profile_shape) == 3  # min,opt,max
                 # Set the *max* profile as binding shape
                 self.context.set_input_shape(name, profile_shape[2])
