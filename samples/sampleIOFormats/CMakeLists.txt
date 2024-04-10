@@ -16,6 +16,11 @@
 #
 SET(SAMPLE_SOURCES
     sampleIOFormats.cpp
+    ../common/sampleDevice.cpp
+    ../common/sampleEngines.cpp
+    ../common/sampleOptions.cpp
+    ../common/sampleUtils.cpp
+    ../common/bfloat16.cpp
 )
 
 SET(SAMPLE_PARSERS "onnx")

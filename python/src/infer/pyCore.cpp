@@ -603,8 +603,11 @@ public:
                 return 0;
             }
 
-            py::object bytesRead = pyFunc(reinterpret_cast<size_t>(destination), size);
-            return bytesRead.cast<int64_t>();
+            py::buffer data = pyFunc(size);
+            py::buffer_info info = data.request();
+            int64_t bytesRead = info.size * info.itemsize;
+            std::memcpy(destination, info.ptr, std::min(bytesRead, size));
+            return bytesRead;
         }
         catch (std::exception const& e)
         {

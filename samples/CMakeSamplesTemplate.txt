@@ -111,10 +111,10 @@ if("onnx" IN_LIST SAMPLE_PARSERS)
     list(APPEND SAMPLE_DEP_LIBS nvonnxparser)
 endif()
 
-# Necessary to link nvinfer_plugin library.
+# Necessary to link nvinfer_plugin library. Add unresolved symbols flag for non-Windows platforms.
 target_link_libraries(${TARGET_NAME}
     ${SAMPLE_DEP_LIBS}
-    -Wl,--unresolved-symbols=ignore-in-shared-libs
+    $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-Wl,--unresolved-symbols=ignore-in-shared-libs>
 )
 
 set_target_properties(${TARGET_NAME} PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL")

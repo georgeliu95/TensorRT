@@ -18,7 +18,7 @@
 #ifndef TENSORRT_LOGGING_H
 #define TENSORRT_LOGGING_H
 
-#include "NvInferRuntimeBase.h"
+#include "NvInferRuntime.h"
 #include "sampleOptions.h"
 #include <cassert>
 #include <ctime>
