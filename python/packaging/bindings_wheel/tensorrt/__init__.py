@@ -51,18 +51,18 @@ if not _libs_wheel_imported and sys.platform.startswith("win"):
     # Order matters here because of dependencies
     LIBRARIES = {
         "tensorrt": [
-            "nvinfer.dll",
+            "nvinfer_##TENSORRT_MAJOR##.dll",
             "cublas64_##CUDA_MAJOR##.dll",
             "cublasLt64_##CUDA_MAJOR##.dll",
             "cudnn64_##CUDNN_MAJOR##.dll",
-            "nvinfer_plugin.dll",
-            "nvonnxparser.dll",
+            "nvinfer_plugin_##TENSORRT_MAJOR##.dll",
+            "nvonnxparser_##TENSORRT_MAJOR##.dll",
         ],
         "tensorrt_dispatch": [
-            "nvinfer_dispatch.dll",
+            "nvinfer_dispatch_##TENSORRT_MAJOR##.dll",
         ],
         "tensorrt_lean": [
-            "nvinfer_lean.dll",
+            "nvinfer_lean_##TENSORRT_MAJOR##.dll",
         ],
     }["##TENSORRT_MODULE##"]
 

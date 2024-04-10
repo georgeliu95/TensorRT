@@ -3716,10 +3716,9 @@ protected:
 //! Two types are compatible if they are identical, or are both in {kFLOAT, kHALF}.
 //! Implicit conversion between incompatible types, i.e. without using setOutputType,
 //! is recognized as incorrect as of TensorRT 8.4, but is retained for API compatibility
-//! within TensorRT 8.x releases. In a future major release the behavior will change
-//! to record an error if the network output tensor type is incompatible with the layer
-//! output type. E.g., implicit conversion from kFLOAT to kINT32 will not be allowed,
-//! and instead such a conversion will require calling setOutputType(DataType::kINT32).
+//! within TensorRT 8.x releases. TensorRT 10.0 onwards it is an error if the network output tensor type is incompatible
+//! with the layer output type. E.g., implicit conversion from kFLOAT to kINT32 is not allowed, Use
+//! setOutputType(DataType::kINT32) to explict convert kFLOAT to kINT32.
 //!
 //! \warning Do not inherit from this class, as doing so will break forward-compatibility of the API and ABI.
 //!
@@ -4346,7 +4345,7 @@ class ILoop;
 //! The loop boundary layers are used to define loops within a network, enabling the implementation
 //! of recurrences. The boundary layers for a loop are created by class ILoop.
 //!
-//! There are four kinds of boundary layers. 
+//! There are four kinds of boundary layers.
 //! * ITripLimitLayer: controls the number of loop iterations.
 //! * IIterationLayer: iterates over an input tensor.
 //! * IRecurrenceLayer: returns an initial value or value from the previous loop iteration.
@@ -8391,13 +8390,16 @@ enum class MemoryPoolType : int32_t
     kTACTIC_DRAM = 4,
 
     //!
-    //! kTACTIC_SHARED_MEMORY defines the maximum shared memory size utilized for executing
-    //! the backend CUDA kernel implementation. Adjust this value to restrict tactics that exceed
-    //! the specified threshold en masse. The default value is device max capability. This value must
+    //! kTACTIC_SHARED_MEMORY defines the maximum sum of shared memory reserved by the driver and
+    //! used for executing CUDA kernels. Adjust this value to restrict tactics that exceed the
+    //! specified threshold en masse. The default value is device max capability. This value must
     //! be less than 1GiB.
     //!
+    //! The driver reserved shared memory can be queried from cuDeviceGetAttribute(&reservedShmem,
+    //! CU_DEVICE_ATTRIBUTE_RESERVED_SHARED_MEMORY_PER_BLOCK).
+    //!
     //! Updating this flag will override the shared memory limit set by \ref HardwareCompatibilityLevel,
-    //! which defaults to 48KiB.
+    //! which defaults to 48KiB - reservedShmem.
     //!
     kTACTIC_SHARED_MEMORY = 5,
 };
@@ -8460,10 +8462,15 @@ enum class HardwareCompatibilityLevel : int32_t
     //! built.
     kNONE = 0,
 
-    //! Require that the engine is compatible with Ampere and newer GPUs. This will limit the max shared memory usage to
-    //! 48KiB, may reduce the number of available tactics for each layer, and may prevent some fusions from occurring.
-    //! Thus this can decrease the performance, especially for tf32 models.
+    //! Require that the engine is compatible with Ampere and newer GPUs. This will limit the combined usage of driver
+    //! reserved and backend kernel max shared memory to 48KiB, may reduce the number of available tactics for each
+    //! layer, and may prevent some fusions from occurring. Thus this can decrease the performance, especially for tf32
+    //! models.
     //! This option will disable cuDNN, cuBLAS, and cuBLAS LT as tactic sources.
+    //!
+    //! The driver reserved shared memory can be queried from cuDeviceGetAttribute(&reservedShmem,
+    //! CU_DEVICE_ATTRIBUTE_RESERVED_SHARED_MEMORY_PER_BLOCK).
+    //!
     kAMPERE_PLUS = 1,
 };
 

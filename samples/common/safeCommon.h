@@ -18,7 +18,7 @@
 #ifndef TENSORRT_SAFE_COMMON_H
 #define TENSORRT_SAFE_COMMON_H
 
-#include "NvInferRuntimeBase.h"
+#include "NvInferSafeRuntime.h"
 #include "cuda_runtime.h"
 #include "sampleEntrypoints.h"
 #include <cmath>

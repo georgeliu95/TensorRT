@@ -31,6 +31,67 @@
 
 namespace nvinfer1
 {
+
+namespace pluginInternal
+{
+class SharedStream : public IPluginResource
+{
+public:
+    SharedStream(bool init = false)
+    {
+        if (init)
+        {
+            PLUGIN_CUASSERT(cudaStreamCreate(&mStream));
+        }
+    }
+
+    void free()
+    {
+        if (mStream != nullptr)
+        {
+            PLUGIN_CUASSERT(cudaStreamDestroy(mStream));
+            mStream = nullptr;
+        }
+    }
+
+    int32_t release() noexcept override
+    {
+        try
+        {
+            free();
+        }
+        catch (std::exception const& e)
+        {
+            return -1;
+        }
+        return 0;
+    }
+
+    IPluginResource* clone() noexcept override
+    {
+        std::unique_ptr<SharedStream> cloned{};
+        try
+        {
+            cloned = std::make_unique<SharedStream>(/* init */ true);
+        }
+        catch (std::exception const& e)
+        {
+            return nullptr;
+        }
+        return cloned.release();
+    }
+
+    ~SharedStream() override
+    {
+        if (mStream)
+        {
+            free();
+        }
+    }
+
+    cudaStream_t mStream{nullptr};
+};
+} // namespace pluginInternal
 namespace plugin
 {
 namespace bert
@@ -381,64 +442,6 @@ struct AlgoProps
             nvinfer1::pluginInternal::CUBLASLT_ALGO_CAP_NUMERICAL_IMPL_FLAGS, &numericImpl, sizeof(numericImpl),
             nullptr));
     }
-};
-
-class SharedStream : public IPluginResource
-{
-public:
-    SharedStream(bool init = false)
-    {
-        if (init)
-        {
-            PLUGIN_CUASSERT(cudaStreamCreate(&mStream));
-        }
-    }
-
-    void free()
-    {
-        if (mStream != nullptr)
-        {
-            PLUGIN_CUASSERT(cudaStreamDestroy(mStream));
-            mStream = nullptr;
-        }
-    }
-
-    int32_t release() noexcept override
-    {
-        try
-        {
-            free();
-        }
-        catch (std::exception const& e)
-        {
-            return -1;
-        }
-        return 0;
-    }
-
-    IPluginResource* clone() noexcept override
-    {
-        std::unique_ptr<SharedStream> cloned{};
-        try
-        {
-            cloned = std::make_unique<SharedStream>(/* init */ true);
-        }
-        catch (std::exception const& e)
-        {
-            return nullptr;
-        }
-        return cloned.release();
-    }
-
-    ~SharedStream() override
-    {
-        if (mStream)
-        {
-            free();
-        }
-    }
-
-    cudaStream_t mStream{nullptr};
 };
 
 template <typename T>

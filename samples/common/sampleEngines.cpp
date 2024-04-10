@@ -654,7 +654,15 @@ void setMemoryPoolLimits(IBuilderConfig& config, BuildOptions const& build)
     }
     if (build.tacticSharedMem >= 0)
     {
-        config.setMemoryPoolLimit(MemoryPoolType::kTACTIC_SHARED_MEMORY, roundToBytes(build.tacticSharedMem));
+        if (build.tacticSharedMem >= 0.046 && build.tacticSharedMem <= 0.047)
+        {
+            // 48KB is a common use case but user might not type the exact number 0.046875MB.
+            config.setMemoryPoolLimit(MemoryPoolType::kTACTIC_SHARED_MEMORY, 48 << 10);
+        }
+        else
+        {
+            config.setMemoryPoolLimit(MemoryPoolType::kTACTIC_SHARED_MEMORY, roundToBytes(build.tacticSharedMem));
+        }
     }
 }
 
