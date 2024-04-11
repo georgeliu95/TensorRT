@@ -165,7 +165,7 @@ class Optimizer():
 def get_path(version, pipeline, controlnets=None):
     if controlnets is not None:
         return ["lllyasviel/sd-controlnet-" + modality for modality in controlnets]
-    
+
     if version == "1.4":
         if pipeline.is_inpaint():
             return "runwayml/stable-diffusion-inpainting"
@@ -647,7 +647,7 @@ class UNet2DConditionControlNetModel(torch.nn.Module):
         super().__init__()
         self.unet = unet
         self.controlnets = controlnets
-        
+
     def forward(self, sample, timestep, encoder_hidden_states, images, controlnet_scales):
         for i, (image, conditioning_scale, controlnet) in enumerate(zip(images, controlnet_scales, self.controlnets)):
             down_samples, mid_sample = controlnet(
@@ -663,7 +663,7 @@ class UNet2DConditionControlNetModel(torch.nn.Module):
                     for down_sample in down_samples
                 ]
             mid_sample *= conditioning_scale
-            
+
             # merge samples
             if i == 0:
                 down_block_res_samples, mid_block_res_sample = down_samples, mid_sample
@@ -673,7 +673,7 @@ class UNet2DConditionControlNetModel(torch.nn.Module):
                     for samples_prev, samples_curr in zip(down_block_res_samples, down_samples)
                 ]
                 mid_block_res_sample += mid_sample
-        
+
         noise_pred = self.unet(
             sample,
             timestep,
@@ -744,7 +744,7 @@ class UNetModel(BaseModel):
     def get_input_names(self):
         if self.controlnets is None:
             return ['sample', 'timestep', 'encoder_hidden_states']
-        else:    
+        else:
             return ['sample', 'timestep', 'encoder_hidden_states', 'images', 'controlnet_scales']
 
     def get_output_names(self):
@@ -820,14 +820,14 @@ class UNetModel(BaseModel):
         dtype = torch.float16 if self.fp16 else torch.float32
         if self.controlnets is None:
             return (
-                torch.randn(batch_size, self.unet_dim, latent_height, latent_width, dtype=torch.float32, device=self.device),
-                torch.tensor([1.], dtype=torch.float32, device=self.device),
+                torch.randn(batch_size, self.unet_dim, latent_height, latent_width, dtype=dtype, device=self.device),
+                torch.tensor([1.], dtype=dtype, device=self.device),
                 torch.randn(batch_size, self.text_maxlen, self.embedding_dim, dtype=dtype, device=self.device)
             )
         else:
             return (
-                torch.randn(batch_size, self.unet_dim, latent_height, latent_width, dtype=torch.float32, device=self.device),
-                torch.tensor(999, dtype=torch.float32, device=self.device),
+                torch.randn(batch_size, self.unet_dim, latent_height, latent_width, dtype=dtype, device=self.device),
+                torch.tensor(999, dtype=dtype, device=self.device),
                 torch.randn(batch_size, self.text_maxlen, self.embedding_dim, dtype=dtype, device=self.device),
                 torch.randn(len(self.controlnets), batch_size, 3, image_height, image_width, dtype=dtype, device=self.device),
                 torch.randn(len(self.controlnets), dtype=dtype, device=self.device)
@@ -931,8 +931,8 @@ class UNetXLModel(BaseModel):
         latent_height, latent_width = self.check_dims(batch_size, image_height, image_width)
         dtype = torch.float16 if self.fp16 else torch.float32
         return (
-            torch.randn(self.xB*batch_size, self.unet_dim, latent_height, latent_width, dtype=torch.float32, device=self.device),
-            torch.tensor([1.], dtype=torch.float32, device=self.device),
+            torch.randn(self.xB*batch_size, self.unet_dim, latent_height, latent_width, dtype=dtype, device=self.device),
+            torch.tensor([1.], dtype=dtype, device=self.device),
             torch.randn(self.xB*batch_size, self.text_maxlen, self.embedding_dim, dtype=dtype, device=self.device),
             {
                 'added_cond_kwargs': {
