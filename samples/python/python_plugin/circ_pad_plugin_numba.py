@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -76,7 +76,7 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
         return input_types[0]
 
     def get_output_dimensions(self, output_index, inputs, exprBuilder):
-        
+
         output_dims = trt.DimsExprs(inputs[0])
 
         for i in range(np.size(self.pads) // 2):
@@ -163,8 +163,8 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
         cloned_plugin = CircPadPlugin()
         cloned_plugin.__dict__.update(self.__dict__)
         return cloned_plugin
-    
-    # 
+
+    #
     # The following defaults take effect since the respective methods are not overriden
     #
 
@@ -176,7 +176,7 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
 
     # def get_workspace_size(self, input_desc, output_desc):
     #     return 0
-    
+
     # def destroy(self):
     #     pass
 

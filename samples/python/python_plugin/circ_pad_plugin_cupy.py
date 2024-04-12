@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -96,7 +96,7 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
         trt.IPluginV2DynamicExt.__init__(self)
         self.pads = []
         self.X_shape = []
-        
+
         self.num_outputs = 1
         self.plugin_namespace = ""
         self.plugin_type = "CircPadPlugin"
@@ -201,7 +201,7 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
         cloned_plugin.__dict__.update(self.__dict__)
         return cloned_plugin
 
-    # 
+    #
     # The following defaults take effect since the respective methods are not overriden
     #
 
@@ -213,7 +213,7 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
 
     # def get_workspace_size(self, input_desc, output_desc):
     #     return 0
-    
+
     # def destroy(self):
     #     pass
 
@@ -223,7 +223,7 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
 class CircPadPluginCreator(trt.IPluginCreator):
     def __init__(self):
         trt.IPluginCreator.__init__(self)
-        
+
         self.name = "CircPadPlugin"
         self.plugin_namespace = ""
         self.plugin_version = "1"
@@ -233,7 +233,7 @@ class CircPadPluginCreator(trt.IPluginCreator):
 
     def create_plugin(self, name, fc):
         return CircPadPlugin(fc)
-    
+
     def deserialize_plugin(self, name, data):
         j = dict(from_json(data.decode("utf-8")))
         deserialized = CircPadPlugin()
