@@ -13,7 +13,7 @@
 ; See the License for the specific language governing permissions and
 ; limitations under the License.
 
-LIBRARY nvinfer_plugin
+LIBRARY nvinfer_plugin_10
 EXPORTS
 getInferLibVersion
 getPluginRegistry
