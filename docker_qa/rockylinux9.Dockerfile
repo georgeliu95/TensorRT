@@ -13,88 +13,60 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
 
 ARG CUDA_VERSION=12.4.0
 
-FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04
+FROM nvidia/cuda:${CUDA_VERSION}-devel-rockylinux9
 LABEL maintainer="NVIDIA CORPORATION"
 
-ENV NV_CUDNN_VERSION 8.9.6.50
-ENV NV_CUDNN_PACKAGE_NAME "libcudnn8"
-
-ENV NV_CUDNN_PACKAGE "libcudnn8=$NV_CUDNN_VERSION-1+cuda12.2"
-ENV NV_CUDNN_PACKAGE_DEV "libcudnn8-dev=$NV_CUDNN_VERSION-1+cuda12.2"
+ENV NV_CUDNN_VERSION 8.9.6.50-1
+ENV NV_CUDNN_PACKAGE libcudnn8-${NV_CUDNN_VERSION}.cuda12.2
+ENV NV_CUDNN_PACKAGE_DEV libcudnn8-devel-${NV_CUDNN_VERSION}.cuda12.2
 
 ENV TRT_VERSION 10.0.1.5
 SHELL ["/bin/bash", "-c"]
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN dnf install -y \
     ${NV_CUDNN_PACKAGE} \
     ${NV_CUDNN_PACKAGE_DEV} \
-    && apt-mark hold ${NV_CUDNN_PACKAGE_NAME} \
-    && rm -rf /var/lib/apt/lists/*
+    && dnf clean all \
+    && rm -rf /var/cache/dnf/*
 
 # Setup user account
 ARG uid=1000
 ARG gid=1000
 RUN groupadd -r -f -g ${gid} trtuser && useradd -o -r -l -u ${uid} -g ${gid} -ms /bin/bash trtuser
-RUN usermod -aG sudo trtuser
+RUN usermod -aG wheel trtuser
 RUN echo 'trtuser:nvidia' | chpasswd
 RUN mkdir -p /workspace && chown trtuser /workspace
 
-# Required to build Ubuntu 22.04 without user prompts with DLFW container
-ENV DEBIAN_FRONTEND=noninteractive
+# Install python3
+RUN dnf install -y python39 python3-devel && \
+    cd /usr/bin && rm pip && ln -s /usr/bin/pip3.9 pip;
 
-# Update CUDA signing key
-RUN apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/3bf863cc.pub
 
-# Install requried libraries
-RUN apt-get update && apt-get install -y software-properties-common
-RUN add-apt-repository ppa:ubuntu-toolchain-r/test
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libcurl4-openssl-dev \
+# Install PyPI packages before Development tools to WAR jupyter installation error
+RUN pip install --upgrade pip
+RUN pip install setuptools>=41.0.0
+RUN pip install numpy
+RUN pip install jupyter jupyterlab
+
+# Install requried packages
+RUN dnf -y groupinstall "Development Tools"
+RUN dnf -y install \
+    openssl-devel \
+    bzip2-devel \
+    libffi-devel \
     wget \
+    perl-core \
     git \
     pkg-config \
-    sudo \
-    ssh \
-    libssl-dev \
-    pbzip2 \
-    pv \
-    bzip2 \
     unzip \
-    devscripts \
-    lintian \
-    fakeroot \
-    dh-make \
-    build-essential
-
-# Install python3
-RUN apt-get install -y --no-install-recommends \
-      python3 \
-      python3-pip \
-      python3-dev \
-      python3-wheel &&\
-    cd /usr/local/bin &&\
-    ln -s /usr/bin/python3 python &&\
-    ln -s /usr/bin/pip3 pip;
-
-# Dependencies needed for Turtle run
-RUN apt-get install -y --no-install-recommends libffi-dev rustc cargo
+    sudo
 
 # Install TensorRT
 COPY docker_qa/downloadInternal.py /tmp/downloadInternal.py
-RUN python3 /tmp/downloadInternal.py --cuda ${CUDA_VERSION} --os 22.04
-
-# Install PyPI packages
-RUN pip3 install --upgrade pip
-RUN pip3 install setuptools>=41.0.0
-COPY requirements.txt /tmp/requirements.txt
-RUN pip3 install -r /tmp/requirements.txt
-RUN pip3 install jupyter jupyterlab
-# Workaround to remove numpy installed with tensorflow
-RUN pip3 install --upgrade numpy
+RUN python3 /tmp/downloadInternal.py --cuda ${CUDA_VERSION} --os 9
 
 # Install Cmake
 RUN cd /tmp && \
@@ -106,11 +78,15 @@ RUN cd /tmp && \
 # Download NGC client
 RUN cd /usr/local/bin && wget https://ngc.nvidia.com/downloads/ngccli_cat_linux.zip && unzip ngccli_cat_linux.zip && chmod u+x ngc-cli/ngc && rm ngccli_cat_linux.zip ngc-cli.md5 && echo "no-apikey\nascii\n" | ngc-cli/ngc config set
 
+RUN ln -s /usr/bin/python3 /usr/bin/python
+
 # Set environment and working directory
-ENV TRT_LIBPATH /usr/lib/x86_64-linux-gnu
+ENV TRT_LIBPATH /usr/lib64
 ENV TRT_OSSPATH /workspace/TensorRT
 ENV PATH="${PATH}:/usr/local/bin/ngc-cli"
 ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${TRT_OSSPATH}/build/out:${TRT_LIBPATH}"
+# Use devtoolset-8 as default compiler
+ENV PATH="/opt/rh/devtoolset-8/root/bin:${PATH}"
 WORKDIR /workspace
 
 USER trtuser

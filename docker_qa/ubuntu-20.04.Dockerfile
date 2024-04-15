@@ -15,13 +15,10 @@
 # limitations under the License.
 #
 
-ARG CUDA_CONTAINER_VERSION=12.3.2
+ARG CUDA_VERSION=12.4.0
 
-FROM nvidia/cuda:${CUDA_CONTAINER_VERSION}-devel-ubuntu20.04
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu20.04
 LABEL maintainer="NVIDIA CORPORATION"
-
-# FIXME: Align CUDA_VERSION and CUDA_CONTAINER_VERSION when CUDA 12.4 container is available on NGC
-ARG CUDA_VERSION=12.4
 
 ENV NV_CUDNN_VERSION 8.9.6.50
 ENV NV_CUDNN_PACKAGE_NAME "libcudnn8"
@@ -29,7 +26,7 @@ ENV NV_CUDNN_PACKAGE_NAME "libcudnn8"
 ENV NV_CUDNN_PACKAGE "libcudnn8=$NV_CUDNN_VERSION-1+cuda12.2"
 ENV NV_CUDNN_PACKAGE_DEV "libcudnn8-dev=$NV_CUDNN_VERSION-1+cuda12.2"
 
-ENV TRT_VERSION 10.0.0.5
+ENV TRT_VERSION 10.0.1.5
 SHELL ["/bin/bash", "-c"]
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -111,9 +108,9 @@ RUN cd /tmp && \
 RUN apt-get install -y g++-8-aarch64-linux-gnu
 
 # Install cross-compilation CUDA packages
-RUN wget http://cuda-repo/release-candidates/kitpicks/cuda-r12-3/12.3.2/001/local_installers/cuda-repo-cross-sbsa-ubuntu2004-12-3-local_12.3.2-1_all.deb &&\
-    dpkg -i cuda-repo-cross-sbsa-ubuntu2004-12-3-local_12.3.2-1_all.deb &&\
-    cp /var/cuda-repo-cross-sbsa-ubuntu2004-12-3-local/cuda-*-keyring.gpg /usr/share/keyrings/ &&\
+RUN wget http://cuda-repo/release-candidates/kitpicks/cuda-r12-4/12.4.0/041/local_installers/cuda-repo-cross-sbsa-ubuntu2004-12-4-local_12.4.0-1_all.deb &&\
+    dpkg -i cuda-repo-cross-sbsa-ubuntu2004-12-4-local_12.4.0-1_all.deb &&\
+    cp /var/cuda-repo-cross-sbsa-ubuntu2004-12-4-local/cuda-*-keyring.gpg /usr/share/keyrings/ &&\
     apt-get update && \
     apt-get -y install cuda-cross-sbsa &&\
     rm cuda-repo-cross*

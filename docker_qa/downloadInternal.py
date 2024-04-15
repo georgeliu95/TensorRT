@@ -12,32 +12,32 @@ def parse_arguments():
 # This order needs to be preserved for dependency tracking.
 
 DEB_PACKAGES_ROCKY=[
-"libnvinfer10-10.0.0.5-1.cuda{ver}.x86_64.rpm",
-"libnvonnxparsers10-10.0.0.5-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-plugin10-10.0.0.5-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-vc-plugin10-10.0.0.5-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-headers-devel-10.0.0.5-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-headers-plugin-devel-10.0.0.5-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-devel-10.0.0.5-1.cuda{ver}.x86_64.rpm",
-"libnvonnxparsers-devel-10.0.0.5-1.cuda{ver}.x86_64.rpm",
-"libnvinfer-plugin-devel-10.0.0.5-1.cuda{ver}.x86_64.rpm",
-"python3-libnvinfer-10.0.0.5-1.cuda{ver}.x86_64.rpm",
+"libnvinfer10-10.0.1.5-1.cuda{ver}.x86_64.rpm",
+"libnvonnxparsers10-10.0.1.5-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-plugin10-10.0.1.5-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-vc-plugin10-10.0.1.5-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-headers-devel-10.0.1.5-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-headers-plugin-devel-10.0.1.5-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-devel-10.0.1.5-1.cuda{ver}.x86_64.rpm",
+"libnvonnxparsers-devel-10.0.1.5-1.cuda{ver}.x86_64.rpm",
+"libnvinfer-plugin-devel-10.0.1.5-1.cuda{ver}.x86_64.rpm",
+"python3-libnvinfer-10.0.1.5-1.cuda{ver}.x86_64.rpm",
 ]
 
 DEB_PACKAGES_UBUNTU=[
-    "libnvinfer10_10.0.0.5-1{ext}",
-    "libnvonnxparsers10_10.0.0.5-1{ext}",
-    "libnvinfer-plugin10_10.0.0.5-1{ext}",
-    "libnvinfer-vc-plugin10_10.0.0.5-1{ext}",
-    "libnvinfer-headers-dev_10.0.0.5-1{ext}",
-    "libnvinfer-headers-plugin-dev_10.0.0.5-1{ext}",
-    "libnvinfer-dev_10.0.0.5-1{ext}",
-    "libnvonnxparsers-dev_10.0.0.5-1{ext}",
-    "libnvinfer-plugin-dev_10.0.0.5-1{ext}",
-    "python3-libnvinfer_10.0.0.5-1{ext}",
+    "libnvinfer10_10.0.1.5-1{ext}",
+    "libnvonnxparsers10_10.0.1.5-1{ext}",
+    "libnvinfer-plugin10_10.0.1.5-1{ext}",
+    "libnvinfer-vc-plugin10_10.0.1.5-1{ext}",
+    "libnvinfer-headers-dev_10.0.1.5-1{ext}",
+    "libnvinfer-headers-plugin-dev_10.0.1.5-1{ext}",
+    "libnvinfer-dev_10.0.1.5-1{ext}",
+    "libnvonnxparsers-dev_10.0.1.5-1{ext}",
+    "libnvinfer-plugin-dev_10.0.1.5-1{ext}",
+    "python3-libnvinfer_10.0.1.5-1{ext}",
 ]
 
-ROOT_URL = "http://cuda-repo/release-candidates/Libraries/TensorRT/v10.0/10.0.0.5-d8385f0a/"
+ROOT_URL = "http://cuda-repo/release-candidates/Libraries/TensorRT/v10.0/10.0.1.5-a01cd51e/"
 
 def get_cuda_props(cuda_ver):
     assert len(cuda_ver) >= 4
@@ -58,13 +58,13 @@ def get_cuda_props(cuda_ver):
 
 def get_arch_props(os):
     if os == "22.04" or os == "20.04":
-        return "amd64", "Ubuntu{ver}-x64-agnostic".format(ver=os.replace(".", "_")), "deb", "+", "_", False
+        return "amd64", "Ubuntu{ver}-x64-manylinux_2_17".format(ver=os.replace(".", "_")), "deb", "+", "_", False
     elif os == "8":
-        return "x86_64", "RHEL8_9-x64-agnostic", "rpm", ".", ".", True
+        return "x86_64", "RHEL8_9-x64-manylinux_2_17", "rpm", ".", ".", True
     elif os == "9":
-        return "x86_64", "RHEL9_3-x64-agnostic", "rpm", ".", ".", True
+        return "x86_64", "RHEL9_3-x64-manylinux_2_17", "rpm", ".", ".", True
     elif os == "cross-sbsa":
-        return "all", "Ubuntu20_04-aarch64", "deb", ".", ".", False
+        return "all", "Ubuntu20_04-aarch64-aarch64-manylinux_2_31", "deb", ".", ".", False
     else:
         print("Found unsupported OS: " + os)
         exit(-1)
