@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -75,7 +75,7 @@ if __name__ == "__main__":
     with TrtRunner(build_engine, "trt_runner")as runner:
         outputs = runner.infer({"X": X})
         Y = outputs["Y"]
-        
+
         if np.allclose(Y, Y_ref):
             print("Inference result correct!")
         else:

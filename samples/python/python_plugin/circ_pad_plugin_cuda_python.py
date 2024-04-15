@@ -1,5 +1,5 @@
 #
-# SPDX-FileCopyrightText: Copyright (c) 1993-2023 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-FileCopyrightText: Copyright (c) 1993-2024 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -120,7 +120,7 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
         self.all_pads_d = checkCudaErrors(cuda.cuMemAlloc(np.int32().itemsize * self.N * 2))
         self.orig_dims_d = checkCudaErrors(cuda.cuMemAlloc(np.int32().itemsize * self.N))
         self.Y_shape_d = checkCudaErrors(cuda.cuMemAlloc(np.int32().itemsize * self.N))
-        
+
     def get_output_datatype(self, index, input_types):
         return input_types[0]
 
@@ -223,7 +223,7 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
                                         kernelArgs, 0))
         else:
             raise ValueError("inp_dtype not valid")
-        
+
     def clone(self):
         cloned_plugin = CircPadPlugin()
         cloned_plugin.__dict__.update(self.__dict__)
@@ -239,7 +239,7 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
 
         trt.get_plugin_registry().release_plugin_resource("cuda_ctx")
 
-    # 
+    #
     # The following defaults take effect since the respective methods are not overriden
     #
 
@@ -248,7 +248,7 @@ class CircPadPlugin(trt.IPluginV2DynamicExt):
 
     # def get_workspace_size(self, input_desc, output_desc):
     #     return 0
-    
+
     # def destroy(self):
     #     pass
 
