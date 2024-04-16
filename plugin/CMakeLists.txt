@@ -16,10 +16,15 @@
 #
 add_custom_target(plugin)
 
-set(TARGET_NAME nvinfer_plugin)
+if (MSVC)
+    set(TARGET_NAME nvinfer_plugin_10)
+    set(VFC_TARGET_NAME nvinfer_vc_plugin_10)
+else()
+    set(TARGET_NAME nvinfer_plugin)
+    set(VFC_TARGET_NAME nvinfer_vc_plugin)
+endif()
 set(SHARED_TARGET ${TARGET_NAME})
 set(STATIC_TARGET ${TARGET_NAME}_static)
-set(VFC_TARGET_NAME nvinfer_vc_plugin)
 set(VFC_SHARED_TARGET ${VFC_TARGET_NAME})
 
 set(TARGET_DIR ${CMAKE_CURRENT_SOURCE_DIR})
@@ -143,10 +148,6 @@ else()
     set_target_properties(${SHARED_TARGET} PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL -Wl,-Bsymbolic -Wl,--version-script=${PLUGIN_EXPORT_MAP} -Wl,--no-undefined")
 endif()
 
-if (ADDITIONAL_PLATFORM_LIB_FLAGS)
-    set_target_properties(${SHARED_TARGET} PROPERTIES LINK_FLAGS ${ADDITIONAL_PLATFORM_LIB_FLAGS})
-endif()
-
 set_target_properties(${SHARED_TARGET} PROPERTIES DEBUG_POSTFIX ${TRT_DEBUG_POSTFIX})
 
 set_target_properties(${SHARED_TARGET} PROPERTIES VERSION ${TRT_VERSION} SOVERSION ${TRT_SOVERSION} )
@@ -189,10 +190,6 @@ set_target_properties(${STATIC_TARGET} PROPERTIES
 
 set_target_properties(${STATIC_TARGET} PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL")
 
-if (ADDITIONAL_PLATFORM_LIB_FLAGS)
-    set_target_properties(${STATIC_TARGET} PROPERTIES LINK_FLAGS ${ADDITIONAL_PLATFORM_LIB_FLAGS})
-endif()
-
 set_target_properties(${STATIC_TARGET} PROPERTIES DEBUG_POSTFIX ${TRT_DEBUG_POSTFIX})
 
 set_target_properties(${STATIC_TARGET} PROPERTIES VERSION ${TRT_VERSION} SOVERSION ${TRT_SOVERSION} )
@@ -228,10 +225,6 @@ if (MSVC)
     set_target_properties(${VFC_SHARED_TARGET} PROPERTIES LINK_FLAGS "/DEF:${VFC_PLUGIN_EXPORT_DEF}")
 else()
     set_target_properties(${VFC_SHARED_TARGET} PROPERTIES LINK_FLAGS "-Wl,--exclude-libs,ALL -Wl,-Bsymbolic -Wl,--version-script=${VFC_PLUGIN_EXPORT_MAP} -Wl,--no-undefined")
-endif()
-
-if (ADDITIONAL_PLATFORM_LIB_FLAGS)
-    set_target_properties(${VFC_SHARED_TARGET} PROPERTIES LINK_FLAGS ${ADDITIONAL_PLATFORM_LIB_FLAGS})
 endif()
 
 set_target_properties(${VFC_SHARED_TARGET} PROPERTIES DEBUG_POSTFIX ${TRT_DEBUG_POSTFIX})
