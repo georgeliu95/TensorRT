@@ -55,6 +55,7 @@ from utilities import (
     TRT_LOGGER,
     Engine,
     get_refit_weights,
+    get_woq_refit_weights,
     load_calib_prompts,
     merge_loras,
     prepare_mask_and_masked_image,
@@ -66,6 +67,9 @@ from utils_ammo import (
     quantize_lvl,
     get_int8_config,
 )
+
+import onnx
+import onnx_graphsurgeon as gs
 
 class StableDiffusionPipeline:
     """
@@ -314,6 +318,7 @@ class StableDiffusionPipeline:
         enable_all_tactics=False,
         timing_cache=None,
         int8=False,
+        int8_woq_weightless=False,
         quantization_level=2.5,
         quantization_percentile=1.0,
         quantization_alpha=0.8,
@@ -422,6 +427,7 @@ class StableDiffusionPipeline:
         lora_suffix = '-'+'-'.join([str(md5(path.encode('utf-8')).hexdigest())+'-'+('%.2f' % self.lora_scales[path]) for path in sorted(self.lora_loader.paths)]) if self.lora_loader else ''
         # Enable refit and LoRA merging only for UNet & UNetXL for now
         do_engine_refit = dict(zip(model_names, [not self.pipeline_type.is_sd_xl_refiner() and enable_refit and model_name.startswith('unet') for model_name in model_names]))
+        do_int8_woq_weightless = dict(zip(model_names, [not self.pipeline_type.is_sd_xl_refiner() and int8_woq_weightless and model_name.startswith('unet') for model_name in model_names]))
         do_lora_merge = dict(zip(model_names, [not enable_refit and self.lora_loader and model_name.startswith('unet') for model_name in model_names]))
         # Torch fallback for VAE if specified
         torch_fallback = dict(zip(model_names, [self.torch_inference for model_name in model_names]))
@@ -434,7 +440,7 @@ class StableDiffusionPipeline:
         onnx_path = dict(zip(model_names, [self.getOnnxPath(model_name, onnx_dir, opt=False, suffix=model_suffix[model_name]) for model_name in model_names]))
         onnx_opt_path = dict(zip(model_names, [self.getOnnxPath(model_name, onnx_dir, suffix=model_suffix[model_name]) for model_name in model_names]))
         engine_path = dict(zip(model_names, [self.getEnginePath(model_name, engine_dir, do_engine_refit[model_name], suffix=model_suffix[model_name]) for model_name in model_names]))
-        weights_map_path = dict(zip(model_names, [(self.getWeightsMapPath(model_name, onnx_dir) if do_engine_refit[model_name] else None) for model_name in model_names]))
+        weights_map_path = dict(zip(model_names, [(self.getWeightsMapPath(model_name, onnx_dir) if (do_engine_refit[model_name] or do_int8_woq_weightless[model_name]) else None) for model_name in model_names]))
 
         for model_name, obj in self.models.items():
             if torch_fallback[model_name]:
@@ -505,9 +511,55 @@ class StableDiffusionPipeline:
                     obj.fp16=True # Part of WAR, UNET obj.fp16 defaults to True so it is safe to reset this way
             
             # FIXME do_export_weights_map needs ONNX graph
-            if do_export_weights_map:
+            if do_export_weights_map and do_engine_refit[model_name]:
                 print(f"[I] Saving weights map: {weights_map_path[model_name]}")
                 obj.export_weights_map(onnx_opt_path[model_name], weights_map_path[model_name])
+
+            # save the original weight name and the corresponding Conv/Gemm/Matmul op's name.
+            if do_export_weights_map and do_int8_woq_weightless[model_name]:
+                print(f"[I] Saving weights map: {weights_map_path[model_name]}")
+                weights_map = {}
+                graph = gs.import_onnx(onnx.load(onnx_opt_path[model_name]))
+                for node in graph.nodes:
+                    if node.op in ["Conv", "Gemm", "MatMul"] and type(node.inputs[1]).__name__ == "Constant":
+                        weights_map[node.name] = node.inputs[1].name
+                with open(weights_map_path[model_name], "w") as f:
+                    json.dump(weights_map, f)
+
+
+            if do_int8_woq_weightless[model_name]:
+                # Reconstruct the FP16 ONNX using FP8 ONNX + weights map at runtime.
+                # Use the reconstructed FP16 ONNX to build the engine.
+                # Then, we can ship the INT8 ONNX + weights map to user and construct FP16 ONNX on user's machine.
+                woq_onnx_path = os.path.join(os.path.dirname(onnx_opt_path[model_name]), "unet.w8.onnx")
+                reconstructed_onnx_path = os.path.join(os.path.dirname(onnx_opt_path[model_name]), "unet.reconstructed.onnx")
+                onnx_opt_path[model_name] = reconstructed_onnx_path
+
+                print(f"[I] Loading weights map: {weights_map_path[model_name]} ")
+                with open(weights_map_path[model_name], 'r') as f:
+                    weights_map = json.load(f)
+
+                print(f"[I] Reconstructing INT8 ONNX to FP16 ONNX: {woq_onnx_path} -> {reconstructed_onnx_path}")
+                graph = gs.import_onnx(onnx.load(woq_onnx_path))
+                for node in graph.nodes:
+                    if node.op == "DequantizeLinear":
+                        int8_weights = node.inputs[0].values
+                        scales = node.i(1).attrs["value"].values
+                        expand_axes = tuple(range(1, len(int8_weights.shape)))
+                        fp16_weights = (int8_weights.astype(np.float32) * np.expand_dims(scales, axis=expand_axes)).astype(np.float16)
+                        cast_op = node.o()
+                        assert cast_op.op == "Cast", f"Expecting Cast op after DequantizeLinear, but got {cast_op.op}!"
+                        conv_or_gemm = cast_op.o()
+                        if conv_or_gemm.op == "Transpose":
+                            conv_or_gemm = conv_or_gemm.o()
+                            fp16_weights = fp16_weights.transpose()
+                        assert conv_or_gemm.op in ["Conv", "Gemm", "MatMul"], f"Expecting Conv/Gemm/Matmul, but got {conv_or_gemm.op}!"
+                        fp16_constant = gs.Constant(weights_map[conv_or_gemm.name], fp16_weights)
+                        conv_or_gemm.inputs[1] = fp16_constant
+
+                graph.cleanup()
+                graph.toposort()
+                onnx.save(gs.export_onnx(graph), reconstructed_onnx_path)
 
         # Build TensorRT engines
         for model_name, obj in self.models.items():
@@ -521,6 +573,10 @@ class StableDiffusionPipeline:
                     extra_build_args['int8'] = True
                     extra_build_args['precision_constraints'] = 'prefer'
                     extra_build_args['builder_optimization_level'] = 4
+
+                if int8_woq_weightless and model_name == "unet":
+                    extra_build_args['strip_plan'] = True
+
                 fp16amp = obj.fp16
                 engine.build(onnx_opt_path[model_name],
                     fp16=fp16amp,
@@ -547,15 +603,51 @@ class StableDiffusionPipeline:
                     [weights_name_mapping, weights_shape_mapping] = json.load(fp_wts)
                     refit_weights_path = self.getRefitNodesPath(model_name, engine_dir, suffix=lora_suffix)
                     if not os.path.exists(refit_weights_path):
-                            print(f"[I] Saving refit weights: {refit_weights_path}")
-                            model = merge_loras(obj.get_model(), obj.lora_dict, obj.lora_alphas, obj.lora_scales)
-                            refit_weights = get_refit_weights(model.state_dict(), onnx_opt_path[model_name], weights_name_mapping, weights_shape_mapping)
-                            torch.save(refit_weights, refit_weights_path)
-                            unload_model(model)
+                        print(f"[I] Saving refit weights: {refit_weights_path}")
+                        model = merge_loras(obj.get_model(), obj.lora_dict, obj.lora_alphas, obj.lora_scales)
+                        refit_weights = get_refit_weights(model.state_dict(), onnx_opt_path[model_name], weights_name_mapping, weights_shape_mapping)
+                        torch.save(refit_weights, refit_weights_path)
+                        unload_model(model)
                     else:
                         print(f"[I] Loading refit weights: {refit_weights_path}")
                         refit_weights = torch.load(refit_weights_path)
                     self.engine[model_name].refit(refit_weights, obj.fp16)
+
+            if do_int8_woq_weightless[model_name]:
+
+                # User can reconstruct the FP16 ONNX using FP8 ONNX + weights map at runtime.
+
+                # print(f"[I] Loading weights map: {weights_map_path[model_name]} ")
+                # with open(weights_map_path[model_name], 'r') as f:
+                #     weights_map = json.load(f)
+
+                # woq_onnx_path = os.path.join(os.path.dirname(onnx_opt_path[model_name]), "unet.w8.onnx")
+                # reconstructed_onnx_path = os.path.join(os.path.dirname(onnx_opt_path[model_name]), "unet.reconstructed.onnx")
+
+                # print(f"[I] Reconstructing INT8 ONNX to FP16 ONNX: {woq_onnx_path} -> {reconstructed_onnx_path}")
+                # graph = gs.import_onnx(onnx.load(woq_onnx_path))
+                # for node in graph.nodes:
+                #     if node.op == "DequantizeLinear":
+                #         int8_weights = node.inputs[0].values
+                #         scales = node.i(1).attrs["value"].values
+                #         expand_axes = tuple(range(1, len(int8_weights.shape)))
+                #         fp16_weights = (int8_weights.astype(np.float32) * np.expand_dims(scales, axis=expand_axes)).astype(np.float16)
+                #         cast_op = node.o()
+                #         assert cast_op.op == "Cast", f"Expecting Cast op after DequantizeLinear, but got {cast_op.op}!"
+                #         conv_or_gemm = cast_op.o()
+                #         if conv_or_gemm.op == "Transpose":
+                #             conv_or_gemm = conv_or_gemm.o()
+                #             fp16_weights = fp16_weights.transpose()
+                #         assert conv_or_gemm.op in ["Conv", "Gemm", "MatMul"], f"Expecting Conv/Gemm/Matmul, but got {conv_or_gemm.op}!"
+                #         fp16_constant = gs.Constant(weights_map[conv_or_gemm.name], fp16_weights)
+                #         conv_or_gemm.inputs[1] = fp16_constant
+
+                # graph.cleanup()
+                # graph.toposort()
+                # onnx.save(gs.export_onnx(graph), reconstructed_onnx_path)
+
+                print(f"[I] Refitting engine form reconstructed ONNX file")
+                self.engine[model_name].refit_from_onnx(reconstructed_onnx_path)
 
         # Load torch models
         for model_name, obj in self.models.items():

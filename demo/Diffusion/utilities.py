@@ -226,6 +226,21 @@ class Engine():
 
         print(f"[I] Total refitted weights {len(refitted_weights)}.")
 
+    def refit_from_onnx(self, onnx_path):
+        # Initialize refitter and parser refitter
+        refitter = trt.Refitter(self.engine, TRT_LOGGER)
+        parser_refitter = trt.OnnxParserRefitter(refitter, TRT_LOGGER)
+
+        # refit from ONNX file
+        if not parser_refitter.refit_from_file(onnx_path):
+            print("Error: failed to refit from ONNX file.")
+            exit(0)
+
+        # run refit
+        if not refitter.refit_cuda_engine():
+            print("Error: failed to refit new weights.")
+            exit(0)
+
     def build(self,
         onnx_path,
         fp16=True,
@@ -398,6 +413,23 @@ def get_refit_weights(state_dict, onnx_opt_path, weight_name_mapping, weight_sha
             refit_weights[initializer_name] = wt.contiguous()
     return refit_weights
 
+def get_woq_refit_weights(state_dict, scales, weight_name_mapping, weight_shape_mapping):
+    refit_weights = OrderedDict()
+    for wt_name, wt in state_dict.items():
+        # query initializer to compare
+        initializer_name = weight_name_mapping[wt_name]
+
+        # get shape transform info
+        initializer_shape, is_transpose = weight_shape_mapping[wt_name]
+        if is_transpose:
+            wt = torch.transpose(wt, 0, 1)
+        else:
+            wt = torch.reshape(wt, initializer_shape)
+
+        refit_weights[initializer_name] = wt.contiguous()
+
+    return refit_weights
+
 def load_calib_prompts(batch_size, calib_data_path):
     with open(calib_data_path, "r") as file:
         lst = [line.rstrip("\n") for line in file]
@@ -442,6 +474,7 @@ def add_arguments(parser):
 
     # TensorRT engine build
     parser.add_argument('--engine-dir', default='engine', help="Output directory for TensorRT engines")
+    parser.add_argument('--int8-woq-weightless', action='store_true', help="Apply int8 weight-only-quantization and build a weightless engine. At runtime, engine will be refitted with weights.")
     parser.add_argument('--int8', action='store_true', help="Apply int8 quantization.")
     parser.add_argument('--quantization-level', type=float, default=2.5, choices=[1.0, 2.0, 2.5, 3.0], help="int8/fp8 quantization level, 1: CNN, 2: CNN+FFN, 2.5: CNN+FFN+QKV, 3: CNN+FC")
     parser.add_argument('--build-static-batch', action='store_true', help="Build TensorRT engines with fixed batch size.")
@@ -508,6 +541,7 @@ def process_pipeline_args(args):
         'enable_refit': args.build_enable_refit,
         'timing_cache': args.timing_cache,
         'int8': args.int8,
+        'int8_woq_weightless': args.int8_woq_weightless,
         'quantization_level': args.quantization_level,
         'denoising_steps': args.denoising_steps,
     }
