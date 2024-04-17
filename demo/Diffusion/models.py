@@ -22,7 +22,6 @@ from diffusers.models import (
     ControlNetModel,
     UNet2DConditionModel
 )
-from diffusers.utils import convert_state_dict_to_diffusers
 import json
 import numpy as np
 import onnx
@@ -159,7 +158,7 @@ class Optimizer():
                 del tensors[k]
                 removed += 1
         print(f"Removed {removed} QDQ nodes")
-        return removed
+        return removed # expected 72 for L2.5
 
 
 def get_path(version, pipeline, controlnets=None):

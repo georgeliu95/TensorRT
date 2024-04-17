@@ -23,7 +23,8 @@ docker run --rm -it --gpus all -v $PWD:/workspace nvcr.io/nvidia/pytorch:24.01-p
 
 ```bash
 python3 -m pip install --upgrade pip
-python3 -m pip install --pre --upgrade --extra-index-url https://pypi.nvidia.com tensorrt
+python3 -m pip uninstall tensorrt
+python3 -m pip install --pre --extra-index-url https://pypi.nvidia.com tensorrt
 ```
 
 > NOTE: TensorRT 10.x is only available as a pre-release
@@ -39,25 +40,22 @@ Check your installed version using:
 export TRT_OSSPATH=/workspace
 cd $TRT_OSSPATH/demo/Diffusion
 pip3 install -r requirements.txt
-
 ```
 
 > NOTE: demoDiffusion has been tested on systems with NVIDIA A100, RTX3090, and RTX4090 GPUs, and the following software configuration.
 ```
 diffusers           0.26.3
 onnx                1.15.0
-onnx-graphsurgeon   0.3.27
-onnxruntime         1.17.0
-polygraphy          0.49.7
+onnx-graphsurgeon   0.5.2
+onnxruntime         1.16.3
+polygraphy          0.49.9
 tensorrt            10.0.0.6
 tokenizers          0.13.3
-torch               2.1.0
-transformers        4.31.0
+torch               2.2.0
+transformers        4.33.1
 controlnet-aux      0.0.6
-nvidia-ammo         0.7.0
+nvidia-ammo         0.9.4
 ```
-
-> NOTE: optionally install HuggingFace [accelerate](https://pypi.org/project/accelerate/) package for faster and less memory-intense model loading.
 
 
 # Running demoDiffusion
@@ -75,10 +73,13 @@ python3 demo_txt2img_xl.py --help
 ### HuggingFace user access token
 
 To download model checkpoints for the Stable Diffusion pipelines, obtain a `read` access token to HuggingFace Hub. See [instructions](https://huggingface.co/docs/hub/security-tokens).
+> NOTE: This step isn't required for many models now. 
 
 ```bash
 export HF_TOKEN=<your access token>
 ```
+
+You may also want/need to change your cache location using: `export HF_HOME=/workspace/.cache`
 
 ### Generate an image guided by a text prompt
 
@@ -144,10 +145,9 @@ python3 demo_txt2img_xl.py "Picture of a rustic Italian village with Olive trees
 ### Faster Text-to-image using SDXL & INT8 quantization using AMMO
 
 ```bash
-python3 demo_txt2img_xl.py "a photo of an astronaut riding a horse on mars" --version xl-1.0 --onnx-dir onnx-sdxl --engine-dir engine-sdxl --int8 --quantization-level 3
+python3 demo_txt2img_xl.py "a photo of an astronaut riding a horse on mars" --version xl-1.0 --onnx-dir onnx-sdxl --engine-dir engine-sdxl --int8 
 ```
-
-Note that the calibration process can be quite time-consuming, and will be repeated if `--quantization-level`, `--denoising-steps`, or `--onnx-dir` is changed.
+> Note that INT8 quantization is only supported for SDXL, and won't work with LoRA weights. Some prompts may produce better inputs with fewer denoising steps (e.g. `--denoising-steps 20`) but this will repeat the calibration, ONNX export, and engine building processes for the U-Net. 
 
 ### Faster Text-to-Image using SDXL + LCM (Latent Consistency Model) LoRA weights
 [LCM-LoRA](https://arxiv.org/abs/2311.05556) produces good quality images in 4 to 8 denoising steps instead of 30+ needed base model. Note that we use LCM scheduler and disable classifier-free-guidance by setting `--guidance-scale` to 0.
