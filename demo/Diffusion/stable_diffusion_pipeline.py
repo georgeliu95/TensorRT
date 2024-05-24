@@ -522,7 +522,8 @@ class StableDiffusionPipeline:
                 graph = gs.import_onnx(onnx.load(onnx_opt_path[model_name]))
                 for node in graph.nodes:
                     if node.op in ["Conv", "Gemm", "MatMul"] and type(node.inputs[1]).__name__ == "Constant":
-                        weights_map[node.name] = node.inputs[1].name
+                        ## For easy use, we just rename the weights' names
+                        weights_map[node.name] = node.name + "_input_1"
                 with open(weights_map_path[model_name], "w") as f:
                     json.dump(weights_map, f)
 
@@ -614,38 +615,7 @@ class StableDiffusionPipeline:
                     self.engine[model_name].refit(refit_weights, obj.fp16)
 
             if do_int8_woq_weightless[model_name]:
-
                 # User can reconstruct the FP16 ONNX using FP8 ONNX + weights map at runtime.
-
-                # print(f"[I] Loading weights map: {weights_map_path[model_name]} ")
-                # with open(weights_map_path[model_name], 'r') as f:
-                #     weights_map = json.load(f)
-
-                # woq_onnx_path = os.path.join(os.path.dirname(onnx_opt_path[model_name]), "unet.w8.onnx")
-                # reconstructed_onnx_path = os.path.join(os.path.dirname(onnx_opt_path[model_name]), "unet.reconstructed.onnx")
-
-                # print(f"[I] Reconstructing INT8 ONNX to FP16 ONNX: {woq_onnx_path} -> {reconstructed_onnx_path}")
-                # graph = gs.import_onnx(onnx.load(woq_onnx_path))
-                # for node in graph.nodes:
-                #     if node.op == "DequantizeLinear":
-                #         int8_weights = node.inputs[0].values
-                #         scales = node.i(1).attrs["value"].values
-                #         expand_axes = tuple(range(1, len(int8_weights.shape)))
-                #         fp16_weights = (int8_weights.astype(np.float32) * np.expand_dims(scales, axis=expand_axes)).astype(np.float16)
-                #         cast_op = node.o()
-                #         assert cast_op.op == "Cast", f"Expecting Cast op after DequantizeLinear, but got {cast_op.op}!"
-                #         conv_or_gemm = cast_op.o()
-                #         if conv_or_gemm.op == "Transpose":
-                #             conv_or_gemm = conv_or_gemm.o()
-                #             fp16_weights = fp16_weights.transpose()
-                #         assert conv_or_gemm.op in ["Conv", "Gemm", "MatMul"], f"Expecting Conv/Gemm/Matmul, but got {conv_or_gemm.op}!"
-                #         fp16_constant = gs.Constant(weights_map[conv_or_gemm.name], fp16_weights)
-                #         conv_or_gemm.inputs[1] = fp16_constant
-
-                # graph.cleanup()
-                # graph.toposort()
-                # onnx.save(gs.export_onnx(graph), reconstructed_onnx_path)
-
                 print(f"[I] Refitting engine form reconstructed ONNX file")
                 self.engine[model_name].refit_from_onnx(reconstructed_onnx_path)
 
